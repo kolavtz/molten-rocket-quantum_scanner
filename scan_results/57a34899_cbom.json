@@ -1,0 +1,96 @@
+{
+  "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:32b8f29e-4bdb-4b54-a2a8-1e5a265c63db",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-03-02T05:47:52.369393+00:00",
+    "tools": {
+      "components": [
+        {
+          "type": "application",
+          "name": "Quantum-Safe TLS Scanner",
+          "version": "1.0.0"
+        }
+      ]
+    },
+    "properties": [
+      {
+        "name": "quantum-safe:total_assets",
+        "value": "1"
+      },
+      {
+        "name": "quantum-safe:quantum_safe_count",
+        "value": "0"
+      },
+      {
+        "name": "quantum-safe:quantum_vulnerable_count",
+        "value": "1"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "ba72021e-5268-45cc-b528-7f3b3ab813cd",
+      "name": "TLS-142.250.193.46:443",
+      "version": "TLSv1.3",
+      "description": "Cryptographic asset on 142.250.193.46:443 — quantum_vulnerable",
+      "properties": [
+        {
+          "name": "quantum-safe:protocol",
+          "value": "TLSv1.3"
+        },
+        {
+          "name": "quantum-safe:cipher_suite",
+          "value": "TLS_AES_256_GCM_SHA384"
+        },
+        {
+          "name": "quantum-safe:key_exchange",
+          "value": "TLS1.3-ECDHE"
+        },
+        {
+          "name": "quantum-safe:cipher_bits",
+          "value": "256"
+        },
+        {
+          "name": "quantum-safe:cert_subject",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_issuer",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_signature_algorithm",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_public_key_type",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_public_key_bits",
+          "value": "0"
+        },
+        {
+          "name": "quantum-safe:cert_fingerprint",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:pqc_status",
+          "value": "quantum_vulnerable"
+        },
+        {
+          "name": "quantum-safe:risk_level",
+          "value": "HIGH"
+        },
+        {
+          "name": "quantum-safe:is_quantum_safe",
+          "value": "False"
+        }
+      ]
+    }
+  ]
+}

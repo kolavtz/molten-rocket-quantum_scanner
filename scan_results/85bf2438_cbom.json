@@ -1,0 +1,279 @@
+{
+  "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:dbcd21ed-896f-496f-9f41-baea6135a756",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-03-02T06:17:26.339591+00:00",
+    "tools": {
+      "components": [
+        {
+          "type": "application",
+          "name": "Quantum-Safe TLS Scanner",
+          "version": "1.0.0"
+        }
+      ]
+    },
+    "properties": [
+      {
+        "name": "quantum-safe:total_assets",
+        "value": "4"
+      },
+      {
+        "name": "quantum-safe:quantum_safe_count",
+        "value": "0"
+      },
+      {
+        "name": "quantum-safe:quantum_vulnerable_count",
+        "value": "4"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "5ceef881-1fd2-4fe1-a44b-718c121cfdae",
+      "name": "TLS-104.16.132.229:443",
+      "version": "TLSv1.3",
+      "description": "Cryptographic asset on 104.16.132.229:443 — quantum_vulnerable",
+      "properties": [
+        {
+          "name": "quantum-safe:protocol",
+          "value": "TLSv1.3"
+        },
+        {
+          "name": "quantum-safe:cipher_suite",
+          "value": "TLS_AES_256_GCM_SHA384"
+        },
+        {
+          "name": "quantum-safe:key_exchange",
+          "value": "TLS1.3-ECDHE"
+        },
+        {
+          "name": "quantum-safe:cipher_bits",
+          "value": "256"
+        },
+        {
+          "name": "quantum-safe:cert_subject",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_issuer",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_signature_algorithm",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_public_key_type",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_public_key_bits",
+          "value": "0"
+        },
+        {
+          "name": "quantum-safe:cert_fingerprint",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:pqc_status",
+          "value": "quantum_vulnerable"
+        },
+        {
+          "name": "quantum-safe:risk_level",
+          "value": "HIGH"
+        },
+        {
+          "name": "quantum-safe:is_quantum_safe",
+          "value": "False"
+        }
+      ]
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "beceb24b-b28b-4001-a006-9f92c620b92b",
+      "name": "TLS-104.16.132.229:8443",
+      "version": "TLSv1.3",
+      "description": "Cryptographic asset on 104.16.132.229:8443 — quantum_vulnerable",
+      "properties": [
+        {
+          "name": "quantum-safe:protocol",
+          "value": "TLSv1.3"
+        },
+        {
+          "name": "quantum-safe:cipher_suite",
+          "value": "TLS_AES_256_GCM_SHA384"
+        },
+        {
+          "name": "quantum-safe:key_exchange",
+          "value": "TLS1.3-ECDHE"
+        },
+        {
+          "name": "quantum-safe:cipher_bits",
+          "value": "256"
+        },
+        {
+          "name": "quantum-safe:cert_subject",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_issuer",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_signature_algorithm",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_public_key_type",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_public_key_bits",
+          "value": "0"
+        },
+        {
+          "name": "quantum-safe:cert_fingerprint",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:pqc_status",
+          "value": "quantum_vulnerable"
+        },
+        {
+          "name": "quantum-safe:risk_level",
+          "value": "HIGH"
+        },
+        {
+          "name": "quantum-safe:is_quantum_safe",
+          "value": "False"
+        }
+      ]
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "099c3ba6-7953-4042-b504-0207073bd86f",
+      "name": "TLS-104.16.133.229:443",
+      "version": "TLSv1.3",
+      "description": "Cryptographic asset on 104.16.133.229:443 — quantum_vulnerable",
+      "properties": [
+        {
+          "name": "quantum-safe:protocol",
+          "value": "TLSv1.3"
+        },
+        {
+          "name": "quantum-safe:cipher_suite",
+          "value": "TLS_AES_256_GCM_SHA384"
+        },
+        {
+          "name": "quantum-safe:key_exchange",
+          "value": "TLS1.3-ECDHE"
+        },
+        {
+          "name": "quantum-safe:cipher_bits",
+          "value": "256"
+        },
+        {
+          "name": "quantum-safe:cert_subject",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_issuer",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_signature_algorithm",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_public_key_type",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_public_key_bits",
+          "value": "0"
+        },
+        {
+          "name": "quantum-safe:cert_fingerprint",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:pqc_status",
+          "value": "quantum_vulnerable"
+        },
+        {
+          "name": "quantum-safe:risk_level",
+          "value": "HIGH"
+        },
+        {
+          "name": "quantum-safe:is_quantum_safe",
+          "value": "False"
+        }
+      ]
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "78321665-545a-4ba0-82d3-534daacc33cf",
+      "name": "TLS-104.16.133.229:8443",
+      "version": "TLSv1.3",
+      "description": "Cryptographic asset on 104.16.133.229:8443 — quantum_vulnerable",
+      "properties": [
+        {
+          "name": "quantum-safe:protocol",
+          "value": "TLSv1.3"
+        },
+        {
+          "name": "quantum-safe:cipher_suite",
+          "value": "TLS_AES_256_GCM_SHA384"
+        },
+        {
+          "name": "quantum-safe:key_exchange",
+          "value": "TLS1.3-ECDHE"
+        },
+        {
+          "name": "quantum-safe:cipher_bits",
+          "value": "256"
+        },
+        {
+          "name": "quantum-safe:cert_subject",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_issuer",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_signature_algorithm",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_public_key_type",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:cert_public_key_bits",
+          "value": "0"
+        },
+        {
+          "name": "quantum-safe:cert_fingerprint",
+          "value": ""
+        },
+        {
+          "name": "quantum-safe:pqc_status",
+          "value": "quantum_vulnerable"
+        },
+        {
+          "name": "quantum-safe:risk_level",
+          "value": "HIGH"
+        },
+        {
+          "name": "quantum-safe:is_quantum_safe",
+          "value": "False"
+        }
+      ]
+    }
+  ]
+}

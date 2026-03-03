@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block title %}QuantumShield — Quantum-Safe TLS Scanner{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero">
+    <div class="hero-content">
+        <div class="hero-badge animate-fade-in">
+            <span class="badge-dot"></span>
+            PNB Cybersecurity Hackathon 2026
+        </div>
+        <h1 class="hero-title animate-fade-in-up">
+            Quantum-Safe<br>
+            <span class="gradient-text">TLS Scanner</span>
+        </h1>
+        <p class="hero-subtitle animate-fade-in-up delay-1">
+            Quantum-Ready Cybersecurity for Future-Safe Banking.
+            Discover crypto assets, build CBOM inventory, validate NIST PQC compliance,
+            and issue &ldquo;Fully Quantum Safe&rdquo; certification labels.
+        </p>
+    </div>
+</section>
+{% if enterprise_metrics and enterprise_metrics.scan_count > 0 %}
+<!-- Enterprise Metrics Dashboard -->
+<section class="overview-section animate-fade-in-up delay-2" style="margin-bottom: 2rem;">
+    <h2 class="section-title" style="text-align: center; margin-bottom: 1.5rem;">
+        <span class="icon">&#x1F3DB;&#xFE0F;</span> Enterprise Operations Console
+    </h2>
+    <div class="overview-grid">
+        <div class="overview-card glass-card">
+            <div class="overview-icon">&#x1F4E6;</div>
+            <div class="overview-value">{{ enterprise_metrics.total_assets }}</div>
+            <div class="overview-label">Total Assets Scanned</div>
+        </div>
+        <div class="overview-card glass-card card-safe">
+            <div class="overview-icon">&#x2705;</div>
+            <div class="overview-value">
+                {% if enterprise_metrics.total_assets > 0 %}
+                {{ ((enterprise_metrics.quantum_safe / enterprise_metrics.total_assets) * 100)|round|int }}%
+                {% else %}
+                0%
+                {% endif %}
+            </div>
+            <div class="overview-label">Quantum Safe</div>
+        </div>
+        <div class="overview-card glass-card card-vuln">
+            <div class="overview-icon">&#x26A0;&#xFE0F;</div>
+            <div class="overview-value">{{ enterprise_metrics.quantum_vulnerable }}</div>
+            <div class="overview-label">Vulnerable Assets</div>
+        </div>
+        <div class="overview-card glass-card">
+            <div class="overview-icon">&#x1F6A8;</div>
+            <div class="overview-value">
+                <span class="{% if enterprise_metrics.critical_findings > 0 %}text-vuln{% else %}text-safe{% endif %}">
+                    {{ enterprise_metrics.critical_findings }}
+                </span>
+            </div>
+            <div class="overview-label">Critical Findings</div>
+        </div>
+        <div class="overview-card glass-card">
+            <div class="overview-icon">&#x1F4CA;</div>
+            <div class="overview-value">
+                <span
+                    class="{% if enterprise_metrics.avg_score >= 80 %}text-safe{% elif enterprise_metrics.avg_score >= 50 %}text-partial{% else %}text-vuln{% endif %}">
+                    {{ enterprise_metrics.avg_score }}%
+                </span>
+            </div>
+            <div class="overview-label">Avg PQC Compliance</div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- Scan Form -->
+<section class="scan-section animate-fade-in-up delay-3">
+    <div class="scan-card glass-card">
+        <div class="scan-header">
+            <h2 class="scan-title">
+                <span class="icon">&#x1F3AF;</span> Start a Scan
+            </h2>
+            <p class="scan-description">
+                Enter a hostname, IP, CIDR range, or full URL to discover public-facing crypto assets
+            </p>
+        </div>
+        <form action="/scan" method="POST" class="scan-form" id="scanForm">
+            <div class="input-group" style="align-items: flex-start;">
+                <div class="input-wrapper" style="height: auto;">
+                    <span class="input-icon" style="top: 1rem;">🌐</span>
+                    <textarea name="target" id="scanTarget"
+                        placeholder="Enter targets (comma or newline separated):&#10;google.com&#10;https://example.com/path&#10;192.168.1.0/24"
+                        required class="scan-input"
+                        style="resize: vertical; min-height: 80px; padding-top: 1rem; line-height: 1.5;"></textarea>
+                </div>
+                <button type="submit" class="scan-button" id="scanBtn" style="height: 80px; align-self: flex-start;">
+                    <span class="btn-text">Bulk Scan</span>
+                    <span class="btn-icon">&rarr;</span>
+                    <span class="btn-loading" style="display:none;">
+                        <span class="spinner"></span> Scanning...
+                    </span>
+                </button>
+            </div>
+            <div class="input-group" style="margin-top:0.75rem;">
+                <div class="input-wrapper">
+                    <span class="input-icon">🔌</span>
+                    <input type="text" name="ports" id="scanPorts"
+                        placeholder="Custom ports (optional): 80, 443, 8080, 3306, 5432" autocomplete="off"
+                        class="scan-input">
+                </div>
+            </div>
+        </form>
+
+        <!-- Quick scan targets -->
+        <div class="quick-targets">
+            <span class="quick-label">Quick scan:</span>
+            <button class="quick-btn" onclick="setTarget('google.com')">google.com</button>
+            <button class="quick-btn" onclick="setTarget('github.com')">github.com</button>
+            <button class="quick-btn" onclick="setTarget('cloudflare.com')">cloudflare.com</button>
+            <button class="quick-btn" onclick="setTarget('test.openquantumsafe.org')">OQS Test Server</button>
+        </div>
+    </div>
+</section>
+
+<!-- Features Grid -->
+<section class="features-section">
+    <div class="features-grid">
+        <div class="feature-card glass-card animate-fade-in-up delay-1">
+            <div class="feature-icon">🔍</div>
+            <h3 class="feature-title">Crypto Discovery</h3>
+            <p class="feature-desc">Scan TLS certificates, VPN endpoints, and APIs. Detect cipher suites, key exchange
+                mechanisms, and protocol versions.</p>
+        </div>
+        <div class="feature-card glass-card animate-fade-in-up delay-2">
+            <div class="feature-icon">📋</div>
+            <h3 class="feature-title">CBOM Generation</h3>
+            <p class="feature-desc">Generate CycloneDX-format Cryptographic Bill of Materials with complete asset
+                inventory and vulnerability mapping.</p>
+        </div>
+        <div class="feature-card glass-card animate-fade-in-up delay-3">
+            <div class="feature-icon">🛡️</div>
+            <h3 class="feature-title">PQC Validation</h3>
+            <p class="feature-desc">Validate against NIST FIPS 203/204/205 standards. Check ML-KEM, ML-DSA, and SLH-DSA
+                compliance.</p>
+        </div>
+        <div class="feature-card glass-card animate-fade-in-up delay-4">
+            <div class="feature-icon">🏷️</div>
+            <h3 class="feature-title">Quantum-Safe Labels</h3>
+            <p class="feature-desc">Issue "PQC Ready" certificates and digital labels for compliant systems with
+                tamper-proof checksums.</p>
+        </div>
+        <div class="feature-card glass-card animate-fade-in-up delay-5">
+            <div class="feature-icon">📊</div>
+            <h3 class="feature-title">Risk Assessment</h3>
+            <p class="feature-desc">HNDL (Harvest Now, Decrypt Later) risk scoring with priority-based migration
+                recommendations.</p>
+        </div>
+        <div class="feature-card glass-card animate-fade-in-up delay-6">
+            <div class="feature-icon">🔧</div>
+            <h3 class="feature-title">Actionable Fixes</h3>
+            <p class="feature-desc">Server-specific configuration snippets for Nginx, Apache, HAProxy, and cloud ALBs.
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- Recent Scans -->
+{% if recent_scans %}
+<section class="recent-section">
+    <h2 class="section-title">
+        <span class="icon">📜</span> Recent Scans
+    </h2>
+    <div class="scans-table-wrapper glass-card">
+        <table class="scans-table">
+            <thead>
+                <tr>
+                    <th>Scan ID</th>
+                    <th>Target</th>
+                    <th>Status</th>
+                    <th>Assets</th>
+                    <th>Score</th>
+                    <th>Time</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for scan in recent_scans %}
+                <tr class="scan-row">
+                    <td><code>{{ scan.scan_id }}</code></td>
+                    <td class="target-cell">{{ scan.target }}</td>
+                    <td>
+                        {% if scan.status == 'complete' %}
+                        <span class="status-badge status-complete">Complete</span>
+                        {% else %}
+                        <span class="status-badge status-error">{{ scan.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ scan.overview.total_assets if scan.overview else 0 }}</td>
+                    <td>
+                        {% set score = scan.overview.average_compliance_score if scan.overview else 0 %}
+                        <span
+                            class="score-pill {% if score >= 80 %}score-good{% elif score >= 50 %}score-partial{% else %}score-bad{% endif %}">
+                            {{ score }}%
+                        </span>
+                    </td>
+                    <td class="time-cell">{{ scan.generated_at[:16] if scan.generated_at else '' }}</td>
+                    <td>
+                        <a href="/results/{{ scan.scan_id }}" class="view-btn">View →</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+
+<!-- NIST Standards Info -->
+<section class="standards-section">
+    <h2 class="section-title">
+        <span class="icon">📐</span> NIST PQC Standards We Validate
+    </h2>
+    <div class="standards-grid">
+        <div class="standard-card glass-card">
+            <div class="standard-badge fips-203">FIPS 203</div>
+            <h3>ML-KEM (Kyber)</h3>
+            <p>Module-Lattice Key Encapsulation Mechanism — replaces RSA/ECDH key exchange</p>
+            <div class="standard-variants">ML-KEM-512 • ML-KEM-768 • ML-KEM-1024</div>
+        </div>
+        <div class="standard-card glass-card">
+            <div class="standard-badge fips-204">FIPS 204</div>
+            <h3>ML-DSA (Dilithium)</h3>
+            <p>Module-Lattice Digital Signature Algorithm — replaces RSA/ECDSA signatures</p>
+            <div class="standard-variants">ML-DSA-44 • ML-DSA-65 • ML-DSA-87</div>
+        </div>
+        <div class="standard-card glass-card">
+            <div class="standard-badge fips-205">FIPS 205</div>
+            <h3>SLH-DSA (SPHINCS+)</h3>
+            <p>Stateless Hash-Based Digital Signature — conservative fallback signature</p>
+            <div class="standard-variants">SHA2-128f • SHA2-256f • SHAKE-128f • SHAKE-256f</div>
+        </div>
+    </div>
+</section>
+
+<script>
+    function setTarget(target) {
+        document.getElementById('scanTarget').value = target;
+        document.getElementById('scanTarget').focus();
+    }
+
+    document.getElementById('scanForm').addEventListener('submit', function () {
+        const btn = document.getElementById('scanBtn');
+        btn.querySelector('.btn-text').style.display = 'none';
+        btn.querySelector('.btn-icon').style.display = 'none';
+        btn.querySelector('.btn-loading').style.display = 'inline-flex';
+        btn.disabled = true;
+    });
+</script>
+{% endblock %}

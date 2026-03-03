@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Error | QuantumShield{% endblock %}
+
+{% block content %}
+<section class="empty-state">
+    <div class="empty-state-card glass-card">
+        <div class="empty-icon">⚠️</div>
+        <h2>An Error Occurred</h2>
+        {% if error_id %}
+        <p class="error-id">Error ID: <code>{{ error_id }}</code></p>
+        {% endif %}
+        <p class="error-msg">{{ error_message }}</p>
+        {% if traceback_info %}
+        <details class="error-details">
+            <summary>Technical Details</summary>
+            <pre class="error-trace">{{ traceback_info }}</pre>
+        </details>
+        {% endif %}
+        <a href="/" class="scan-button">← Back to Dashboard</a>
+    </div>
+</section>
+{% endblock %}
