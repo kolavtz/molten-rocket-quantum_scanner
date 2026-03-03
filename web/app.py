@@ -224,13 +224,15 @@ def index():
 
 @app.route("/scan", methods=["POST"])
 def scan():
-    """Run a scan on one or multiple targets."""
+    """Run a scan on one or multiple targets (text input + CSV upload)."""
+    import re
+    import csv
+    import io
+
     target_input = request.form.get("target", "").strip()
     ports_str = request.form.get("ports", "").strip()
-    if not target_input:
-        return redirect(url_for("index"))
 
-    # Parse custom ports
+    # Parse global custom ports
     custom_ports = None
     if ports_str:
         try:
@@ -241,10 +243,41 @@ def scan():
         except ValueError:
             pass
 
-    # Split targets by comma or newline
-    import re
-    raw_targets = re.split(r'[,\n]+', target_input)
-    targets = [t.strip() for t in raw_targets if t.strip()]
+    # ── Collect targets from text input ──
+    targets = []  # list of (host, per_target_ports_or_None)
+    if target_input:
+        raw_targets = re.split(r'[,\n]+', target_input)
+        for t in raw_targets:
+            t = t.strip()
+            if t:
+                targets.append((t, custom_ports))
+
+    # ── Collect targets from CSV upload ──
+    csv_file = request.files.get("csv_file")
+    if csv_file and csv_file.filename:
+        try:
+            stream = io.StringIO(csv_file.stream.read().decode("utf-8-sig"))
+            reader = csv.DictReader(stream)
+            # Normalize column headers to lowercase
+            if reader.fieldnames:
+                reader.fieldnames = [f.strip().lower() for f in reader.fieldnames]
+            for row in reader:
+                host = (
+                    row.get("ip", "")
+                    or row.get("host", "")
+                    or row.get("target", "")
+                    or row.get("domain", "")
+                ).strip()
+                if not host:
+                    continue
+                port_val = row.get("port", "").strip()
+                if port_val and port_val.isdigit():
+                    row_ports = [int(port_val)]
+                else:
+                    row_ports = custom_ports
+                targets.append((host, row_ports))
+        except Exception:
+            pass  # silently skip malformed CSV
 
     if not targets:
         return redirect(url_for("index"))
@@ -252,16 +285,21 @@ def scan():
     try:
         if len(targets) == 1:
             # Single scan: redirect directly to results page
-            clean_target, _ = sanitize_target(targets[0])
-            report = run_scan_pipeline(clean_target, custom_ports)
+            host, ports = targets[0]
+            clean_target, _ = sanitize_target(host)
+            report = run_scan_pipeline(clean_target, ports)
             return redirect(url_for("results", scan_id=report.get("scan_id", "")))
         else:
-            # Bulk scan: run all and redirect to dashboard to see enterprise metrics
-            for t in targets:
-                clean_target, _ = sanitize_target(t)
-                run_scan_pipeline(clean_target, custom_ports)
+            # Bulk scan: run all and redirect to dashboard
+            for host, ports in targets:
+                try:
+                    clean_target, _ = sanitize_target(host)
+                    run_scan_pipeline(clean_target, ports)
+                except Exception:
+                    continue  # skip invalid targets in bulk mode
+
             return redirect(url_for("index"))
-            
+
     except Exception as exc:
         error_id = str(uuid.uuid4())[:8]
         return render_template(

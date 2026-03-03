@@ -1,13 +1,19 @@
 """
-CBOM Builder Module
+CBOM Builder Module — CERT-IN Compliant
 
 Assembles scanned cryptographic asset records into a structured
 Cryptographic Bill of Materials (CBOM) data structure ready for
 CycloneDX export.
 
+Generates separate entries per CERT-IN asset type:
+  - Algorithms (cipher, key exchange, signature, hash)
+  - Keys (public keys extracted from certificates)
+  - Protocols (TLS version and cipher suite negotiation)
+  - Certificates (X.509 certificate metadata)
+
 Classes:
-    CryptoAsset  — a single cryptographic asset record.
-    CBOMBuilder  — builds a CBOM from scan results.
+    CryptoAsset  — a single cryptographic asset record (legacy compat).
+    CBOMBuilder  — builds a CERT-IN compliant CBOM from scan results.
 """
 
 from __future__ import annotations
@@ -20,7 +26,11 @@ from typing import Any, Dict, List, Optional
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from config import APP_NAME, APP_VERSION
+from config import (
+    APP_NAME, APP_VERSION,
+    ALGORITHM_OID_MAP, ALGORITHM_METADATA, PROTOCOL_OID_MAP,
+    ALL_PQC_ALGORITHMS,
+)
 
 
 @dataclass
@@ -98,6 +108,12 @@ class CBOM:
     tool_version: str = APP_VERSION
     assets: List[CryptoAsset] = field(default_factory=list)
 
+    # CERT-IN typed inventories
+    algorithms: List[Dict[str, Any]] = field(default_factory=list)
+    keys: List[Dict[str, Any]] = field(default_factory=list)
+    protocols: List[Dict[str, Any]] = field(default_factory=list)
+    certificates: List[Dict[str, Any]] = field(default_factory=list)
+
     def __post_init__(self) -> None:
         if not self.serial_number:
             self.serial_number = f"urn:uuid:{uuid.uuid4()}"
@@ -135,6 +151,13 @@ class CBOM:
                 "expired_certificates": self.expired_cert_count,
             },
             "assets": [a.to_dict() for a in self.assets],
+            # CERT-IN typed inventories
+            "cert_in_inventory": {
+                "algorithms": self.algorithms,
+                "keys": self.keys,
+                "protocols": self.protocols,
+                "certificates": self.certificates,
+            },
         }
 
 
@@ -173,10 +196,16 @@ class CBOMBuilder:
             asset = self._build_asset(tls_data, pqc_data)
             cbom.assets.append(asset)
 
+            # Decompose into CERT-IN typed records
+            self._extract_algorithms(tls_data, pqc_data, asset, cbom)
+            self._extract_key(tls_data, asset, cbom)
+            self._extract_protocol(tls_data, asset, cbom)
+            self._extract_certificate(tls_data, asset, cbom)
+
         return cbom
 
     # ------------------------------------------------------------------
-    # Private
+    # Private — Legacy asset builder
     # ------------------------------------------------------------------
 
     def _build_asset(
@@ -211,3 +240,150 @@ class CBOMBuilder:
             pqc_status=pqc.get("overall_status", "quantum_vulnerable"),
             risk_level=pqc.get("risk_level", "HIGH"),
         )
+
+    # ------------------------------------------------------------------
+    # CERT-IN typed record extractors
+    # ------------------------------------------------------------------
+
+    def _extract_algorithms(
+        self,
+        tls: Dict[str, Any],
+        pqc: Dict[str, Any],
+        asset: CryptoAsset,
+        cbom: CBOM,
+    ) -> None:
+        """Extract Algorithm records for CERT-IN CBOM.
+
+        Produces entries for: cipher (symmetric), key exchange, and
+        signature algorithm discovered on the endpoint.
+        """
+        algo_names = set()
+
+        # 1. Symmetric cipher from cipher suite
+        cipher_name = self._normalize_cipher_name(tls.get("cipher_suite", ""))
+        if cipher_name:
+            algo_names.add(cipher_name)
+
+        # 2. Key exchange algorithm
+        kex = tls.get("key_exchange", "")
+        if kex:
+            algo_names.add(kex)
+
+        # 3. Signature algorithm from certificate
+        cert = tls.get("certificate") or {}
+        sig_algo = cert.get("signature_algorithm", "")
+        if sig_algo:
+            algo_names.add(sig_algo)
+
+        for name in algo_names:
+            meta = ALGORITHM_METADATA.get(name, {})
+            is_pqc = name.upper() in {a.upper() for a in ALL_PQC_ALGORITHMS}
+            cbom.algorithms.append({
+                "name": name,
+                "asset_type": "algorithm",
+                "primitive": meta.get("primitive", "unknown"),
+                "mode": meta.get("mode", "unknown"),
+                "crypto_functions": meta.get("crypto_functions", []),
+                "classical_security_level": meta.get("classical_security_bits", 0),
+                "oid": ALGORITHM_OID_MAP.get(name, ""),
+                "quantum_safe_status": "quantum-safe" if is_pqc else "quantum-vulnerable",
+                "host": asset.host,
+                "port": asset.port,
+            })
+
+    def _extract_key(
+        self, tls: Dict[str, Any], asset: CryptoAsset, cbom: CBOM
+    ) -> None:
+        """Extract Key record from the certificate's public key."""
+        cert = tls.get("certificate") or {}
+        pk_type = cert.get("public_key_type", "")
+        if not pk_type:
+            return
+
+        key_state = "expired" if cert.get("is_expired", False) else "active"
+        cbom.keys.append({
+            "name": f"{pk_type}-{cert.get('public_key_bits', 0)}",
+            "asset_type": "key",
+            "id": cert.get("serial_number", str(uuid.uuid4())),
+            "state": key_state,
+            "size": cert.get("public_key_bits", 0),
+            "creation_date": cert.get("not_before", ""),
+            "activation_date": cert.get("not_before", ""),
+            "host": asset.host,
+            "port": asset.port,
+        })
+
+    def _extract_protocol(
+        self, tls: Dict[str, Any], asset: CryptoAsset, cbom: CBOM
+    ) -> None:
+        """Extract Protocol record from the TLS negotiation."""
+        proto_ver = tls.get("protocol_version", "")
+        if not proto_ver:
+            return
+
+        cbom.protocols.append({
+            "name": "TLS",
+            "asset_type": "protocol",
+            "version": proto_ver,
+            "cipher_suites": tls.get("cipher_suite", ""),
+            "oid": PROTOCOL_OID_MAP.get(proto_ver, ""),
+            "host": asset.host,
+            "port": asset.port,
+        })
+
+    def _extract_certificate(
+        self, tls: Dict[str, Any], asset: CryptoAsset, cbom: CBOM
+    ) -> None:
+        """Extract Certificate record for CERT-IN CBOM."""
+        cert = tls.get("certificate") or {}
+        subject_cn = cert.get("subject", {}).get("commonName", "")
+        if not subject_cn:
+            return
+
+        issuer_cn = cert.get("issuer", {}).get("commonName", "")
+        sig_algo = cert.get("signature_algorithm", "")
+
+        cbom.certificates.append({
+            "name": subject_cn,
+            "asset_type": "certificate",
+            "subject_name": subject_cn,
+            "issuer_name": issuer_cn,
+            "not_valid_before": cert.get("not_before", ""),
+            "not_valid_after": cert.get("not_after", ""),
+            "signature_algorithm_ref": sig_algo,
+            "signature_algorithm_oid": ALGORITHM_OID_MAP.get(sig_algo, ""),
+            "subject_public_key_ref": f"{cert.get('public_key_type', '')}-{cert.get('public_key_bits', 0)}",
+            "format": "X.509",
+            "extension": ".crt",
+            "fingerprint_sha256": cert.get("fingerprint_sha256", ""),
+            "serial_number": cert.get("serial_number", ""),
+            "is_expired": cert.get("is_expired", False),
+            "days_until_expiry": cert.get("days_until_expiry", 0),
+            "host": asset.host,
+            "port": asset.port,
+        })
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _normalize_cipher_name(cipher_suite: str) -> str:
+        """Extract the symmetric cipher name from a full cipher suite string.
+
+        E.g. 'TLS_AES_256_GCM_SHA384' → 'AES-256-GCM'
+             'ECDHE-RSA-AES128-GCM-SHA256' → 'AES-128-GCM'
+        """
+        suite_upper = cipher_suite.upper()
+        if "CHACHA20" in suite_upper:
+            return "CHACHA20-POLY1305"
+        if "AES" in suite_upper:
+            bits = "256" if "256" in suite_upper else "128"
+            if "GCM" in suite_upper:
+                return f"AES-{bits}-GCM"
+            if "CBC" in suite_upper:
+                return f"AES-{bits}-CBC"
+            return f"AES-{bits}-GCM"  # default to GCM for TLS 1.3
+        if "3DES" in suite_upper or "DES-CBC3" in suite_upper:
+            return "3DES-CBC"
+        return ""

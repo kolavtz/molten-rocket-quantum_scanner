@@ -401,22 +401,55 @@ ________________________________________
 
 ## Annexure-A (CERT-IN CBOM Elements)
 
-The QuantumShield CBOM output includes the following mandatory elements as per CERT-IN guidelines and the CycloneDX 1.6 Cryptographic Properties extension:
+The QuantumShield CBOM output conforms to the **CERT-IN Minimum Elements pertaining to Cryptographic Assets** specification. The following tables define the mandatory elements for each cryptographic asset type.
 
-| # | CBOM Element | QuantumShield Field | Description |
-|---|-------------|---------------------|-------------|
-| 1 | **Asset Identifier** | `bom-ref` | Unique identifier for each cryptographic asset (format: `crypto-<host>-<port>-<index>`) |
-| 2 | **Asset Type** | `type` | Classification: `algorithm`, `certificate`, `protocol` |
-| 3 | **Algorithm Name** | `name` | Full algorithm name (e.g., `AES-256-GCM`, `RSA-2048`, `ML-KEM-768`, `X25519`) |
-| 4 | **Algorithm Category** | `cryptoProperties.algorithmProperties.variant` | Category: Key Exchange (KEM), Digital Signature, Symmetric Cipher, Hash Function |
-| 5 | **Key Length / Strength** | `cryptoProperties.algorithmProperties.parameterSetIdentifier` | Key size in bits (e.g., 2048, 256, 384) |
-| 6 | **Protocol Version** | `cryptoProperties.protocolProperties.version` | TLS version: `TLSv1.2` or `TLSv1.3` |
-| 7 | **Certificate Subject** | `cryptoProperties.certificateProperties.subjectName` | Certificate CN and SAN domains |
-| 8 | **Certificate Issuer** | `cryptoProperties.certificateProperties.issuerName` | Issuing CA name |
-| 9 | **Certificate Validity** | `cryptoProperties.certificateProperties.notValidBefore` / `notValidAfter` | Validity date range |
-| 10 | **NIST Compliance State** | `cryptoProperties.algorithmProperties.nistQuantumSecurityLevel` | Status: `approved` (FIPS), `deprecated`, `non-standard` |
-| 11 | **Quantum Safety** | `is_quantum_safe` | Boolean flag indicating whether the algorithm is resistant to quantum attacks |
-| 12 | **HNDL Criticality** | Custom: `hndl_risk_level` | Calculated risk: `Critical`, `High`, `Medium`, `Low` |
-| 13 | **Host / Endpoint** | `properties[host]` | Target hostname or IP address |
-| 14 | **Port** | `properties[port]` | Port number where the service was discovered |
-| 15 | **Scan Timestamp** | `timestamp` | ISO 8601 timestamp of when the scan was performed |
+### Table A-1: Algorithms
+
+| Element | Description | QuantumShield Field |
+|---------|-------------|---------------------|
+| **Name** | The name of the cryptographic algorithm or asset. For example, "AES-128-GCM" refers to the AES algorithm with a 128-bit key in Galois/Counter Mode (GCM). | `algorithm.name` |
+| **Asset Type** | Specifies the type of cryptographic asset. For algorithms, the asset type is "algorithm". | `algorithm.asset_type` = `"algorithm"` |
+| **Primitive** | Describes the cryptographic primitive. For "SHA512withRSA", the primitive is "signature" as it's used for digital signing. For "AES-128-GCM", it is "block-cipher". | `algorithm.primitive` |
+| **Mode** | The operational mode used by the algorithm. For example, "gcm" refers to the Galois/Counter Mode used with AES encryption. | `algorithm.mode` |
+| **Crypto Functions** | The cryptographic functions supported by the asset. For example, in the case of "AES-128-GCM" they are key generation, encryption, decryption, and authentication tag generation. | `algorithm.crypto_functions` |
+| **Classical Security Level** | The classical security level represents the strength of the cryptographic asset in terms of its resistance to attacks using classical (non-quantum) methods. For AES-128, it's 128 bits. | `algorithm.classical_security_level` |
+| **OID** | The Object Identifier (OID) is a globally unique identifier used to refer to the algorithm. It helps in distinguishing algorithms across different systems. For example, "2.16.840.1.101.3.4.1.6" for AES-128-GCM, "1.2.840.113549.1.1.13" for SHA512withRSA. | `algorithm.oid` |
+| **List** | Lists the cryptographic algorithms employed by the quantum device or system, allowing for an assessment of its security capabilities, especially in the context of post-quantum encryption standards. | `algorithm.quantum_safe_status` |
+
+### Table A-2: Keys
+
+| Element | Description | QuantumShield Field |
+|---------|-------------|---------------------|
+| **Name** | The name of the key, which is a unique identifier for the key used in cryptographic operations. | `key.name` |
+| **Asset Type** | Defines the type of cryptographic asset. For keys, the asset type is typically "key". | `key.asset_type` = `"key"` |
+| **id** | A unique identifier for the key, such as a key ID or reference number. | `key.id` |
+| **state** | The state of the key, such as whether it is active, revoked, or expired. | `key.state` |
+| **size** | The size of the key, typically measured in bits. For example, a 128-bit key or a 2048-bit RSA key. | `key.size` |
+| **Creation Date** | The date when the key was created. | `key.creation_date` |
+| **Activation Date** | The date when the key became operational or was first used. | `key.activation_date` |
+
+### Table A-3: Protocols
+
+| Element | Description | QuantumShield Field |
+|---------|-------------|---------------------|
+| **Name** | The name of the cryptographic protocol, such as TLS, IPsec, or SSH. | `protocol.name` |
+| **Asset Type** | Defines the type of cryptographic asset. In this case, it would be a "protocol". | `protocol.asset_type` = `"protocol"` |
+| **Version** | The version of the protocol used, such as TLS 1.2 or TLS 1.3. | `protocol.version` |
+| **Cipher Suites** | The set of cryptographic algorithms and parameters supported by the protocol for tasks like encryption, key exchange, and integrity checking. | `protocol.cipher_suites` |
+| **OID** | The Object Identifier (OID) associated with the protocol, identifying its unique specifications. | `protocol.oid` |
+
+### Table A-4: Certificates
+
+| Element | Description | QuantumShield Field |
+|---------|-------------|---------------------|
+| **Name** | The name of the certificate, typically referring to its subject or the entity it represents (e.g., a website). | `certificate.name` |
+| **Asset Type** | Defines the type of cryptographic asset. For certificates, the asset type is "certificate". | `certificate.asset_type` = `"certificate"` |
+| **Subject Name** | This refers to the Distinguished Name (DN) of the entity that the certificate represents. It typically contains information about the organization, domain name. | `certificate.subject_name` |
+| **Issuer Name** | The issuer is the Certificate Authority (CA) that issued and signed the certificate. This field contains the DN of the CA that verified and issued the certificate. | `certificate.issuer_name` |
+| **Not Valid Before** | This specifies the date and time from which the certificate is valid. | `certificate.not_valid_before` |
+| **Not Valid After** | This specifies the expiration date and time of the certificate. The certificate becomes invalid after this timestamp. | `certificate.not_valid_after` |
+| **Signature Algorithm Reference** | This refers to the cryptographic algorithm used to sign the certificate. It provides a reference to the algorithm and its OID (Object Identifier). | `certificate.signature_algorithm_ref` |
+| **Subject Public Key Reference** | This points to the public key used by the subject (the entity being identified in the certificate). It provides a reference to the key's details, including the algorithm. | `certificate.subject_public_key_ref` |
+| **Certificate Format** | Specifies the format of the certificate. Common formats include X.509, which is the most widely used format for certificates. | `certificate.format` = `"X.509"` |
+| **Certificate Extension** | This refers to the file extension associated with the certificate. It is commonly .crt for certificates in the X.509 format. | `certificate.extension` = `".crt"` |
+

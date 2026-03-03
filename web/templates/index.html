@@ -83,17 +83,17 @@
                 Enter a hostname, IP, CIDR range, or full URL to discover public-facing crypto assets
             </p>
         </div>
-        <form action="/scan" method="POST" class="scan-form" id="scanForm">
+        <form action="/scan" method="POST" class="scan-form" id="scanForm" enctype="multipart/form-data">
             <div class="input-group" style="align-items: flex-start;">
                 <div class="input-wrapper" style="height: auto;">
                     <span class="input-icon" style="top: 1rem;">🌐</span>
                     <textarea name="target" id="scanTarget"
                         placeholder="Enter targets (comma or newline separated):&#10;google.com&#10;https://example.com/path&#10;192.168.1.0/24"
-                        required class="scan-input"
+                        class="scan-input"
                         style="resize: vertical; min-height: 80px; padding-top: 1rem; line-height: 1.5;"></textarea>
                 </div>
                 <button type="submit" class="scan-button" id="scanBtn" style="height: 80px; align-self: flex-start;">
-                    <span class="btn-text">Bulk Scan</span>
+                    <span class="btn-text">Scan Now</span>
                     <span class="btn-icon">&rarr;</span>
                     <span class="btn-loading" style="display:none;">
                         <span class="spinner"></span> Scanning...
@@ -106,6 +106,22 @@
                     <input type="text" name="ports" id="scanPorts"
                         placeholder="Custom ports (optional): 80, 443, 8080, 3306, 5432" autocomplete="off"
                         class="scan-input">
+                </div>
+            </div>
+            <!-- CSV Upload -->
+            <div class="input-group" style="margin-top:0.75rem;">
+                <div class="input-wrapper" style="height: auto; padding: 0.75rem 1rem 0.75rem 2.8rem; cursor: pointer;"
+                    onclick="document.getElementById('csvFile').click()">
+                    <span class="input-icon" style="top: 0.85rem;">📄</span>
+                    <div style="display:flex; flex-direction:column; gap:0.25rem;">
+                        <span id="csvLabel" style="color: var(--text-secondary); font-size: 0.9rem;">Upload CSV file
+                            (columns: <code style='color:var(--accent);font-size:0.85rem;'>ip</code>, <code
+                                style='color:var(--accent);font-size:0.85rem;'>port</code>)</span>
+                        <span style="color: var(--text-muted); font-size: 0.75rem;">Example: ip,port &rarr;
+                            google.com,443</span>
+                    </div>
+                    <input type="file" name="csv_file" id="csvFile" accept=".csv" style="display:none;"
+                        onchange="document.getElementById('csvLabel').textContent = this.files[0] ? '✅ ' + this.files[0].name : 'Upload CSV file'">
                 </div>
             </div>
         </form>

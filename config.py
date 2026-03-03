@@ -207,6 +207,91 @@ CBOM_SPEC_VERSION = "1.6"
 CBOM_SERIAL_PREFIX = "urn:uuid:"
 
 # ---------------------------------------------------------------------------
+# CERT-IN CBOM — Algorithm OID Mappings (ITU-T X.660)
+# ---------------------------------------------------------------------------
+ALGORITHM_OID_MAP = {
+    # Symmetric Ciphers
+    "AES-128-GCM":    "2.16.840.1.101.3.4.1.6",
+    "AES-256-GCM":    "2.16.840.1.101.3.4.1.46",
+    "AES-128-CBC":    "2.16.840.1.101.3.4.1.2",
+    "AES-256-CBC":    "2.16.840.1.101.3.4.1.42",
+    "CHACHA20-POLY1305": "1.2.840.113549.1.9.16.3.18",
+    "3DES-CBC":       "1.2.840.113549.3.7",
+    # Signature Algorithms
+    "SHA256withRSA":  "1.2.840.113549.1.1.11",
+    "SHA384withRSA":  "1.2.840.113549.1.1.12",
+    "SHA512withRSA":  "1.2.840.113549.1.1.13",
+    "SHA256withECDSA":"1.2.840.10045.4.3.2",
+    "SHA384withECDSA":"1.2.840.10045.4.3.3",
+    "RSASSA-PSS":     "1.2.840.113549.1.1.10",
+    "Ed25519":        "1.3.101.112",
+    "Ed448":          "1.3.101.113",
+    # Key Exchange
+    "RSA":            "1.2.840.113549.1.1.1",
+    "ECDH":           "1.3.132.1.12",
+    "ECDHE":          "1.3.132.1.12",
+    "X25519":         "1.3.101.110",
+    "X448":           "1.3.101.111",
+    "DH":             "1.2.840.113549.1.3.1",
+    "DHE":            "1.2.840.113549.1.3.1",
+    # Hash Functions
+    "SHA-256":        "2.16.840.1.101.3.4.2.1",
+    "SHA-384":        "2.16.840.1.101.3.4.2.2",
+    "SHA-512":        "2.16.840.1.101.3.4.2.3",
+    "SHA-1":          "1.3.14.3.2.26",
+    # PQC (NIST draft OIDs)
+    "ML-KEM-512":     "2.16.840.1.101.3.4.4.1",
+    "ML-KEM-768":     "2.16.840.1.101.3.4.4.2",
+    "ML-KEM-1024":    "2.16.840.1.101.3.4.4.3",
+    "ML-DSA-44":      "2.16.840.1.101.3.4.3.17",
+    "ML-DSA-65":      "2.16.840.1.101.3.4.3.18",
+    "ML-DSA-87":      "2.16.840.1.101.3.4.3.19",
+}
+
+# ---------------------------------------------------------------------------
+# CERT-IN CBOM — Algorithm Metadata (Primitive, Mode, Functions, Security)
+# ---------------------------------------------------------------------------
+ALGORITHM_METADATA = {
+    "AES-128-GCM":    {"primitive": "block-cipher", "mode": "gcm", "crypto_functions": ["keygen", "encrypt", "decrypt", "auth-tag"], "classical_security_bits": 128},
+    "AES-256-GCM":    {"primitive": "block-cipher", "mode": "gcm", "crypto_functions": ["keygen", "encrypt", "decrypt", "auth-tag"], "classical_security_bits": 256},
+    "AES-128-CBC":    {"primitive": "block-cipher", "mode": "cbc", "crypto_functions": ["keygen", "encrypt", "decrypt"], "classical_security_bits": 128},
+    "AES-256-CBC":    {"primitive": "block-cipher", "mode": "cbc", "crypto_functions": ["keygen", "encrypt", "decrypt"], "classical_security_bits": 256},
+    "CHACHA20-POLY1305": {"primitive": "stream-cipher", "mode": "aead", "crypto_functions": ["keygen", "encrypt", "decrypt", "auth-tag"], "classical_security_bits": 256},
+    "3DES-CBC":       {"primitive": "block-cipher", "mode": "cbc", "crypto_functions": ["keygen", "encrypt", "decrypt"], "classical_security_bits": 112},
+    "RSA":            {"primitive": "asymmetric", "mode": "pkcs1", "crypto_functions": ["keygen", "encrypt", "decrypt", "sign", "verify"], "classical_security_bits": 112},
+    "ECDHE":          {"primitive": "key-agreement", "mode": "ephemeral", "crypto_functions": ["keygen", "key-agreement"], "classical_security_bits": 128},
+    "ECDH":           {"primitive": "key-agreement", "mode": "static", "crypto_functions": ["keygen", "key-agreement"], "classical_security_bits": 128},
+    "X25519":         {"primitive": "key-agreement", "mode": "ephemeral", "crypto_functions": ["keygen", "key-agreement"], "classical_security_bits": 128},
+    "X448":           {"primitive": "key-agreement", "mode": "ephemeral", "crypto_functions": ["keygen", "key-agreement"], "classical_security_bits": 224},
+    "DHE":            {"primitive": "key-agreement", "mode": "ephemeral", "crypto_functions": ["keygen", "key-agreement"], "classical_security_bits": 112},
+    "SHA256withRSA":  {"primitive": "signature", "mode": "pkcs1v15", "crypto_functions": ["sign", "verify"], "classical_security_bits": 112},
+    "SHA384withRSA":  {"primitive": "signature", "mode": "pkcs1v15", "crypto_functions": ["sign", "verify"], "classical_security_bits": 112},
+    "SHA512withRSA":  {"primitive": "signature", "mode": "pkcs1v15", "crypto_functions": ["sign", "verify"], "classical_security_bits": 112},
+    "SHA256withECDSA":{"primitive": "signature", "mode": "ecdsa", "crypto_functions": ["sign", "verify"], "classical_security_bits": 128},
+    "SHA384withECDSA":{"primitive": "signature", "mode": "ecdsa", "crypto_functions": ["sign", "verify"], "classical_security_bits": 192},
+    "RSASSA-PSS":     {"primitive": "signature", "mode": "pss", "crypto_functions": ["sign", "verify"], "classical_security_bits": 112},
+    "Ed25519":        {"primitive": "signature", "mode": "eddsa", "crypto_functions": ["sign", "verify"], "classical_security_bits": 128},
+    "SHA-256":        {"primitive": "hash", "mode": "none", "crypto_functions": ["digest"], "classical_security_bits": 128},
+    "SHA-384":        {"primitive": "hash", "mode": "none", "crypto_functions": ["digest"], "classical_security_bits": 192},
+    "SHA-512":        {"primitive": "hash", "mode": "none", "crypto_functions": ["digest"], "classical_security_bits": 256},
+    "ML-KEM-768":     {"primitive": "kem", "mode": "lattice", "crypto_functions": ["keygen", "encapsulate", "decapsulate"], "classical_security_bits": 192},
+    "ML-KEM-512":     {"primitive": "kem", "mode": "lattice", "crypto_functions": ["keygen", "encapsulate", "decapsulate"], "classical_security_bits": 128},
+    "ML-KEM-1024":    {"primitive": "kem", "mode": "lattice", "crypto_functions": ["keygen", "encapsulate", "decapsulate"], "classical_security_bits": 256},
+    "ML-DSA-44":      {"primitive": "signature", "mode": "lattice", "crypto_functions": ["keygen", "sign", "verify"], "classical_security_bits": 128},
+    "ML-DSA-65":      {"primitive": "signature", "mode": "lattice", "crypto_functions": ["keygen", "sign", "verify"], "classical_security_bits": 192},
+    "ML-DSA-87":      {"primitive": "signature", "mode": "lattice", "crypto_functions": ["keygen", "sign", "verify"], "classical_security_bits": 256},
+    "X25519MLKEM768": {"primitive": "hybrid-kem", "mode": "lattice+ecdh", "crypto_functions": ["keygen", "encapsulate", "decapsulate", "key-agreement"], "classical_security_bits": 192},
+}
+
+# Protocol OIDs
+PROTOCOL_OID_MAP = {
+    "TLSv1.2": "1.3.6.1.5.5.7.1",
+    "TLSv1.3": "1.3.6.1.5.5.7.1",
+    "SSLv3":   "1.3.6.1.5.5.7.1",
+}
+
+
+# ---------------------------------------------------------------------------
 # Web / Flask
 # ---------------------------------------------------------------------------
 FLASK_HOST = "0.0.0.0"

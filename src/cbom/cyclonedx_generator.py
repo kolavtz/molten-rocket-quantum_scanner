@@ -109,7 +109,7 @@ class CycloneDXGenerator:
     # ------------------------------------------------------------------
 
     def _generate_manual(self, cbom_dict: Dict[str, Any]) -> str:
-        """Hand-craft a CycloneDX 1.6 JSON document."""
+        """Hand-craft a CycloneDX 1.6 JSON document with CERT-IN inventory."""
         components: List[Dict[str, Any]] = []
 
         for asset in cbom_dict.get("assets", []):
@@ -140,6 +140,9 @@ class CycloneDXGenerator:
             }
             components.append(comp)
 
+        # CERT-IN typed inventory
+        cert_in_inv = cbom_dict.get("cert_in_inventory", {})
+
         doc = {
             "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
             "bomFormat": "CycloneDX",
@@ -164,6 +167,12 @@ class CycloneDXGenerator:
                 ],
             },
             "components": components,
+            "cryptographic_inventory": {
+                "algorithms": cert_in_inv.get("algorithms", []),
+                "keys": cert_in_inv.get("keys", []),
+                "protocols": cert_in_inv.get("protocols", []),
+                "certificates": cert_in_inv.get("certificates", []),
+            },
         }
 
         return json.dumps(doc, indent=2, ensure_ascii=False)
