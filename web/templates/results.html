@@ -40,8 +40,8 @@
 {% set score = report.overview.average_compliance_score %}
 {% if vuln_count > 0 %}
 <section class="findings-section" style="margin-bottom:0;">
-    <div class="glass-card" style="border-left: 4px solid #ef4444; padding: 1.25rem 1.5rem;">
-        <h3 style="color:#ef4444; margin:0 0 0.5rem 0;">&#x26A0;&#xFE0F; Harvest Now, Decrypt Later (HNDL) Threat
+    <div class="glass-card" style="border-left: 4px solid #c45c5c; padding: 1.25rem 1.5rem;">
+        <h3 style="color:#c45c5c; margin:0 0 0.5rem 0;">&#x26A0;&#xFE0F; Harvest Now, Decrypt Later (HNDL) Threat
             Detected</h3>
         <p style="color:#94a3b8; margin:0 0 0.75rem 0;">
             <strong>{{ vuln_count }} endpoint{{ 's' if vuln_count > 1 }}</strong> using quantum-vulnerable cryptography.
@@ -51,11 +51,11 @@
             customer PII, authentication tokens, and transaction data.
         </p>
         <div style="display:flex; gap:2rem; flex-wrap:wrap;">
-            <div><strong style="color:#f59e0b;">HNDL Window:</strong> <span style="color:#e2e8f0;">Data encrypted today
+            <div><strong style="color:#c9a24e;">HNDL Window:</strong> <span style="color:#d4d7de;">Data encrypted today
                     may be stored for 5&ndash;10+ years by nation-state actors</span></div>
-            <div><strong style="color:#f59e0b;">Risk Category:</strong> <span style="color:#e2e8f0;">Financial APIs,
+            <div><strong style="color:#c9a24e;">Risk Category:</strong> <span style="color:#d4d7de;">Financial APIs,
                     PII, Authentication &amp; Payment Data</span></div>
-            <div><strong style="color:#f59e0b;">NIST Mandate:</strong> <span style="color:#e2e8f0;">Migrate to PQC by
+            <div><strong style="color:#c9a24e;">NIST Mandate:</strong> <span style="color:#d4d7de;">Migrate to PQC by
                     2030 per CNSA 2.0 timeline</span></div>
         </div>
     </div>
@@ -198,7 +198,7 @@
     <div class="glass-card" style="padding:1.25rem; margin-bottom:1rem;">
         <div
             style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">
-            <h3 style="margin:0; color:#e2e8f0;"><code>{{ pqc.host }}:{{ pqc.port }}</code></h3>
+            <h3 style="margin:0; color:#d4d7de;"><code>{{ pqc.host }}:{{ pqc.port }}</code></h3>
             <div style="display:flex; gap:0.5rem; align-items:center;">
                 {% if pqc.overall_status == 'quantum_safe' %}
                 <span class="severity-badge severity-info">Fully Quantum Safe</span>
@@ -217,12 +217,12 @@
 
         {% if pqc.quantum_vulnerable_algorithms %}
         <div style="margin-bottom:0.75rem;">
-            <strong style="color:#ef4444;">Quantum-Vulnerable Algorithms:</strong>
+            <strong style="color:#c45c5c;">Quantum-Vulnerable Algorithms:</strong>
             <div style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:0.4rem;">
                 {% for algo in pqc.quantum_vulnerable_algorithms %}
                 <div
-                    style="background:#ef444420; border:1px solid #ef4444; border-radius:6px; padding:0.3rem 0.6rem; font-size:0.8rem;">
-                    <strong style="color:#ef4444;">{{ algo.name }}</strong>
+                    style="background:#c45c5c20; border:1px solid #c45c5c; border-radius:6px; padding:0.3rem 0.6rem; font-size:0.8rem;">
+                    <strong style="color:#c45c5c;">{{ algo.name }}</strong>
                     <span style="color:#94a3b8;"> ({{ algo.category }})</span>
                     {% if algo.notes %}<br><span style="color:#94a3b8; font-size:0.75rem;">{{ algo.notes }}</span>{%
                     endif %}
@@ -234,12 +234,12 @@
 
         {% if pqc.quantum_safe_algorithms %}
         <div>
-            <strong style="color:#22c55e;">Quantum-Safe Algorithms:</strong>
+            <strong style="color:#5b9e6f;">Quantum-Safe Algorithms:</strong>
             <div style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:0.4rem;">
                 {% for algo in pqc.quantum_safe_algorithms %}
                 <div
-                    style="background:#22c55e20; border:1px solid #22c55e; border-radius:6px; padding:0.3rem 0.6rem; font-size:0.8rem;">
-                    <strong style="color:#22c55e;">{{ algo.name }}</strong>
+                    style="background:#5b9e6f20; border:1px solid #5b9e6f; border-radius:6px; padding:0.3rem 0.6rem; font-size:0.8rem;">
+                    <strong style="color:#5b9e6f;">{{ algo.name }}</strong>
                     <span style="color:#94a3b8;"> ({{ algo.category }})</span>
                     {% if algo.standard %}<br><span style="color:#94a3b8; font-size:0.75rem;">{{ algo.standard
                         }}</span>{% endif %}
@@ -472,16 +472,16 @@
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1rem;">
             <div>
                 <strong style="color:#94a3b8;">Format:</strong>
-                <span style="color:#e2e8f0;">CycloneDX 1.6 JSON</span>
+                <span style="color:#d4d7de;">CycloneDX 1.6 JSON</span>
             </div>
             <div>
                 <strong style="color:#94a3b8;">Components:</strong>
-                <span style="color:#e2e8f0;">{{ report.tls_results|length }} TLS endpoint{{ 's' if
+                <span style="color:#d4d7de;">{{ report.tls_results|length }} TLS endpoint{{ 's' if
                     report.tls_results|length > 1 }}</span>
             </div>
             <div>
                 <strong style="color:#94a3b8;">Standard:</strong>
-                <span style="color:#e2e8f0;">NIST FIPS 203/204/205</span>
+                <span style="color:#d4d7de;">NIST FIPS 203/204/205</span>
             </div>
             <div>
                 <strong style="color:#94a3b8;">Export:</strong>
@@ -554,8 +554,8 @@
             labels: ['Quantum Safe', 'Quantum Vulnerable'],
             datasets: [{
                 data: [chartData.quantumSafe, chartData.quantumVuln],
-                backgroundColor: ['#22c55e', '#ef4444'],
-                borderColor: ['#16a34a', '#dc2626'],
+                backgroundColor: ['#5b9e6f', '#c45c5c'],
+                borderColor: ['#4d8a5e', '#b04a4a'],
                 borderWidth: 2,
                 hoverOffset: 8
             }]
@@ -576,7 +576,7 @@
             datasets: [{
                 label: 'Findings',
                 data: Object.values(chartData.severity),
-                backgroundColor: ['#ef4444', '#f97316', '#f59e0b', '#3b82f6', '#6b7280'],
+                backgroundColor: ['#c45c5c', '#c45c5c', '#c9a24e', '#5ba4b5', '#636a78'],
                 borderRadius: 8,
                 barThickness: 30
             }]
@@ -598,8 +598,8 @@
             labels: Object.keys(chartData.risk),
             datasets: [{
                 data: Object.values(chartData.risk),
-                backgroundColor: ['#ef4444', '#f59e0b', '#22c55e'],
-                borderColor: ['#dc2626', '#d97706', '#16a34a'],
+                backgroundColor: ['#c45c5c', '#c9a24e', '#5b9e6f'],
+                borderColor: ['#b04a4a', '#b08d3f', '#4d8a5e'],
                 borderWidth: 2,
                 hoverOffset: 8
             }]
