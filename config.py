@@ -63,17 +63,99 @@ EXTENDED_DISCOVERY_PORTS = [
     27017,  # MongoDB
 ]
 
+# Autodiscovery — exhaustive port list for deep private-network scans
+# Includes all of the above + enterprise infra, middleware, IoT, CI/CD
+AUTODISCOVERY_PORTS = sorted(set(EXTENDED_DISCOVERY_PORTS + [
+    # Additional Web / API
+    81,     # HTTP-Alt
+    3000,   # Node.js / Grafana
+    4443,   # HTTPS-Alt
+    5000,   # Flask / Docker Registry
+    5001,   # Synology / iperf3
+    7443,   # HTTPS-Alt
+    8000,   # Django / SimpleHTTP
+    8008,   # HTTP-Alt
+    8081,   # HTTP-Alt
+    8082,   # HTTP-Alt
+    8181,   # HTTP-Alt
+    8444,   # HTTPS-Alt
+    8880,   # Sun Proxy Admin
+    9000,   # SonarQube / Portainer
+    9443,   # HTTPS-Alt / vSphere
+    # Databases
+    1434,   # MSSQL Browser
+    3307,   # MySQL-Alt
+    5433,   # PostgreSQL-Alt
+    6380,   # Redis-Alt (TLS)
+    7001,   # Cassandra
+    7199,   # Cassandra JMX
+    9042,   # Cassandra CQL
+    26257,  # CockroachDB
+    28015,  # RethinkDB
+    # Message Queues & Middleware
+    1883,   # MQTT
+    4369,   # Erlang Port Mapper (RabbitMQ)
+    5671,   # AMQP-TLS (RabbitMQ)
+    5672,   # AMQP (RabbitMQ)
+    6443,   # Kubernetes API
+    8883,   # MQTT-TLS
+    9092,   # Apache Kafka
+    9093,   # Kafka-TLS
+    15671,  # RabbitMQ Management TLS
+    15672,  # RabbitMQ Management
+    61613,  # STOMP
+    61614,  # STOMP-TLS
+    # CI/CD & DevOps
+    2376,   # Docker TLS
+    2377,   # Docker Swarm
+    8888,   # Jupyter Notebook
+    10250,  # Kubelet
+    10443,  # Rancher
+    # Monitoring
+    9100,   # Node Exporter
+    9115,   # Blackbox Exporter
+    9093,   # Alertmanager
+    3100,   # Loki
+    8200,   # Vault
+    # Mail / Directory
+    389,    # LDAP (non-TLS)
+    1636,   # LDAPS-Alt
+    4190,   # ManageSieve
+    # VPN / Tunnel
+    500,    # IKE
+    1194,   # OpenVPN
+    4500,   # IPSec NAT-T
+    1701,   # L2TP
+    1723,   # PPTP
+    # SSH / Remote
+    2222,   # SSH-Alt
+    5985,   # WinRM HTTP
+    5986,   # WinRM HTTPS
+    # IoT / ICS
+    502,    # Modbus
+    102,    # S7Comm (Siemens)
+    2404,   # IEC 60870-5-104
+    47808,  # BACnet
+    44818,  # EtherNet/IP
+]))
+
+
 PORT_SERVICE_MAP = {
     21:    "FTP",
     22:    "SSH",
     25:    "SMTP",
     53:    "DNS",
     80:    "HTTP",
+    81:    "HTTP-Alt",
+    102:   "S7Comm",
     110:   "POP3",
     143:   "IMAP",
+    389:   "LDAP",
     443:   "HTTPS",
     445:   "SMB",
     465:   "SMTPS",
+    500:   "IKE",
+    502:   "Modbus",
     587:   "SMTP-Submission",
     636:   "LDAPS",
     989:   "FTPS-Data",
@@ -81,21 +163,77 @@ PORT_SERVICE_MAP = {
     992:   "TelnetS",
     993:   "IMAPS",
     995:   "POP3S",
+    1194:  "OpenVPN",
     1433:  "MSSQL",
+    1434:  "MSSQL-Browser",
     1521:  "OracleDB",
+    1636:  "LDAPS-Alt",
+    1701:  "L2TP",
+    1723:  "PPTP",
+    1883:  "MQTT",
+    2222:  "SSH-Alt",
+    2376:  "Docker-TLS",
+    2377:  "Docker-Swarm",
+    2404:  "IEC-104",
+    3000:  "Grafana",
+    3100:  "Loki",
     3306:  "MySQL",
+    3307:  "MySQL-Alt",
     3389:  "RDP",
+    4190:  "ManageSieve",
+    4369:  "EPMD",
+    4443:  "HTTPS-Alt",
+    4500:  "IPSec-NAT",
+    5000:  "Flask",
+    5001:  "Synology",
     5061:  "SIP-TLS",
     5432:  "PostgreSQL",
+    5433:  "PostgreSQL-Alt",
+    5671:  "AMQP-TLS",
+    5672:  "AMQP",
     5900:  "VNC",
+    5985:  "WinRM",
+    5986:  "WinRM-TLS",
     6379:  "Redis",
+    6380:  "Redis-TLS",
+    6443:  "K8s-API",
+    7001:  "Cassandra",
+    7199:  "Cassandra-JMX",
+    7443:  "HTTPS-Alt",
+    8000:  "HTTP-Alt",
+    8008:  "HTTP-Alt",
     8080:  "HTTP-Proxy",
+    8081:  "HTTP-Alt",
+    8082:  "HTTP-Alt",
+    8181:  "HTTP-Alt",
+    8200:  "Vault",
     8443:  "HTTPS-Alt",
+    8444:  "HTTPS-Alt",
+    8880:  "Proxy-Admin",
+    8883:  "MQTT-TLS",
     8888:  "HTTP-Alt",
+    9000:  "SonarQube",
+    9042:  "Cassandra-CQL",
     9090:  "Prometheus",
+    9092:  "Kafka",
+    9093:  "Kafka-TLS",
+    9100:  "NodeExporter",
+    9115:  "BlackboxExp",
     9200:  "Elasticsearch",
+    9443:  "HTTPS-Alt",
+    10250: "Kubelet",
+    10443: "Rancher",
+    15671: "RabbitMQ-TLS",
+    15672: "RabbitMQ-Mgmt",
+    26257: "CockroachDB",
     27017: "MongoDB",
+    28015: "RethinkDB",
+    44818: "EtherNetIP",
+    47808: "BACnet",
+    61613: "STOMP",
+    61614: "STOMP-TLS",
 }
+
 
 SCAN_TIMEOUT_SECONDS = 5
 HANDSHAKE_TIMEOUT_SECONDS = 10

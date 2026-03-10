@@ -108,7 +108,20 @@
                         class="scan-input">
                 </div>
             </div>
-            <!-- CSV Upload -->
+            <!-- Autodiscovery Toggle -->
+            <div class="input-group" style="margin-top:0.75rem; display:flex; align-items:center; gap:1rem;">
+                <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; user-select:none;">
+                    <input type="checkbox" name="autodiscovery" id="autodiscoveryToggle"
+                        style="width:18px; height:18px; accent-color:var(--accent); cursor:pointer;">
+                    <span style="color:var(--text-secondary); font-size:0.9rem;">
+                        🔍 <strong style="color:var(--text-primary);">Autodiscovery Mode</strong>
+                    </span>
+                </label>
+                <span style="color:var(--text-muted); font-size:0.75rem; flex:1;">
+                    Scans 65+ ports — web servers, databases, message queues, VPN, IoT/ICS, CI/CD tools.
+                    Ideal for <strong style="color:var(--accent)">private networks</strong> and internal infrastructure.
+                </span>
+            </div>
             <div class="input-group" style="margin-top:0.75rem;">
                 <div class="input-wrapper" style="height: auto; padding: 0.75rem 1rem 0.75rem 2.8rem; cursor: pointer;"
                     onclick="document.getElementById('csvFile').click()">

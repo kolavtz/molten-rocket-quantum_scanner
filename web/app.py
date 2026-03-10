@@ -30,7 +30,7 @@ from flask import (
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from config import SECRET_KEY, DEBUG, FLASK_HOST, FLASK_PORT, RESULTS_DIR
+from config import SECRET_KEY, DEBUG, FLASK_HOST, FLASK_PORT, RESULTS_DIR, AUTODISCOVERY_PORTS
 from src.scanner.network_discovery import NetworkScanner, sanitize_target
 from src.scanner.tls_analyzer import TLSAnalyzer
 from src.scanner.pqc_detector import PQCDetector
@@ -231,6 +231,7 @@ def scan():
 
     target_input = request.form.get("target", "").strip()
     ports_str = request.form.get("ports", "").strip()
+    autodiscovery = request.form.get("autodiscovery") == "on"
 
     # Parse global custom ports
     custom_ports = None
@@ -242,6 +243,10 @@ def scan():
             ]
         except ValueError:
             pass
+
+    # Autodiscovery mode: use the exhaustive port list
+    if autodiscovery and not custom_ports:
+        custom_ports = list(AUTODISCOVERY_PORTS)
 
     # ── Collect targets from text input ──
     targets = []  # list of (host, per_target_ports_or_None)
