@@ -40,6 +40,7 @@ from src.validator.quantum_safe_checker import QuantumSafeChecker
 from src.validator.certificate_issuer import CertificateIssuer
 from src.reporting.report_generator import ReportGenerator
 from src.reporting.recommendation_engine import RecommendationEngine
+from src import database as db
 
 # ── Flask App ────────────────────────────────────────────────────────
 
@@ -53,8 +54,30 @@ app.secret_key = SECRET_KEY
 # Ensure results directory exists
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
-# In-memory store for scan results (for demo; replace with DB in prod)
+# In-memory store — hydrated from MySQL on cold start
 scan_store: dict = {}
+
+# Initialise MySQL (if available) and hydrate scan_store
+_db_available = db.init_db()
+if _db_available:
+    for _report in db.list_scans(limit=100):
+        _sid = _report.get("scan_id")
+        if _sid:
+            scan_store[_sid] = _report
+    print(f"  💾 MySQL connected — loaded {len(scan_store)} scans from database")
+else:
+    # Fallback: load from JSON files on disk
+    for _fname in os.listdir(RESULTS_DIR):
+        if _fname.endswith("_report.json"):
+            try:
+                with open(os.path.join(RESULTS_DIR, _fname), "r", encoding="utf-8") as _fh:
+                    _report = json.load(_fh)
+                    _sid = _report.get("scan_id")
+                    if _sid:
+                        scan_store[_sid] = _report
+            except Exception:
+                pass
+    print(f"  📂 JSON-only mode — loaded {len(scan_store)} scans from disk")
 
 # ── Pipeline ─────────────────────────────────────────────────────────
 
@@ -161,9 +184,13 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None) -> dict:
     cdx_gen.export_json(cbom_dict, cbom_path)
     report["cbom_path"] = cbom_path
 
-    # 10. Save report
+    # 10. Save report (JSON file — primary)
     report_path = os.path.join(RESULTS_DIR, f"{scan_id}_report.json")
     reporter.export_json(report, report_path)
+
+    # 11. Save to MySQL (redundant copy)
+    db.save_scan(report)
+    db.save_cbom(scan_id, cbom_dict)
 
     # Store in memory
     scan_store[scan_id] = report
@@ -317,7 +344,7 @@ def scan():
 
 @app.route("/results/<scan_id>")
 def results(scan_id: str):
-    """Display scan results."""
+    """Display scan results (memory → disk → MySQL fallback)."""
     report = scan_store.get(scan_id)
     if not report:
         # Try loading from disk
@@ -327,14 +354,19 @@ def results(scan_id: str):
                 report = json.load(fh)
                 scan_store[scan_id] = report
         else:
-            return render_template("error.html", error_message="Scan not found."), 404
+            # Try loading from MySQL
+            report = db.get_scan(scan_id)
+            if report:
+                scan_store[scan_id] = report
+            else:
+                return render_template("error.html", error_message="Scan not found."), 404
 
     return render_template("results.html", report=report, scan_id=scan_id)
 
 
 @app.route("/cbom/<scan_id>")
 def download_cbom(scan_id: str):
-    """Download CBOM JSON file."""
+    """Download CBOM JSON file (disk → MySQL fallback)."""
     cbom_path = os.path.join(RESULTS_DIR, f"{scan_id}_cbom.json")
     if os.path.exists(cbom_path):
         return send_file(
@@ -343,6 +375,10 @@ def download_cbom(scan_id: str):
             as_attachment=True,
             download_name=f"cbom_{scan_id}.json",
         )
+    # Fallback: try MySQL
+    cbom_data = db.get_cbom(scan_id)
+    if cbom_data:
+        return jsonify(cbom_data)
     return jsonify({"error": "CBOM not found"}), 404
 
 

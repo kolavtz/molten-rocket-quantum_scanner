@@ -6,6 +6,10 @@ used across the application are defined here.
 """
 
 import os
+from dotenv import load_dotenv
+
+# Load user's .env file if present
+load_dotenv()
 
 # ---------------------------------------------------------------------------
 # Application
@@ -430,8 +434,27 @@ PROTOCOL_OID_MAP = {
 
 
 # ---------------------------------------------------------------------------
+# MySQL — Redundant Storage
+# ---------------------------------------------------------------------------
+# Support for user's custom .env keys
+_sql_url = os.environ.get("sql_server_url_with_port", "")
+if ":" in _sql_url:
+    _sql_host, _sql_port = _sql_url.split(":", 1)
+else:
+    _sql_host = _sql_url or "localhost"
+    _sql_port = "3306"
+
+MYSQL_HOST     = os.environ.get("MYSQL_HOST", _sql_host)
+MYSQL_PORT     = int(os.environ.get("MYSQL_PORT", _sql_port))
+MYSQL_USER     = os.environ.get("MYSQL_USER", os.environ.get("sql_user", "root"))
+MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD", os.environ.get("sql_password", ""))
+MYSQL_DATABASE = os.environ.get("MYSQL_DATABASE", "quantumshield")
+
+# ---------------------------------------------------------------------------
 # Web / Flask
 # ---------------------------------------------------------------------------
+# Determine project root (for constructing absolute paths)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FLASK_HOST = "0.0.0.0"
 FLASK_PORT = 5000
-RESULTS_DIR = os.path.join(os.path.dirname(__file__), "scan_results")
+RESULTS_DIR = os.path.join(BASE_DIR, "scan_results")

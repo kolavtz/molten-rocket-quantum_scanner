@@ -101,6 +101,19 @@ class CycloneDXGenerator:
             )
             bom.components.add(comp)
 
+        cert_in_inv = cbom_dict.get("cert_in_inventory", {})
+
+        for category, items in cert_in_inv.items():
+            for item in items:
+                props = [Property(name=f"cert-in:{k}", value=str(v)) for k, v in item.items() if v != ""]
+                comp = Component(
+                    name=item.get("name", f"Unknown {category[:-1]}"),
+                    component_type=ComponentType.CRYPTOGRAPHIC_ASSET,
+                    description=f"CERT-IN {category[:-1].capitalize()}",
+                    properties=props,
+                )
+                bom.components.add(comp)
+
         outputter = JsonV1Dot6(bom)
         return outputter.output_as_string()
 
@@ -142,6 +155,15 @@ class CycloneDXGenerator:
 
         # CERT-IN typed inventory
         cert_in_inv = cbom_dict.get("cert_in_inventory", {})
+        for category, items in cert_in_inv.items():
+            for item in items:
+                components.append({
+                    "type": "cryptographic-asset",
+                    "bom-ref": str(uuid.uuid4()),
+                    "name": item.get("name", f"Unknown {category[:-1]}"),
+                    "description": f"CERT-IN {category[:-1].capitalize()}",
+                    "properties": [{"name": f"cert-in:{k}", "value": str(v)} for k, v in item.items() if v != ""],
+                })
 
         doc = {
             "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
@@ -167,12 +189,6 @@ class CycloneDXGenerator:
                 ],
             },
             "components": components,
-            "cryptographic_inventory": {
-                "algorithms": cert_in_inv.get("algorithms", []),
-                "keys": cert_in_inv.get("keys", []),
-                "protocols": cert_in_inv.get("protocols", []),
-                "certificates": cert_in_inv.get("certificates", []),
-            },
         }
 
         return json.dumps(doc, indent=2, ensure_ascii=False)

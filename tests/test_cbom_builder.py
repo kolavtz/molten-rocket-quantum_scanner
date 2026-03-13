@@ -119,7 +119,8 @@ class TestCycloneDXGenerator:
         doc = json.loads(json_str)
         assert doc["bomFormat"] == "CycloneDX"
         assert doc["specVersion"] == "1.6"
-        assert len(doc["components"]) == 1
+        # 1 host asset + 6 CERT-IN cryptographic assets (algorithms, protocols, certs)
+        assert len(doc["components"]) == 7
 
     def test_component_properties(self):
         builder = CBOMBuilder()
