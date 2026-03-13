@@ -1,0 +1,35 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.4, pytest-9.0.2, pluggy-1.6.0
+rootdir: C:\Users\saura\.gemini\antigravity\playground\molten-rocket
+plugins: cov-7.0.0, anyio-4.9.0
+collected 17 items
+
+tests\test_database.py F................                                 [100%]
+
+================================== FAILURES ===================================
+___________________ TestInitDb.test_init_db_creates_tables ____________________
+
+self = <tests.test_database.TestInitDb object at 0x0000025869FFB610>
+mock_get_conn = <MagicMock name='_get_server_connection' id='2578759229056'>
+mock_conn = <MagicMock name='_get_server_connection()' id='2578759227712'>
+mock_cursor = <MagicMock name='_get_server_connection().cursor()' id='2578758810128'>
+
+    @patch("src.database._get_server_connection")
+    def test_init_db_creates_tables(self, mock_get_conn, mock_conn, mock_cursor):
+        """init_db should create the database and both tables."""
+        mock_get_conn.return_value = mock_conn
+        from src.database import init_db
+    
+        result = init_db()
+    
+        assert result is True
+        # Should execute 3 SQL statements: CREATE DATABASE, CREATE TABLE scans, CREATE TABLE cbom_reports
+>       assert mock_cursor.execute.call_count == 3
+E       AssertionError: assert 4 == 3
+E        +  where 4 = <MagicMock name='_get_server_connection().cursor().execute' id='2578759229392'>.call_count
+E        +    where <MagicMock name='_get_server_connection().cursor().execute' id='2578759229392'> = <MagicMock name='_get_server_connection().cursor()' id='2578758810128'>.execute
+
+tests\test_database.py:81: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_database.py::TestInitDb::test_init_db_creates_tables - Asse...
+======================== 1 failed, 16 passed in 0.14s =========================
