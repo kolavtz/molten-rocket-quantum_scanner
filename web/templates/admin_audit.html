@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Review - QuantumShield{% endblock %}
+
+{% block content %}
+<header class="section-header animate-fade-in-up">
+    <div class="header-icon">🧾</div>
+    <h1>Audit Review</h1>
+    <p class="subtitle">Tamper-evident administrative and authentication event history.</p>
+</header>
+
+<div class="admin-container animate-fade-in-up delay-1">
+    <div class="scan-card glass-card" style="margin-bottom: 1.5rem;">
+        <h3 style="margin-bottom: 0.75rem;">Audit Chain Status</h3>
+        {% if chain_valid %}
+        <div class="flash-msg flash-success">Audit hash chain verified successfully.</div>
+        {% else %}
+        <div class="flash-msg flash-error">Audit chain verification failed.</div>
+        <ul style="color: var(--text-secondary); margin-top: 1rem; padding-left: 1.2rem;">
+            {% for issue in chain_issues %}
+            <li>{{ issue }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+
+    <div class="scan-card glass-card">
+        <h3 style="margin-bottom: 1rem;">Recent Audit Events</h3>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Time</th>
+                        <th>Category</th>
+                        <th>Event</th>
+                        <th>Status</th>
+                        <th>Actor</th>
+                        <th>IP</th>
+                        <th>Path</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td>{{ log.id }}</td>
+                        <td>{{ log.created_at }}</td>
+                        <td>{{ log.event_category }}</td>
+                        <td>{{ log.event_type }}</td>
+                        <td>
+                            <span class="role-badge role-{{ log.status|lower }}">{{ log.status }}</span>
+                        </td>
+                        <td>{{ log.actor_username or log.actor_user_id or 'system' }}</td>
+                        <td>{{ log.ip_address or 'N/A' }}</td>
+                        <td>{{ log.request_method or '' }} {{ log.request_path or '' }}</td>
+                        <td>
+                            <details>
+                                <summary style="cursor: pointer; color: var(--accent);">View</summary>
+                                <pre style="white-space: pre-wrap; color: var(--text-secondary); font-size: 0.78rem; margin-top: 0.5rem;">{{ log.details | tojson(indent=2) }}</pre>
+                            </details>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center">No audit events found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+.role-success { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+.role-failed { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+.role-denied { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+.role-partial { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+</style>
+{% endblock %}

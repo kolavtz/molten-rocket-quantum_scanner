@@ -42,7 +42,8 @@ from config import (
     MYSQL_USER,
     MYSQL_PASSWORD,
     MYSQL_DATABASE,
-    ENCRYPTION_KEY
+    ENCRYPTION_KEY,
+    AUDIT_HASH_SECRET,
 )
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,15 @@ def normalize_role(role: str) -> str:
 
 def _hash_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+def _canonical_json(data: Dict[str, Any]) -> str:
+    return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def _compute_audit_hash(payload: Dict[str, Any], prev_hash: str) -> str:
+    digest_input = f"{prev_hash}|{_canonical_json(payload)}|{AUDIT_HASH_SECRET}"
+    return hashlib.sha256(digest_input.encode("utf-8")).hexdigest()
 
 # ---------------------------------------------------------------------------
 # Encryption Helpers
@@ -141,6 +151,20 @@ def _get_server_connection():
     except Exception as exc:
         logger.warning("MySQL server connection failed: %s", exc)
         return None
+
+
+def _create_trigger_if_missing(cur, trigger_name: str, create_sql: str) -> None:
+    cur.execute(
+        """
+        SELECT COUNT(*)
+        FROM information_schema.TRIGGERS
+        WHERE TRIGGER_SCHEMA = %s AND TRIGGER_NAME = %s
+        """,
+        (MYSQL_DATABASE, trigger_name),
+    )
+    exists = cur.fetchone()[0] > 0
+    if not exists:
+        cur.execute(create_sql)
 
 
 # ---------------------------------------------------------------------------
@@ -214,6 +238,48 @@ def init_db() -> bool:
             ) ENGINE=InnoDB
         """)
 
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS audit_log_chain (
+                id             TINYINT PRIMARY KEY,
+                last_entry_id  BIGINT,
+                last_hash      CHAR(64),
+                updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+                    ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB
+        """)
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+                actor_user_id    VARCHAR(36),
+                actor_username   VARCHAR(150),
+                event_category   VARCHAR(64) NOT NULL,
+                event_type       VARCHAR(128) NOT NULL,
+                target_user_id   VARCHAR(36),
+                target_scan_id   VARCHAR(36),
+                ip_address       VARCHAR(64),
+                user_agent       VARCHAR(512),
+                request_method   VARCHAR(16),
+                request_path     VARCHAR(255),
+                status           VARCHAR(32) NOT NULL,
+                details_json     LONGTEXT,
+                previous_hash    CHAR(64) NOT NULL,
+                entry_hash       CHAR(64) NOT NULL UNIQUE,
+                created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (actor_user_id) REFERENCES users(id)
+                    ON DELETE SET NULL,
+                FOREIGN KEY (target_user_id) REFERENCES users(id)
+                    ON DELETE SET NULL,
+                FOREIGN KEY (target_scan_id) REFERENCES scans(scan_id)
+                    ON DELETE SET NULL,
+                INDEX idx_audit_created_at (created_at),
+                INDEX idx_audit_category (event_category),
+                INDEX idx_audit_actor (actor_user_id),
+                INDEX idx_audit_target_user (target_user_id),
+                INDEX idx_audit_target_scan (target_scan_id)
+            ) ENGINE=InnoDB
+        """)
+
         # Attempt to migrate existing tables gracefully
         for alter_cmd in [
             "ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE",
@@ -241,6 +307,45 @@ def init_db() -> bool:
                 cur.execute(alter_cmd)
             except Exception:
                 pass # Column likely already exists
+
+        cur.execute(
+            "INSERT IGNORE INTO audit_log_chain (id, last_entry_id, last_hash) VALUES (1, NULL, %s)",
+            ("0" * 64,),
+        )
+
+        _create_trigger_if_missing(
+            cur,
+            "audit_logs_no_update",
+            """
+            CREATE TRIGGER audit_logs_no_update
+            BEFORE UPDATE ON audit_logs
+            FOR EACH ROW
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'audit_logs is append-only';
+            """,
+        )
+        _create_trigger_if_missing(
+            cur,
+            "audit_logs_no_delete",
+            """
+            CREATE TRIGGER audit_logs_no_delete
+            BEFORE DELETE ON audit_logs
+            FOR EACH ROW
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'audit_logs cannot be deleted';
+            """,
+        )
+        _create_trigger_if_missing(
+            cur,
+            "audit_log_chain_no_delete",
+            """
+            CREATE TRIGGER audit_log_chain_no_delete
+            BEFORE DELETE ON audit_log_chain
+            FOR EACH ROW
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'audit_log_chain cannot be deleted';
+            """,
+        )
 
         # Seed default admin if no users exist
         cur.execute("SELECT COUNT(*) FROM users")
@@ -766,5 +871,176 @@ def create_user(username: str, password_hash: str, role: str = "Viewer") -> bool
     except Exception as exc:
         logger.error("MySQL create_user error: %s", exc)
         return False
+    finally:
+        conn.close()
+
+
+def append_audit_log(
+    event_category: str,
+    event_type: str,
+    status: str,
+    actor_user_id: Optional[str] = None,
+    actor_username: Optional[str] = None,
+    target_user_id: Optional[str] = None,
+    target_scan_id: Optional[str] = None,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None,
+    request_method: Optional[str] = None,
+    request_path: Optional[str] = None,
+    details: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """Append a tamper-evident audit event to the audit chain."""
+    conn = _get_connection()
+    if conn is None:
+        return False
+    details = details or {}
+    try:
+        chain_cur = conn.cursor(dictionary=True)
+        chain_cur.execute("SELECT last_entry_id, last_hash FROM audit_log_chain WHERE id = 1 FOR UPDATE")
+        chain_state = chain_cur.fetchone() or {"last_entry_id": None, "last_hash": "0" * 64}
+        prev_hash = chain_state.get("last_hash") or "0" * 64
+        created_at = _utcnow()
+
+        payload = {
+            "actor_user_id": actor_user_id,
+            "actor_username": actor_username,
+            "event_category": event_category,
+            "event_type": event_type,
+            "target_user_id": target_user_id,
+            "target_scan_id": target_scan_id,
+            "ip_address": ip_address,
+            "user_agent": user_agent,
+            "request_method": request_method,
+            "request_path": request_path,
+            "status": status,
+            "details": details,
+            "created_at": created_at.isoformat(timespec="seconds"),
+        }
+        entry_hash = _compute_audit_hash(payload, prev_hash)
+
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO audit_logs
+                (actor_user_id, actor_username, event_category, event_type,
+                 target_user_id, target_scan_id, ip_address, user_agent,
+                 request_method, request_path, status, details_json,
+                 previous_hash, entry_hash, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                actor_user_id,
+                actor_username,
+                event_category,
+                event_type,
+                target_user_id,
+                target_scan_id,
+                ip_address,
+                user_agent,
+                request_method,
+                request_path,
+                status,
+                _canonical_json(details),
+                prev_hash,
+                entry_hash,
+                created_at,
+            ),
+        )
+        new_entry_id = cur.lastrowid
+        cur.execute(
+            "UPDATE audit_log_chain SET last_entry_id = %s, last_hash = %s WHERE id = 1",
+            (new_entry_id, entry_hash),
+        )
+        conn.commit()
+        return True
+    except Exception as exc:
+        logger.error("append_audit_log failed: %s", exc)
+        return False
+    finally:
+        conn.close()
+
+
+def list_audit_logs(limit: int = 100) -> List[Dict[str, Any]]:
+    conn = _get_connection()
+    if conn is None:
+        return []
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT id, actor_user_id, actor_username, event_category, event_type,
+                   target_user_id, target_scan_id, ip_address, user_agent,
+                   request_method, request_path, status, details_json,
+                   previous_hash, entry_hash, created_at
+            FROM audit_logs
+            ORDER BY id DESC
+            LIMIT %s
+            """,
+            (limit,),
+        )
+        rows = cur.fetchall() or []
+        for row in rows:
+            if isinstance(row.get("details_json"), str):
+                try:
+                    row["details"] = json.loads(row["details_json"])
+                except json.JSONDecodeError:
+                    row["details"] = {"raw": row["details_json"]}
+            else:
+                row["details"] = row.get("details_json") or {}
+        return rows
+    finally:
+        conn.close()
+
+
+def verify_audit_log_chain(limit: int = 500) -> Tuple[bool, List[str]]:
+    conn = _get_connection()
+    if conn is None:
+        return False, ["Database unavailable"]
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT id, actor_user_id, actor_username, event_category, event_type,
+                   target_user_id, target_scan_id, ip_address, user_agent,
+                   request_method, request_path, status, details_json,
+                   previous_hash, entry_hash, created_at
+            FROM audit_logs
+            ORDER BY id ASC
+            LIMIT %s
+            """,
+            (limit,),
+        )
+        issues: List[str] = []
+        prev_hash = "0" * 64
+        for row in cur.fetchall() or []:
+            details = {}
+            raw_details = row.get("details_json")
+            if isinstance(raw_details, str):
+                try:
+                    details = json.loads(raw_details)
+                except json.JSONDecodeError:
+                    details = {"raw": raw_details}
+            payload = {
+                "actor_user_id": row.get("actor_user_id"),
+                "actor_username": row.get("actor_username"),
+                "event_category": row.get("event_category"),
+                "event_type": row.get("event_type"),
+                "target_user_id": row.get("target_user_id"),
+                "target_scan_id": row.get("target_scan_id"),
+                "ip_address": row.get("ip_address"),
+                "user_agent": row.get("user_agent"),
+                "request_method": row.get("request_method"),
+                "request_path": row.get("request_path"),
+                "status": row.get("status"),
+                "details": details,
+                "created_at": row.get("created_at").isoformat(timespec="seconds") if row.get("created_at") else None,
+            }
+            if row.get("previous_hash") != prev_hash:
+                issues.append(f"Chain break at audit log {row.get('id')}")
+            expected_hash = _compute_audit_hash(payload, row.get("previous_hash") or "0" * 64)
+            if row.get("entry_hash") != expected_hash:
+                issues.append(f"Hash mismatch at audit log {row.get('id')}")
+            prev_hash = row.get("entry_hash") or prev_hash
+        return len(issues) == 0, issues
     finally:
         conn.close()
