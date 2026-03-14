@@ -145,3 +145,9 @@
 [2026-03-14 16:41:04,431] INFO in database: MySQL database 'quantumshield' initialised.
 [2026-03-14 16:41:04,513] WARNING in _internal:  * Debugger is active!
 [2026-03-14 16:41:04,521] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-14 22:01:31,654] INFO in app: QuantumShield application starting up...
+[2026-03-14 22:01:31,790] ERROR in database: MySQL init_db error: 3780 (HY000): Referencing column 'actor_user_id' and referenced column 'id' in foreign key constraint 'audit_logs_ibfk_1' are incompatible.
+[2026-03-14 22:01:32,034] INFO in app: QuantumShield application starting up...
+[2026-03-14 22:01:32,181] ERROR in database: MySQL init_db error: 3780 (HY000): Referencing column 'actor_user_id' and referenced column 'id' in foreign key constraint 'audit_logs_ibfk_1' are incompatible.
+[2026-03-14 22:01:32,477] INFO in app: QuantumShield application starting up...
+[2026-03-14 22:01:32,612] ERROR in database: MySQL init_db error: 3780 (HY000): Referencing column 'actor_user_id' and referenced column 'id' in foreign key constraint 'audit_logs_ibfk_1' are incompatible.
