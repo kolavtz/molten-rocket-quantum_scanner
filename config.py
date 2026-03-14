@@ -18,6 +18,7 @@ APP_NAME = "Quantum-Safe TLS Scanner"
 APP_VERSION = "1.0.0"
 SECRET_KEY = os.environ.get("QSS_SECRET_KEY", "dev-secret-change-in-production")
 DEBUG = os.environ.get("QSS_DEBUG", "true").lower() == "true"
+SESSION_COOKIE_NAME = os.environ.get("QSS_SESSION_COOKIE_NAME", "quantumshield_session")
 
 # ---------------------------------------------------------------------------
 # Network Discovery — Default Ports
@@ -472,17 +473,39 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE   = not DEBUG  # Only send over HTTPS if not in debug mode
 SESSION_COOKIE_SAMESITE = "Lax"
 PERMANENT_SESSION_LIFETIME = 3600    # 1 hour
+SESSION_IDLE_TIMEOUT_SECONDS = int(os.environ.get("QSS_SESSION_IDLE_TIMEOUT_SECONDS", str(PERMANENT_SESSION_LIFETIME)))
+
+# HTTPS / proxy hardening
+FORCE_HTTPS = os.environ.get("QSS_FORCE_HTTPS", str(not DEBUG)).lower() == "true"
+TRUST_PROXY_SSL_HEADER = os.environ.get("QSS_TRUST_PROXY_SSL", "true").lower() == "true"
+HSTS_SECONDS = int(os.environ.get("QSS_HSTS_SECONDS", "31536000"))
+MAX_LOGIN_ATTEMPTS = int(os.environ.get("QSS_MAX_LOGIN_ATTEMPTS", "5"))
+LOGIN_LOCKOUT_MINUTES = int(os.environ.get("QSS_LOGIN_LOCKOUT_MINUTES", "15"))
 
 # ---------------------------------------------------------------------------
 # SMTP / Email
 # ---------------------------------------------------------------------------
-MAIL_SERVER = os.environ.get("MAIL_SERVER", "smtp.gmail.com")
-MAIL_PORT = int(os.environ.get("MAIL_PORT", 587))
-MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", "true").lower() == "true"
-MAIL_USE_SSL = os.environ.get("MAIL_USE_SSL", "false").lower() == "true"
-MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
-MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
-MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER", MAIL_USERNAME)
+MAIL_SERVER = os.environ.get("MAIL_SERVER", os.environ.get("SMTP_SERVER", "smtp.gmail.com"))
+MAIL_PORT = int(os.environ.get("MAIL_PORT", os.environ.get("SMTP_PORT", 587)))
+MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", os.environ.get("SMTP_USE_TLS", "true")).lower() == "true"
+MAIL_USE_SSL = os.environ.get("MAIL_USE_SSL", os.environ.get("SMTP_USE_SSL", "false")).lower() == "true"
+MAIL_USERNAME = os.environ.get("MAIL_USERNAME", os.environ.get("SMTP_USERNAME"))
+MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD", os.environ.get("SMTP_PASSWORD"))
+MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER", os.environ.get("SMTP_FROM", MAIL_USERNAME))
+
+# ---------------------------------------------------------------------------
+# Audit / Tamper-Evident Logging
+# ---------------------------------------------------------------------------
+AUDIT_HASH_SECRET = os.environ.get("QSS_AUDIT_HASH_SECRET", SECRET_KEY)
+AUDIT_LOG_PAGE_SIZE = int(os.environ.get("QSS_AUDIT_LOG_PAGE_SIZE", "100"))
+
+# ---------------------------------------------------------------------------
+# Bootstrap / Production Placeholders
+# ---------------------------------------------------------------------------
+QSS_ADMIN_USERNAME = os.environ.get("QSS_ADMIN_USERNAME", "admin")
+QSS_ADMIN_EMAIL = os.environ.get("QSS_ADMIN_EMAIL", "admin@localhost")
+QSS_ADMIN_EMPLOYEE_ID = os.environ.get("QSS_ADMIN_EMPLOYEE_ID", "ADMIN-001")
+QSS_ADMIN_PASSWORD = os.environ.get("QSS_ADMIN_PASSWORD", "admin123")
 
 # ---------------------------------------------------------------------------
 # Data Security (Encryption at Rest)

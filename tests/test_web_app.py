@@ -15,6 +15,7 @@ from unittest.mock import patch
 @pytest.fixture
 def client():
     app.config['TESTING'] = True
+    app.config['LOGIN_DISABLED'] = True
     # disable csrf for testing if needed
     with app.test_client() as c:
         yield c
