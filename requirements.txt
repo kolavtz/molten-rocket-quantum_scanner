@@ -28,6 +28,7 @@ gunicorn>=21.2.0
 
 # Authentication
 Flask-Login>=0.6.3
+Flask-Mail>=0.9.1
 
 # Report generation
 weasyprint>=62.0; sys_platform != 'win32'
