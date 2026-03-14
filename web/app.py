@@ -15,6 +15,7 @@ import json
 import os
 import uuid
 import traceback
+import logging
 from datetime import datetime, timezone
 
 from flask import (
@@ -25,12 +26,24 @@ from flask import (
     send_file,
     redirect,
     url_for,
+    Response,
+    flash,
 )
+from flask_login import (
+    LoginManager,
+    UserMixin,
+    login_user,
+    logout_user,
+    login_required,
+    current_user,
+)
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from config import SECRET_KEY, DEBUG, FLASK_HOST, FLASK_PORT, RESULTS_DIR, AUTODISCOVERY_PORTS
+from config import SECRET_KEY, DEBUG, FLASK_HOST, FLASK_PORT, RESULTS_DIR, AUTODISCOVERY_PORTS, BASE_DIR
 from src.scanner.network_discovery import NetworkScanner, sanitize_target
 from src.scanner.tls_analyzer import TLSAnalyzer
 from src.scanner.pqc_detector import PQCDetector
@@ -51,8 +64,68 @@ app = Flask(
 )
 app.secret_key = SECRET_KEY
 
+# Security Hardening
+from config import (
+    MAX_CONTENT_LENGTH,
+    SESSION_COOKIE_HTTPONLY,
+    SESSION_COOKIE_SECURE,
+    SESSION_COOKIE_SAMESITE,
+    PERMANENT_SESSION_LIFETIME
+)
+app.config.update(
+    MAX_CONTENT_LENGTH=MAX_CONTENT_LENGTH,
+    SESSION_COOKIE_HTTPONLY=SESSION_COOKIE_HTTPONLY,
+    SESSION_COOKIE_SECURE=SESSION_COOKIE_SECURE,
+    SESSION_COOKIE_SAMESITE=SESSION_COOKIE_SAMESITE,
+    PERMANENT_SESSION_LIFETIME=PERMANENT_SESSION_LIFETIME
+)
+
+# Authentication
+login_manager = LoginManager()
+login_manager.login_view = "login"
+login_manager.init_app(app)
+
+class User(UserMixin):
+    def __init__(self, user_dict):
+        self.id = user_dict["id"]
+        self.username = user_dict["username"]
+        self.role = user_dict["role"]
+
+@login_manager.user_loader
+def load_user(user_id):
+    user_data = db.get_user_by_id(int(user_id))
+    if user_data:
+        return User(user_data)
+    return None
+
+def role_required(roles):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated:
+                return redirect(url_for('login'))
+            if current_user.role not in roles:
+                flash("You do not have permission to access this resource.", "error")
+                return redirect(url_for('index'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
 # Ensure results directory exists
 os.makedirs(RESULTS_DIR, exist_ok=True)
+
+# ── Logging Setup ───────────────────────────────────────────────────
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler(os.path.join(BASE_DIR, "app.log"))
+    ]
+)
+logger = logging.getLogger(__name__)
+logger.info("QuantumShield application starting up...")
 
 # In-memory store — hydrated from MySQL on cold start
 scan_store: dict = {}
@@ -140,6 +213,28 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None) -> dict:
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
+    # Reconcile discovered_services with tls_results
+    # If network_discovery missed TLS (e.g. strict SNI), but the deep analyzer 
+    # succeeded, we must update the discovery table so it shows "TLS" instead of "NO TLS"
+    verified_tls_endpoints = {(res["host"], res["port"]) for res in tls_results}
+    
+    # Check if the fallback added a new endpoint (e.g. 443) that wasn't in discovered_services
+    discovered_pairs = {(s["host"], s["port"]) for s in discovered_services}
+    
+    for host, port in verified_tls_endpoints:
+        if (host, port) not in discovered_pairs:
+            discovered_services.append({
+                "host": host,
+                "port": port,
+                "service": "HTTPS",
+                "is_tls": True,
+                "banner": "TLSv1.3" # Best guess filler
+            })
+            
+    for svc in discovered_services:
+        if (svc["host"], svc["port"]) in verified_tls_endpoints:
+            svc["is_tls"] = True  # Force true if analysis succeeded
+
     # 3. PQC Assessment
     detector = PQCDetector()
     pqc_assessments = [detector.assess_endpoint(tr) for tr in tls_results]
@@ -201,7 +296,37 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None) -> dict:
 # ── Routes ───────────────────────────────────────────────────────────
 
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    """Simple login page."""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+        
+        user_data = db.get_user_by_username(username)
+        if user_data and check_password_hash(user_data["password_hash"], password):
+            user = User(user_data)
+            login_user(user)
+            return redirect(url_for('index'))
+        else:
+            flash("Invalid username or password.", "error")
+            
+    return render_template("login.html")
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    """Logout current user."""
+    logout_user()
+    return redirect(url_for('login'))
+
+
 @app.route("/")
+@login_required
 def index():
     """Scanner dashboard with enterprise metrics, scan form, and recent results."""
     recent_scans = sorted(
@@ -250,6 +375,7 @@ def index():
 
 
 @app.route("/scan", methods=["POST"])
+@role_required(["Admin"])
 def scan():
     """Run a scan on one or multiple targets (text input + CSV upload)."""
     import re
@@ -343,6 +469,7 @@ def scan():
 
 
 @app.route("/results/<scan_id>")
+@login_required
 def results(scan_id: str):
     """Display scan results (memory → disk → MySQL fallback)."""
     report = scan_store.get(scan_id)
@@ -365,6 +492,7 @@ def results(scan_id: str):
 
 
 @app.route("/cbom/<scan_id>")
+@login_required
 def download_cbom(scan_id: str):
     """Download CBOM JSON file (disk → MySQL fallback)."""
     cbom_path = os.path.join(RESULTS_DIR, f"{scan_id}_cbom.json")
@@ -382,7 +510,59 @@ def download_cbom(scan_id: str):
     return jsonify({"error": "CBOM not found"}), 404
 
 
+@app.route("/api/badge/<path:target>")
+def api_badge(target: str):
+    """Dynamic SVG badge showing Quantum-Safe status."""
+    report = db.get_latest_scan_by_target(target)
+    
+    if not report:
+        status_text = "Unknown"
+        color = "#9ca3af" # gray-400
+    else:
+        overview = report.get("overview", {})
+        if overview.get("quantum_vulnerable", 0) > 0:
+            status_text = "Vulnerable"
+            color = "#c45c5c" # muted red
+        elif overview.get("quantum_safe", 0) > 0:
+            status_text = "Quantum Safe"
+            color = "#5b9e6f" # muted green
+        elif report.get("status") == "error":
+            status_text = "Scan Failed"
+            color = "#c9a24e" # muted amber
+        else:
+            status_text = "Status: OK"
+            color = "#5ba4b5" # teal
+            
+    # Simple standardized SVG badge layout (similar to shields.io)
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="220" height="28" role="img" aria-label="QuantumShield: {status_text}">
+      <title>QuantumShield: {status_text}</title>
+      <linearGradient id="s" x2="0" y2="100%">
+        <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+        <stop offset="1" stop-opacity=".1"/>
+      </linearGradient>
+      <clipPath id="r">
+        <rect width="220" height="28" rx="4" fill="#fff"/>
+      </clipPath>
+      <g clip-path="url(#r)">
+        <rect width="110" height="28" fill="#1e2128"/>
+        <rect x="110" width="110" height="28" fill="{color}"/>
+        <rect width="220" height="28" fill="url(#s)"/>
+      </g>
+      <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110">
+        <text aria-hidden="true" x="550" y="190" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="900">QuantumShield</text>
+        <text x="550" y="180" transform="scale(.1)" fill="#fff" textLength="900">QuantumShield</text>
+        <text aria-hidden="true" x="1650" y="190" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="900">{status_text}</text>
+        <text x="1650" y="180" transform="scale(.1)" fill="#fff" textLength="900">{status_text}</text>
+      </g>
+    </svg>'''
+    
+    response = Response(svg, mimetype="image/svg+xml")
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
+
+
 @app.route("/api/scan", methods=["GET", "POST"])
+@role_required(["Admin"])
 def api_scan():
     """REST API endpoint for CI/CD integration."""
     if request.method == "GET":

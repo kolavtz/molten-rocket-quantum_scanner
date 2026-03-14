@@ -1,0 +1,635 @@
+{
+  "report_id": "urn:uuid:6385f24c-9957-4183-a6af-89703c368b37",
+  "generated_at": "2026-03-14T00:22:19.742808+00:00",
+  "tool": {
+    "name": "Quantum-Safe TLS Scanner",
+    "version": "1.0.0"
+  },
+  "overview": {
+    "total_assets": 4,
+    "quantum_safe": 0,
+    "quantum_vulnerable": 4,
+    "average_compliance_score": 33
+  },
+  "severity_breakdown": {
+    "CRITICAL": 4,
+    "HIGH": 0,
+    "MEDIUM": 0,
+    "LOW": 0,
+    "INFO": 4
+  },
+  "risk_distribution": {
+    "HIGH": 4,
+    "MEDIUM": 0,
+    "LOW": 0
+  },
+  "label_distribution": {
+    "PQC Ready": 0,
+    "Partial": 0,
+    "Non-Compliant": 4
+  },
+  "top_recommendations": [
+    "Quantum-vulnerable key exchange: migrate from TLS1.3-ECDHE to ML-KEM-768 or ML-KEM-1024",
+    "Enable TLS 1.3 and configure PQC key exchange (ML-KEM-768) on your server.",
+    "Obtain a PQC-signed certificate using ML-DSA or SLH-DSA from a supporting CA.",
+    "Consider hybrid key exchange (X25519+ML-KEM-768) as a transitional step."
+  ],
+  "findings": [
+    {
+      "severity": "CRITICAL",
+      "category": "key_exchange",
+      "title": "Quantum-vulnerable key exchange",
+      "description": "Key exchange 'TLS1.3-ECDHE' is vulnerable to Shor's algorithm. A sufficiently powerful quantum computer could break this.",
+      "current_value": "TLS1.3-ECDHE",
+      "recommended_value": "ML-KEM-768 or ML-KEM-1024",
+      "nist_reference": "FIPS 203 (ML-KEM)"
+    },
+    {
+      "severity": "INFO",
+      "category": "protocol",
+      "title": "TLS 1.3 in use",
+      "description": "TLS 1.3 is the recommended version and required for PQC cipher suites.",
+      "current_value": "TLSv1.3",
+      "recommended_value": "",
+      "nist_reference": ""
+    },
+    {
+      "severity": "CRITICAL",
+      "category": "key_exchange",
+      "title": "Quantum-vulnerable key exchange",
+      "description": "Key exchange 'TLS1.3-ECDHE' is vulnerable to Shor's algorithm. A sufficiently powerful quantum computer could break this.",
+      "current_value": "TLS1.3-ECDHE",
+      "recommended_value": "ML-KEM-768 or ML-KEM-1024",
+      "nist_reference": "FIPS 203 (ML-KEM)"
+    },
+    {
+      "severity": "INFO",
+      "category": "protocol",
+      "title": "TLS 1.3 in use",
+      "description": "TLS 1.3 is the recommended version and required for PQC cipher suites.",
+      "current_value": "TLSv1.3",
+      "recommended_value": "",
+      "nist_reference": ""
+    },
+    {
+      "severity": "CRITICAL",
+      "category": "key_exchange",
+      "title": "Quantum-vulnerable key exchange",
+      "description": "Key exchange 'TLS1.3-ECDHE' is vulnerable to Shor's algorithm. A sufficiently powerful quantum computer could break this.",
+      "current_value": "TLS1.3-ECDHE",
+      "recommended_value": "ML-KEM-768 or ML-KEM-1024",
+      "nist_reference": "FIPS 203 (ML-KEM)"
+    },
+    {
+      "severity": "INFO",
+      "category": "protocol",
+      "title": "TLS 1.3 in use",
+      "description": "TLS 1.3 is the recommended version and required for PQC cipher suites.",
+      "current_value": "TLSv1.3",
+      "recommended_value": "",
+      "nist_reference": ""
+    },
+    {
+      "severity": "CRITICAL",
+      "category": "key_exchange",
+      "title": "Quantum-vulnerable key exchange",
+      "description": "Key exchange 'TLS1.3-ECDHE' is vulnerable to Shor's algorithm. A sufficiently powerful quantum computer could break this.",
+      "current_value": "TLS1.3-ECDHE",
+      "recommended_value": "ML-KEM-768 or ML-KEM-1024",
+      "nist_reference": "FIPS 203 (ML-KEM)"
+    },
+    {
+      "severity": "INFO",
+      "category": "protocol",
+      "title": "TLS 1.3 in use",
+      "description": "TLS 1.3 is the recommended version and required for PQC cipher suites.",
+      "current_value": "TLSv1.3",
+      "recommended_value": "",
+      "nist_reference": ""
+    }
+  ],
+  "labels": [
+    {
+      "label_id": "6fb59436-094e-4052-8881-dc3a95cab308",
+      "host": "104.16.132.229",
+      "port": 443,
+      "label": "Non-Compliant",
+      "compliance_score": 33,
+      "standard": "FIPS 203 (ML-KEM)",
+      "issued_at": "2026-03-14T00:22:19.742512+00:00",
+      "valid_until": "2026-04-13T00:22:19.742434+00:00",
+      "issuer": "Quantum-Safe TLS Scanner",
+      "issuer_version": "1.0.0",
+      "details": {
+        "critical_findings": 1,
+        "high_findings": 0,
+        "hndl_risk_level": "HIGH",
+        "recommendations_count": 4
+      },
+      "badge_color": "#ef4444",
+      "checksum": "101a65b52af78187565eb565bbd4dd6072daa235fed7c7325fb8f80b921ede99"
+    },
+    {
+      "label_id": "a748c3a1-689a-4847-ae3b-99d564b1581e",
+      "host": "104.16.132.229",
+      "port": 8443,
+      "label": "Non-Compliant",
+      "compliance_score": 33,
+      "standard": "FIPS 203 (ML-KEM)",
+      "issued_at": "2026-03-14T00:22:19.742673+00:00",
+      "valid_until": "2026-04-13T00:22:19.742653+00:00",
+      "issuer": "Quantum-Safe TLS Scanner",
+      "issuer_version": "1.0.0",
+      "details": {
+        "critical_findings": 1,
+        "high_findings": 0,
+        "hndl_risk_level": "HIGH",
+        "recommendations_count": 4
+      },
+      "badge_color": "#ef4444",
+      "checksum": "9339519501ccf6f885bcd0cb7bc05506e5090a3727127b343009fa9848e7c159"
+    },
+    {
+      "label_id": "65e26583-94ee-4120-901c-c3e6a4f3a9c7",
+      "host": "104.16.133.229",
+      "port": 443,
+      "label": "Non-Compliant",
+      "compliance_score": 33,
+      "standard": "FIPS 203 (ML-KEM)",
+      "issued_at": "2026-03-14T00:22:19.742696+00:00",
+      "valid_until": "2026-04-13T00:22:19.742683+00:00",
+      "issuer": "Quantum-Safe TLS Scanner",
+      "issuer_version": "1.0.0",
+      "details": {
+        "critical_findings": 1,
+        "high_findings": 0,
+        "hndl_risk_level": "HIGH",
+        "recommendations_count": 4
+      },
+      "badge_color": "#ef4444",
+      "checksum": "be781eebe3f3cae212b63b62d1fbbf4b243be4b6f20bdd963315ee85c0f9ca6d"
+    },
+    {
+      "label_id": "9b0c2c10-9388-4e71-8e05-bd8213db8c85",
+      "host": "104.16.133.229",
+      "port": 8443,
+      "label": "Non-Compliant",
+      "compliance_score": 33,
+      "standard": "FIPS 203 (ML-KEM)",
+      "issued_at": "2026-03-14T00:22:19.742714+00:00",
+      "valid_until": "2026-04-13T00:22:19.742704+00:00",
+      "issuer": "Quantum-Safe TLS Scanner",
+      "issuer_version": "1.0.0",
+      "details": {
+        "critical_findings": 1,
+        "high_findings": 0,
+        "hndl_risk_level": "HIGH",
+        "recommendations_count": 4
+      },
+      "badge_color": "#ef4444",
+      "checksum": "4b68b6895209a7414888a27e46b152f7b718ed5cb1869996f51c7ba8b85c46bd"
+    }
+  ],
+  "assets": [
+    {
+      "asset_id": "cab7ad6d-725f-45e3-b7db-ae6f62b996a0",
+      "host": "104.16.132.229",
+      "port": 443,
+      "service": "TLS-443",
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_256_GCM_SHA384",
+      "cipher_bits": 256,
+      "key_exchange": "TLS1.3-ECDHE",
+      "cert_subject": "",
+      "cert_issuer": "",
+      "cert_serial": "",
+      "cert_not_before": "",
+      "cert_not_after": "",
+      "cert_signature_algorithm": "",
+      "cert_public_key_type": "",
+      "cert_public_key_bits": 0,
+      "cert_fingerprint": "",
+      "cert_is_expired": false,
+      "cert_days_until_expiry": 0,
+      "is_quantum_safe": false,
+      "pqc_status": "quantum_vulnerable",
+      "risk_level": "HIGH"
+    },
+    {
+      "asset_id": "480bbc62-501e-42d4-aaa5-ff3d727579b4",
+      "host": "104.16.132.229",
+      "port": 8443,
+      "service": "TLS-8443",
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_256_GCM_SHA384",
+      "cipher_bits": 256,
+      "key_exchange": "TLS1.3-ECDHE",
+      "cert_subject": "",
+      "cert_issuer": "",
+      "cert_serial": "",
+      "cert_not_before": "",
+      "cert_not_after": "",
+      "cert_signature_algorithm": "",
+      "cert_public_key_type": "",
+      "cert_public_key_bits": 0,
+      "cert_fingerprint": "",
+      "cert_is_expired": false,
+      "cert_days_until_expiry": 0,
+      "is_quantum_safe": false,
+      "pqc_status": "quantum_vulnerable",
+      "risk_level": "HIGH"
+    },
+    {
+      "asset_id": "600b7fef-8a6d-4bab-bddd-ec93cb0121b5",
+      "host": "104.16.133.229",
+      "port": 443,
+      "service": "TLS-443",
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_256_GCM_SHA384",
+      "cipher_bits": 256,
+      "key_exchange": "TLS1.3-ECDHE",
+      "cert_subject": "",
+      "cert_issuer": "",
+      "cert_serial": "",
+      "cert_not_before": "",
+      "cert_not_after": "",
+      "cert_signature_algorithm": "",
+      "cert_public_key_type": "",
+      "cert_public_key_bits": 0,
+      "cert_fingerprint": "",
+      "cert_is_expired": false,
+      "cert_days_until_expiry": 0,
+      "is_quantum_safe": false,
+      "pqc_status": "quantum_vulnerable",
+      "risk_level": "HIGH"
+    },
+    {
+      "asset_id": "cf56597f-17c3-4c84-b162-0499b8c7b7f4",
+      "host": "104.16.133.229",
+      "port": 8443,
+      "service": "TLS-8443",
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_256_GCM_SHA384",
+      "cipher_bits": 256,
+      "key_exchange": "TLS1.3-ECDHE",
+      "cert_subject": "",
+      "cert_issuer": "",
+      "cert_serial": "",
+      "cert_not_before": "",
+      "cert_not_after": "",
+      "cert_signature_algorithm": "",
+      "cert_public_key_type": "",
+      "cert_public_key_bits": 0,
+      "cert_fingerprint": "",
+      "cert_is_expired": false,
+      "cert_days_until_expiry": 0,
+      "is_quantum_safe": false,
+      "pqc_status": "quantum_vulnerable",
+      "risk_level": "HIGH"
+    }
+  ],
+  "scan_id": "a1692530",
+  "target": "cloudflare.com",
+  "status": "complete",
+  "tls_results": [
+    {
+      "host": "104.16.132.229",
+      "port": 443,
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_256_GCM_SHA384",
+      "cipher_bits": 256,
+      "key_exchange": "TLS1.3-ECDHE",
+      "certificate": null,
+      "certificate_chain_length": 0,
+      "supported_protocols": [
+        "TLSv1.2",
+        "TLSv1.3"
+      ],
+      "all_cipher_suites": [],
+      "error": null
+    },
+    {
+      "host": "104.16.132.229",
+      "port": 8443,
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_256_GCM_SHA384",
+      "cipher_bits": 256,
+      "key_exchange": "TLS1.3-ECDHE",
+      "certificate": null,
+      "certificate_chain_length": 0,
+      "supported_protocols": [
+        "TLSv1.2",
+        "TLSv1.3"
+      ],
+      "all_cipher_suites": [],
+      "error": null
+    },
+    {
+      "host": "104.16.133.229",
+      "port": 443,
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_256_GCM_SHA384",
+      "cipher_bits": 256,
+      "key_exchange": "TLS1.3-ECDHE",
+      "certificate": null,
+      "certificate_chain_length": 0,
+      "supported_protocols": [
+        "TLSv1.2",
+        "TLSv1.3"
+      ],
+      "all_cipher_suites": [],
+      "error": null
+    },
+    {
+      "host": "104.16.133.229",
+      "port": 8443,
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_256_GCM_SHA384",
+      "cipher_bits": 256,
+      "key_exchange": "TLS1.3-ECDHE",
+      "certificate": null,
+      "certificate_chain_length": 0,
+      "supported_protocols": [
+        "TLSv1.2",
+        "TLSv1.3"
+      ],
+      "all_cipher_suites": [],
+      "error": null
+    }
+  ],
+  "pqc_assessments": [
+    {
+      "host": "104.16.132.229",
+      "port": 443,
+      "is_quantum_safe": false,
+      "is_hybrid": false,
+      "overall_status": "quantum_vulnerable",
+      "risk_level": "HIGH",
+      "quantum_safe_algorithms": [],
+      "quantum_vulnerable_algorithms": [
+        {
+          "name": "TLS1.3-ECDHE",
+          "category": "key_exchange",
+          "status": "quantum_vulnerable",
+          "standard": "",
+          "is_nist_approved": false,
+          "is_draft": false,
+          "notes": "Uses ECDH, which is vulnerable to Shor's algorithm."
+        }
+      ],
+      "details": "No quantum-safe algorithms detected.  This endpoint is vulnerable to future quantum attacks (Harvest Now, Decrypt Later)."
+    },
+    {
+      "host": "104.16.132.229",
+      "port": 8443,
+      "is_quantum_safe": false,
+      "is_hybrid": false,
+      "overall_status": "quantum_vulnerable",
+      "risk_level": "HIGH",
+      "quantum_safe_algorithms": [],
+      "quantum_vulnerable_algorithms": [
+        {
+          "name": "TLS1.3-ECDHE",
+          "category": "key_exchange",
+          "status": "quantum_vulnerable",
+          "standard": "",
+          "is_nist_approved": false,
+          "is_draft": false,
+          "notes": "Uses ECDH, which is vulnerable to Shor's algorithm."
+        }
+      ],
+      "details": "No quantum-safe algorithms detected.  This endpoint is vulnerable to future quantum attacks (Harvest Now, Decrypt Later)."
+    },
+    {
+      "host": "104.16.133.229",
+      "port": 443,
+      "is_quantum_safe": false,
+      "is_hybrid": false,
+      "overall_status": "quantum_vulnerable",
+      "risk_level": "HIGH",
+      "quantum_safe_algorithms": [],
+      "quantum_vulnerable_algorithms": [
+        {
+          "name": "TLS1.3-ECDHE",
+          "category": "key_exchange",
+          "status": "quantum_vulnerable",
+          "standard": "",
+          "is_nist_approved": false,
+          "is_draft": false,
+          "notes": "Uses ECDH, which is vulnerable to Shor's algorithm."
+        }
+      ],
+      "details": "No quantum-safe algorithms detected.  This endpoint is vulnerable to future quantum attacks (Harvest Now, Decrypt Later)."
+    },
+    {
+      "host": "104.16.133.229",
+      "port": 8443,
+      "is_quantum_safe": false,
+      "is_hybrid": false,
+      "overall_status": "quantum_vulnerable",
+      "risk_level": "HIGH",
+      "quantum_safe_algorithms": [],
+      "quantum_vulnerable_algorithms": [
+        {
+          "name": "TLS1.3-ECDHE",
+          "category": "key_exchange",
+          "status": "quantum_vulnerable",
+          "standard": "",
+          "is_nist_approved": false,
+          "is_draft": false,
+          "notes": "Uses ECDH, which is vulnerable to Shor's algorithm."
+        }
+      ],
+      "details": "No quantum-safe algorithms detected.  This endpoint is vulnerable to future quantum attacks (Harvest Now, Decrypt Later)."
+    }
+  ],
+  "recommendations_detailed": [
+    {
+      "priority": 1,
+      "title": "Migrate to Post-Quantum Key Exchange",
+      "description": "Replace current key exchange mechanism with ML-KEM-768 (FIPS 203). Use hybrid X25519+ML-KEM-768 as a transitional step for backward compatibility.",
+      "server_configs": {
+        "Nginx (OpenSSL 3.5+)": "# Nginx — Enable TLS 1.3 with PQC-ready cipher suites\nssl_protocols TLSv1.3;\nssl_ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256;\nssl_prefer_server_ciphers off;\nssl_conf_command Groups X25519MLKEM768:X25519:secp384r1;",
+        "Apache (OpenSSL 3.5+)": "# Apache — Enable TLS 1.3\nSSLProtocol -all +TLSv1.3\nSSLCipherSuite TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nSSLOpenSSLConfCmd Groups X25519MLKEM768:X25519:secp384r1",
+        "HAProxy": "# HAProxy — TLS 1.3 with PQC groups\nbind *:443 ssl crt /etc/haproxy/certs/ alpn h2,http/1.1\nssl-default-bind-ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nssl-default-bind-options ssl-min-ver TLSv1.3\nssl-default-bind-curves X25519MLKEM768:X25519:secp384r1",
+        "AWS ALB": "# AWS ALB — Quantum-safe cipher policy\n# Use the 'ELBSecurityPolicy-TLS13-1-3-2021-06' or later policy\n# Enable X25519MLKEM768 group in the ALB listener configuration\n# Reference: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/"
+      },
+      "effort": "Medium",
+      "impact": "Critical",
+      "timeline": "2-4 weeks"
+    },
+    {
+      "priority": 4,
+      "title": "Implement Crypto Agility",
+      "description": "Design systems to easily swap cryptographic algorithms without major code changes. This ensures smooth future transitions as PQC standards evolve.",
+      "server_configs": {},
+      "effort": "Medium",
+      "impact": "Medium",
+      "timeline": "Ongoing"
+    },
+    {
+      "priority": 5,
+      "title": "Establish PQC Migration Timeline",
+      "description": "Create a phased migration plan aligned with NIST's 2035 deadline for deprecating quantum-vulnerable algorithms. Prioritize high-value endpoints handling financial data.",
+      "server_configs": {},
+      "effort": "Low",
+      "impact": "Critical",
+      "timeline": "Start immediately"
+    },
+    {
+      "priority": 1,
+      "title": "Migrate to Post-Quantum Key Exchange",
+      "description": "Replace current key exchange mechanism with ML-KEM-768 (FIPS 203). Use hybrid X25519+ML-KEM-768 as a transitional step for backward compatibility.",
+      "server_configs": {
+        "Nginx (OpenSSL 3.5+)": "# Nginx — Enable TLS 1.3 with PQC-ready cipher suites\nssl_protocols TLSv1.3;\nssl_ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256;\nssl_prefer_server_ciphers off;\nssl_conf_command Groups X25519MLKEM768:X25519:secp384r1;",
+        "Apache (OpenSSL 3.5+)": "# Apache — Enable TLS 1.3\nSSLProtocol -all +TLSv1.3\nSSLCipherSuite TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nSSLOpenSSLConfCmd Groups X25519MLKEM768:X25519:secp384r1",
+        "HAProxy": "# HAProxy — TLS 1.3 with PQC groups\nbind *:443 ssl crt /etc/haproxy/certs/ alpn h2,http/1.1\nssl-default-bind-ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nssl-default-bind-options ssl-min-ver TLSv1.3\nssl-default-bind-curves X25519MLKEM768:X25519:secp384r1",
+        "AWS ALB": "# AWS ALB — Quantum-safe cipher policy\n# Use the 'ELBSecurityPolicy-TLS13-1-3-2021-06' or later policy\n# Enable X25519MLKEM768 group in the ALB listener configuration\n# Reference: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/"
+      },
+      "effort": "Medium",
+      "impact": "Critical",
+      "timeline": "2-4 weeks"
+    },
+    {
+      "priority": 4,
+      "title": "Implement Crypto Agility",
+      "description": "Design systems to easily swap cryptographic algorithms without major code changes. This ensures smooth future transitions as PQC standards evolve.",
+      "server_configs": {},
+      "effort": "Medium",
+      "impact": "Medium",
+      "timeline": "Ongoing"
+    },
+    {
+      "priority": 5,
+      "title": "Establish PQC Migration Timeline",
+      "description": "Create a phased migration plan aligned with NIST's 2035 deadline for deprecating quantum-vulnerable algorithms. Prioritize high-value endpoints handling financial data.",
+      "server_configs": {},
+      "effort": "Low",
+      "impact": "Critical",
+      "timeline": "Start immediately"
+    },
+    {
+      "priority": 1,
+      "title": "Migrate to Post-Quantum Key Exchange",
+      "description": "Replace current key exchange mechanism with ML-KEM-768 (FIPS 203). Use hybrid X25519+ML-KEM-768 as a transitional step for backward compatibility.",
+      "server_configs": {
+        "Nginx (OpenSSL 3.5+)": "# Nginx — Enable TLS 1.3 with PQC-ready cipher suites\nssl_protocols TLSv1.3;\nssl_ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256;\nssl_prefer_server_ciphers off;\nssl_conf_command Groups X25519MLKEM768:X25519:secp384r1;",
+        "Apache (OpenSSL 3.5+)": "# Apache — Enable TLS 1.3\nSSLProtocol -all +TLSv1.3\nSSLCipherSuite TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nSSLOpenSSLConfCmd Groups X25519MLKEM768:X25519:secp384r1",
+        "HAProxy": "# HAProxy — TLS 1.3 with PQC groups\nbind *:443 ssl crt /etc/haproxy/certs/ alpn h2,http/1.1\nssl-default-bind-ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nssl-default-bind-options ssl-min-ver TLSv1.3\nssl-default-bind-curves X25519MLKEM768:X25519:secp384r1",
+        "AWS ALB": "# AWS ALB — Quantum-safe cipher policy\n# Use the 'ELBSecurityPolicy-TLS13-1-3-2021-06' or later policy\n# Enable X25519MLKEM768 group in the ALB listener configuration\n# Reference: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/"
+      },
+      "effort": "Medium",
+      "impact": "Critical",
+      "timeline": "2-4 weeks"
+    },
+    {
+      "priority": 4,
+      "title": "Implement Crypto Agility",
+      "description": "Design systems to easily swap cryptographic algorithms without major code changes. This ensures smooth future transitions as PQC standards evolve.",
+      "server_configs": {},
+      "effort": "Medium",
+      "impact": "Medium",
+      "timeline": "Ongoing"
+    },
+    {
+      "priority": 5,
+      "title": "Establish PQC Migration Timeline",
+      "description": "Create a phased migration plan aligned with NIST's 2035 deadline for deprecating quantum-vulnerable algorithms. Prioritize high-value endpoints handling financial data.",
+      "server_configs": {},
+      "effort": "Low",
+      "impact": "Critical",
+      "timeline": "Start immediately"
+    },
+    {
+      "priority": 1,
+      "title": "Migrate to Post-Quantum Key Exchange",
+      "description": "Replace current key exchange mechanism with ML-KEM-768 (FIPS 203). Use hybrid X25519+ML-KEM-768 as a transitional step for backward compatibility.",
+      "server_configs": {
+        "Nginx (OpenSSL 3.5+)": "# Nginx — Enable TLS 1.3 with PQC-ready cipher suites\nssl_protocols TLSv1.3;\nssl_ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256;\nssl_prefer_server_ciphers off;\nssl_conf_command Groups X25519MLKEM768:X25519:secp384r1;",
+        "Apache (OpenSSL 3.5+)": "# Apache — Enable TLS 1.3\nSSLProtocol -all +TLSv1.3\nSSLCipherSuite TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nSSLOpenSSLConfCmd Groups X25519MLKEM768:X25519:secp384r1",
+        "HAProxy": "# HAProxy — TLS 1.3 with PQC groups\nbind *:443 ssl crt /etc/haproxy/certs/ alpn h2,http/1.1\nssl-default-bind-ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nssl-default-bind-options ssl-min-ver TLSv1.3\nssl-default-bind-curves X25519MLKEM768:X25519:secp384r1",
+        "AWS ALB": "# AWS ALB — Quantum-safe cipher policy\n# Use the 'ELBSecurityPolicy-TLS13-1-3-2021-06' or later policy\n# Enable X25519MLKEM768 group in the ALB listener configuration\n# Reference: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/"
+      },
+      "effort": "Medium",
+      "impact": "Critical",
+      "timeline": "2-4 weeks"
+    },
+    {
+      "priority": 4,
+      "title": "Implement Crypto Agility",
+      "description": "Design systems to easily swap cryptographic algorithms without major code changes. This ensures smooth future transitions as PQC standards evolve.",
+      "server_configs": {},
+      "effort": "Medium",
+      "impact": "Medium",
+      "timeline": "Ongoing"
+    },
+    {
+      "priority": 5,
+      "title": "Establish PQC Migration Timeline",
+      "description": "Create a phased migration plan aligned with NIST's 2035 deadline for deprecating quantum-vulnerable algorithms. Prioritize high-value endpoints handling financial data.",
+      "server_configs": {},
+      "effort": "Low",
+      "impact": "Critical",
+      "timeline": "Start immediately"
+    }
+  ],
+  "discovered_services": [
+    {
+      "host": "104.16.132.229",
+      "port": 80,
+      "service": "HTTP",
+      "is_tls": false,
+      "banner": "open (no TLS)"
+    },
+    {
+      "host": "104.16.132.229",
+      "port": 443,
+      "service": "HTTPS",
+      "is_tls": true,
+      "banner": "TLSv1.3"
+    },
+    {
+      "host": "104.16.132.229",
+      "port": 8080,
+      "service": "HTTP-Proxy",
+      "is_tls": false,
+      "banner": "open (no TLS)"
+    },
+    {
+      "host": "104.16.132.229",
+      "port": 8443,
+      "service": "HTTPS-Alt",
+      "is_tls": true,
+      "banner": "TLSv1.3"
+    },
+    {
+      "host": "104.16.133.229",
+      "port": 80,
+      "service": "HTTP",
+      "is_tls": false,
+      "banner": "open (no TLS)"
+    },
+    {
+      "host": "104.16.133.229",
+      "port": 443,
+      "service": "HTTPS",
+      "is_tls": true,
+      "banner": "TLSv1.3"
+    },
+    {
+      "host": "104.16.133.229",
+      "port": 8080,
+      "service": "HTTP-Proxy",
+      "is_tls": false,
+      "banner": "open (no TLS)"
+    },
+    {
+      "host": "104.16.133.229",
+      "port": 8443,
+      "service": "HTTPS-Alt",
+      "is_tls": true,
+      "banner": "TLSv1.3"
+    }
+  ],
+  "cbom_path": "C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\scan_results\\a1692530_cbom.json"
+}

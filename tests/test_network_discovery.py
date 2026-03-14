@@ -128,11 +128,11 @@ class TestResolveTarget:
 
     def test_cidr_small(self):
         scanner = NetworkScanner()
-        result = scanner._resolve_target("192.168.1.0/30")
+        result = scanner._resolve_target("8.8.8.0/30")
         # /30 has 2 usable hosts
         assert len(result) == 2
-        assert "192.168.1.1" in result
-        assert "192.168.1.2" in result
+        assert "8.8.8.1" in result
+        assert "8.8.8.2" in result
 
     def test_cidr_too_large(self):
         scanner = NetworkScanner()
@@ -187,6 +187,6 @@ class TestDiscoverTargets:
         mock_socket_cls.return_value = mock_sock
 
         scanner = NetworkScanner(ports=[443], max_workers=1)
-        results = scanner.discover_targets("10.0.0.1")
+        results = scanner.discover_targets("8.8.4.4")
 
         assert len(results) == 0

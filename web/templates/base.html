@@ -25,7 +25,17 @@
             </a>
             <div class="nav-links">
                 <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Dashboard</a>
-                <a href="/api/scans" class="nav-link" target="_blank">API</a>
+                {% if current_user.is_authenticated %}
+                    <div class="user-profile">
+                        <span class="user-info">
+                            <span class="user-name">{{ current_user.username }}</span>
+                            <span class="role-badge">{{ current_user.role }}</span>
+                        </span>
+                        <a href="/logout" class="nav-link logout-link">Logout</a>
+                    </div>
+                {% else %}
+                    <a href="/login" class="nav-link">Login</a>
+                {% endif %}
             </div>
         </div>
     </nav>

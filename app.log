@@ -1,0 +1,66 @@
+[2026-03-14 15:55:27,757] INFO in app: QuantumShield application starting up...
+[2026-03-14 15:55:27,844] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-14 15:55:27,873] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+[2026-03-14 15:55:27,873] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-14 15:55:27,874] INFO in _internal:  * Restarting with stat
+[2026-03-14 15:55:28,194] INFO in app: QuantumShield application starting up...
+[2026-03-14 15:55:28,286] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-14 15:55:28,320] WARNING in _internal:  * Debugger is active!
+[2026-03-14 15:55:28,325] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-14 15:56:03,852] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 15:56:03] "GET /login HTTP/1.1" 200 -
+[2026-03-14 15:56:03,982] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 15:56:03] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-14 15:56:04,012] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 15:56:04] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-14 15:56:04,102] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 15:56:04] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+[2026-03-14 15:56:18,662] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 15:56:18] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-14 15:56:18,991] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 15:56:18] "[35m[1mGET / HTTP/1.1[0m" 500 -
+[2026-03-14 15:56:19,146] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 15:56:19] "GET /?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1" 200 -
+[2026-03-14 15:56:19,179] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 15:56:19] "GET /?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1" 200 -
+[2026-03-14 15:56:19,234] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 15:56:19] "GET /?__debugger__=yes&cmd=resource&f=console.png&s=7jCZv9vLIio2kw8Ak7SD HTTP/1.1" 200 -
+[2026-03-14 15:56:19,258] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 15:56:19] "GET /?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1" 200 -
+[2026-03-14 15:58:05,190] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 15:58:05] "[33mGET /dashboard HTTP/1.1[0m" 404 -
+[2026-03-14 15:58:11,427] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 15:58:11] "[35m[1mGET / HTTP/1.1[0m" 500 -
+[2026-03-14 15:58:11,533] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 15:58:11] "[36mGET /?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
+[2026-03-14 15:58:11,545] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 15:58:11] "[36mGET /?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1[0m" 304 -
+[2026-03-14 15:58:11,672] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 15:58:11] "[36mGET /?__debugger__=yes&cmd=resource&f=console.png&s=7jCZv9vLIio2kw8Ak7SD HTTP/1.1[0m" 304 -
+[2026-03-14 16:02:50,854] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:02:50] "[35m[1mGET / HTTP/1.1[0m" 500 -
+[2026-03-14 16:02:50,872] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:02:50] "[36mGET /?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
+[2026-03-14 16:02:50,873] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:02:50] "[36mGET /?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1[0m" 304 -
+[2026-03-14 16:02:50,883] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:02:50] "[36mGET /?__debugger__=yes&cmd=resource&f=console.png&s=7jCZv9vLIio2kw8Ak7SD HTTP/1.1[0m" 304 -
+[2026-03-14 16:02:50,897] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:02:50] "[36mGET /?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1[0m" 304 -
+[2026-03-14 16:03:01,507] INFO in app: QuantumShield application starting up...
+[2026-03-14 16:03:01,607] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-14 16:03:01,641] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+[2026-03-14 16:03:01,641] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-14 16:03:01,643] INFO in _internal:  * Restarting with stat
+[2026-03-14 16:03:01,991] INFO in app: QuantumShield application starting up...
+[2026-03-14 16:03:02,085] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-14 16:03:02,123] WARNING in _internal:  * Debugger is active!
+[2026-03-14 16:03:02,129] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-14 16:03:50,433] INFO in app: QuantumShield application starting up...
+[2026-03-14 16:03:50,524] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-14 16:03:50,554] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+[2026-03-14 16:03:50,554] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-14 16:03:50,555] INFO in _internal:  * Restarting with stat
+[2026-03-14 16:03:50,913] INFO in app: QuantumShield application starting up...
+[2026-03-14 16:03:51,011] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-14 16:03:51,033] WARNING in _internal:  * Debugger is active!
+[2026-03-14 16:03:51,037] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-14 16:04:08,708] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:04:08] "[32mGET /login HTTP/1.1[0m" 302 -
+[2026-03-14 16:04:08,742] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:04:08] "GET / HTTP/1.1" 200 -
+[2026-03-14 16:04:08,767] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:04:08] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-14 16:04:08,767] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:04:08] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-14 16:04:16,915] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:04:16] "[32mGET /logout HTTP/1.1[0m" 302 -
+[2026-03-14 16:04:16,935] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:04:16] "GET /login HTTP/1.1" 200 -
+[2026-03-14 16:04:17,035] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:04:17] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-14 16:04:17,040] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:04:17] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-14 16:04:34,226] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:04:34] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-14 16:04:34,266] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:04:34] "GET / HTTP/1.1" 200 -
+[2026-03-14 16:04:34,429] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:04:34] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-14 16:04:34,449] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:04:34] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-14 16:04:55,778] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:04:55] "[32mGET /logout HTTP/1.1[0m" 302 -
+[2026-03-14 16:04:55,797] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:04:55] "GET /login HTTP/1.1" 200 -
+[2026-03-14 16:04:55,921] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:04:55] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-14 16:04:55,932] INFO in _internal: 127.0.0.1 - - [14/Mar/2026 16:04:55] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -

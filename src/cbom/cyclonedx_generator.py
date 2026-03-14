@@ -91,7 +91,7 @@ class CycloneDXGenerator:
 
             comp = Component(
                 name=f"TLS-{asset.get('host', 'unknown')}:{asset.get('port', 0)}",
-                component_type=ComponentType.CRYPTOGRAPHIC_ASSET,
+                type=ComponentType.CRYPTOGRAPHIC_ASSET,
                 version=asset.get("protocol_version", ""),
                 description=(
                     f"Cryptographic asset on {asset.get('host')}:{asset.get('port')} "
@@ -108,7 +108,7 @@ class CycloneDXGenerator:
                 props = [Property(name=f"cert-in:{k}", value=str(v)) for k, v in item.items() if v != ""]
                 comp = Component(
                     name=item.get("name", f"Unknown {category[:-1]}"),
-                    component_type=ComponentType.CRYPTOGRAPHIC_ASSET,
+                    type=ComponentType.CRYPTOGRAPHIC_ASSET,
                     description=f"CERT-IN {category[:-1].capitalize()}",
                     properties=props,
                 )

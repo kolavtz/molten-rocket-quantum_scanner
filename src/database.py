@@ -102,6 +102,15 @@ def init_db() -> bool:
         cur.execute(f"USE `{MYSQL_DATABASE}`")
 
         cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id            INT AUTO_INCREMENT PRIMARY KEY,
+                username      VARCHAR(64) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                role          VARCHAR(16) DEFAULT 'Viewer'
+            ) ENGINE=InnoDB
+        """)
+
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS scans (
                 scan_id          VARCHAR(16)  PRIMARY KEY,
                 target           VARCHAR(512) NOT NULL,
@@ -123,6 +132,19 @@ def init_db() -> bool:
                     ON DELETE CASCADE
             ) ENGINE=InnoDB
         """)
+
+        # Seed default admin if no users exist
+        cur.execute("SELECT COUNT(*) FROM users")
+        if cur.fetchone()[0] == 0:
+            from werkzeug.security import generate_password_hash
+            # Default creds: admin / admin123
+            # In a real production app, this should be set via env var on first boot
+            admin_pass = os.environ.get("QSS_ADMIN_PASSWORD", "admin123")
+            cur.execute(
+                "INSERT INTO users (username, password_hash, role) VALUES (%s, %s, %s)",
+                ("admin", generate_password_hash(admin_pass), "Admin")
+            )
+            logger.info("Default admin user created.")
 
         conn.commit()
         logger.info("MySQL database '%s' initialised.", MYSQL_DATABASE)
@@ -262,6 +284,31 @@ def list_scans(limit: int = 50) -> List[Dict[str, Any]]:
         conn.close()
 
 
+def get_latest_scan_by_target(target: str) -> Optional[Dict[str, Any]]:
+    """Load the most recent scan record for a specific target. Returns ``None`` if not found."""
+    conn = _get_connection()
+    if conn is None:
+        return None
+
+    try:
+        cur = conn.cursor()
+        # Ensure we match the target exactly, ordering by timestamp to get the latest
+        cur.execute(
+            "SELECT report_json FROM scans WHERE target = %s ORDER BY scanned_at DESC LIMIT 1",
+            (target,)
+        )
+        row = cur.fetchone()
+        if row:
+            data = row[0]
+            return json.loads(data) if isinstance(data, str) else data
+        return None
+    except Exception as exc:
+        logger.error("MySQL get_latest_scan_by_target error: %s", exc)
+        return None
+    finally:
+        conn.close()
+
+
 def get_cbom(scan_id: str) -> Optional[Dict[str, Any]]:
     """Load a CBOM document from MySQL.  Returns ``None`` if not found."""
     conn = _get_connection()
@@ -282,5 +329,50 @@ def get_cbom(scan_id: str) -> Optional[Dict[str, Any]]:
     except Exception as exc:
         logger.error("MySQL get_cbom error: %s", exc)
         return None
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# RBAC User Management
+# ---------------------------------------------------------------------------
+
+def get_user_by_id(user_id: int) -> Optional[Dict[str, Any]]:
+    """Load a user by ID."""
+    conn = _get_connection()
+    if conn is None: return None
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+        return cur.fetchone()
+    finally:
+        conn.close()
+
+def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
+    """Load a user by username."""
+    conn = _get_connection()
+    if conn is None: return None
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute("SELECT * FROM users WHERE username = %s", (username,))
+        return cur.fetchone()
+    finally:
+        conn.close()
+
+def create_user(username: str, password_hash: str, role: str = 'Viewer') -> bool:
+    """Create a new user."""
+    conn = _get_connection()
+    if conn is None: return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO users (username, password_hash, role) VALUES (%s, %s, %s)",
+            (username, password_hash, role)
+        )
+        conn.commit()
+        return True
+    except Exception as exc:
+        logger.error("MySQL create_user error: %s", exc)
+        return False
     finally:
         conn.close()
