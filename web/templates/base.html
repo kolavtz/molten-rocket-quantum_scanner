@@ -26,10 +26,13 @@
             <div class="nav-links">
                 <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Dashboard</a>
                 {% if current_user.is_authenticated %}
+                    {% if current_user.role == 'Admin' %}
+                    <a href="/admin/users" class="nav-link {% if request.path == '/admin/users' %}active{% endif %}">Admin</a>
+                    {% endif %}
                     <div class="user-profile">
                         <span class="user-info">
                             <span class="user-name">{{ current_user.username }}</span>
-                            <span class="role-badge">{{ current_user.role }}</span>
+                            <span class="role-badge" style="background:var(--accent);color:#fff;">{{ current_user.role }}</span>
                         </span>
                         <a href="/logout" class="nav-link logout-link">Logout</a>
                     </div>

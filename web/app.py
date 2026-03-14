@@ -37,6 +37,8 @@ from flask_login import (
     login_required,
     current_user,
 )
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 
@@ -64,21 +66,38 @@ app = Flask(
 )
 app.secret_key = SECRET_KEY
 
-# Security Hardening
+# Security Hardening & Mail Config
 from config import (
     MAX_CONTENT_LENGTH,
     SESSION_COOKIE_HTTPONLY,
     SESSION_COOKIE_SECURE,
     SESSION_COOKIE_SAMESITE,
-    PERMANENT_SESSION_LIFETIME
+    PERMANENT_SESSION_LIFETIME,
+    MAIL_SERVER,
+    MAIL_PORT,
+    MAIL_USE_TLS,
+    MAIL_USE_SSL,
+    MAIL_USERNAME,
+    MAIL_PASSWORD,
+    MAIL_DEFAULT_SENDER
 )
 app.config.update(
     MAX_CONTENT_LENGTH=MAX_CONTENT_LENGTH,
     SESSION_COOKIE_HTTPONLY=SESSION_COOKIE_HTTPONLY,
     SESSION_COOKIE_SECURE=SESSION_COOKIE_SECURE,
     SESSION_COOKIE_SAMESITE=SESSION_COOKIE_SAMESITE,
-    PERMANENT_SESSION_LIFETIME=PERMANENT_SESSION_LIFETIME
+    PERMANENT_SESSION_LIFETIME=PERMANENT_SESSION_LIFETIME,
+    MAIL_SERVER=MAIL_SERVER,
+    MAIL_PORT=MAIL_PORT,
+    MAIL_USE_TLS=MAIL_USE_TLS,
+    MAIL_USE_SSL=MAIL_USE_SSL,
+    MAIL_USERNAME=MAIL_USERNAME,
+    MAIL_PASSWORD=MAIL_PASSWORD,
+    MAIL_DEFAULT_SENDER=MAIL_DEFAULT_SENDER
 )
+
+mail = Mail(app)
+serializer = URLSafeTimedSerializer(app.secret_key)
 
 # Authentication
 login_manager = LoginManager()
@@ -325,6 +344,100 @@ def logout():
     return redirect(url_for('login'))
 
 
+@app.route("/admin/users", methods=["GET", "POST"])
+@role_required(["Admin"])
+def admin_users():
+    """Admin panel to manage users and send setup invites."""
+    if request.method == "POST":
+        email = request.form.get("email")
+        role = request.form.get("role")
+        username = email.split("@")[0]
+        
+        user_id = str(uuid.uuid4())
+        temp_pass = str(uuid.uuid4())
+        
+        token = serializer.dumps(email, salt='password-setup-salt')
+        setup_url = url_for('setup_password', token=token, _external=True)
+        
+        conn = db._get_connection()
+        if conn is None:
+            flash("Database connection failed.", "error")
+            return redirect(url_for("admin_users"))
+            
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO users (id, username, email, password_hash, role) VALUES (%s, %s, %s, %s, %s)",
+                (user_id, username, email, generate_password_hash(temp_pass), role)
+            )
+            conn.commit()
+            
+            msg = Message("Welcome to QuantumShield - Setup Your Password", recipients=[email])
+            msg.body = f"Hello,\n\nYou have been invited to QuantumShield as a {role}.\n\nPlease click the link below to set up your password:\n{setup_url}\n\nThis link will expire in 24 hours."
+            
+            try:
+                # Flask-Mail will silently ignore if credentials are bad during debug unless configured otherwise,
+                # but it might throw exceptions. Let's catch them.
+                mail.send(msg)
+                flash(f"User {email} invited successfully. Setup email sent.", "success")
+            except Exception as e:
+                logger.error(f"Failed to send email to {email}: {e}")
+                flash(f"User created, but SMTP failed to send setup email. Link: {setup_url}", "warning")
+
+        except Exception as e:
+            flash(f"Failed to create user: {e}", "error")
+        finally:
+            conn.close()
+            
+        return redirect(url_for("admin_users"))
+        
+    conn = db._get_connection()
+    users = []
+    if conn:
+        try:
+            cur = conn.cursor(dictionary=True)
+            cur.execute("SELECT id, username, email, role FROM users")
+            users = cur.fetchall()
+        finally:
+            conn.close()
+            
+    return render_template("admin_users.html", users=users)
+
+
+@app.route("/setup-password/<token>", methods=["GET", "POST"])
+def setup_password(token):
+    """Secure link to allow new users to set their password."""
+    try:
+        email = serializer.loads(token, salt='password-setup-salt', max_age=86400) # 24 hours max
+    except Exception:
+        flash("The setup link is invalid or has expired.", "error")
+        return redirect(url_for('login'))
+        
+    if request.method == "POST":
+        password = request.form.get("password")
+        if not password or len(password) < 8:
+            flash("Password must be at least 8 characters long.", "error")
+            return render_template("setup_password.html", token=token)
+            
+        conn = db._get_connection()
+        if conn is None:
+            flash("Database error.", "error")
+            return render_template("setup_password.html", token=token)
+            
+        try:
+            cur = conn.cursor()
+            cur.execute("UPDATE users SET password_hash = %s WHERE email = %s", (generate_password_hash(password), email))
+            conn.commit()
+            flash("Password set successfully. You can now log in.", "success")
+            return redirect(url_for('login'))
+        except Exception as e:
+            flash("Failed to update password.", "error")
+        finally:
+            conn.close()
+            
+    return render_template("setup_password.html", token=token)
+
+
 @app.route("/")
 @login_required
 def index():
@@ -375,7 +488,7 @@ def index():
 
 
 @app.route("/scan", methods=["POST"])
-@role_required(["Admin"])
+@role_required(["Admin", "Manager", "Scanner"])
 def scan():
     """Run a scan on one or multiple targets (text input + CSV upload)."""
     import re
@@ -438,6 +551,12 @@ def scan():
             pass  # silently skip malformed CSV
 
     if not targets:
+        return redirect(url_for("index"))
+        
+    # Enforce advanced RBAC
+    is_bulk = (csv_file and csv_file.filename) or len(targets) > 1
+    if is_bulk and current_user.role not in ["Admin", "Manager"]:
+        flash("Your current role (Scanner) does not permit Bulk Scanning.", "error")
         return redirect(url_for("index"))
 
     try:
@@ -562,7 +681,7 @@ def api_badge(target: str):
 
 
 @app.route("/api/scan", methods=["GET", "POST"])
-@role_required(["Admin"])
+@role_required(["Admin", "Manager"])
 def api_scan():
     """REST API endpoint for CI/CD integration."""
     if request.method == "GET":
@@ -603,6 +722,11 @@ def api_list_scans():
 if __name__ == "__main__":
     print(f"\n{'='*60}")
     print(f"  🔒 {app.import_name} — Quantum-Safe TLS Scanner")
-    print(f"  📡 Running on http://{FLASK_HOST}:{FLASK_PORT}")
+    print(f"  📡 Running on https://{FLASK_HOST}:{FLASK_PORT}")
     print(f"{'='*60}\n")
-    app.run(host=FLASK_HOST, port=FLASK_PORT, debug=DEBUG)
+    if DEBUG:
+        # Enforce HTTPS locally via AdHoc certificates
+        app.run(host=FLASK_HOST, port=FLASK_PORT, debug=True, ssl_context='adhoc')
+    else:
+        # Expected to be run by Gunicorn behind a reverse proxy handling SSL
+        app.run(host=FLASK_HOST, port=FLASK_PORT, debug=False)
