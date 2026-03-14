@@ -451,10 +451,24 @@ MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD", os.environ.get("sql_password",
 MYSQL_DATABASE = os.environ.get("MYSQL_DATABASE", "quantumshield")
 
 # ---------------------------------------------------------------------------
-# Web / Flask
+# Web / Flask / Security
 # ---------------------------------------------------------------------------
 # Determine project root (for constructing absolute paths)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FLASK_HOST = "0.0.0.0"
-FLASK_PORT = 5000
+
+# Flexible port handling for production (e.g. Heroku/Azure use $PORT)
+FLASK_PORT = int(os.environ.get("PORT", os.environ.get("FLASK_PORT", "5000")))
+FLASK_HOST = os.environ.get("FLASK_HOST", "127.0.0.1")
+
 RESULTS_DIR = os.path.join(BASE_DIR, "scan_results")
+
+# Security Hardening
+# Limit payload sizes to prevent DoS via massive JSON/CSV uploads
+MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
+
+# Session Security
+# These should be strictly locked down in production
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE   = not DEBUG  # Only send over HTTPS if not in debug mode
+SESSION_COOKIE_SAMESITE = "Lax"
+PERMANENT_SESSION_LIFETIME = 3600    # 1 hour

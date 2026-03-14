@@ -172,6 +172,44 @@ a:hover {
     color: var(--text-primary);
 }
 
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding-left: 1rem;
+    border-left: 1px solid var(--border-subtle);
+}
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.user-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+
+.role-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.logout-link {
+    color: var(--danger) !important;
+    font-size: 0.8rem;
+}
+
+.logout-link:hover {
+    color: #e07a7a !important;
+}
+
 .nav-link::after {
     display: none;
 }

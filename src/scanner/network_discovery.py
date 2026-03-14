@@ -258,6 +258,16 @@ class NetworkScanner:
         * Single IPv4/IPv6 address
         * CIDR notation (e.g. ``10.0.0.0/28``)
         """
+        import os
+        allow_local = os.environ.get('ALLOW_LOCAL_SCANS', 'false').lower() == 'true'
+
+        def check_ssrf(ip_obj):
+            if not allow_local and (ip_obj.is_private or ip_obj.is_loopback):
+                raise ValueError(
+                    f"Target {ip_obj} is a private/local address. "
+                    "Scanning internal networks is disabled for security reasons."
+                )
+
         # Try CIDR first
         try:
             network = ipaddress.ip_network(target, strict=False)
@@ -271,11 +281,13 @@ class NetworkScanner:
                     f"CIDR range too large ({network.num_addresses} hosts). "
                     "Maximum supported is /24 (256 hosts)."
                 )
+            check_ssrf(network.network_address)
             return [str(ip) for ip in network.hosts()]
 
         # Try single IP
         try:
             addr = ipaddress.ip_address(target)
+            check_ssrf(addr)
             return [str(addr)]
         except ValueError:
             pass
@@ -285,7 +297,13 @@ class NetworkScanner:
             infos = socket.getaddrinfo(
                 target, None, socket.AF_UNSPEC, socket.SOCK_STREAM
             )
-            ips = list({info[4][0] for info in infos})
+            ips = []
+            for info in infos:
+                ip_str = info[4][0]
+                addr = ipaddress.ip_address(ip_str)
+                check_ssrf(addr)
+                ips.append(ip_str)
+            ips = list(set(ips))
             return ips if ips else [target]
         except socket.gaierror:
             return [target]

@@ -491,6 +491,28 @@
     </div>
 </section>
 
+<!-- Trust Badge Summary -->
+<section class="findings-section">
+    <h2 class="section-title">&#x1F6E1;&#xFE0F; Site Trust Badge</h2>
+    <div class="glass-card" style="padding:1.25rem;">
+        <p style="color:#94a3b8; margin-bottom: 1rem;">Embed this dynamically updating badge on your website to show visitors your current Quantum-Safe compliance status.</p>
+        <div style="display: flex; flex-wrap: wrap; gap: 2rem; align-items: center;">
+            <div style="flex: 0 0 auto;">
+                <img src="/api/badge/{{ report.target }}" alt="QuantumShield Status">
+            </div>
+            <div style="flex: 1 1 300px;">
+                <strong style="color:#d4d7de; display: block; margin-bottom: 0.5rem;">Embed HTML Code:</strong>
+                <textarea readonly style="width: 100%; height: 80px; background: #111318; color: #5ba4b5; border: 1px solid #334155; border-radius: 4px; padding: 0.75rem; font-family: monospace; font-size: 0.85rem; resize: none;" onclick="this.select()">
+<a href="{{ request.url_root }}results/{{ scan_id }}" target="_blank">
+  <img src="{{ request.url_root }}api/badge/{{ report.target }}" alt="Quantum-Safe Status">
+</a>
+                </textarea>
+                <small style="color:#64748b; margin-top: 0.25rem; display: block;">Click to select and copy</small>
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- Actions -->
 <section class="actions-section">
     <div class="actions-grid">

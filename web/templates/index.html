@@ -73,6 +73,7 @@
 {% endif %}
 
 <!-- Scan Form -->
+{% if current_user.role == 'Admin' %}
 <section class="scan-section animate-fade-in-up delay-3">
     <div class="scan-card glass-card">
         <div class="scan-header">
@@ -80,67 +81,131 @@
                 <span class="icon">&#x1F3AF;</span> Start a Scan
             </h2>
             <p class="scan-description">
-                Enter a hostname, IP, CIDR range, or full URL to discover public-facing crypto assets
+                Discover crypto assets, validate PQC compliance, generate a CBOM report
             </p>
         </div>
+
+        <!-- Mode Tabs -->
+        <div class="scan-tabs" style="display:flex; gap:0.5rem; margin-bottom:1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0;">
+            <button type="button" id="tabSingle" class="scan-tab scan-tab-active" onclick="switchTab('single')">
+                🌐 Single Target
+            </button>
+            <button type="button" id="tabBulk" class="scan-tab" onclick="switchTab('bulk')">
+                📋 Bulk Scan
+            </button>
+        </div>
+
         <form action="/scan" method="POST" class="scan-form" id="scanForm" enctype="multipart/form-data">
-            <div class="input-group" style="align-items: flex-start;">
-                <div class="input-wrapper" style="height: auto;">
-                    <span class="input-icon" style="top: 1rem;">🌐</span>
-                    <textarea name="target" id="scanTarget"
-                        placeholder="Enter targets (comma or newline separated):&#10;google.com&#10;https://example.com/path&#10;192.168.1.0/24"
-                        class="scan-input"
-                        style="resize: vertical; min-height: 80px; padding-top: 1rem; line-height: 1.5;"></textarea>
+
+            <!-- ── SINGLE MODE ── -->
+            <div id="modeSingle">
+                <!-- URL Input + Autodiscovery in one row -->
+                <div style="display:flex; gap:0.75rem; align-items: flex-start;">
+                    <div class="input-wrapper" style="flex:1;">
+                        <span class="input-icon">🌐</span>
+                        <input type="text" name="target" id="scanTargetSingle"
+                            placeholder="e.g. google.com  |  192.168.1.1  |  https://example.com"
+                            class="scan-input" autocomplete="off">
+                    </div>
+                    <button type="submit" class="scan-button" id="scanBtnSingle" style="flex-shrink:0;">
+                        <span class="btn-text">Scan Now</span>
+                        <span class="btn-icon">&rarr;</span>
+                        <span class="btn-loading" style="display:none;">
+                            <span class="spinner"></span> Scanning...
+                        </span>
+                    </button>
                 </div>
-                <button type="submit" class="scan-button" id="scanBtn" style="height: 80px; align-self: flex-start;">
-                    <span class="btn-text">Scan Now</span>
-                    <span class="btn-icon">&rarr;</span>
-                    <span class="btn-loading" style="display:none;">
-                        <span class="spinner"></span> Scanning...
+
+                <!-- Autodiscovery — right under the input, very prominent -->
+                <div style="margin-top:0.75rem; display:flex; align-items:center; gap:1rem; background:rgba(96,165,250,0.07); border:1px solid rgba(96,165,250,0.2); border-radius:8px; padding:0.6rem 1rem;">
+                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer; user-select:none; flex-shrink:0;">
+                        <input type="checkbox" name="autodiscovery" id="autodiscoveryToggle"
+                            style="width:18px; height:18px; accent-color:var(--accent); cursor:pointer;">
+                        <span style="font-weight:700; color:var(--accent); white-space:nowrap;">🔍 Autodiscovery</span>
+                    </label>
+                    <span style="color:var(--text-muted); font-size:0.8rem; line-height:1.4;">
+                        Scans <strong style="color:var(--text-secondary);">65+ ports</strong> — web, databases, queues, VPN, IoT, CI/CD.
+                        Best for <strong style="color:var(--accent);">private networks</strong>.
                     </span>
-                </button>
-            </div>
-            <div class="input-group" style="margin-top:0.75rem;">
-                <div class="input-wrapper">
+                </div>
+
+                <!-- Optional ports -->
+                <div class="input-wrapper" style="margin-top:0.75rem;">
                     <span class="input-icon">🔌</span>
                     <input type="text" name="ports" id="scanPorts"
-                        placeholder="Custom ports (optional): 80, 443, 8080, 3306, 5432" autocomplete="off"
+                        placeholder="Custom ports (optional): 443, 8080, 3306 …" autocomplete="off"
                         class="scan-input">
                 </div>
             </div>
-            <!-- Autodiscovery Toggle -->
-            <div class="input-group" style="margin-top:0.75rem; display:flex; align-items:center; gap:1rem;">
-                <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; user-select:none;">
-                    <input type="checkbox" name="autodiscovery" id="autodiscoveryToggle"
-                        style="width:18px; height:18px; accent-color:var(--accent); cursor:pointer;">
-                    <span style="color:var(--text-secondary); font-size:0.9rem;">
-                        🔍 <strong style="color:var(--text-primary);">Autodiscovery Mode</strong>
-                    </span>
-                </label>
-                <span style="color:var(--text-muted); font-size:0.75rem; flex:1;">
-                    Scans 65+ ports — web servers, databases, message queues, VPN, IoT/ICS, CI/CD tools.
-                    Ideal for <strong style="color:var(--accent)">private networks</strong> and internal infrastructure.
-                </span>
-            </div>
-            <div class="input-group" style="margin-top:0.75rem;">
-                <div class="input-wrapper" style="height: auto; padding: 0.75rem 1rem 0.75rem 2.8rem; cursor: pointer;"
-                    onclick="document.getElementById('csvFile').click()">
-                    <span class="input-icon" style="top: 0.85rem;">📄</span>
-                    <div style="display:flex; flex-direction:column; gap:0.25rem;">
-                        <span id="csvLabel" style="color: var(--text-secondary); font-size: 0.9rem;">Upload CSV file
-                            (columns: <code style='color:var(--accent);font-size:0.85rem;'>ip</code>, <code
-                                style='color:var(--accent);font-size:0.85rem;'>port</code>)</span>
-                        <span style="color: var(--text-muted); font-size: 0.75rem;">Example: ip,port &rarr;
-                            google.com,443</span>
-                    </div>
-                    <input type="file" name="csv_file" id="csvFile" accept=".csv" style="display:none;"
-                        onchange="document.getElementById('csvLabel').textContent = this.files[0] ? '✅ ' + this.files[0].name : 'Upload CSV file'">
+
+            <!-- ── BULK MODE ── -->
+            <div id="modeBulk" style="display:none;">
+                <div style="background:rgba(96,165,250,0.05); border:1px solid rgba(96,165,250,0.15); border-radius:8px; padding:0.9rem 1.1rem; margin-bottom:0.9rem;">
+                    <p style="color:var(--text-secondary); font-size:0.88rem; margin:0 0 0.4rem 0; line-height:1.5;">
+                        <strong style="color:var(--text-primary);">Option A — Paste targets below</strong> (comma or newline separated).
+                    </p>
+                    <p style="color:var(--text-muted); font-size:0.8rem; margin:0;">
+                        e.g. <code style="color:var(--accent);">google.com, github.com, 192.168.1.0/24</code>
+                    </p>
                 </div>
+
+                <div class="input-wrapper" style="height:auto;">
+                    <span class="input-icon" style="top:1rem;">🌐</span>
+                    <textarea name="target" id="scanTargetBulk"
+                        placeholder="google.com&#10;github.com&#10;192.168.1.1"
+                        class="scan-input"
+                        style="resize:vertical; min-height:90px; padding-top:1rem; line-height:1.5;"></textarea>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:0.75rem; margin:0.9rem 0; color:var(--text-muted); font-size:0.85rem;">
+                    <div style="flex:1; height:1px; background:var(--border);"></div>
+                    <span>OR</span>
+                    <div style="flex:1; height:1px; background:var(--border);"></div>
+                </div>
+
+                <div style="background:rgba(96,165,250,0.05); border:1px solid rgba(96,165,250,0.15); border-radius:8px; padding:0.9rem 1.1rem; margin-bottom:0.9rem;">
+                    <p style="color:var(--text-secondary); font-size:0.88rem; margin:0 0 0.4rem 0; line-height:1.5;">
+                        <strong style="color:var(--text-primary);">Option B — Upload a CSV file</strong>
+                        with columns: <code style="color:var(--accent);">ip</code>, <code style="color:var(--accent);">port</code>
+                    </p>
+                    <p style="color:var(--text-muted); font-size:0.8rem; margin:0;">
+                        Example row: <code style="color:var(--accent);">google.com,443</code>
+                    </p>
+                </div>
+
+                <div class="input-wrapper" style="height:auto; padding:0.75rem 1rem 0.75rem 2.8rem; cursor:pointer;"
+                    onclick="document.getElementById('csvFile').click()">
+                    <span class="input-icon" style="top:0.85rem;">📄</span>
+                    <span id="csvLabel" style="color:var(--text-secondary); font-size:0.9rem;">Click to choose CSV file…</span>
+                    <input type="file" name="csv_file" id="csvFile" accept=".csv" style="display:none;"
+                        onchange="document.getElementById('csvLabel').textContent = this.files[0] ? '✅ ' + this.files[0].name : 'Click to choose CSV file…'">
+                </div>
+
+                <!-- Autodiscovery for Bulk -->
+                <div style="margin-top:0.75rem; display:flex; align-items:center; gap:1rem; background:rgba(96,165,250,0.07); border:1px solid rgba(96,165,250,0.2); border-radius:8px; padding:0.6rem 1rem;">
+                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer; user-select:none; flex-shrink:0;">
+                        <input type="checkbox" name="autodiscovery" id="autodiscoveryBulk"
+                            style="width:18px; height:18px; accent-color:var(--accent); cursor:pointer;">
+                        <span style="font-weight:700; color:var(--accent); white-space:nowrap;">🔍 Autodiscovery</span>
+                    </label>
+                    <span style="color:var(--text-muted); font-size:0.8rem;">
+                        Scan all 65+ ports per target.
+                    </span>
+                </div>
+
+                <button type="submit" class="scan-button" id="scanBtnBulk" style="width:100%; margin-top:1rem; justify-content:center;">
+                    <span class="btn-text">Run Bulk Scan</span>
+                    <span class="btn-icon">&rarr;</span>
+                    <span class="btn-loading" style="display:none;">
+                        <span class="spinner"></span> Scanning…
+                    </span>
+                </button>
             </div>
+
         </form>
 
-        <!-- Quick scan targets -->
-        <div class="quick-targets">
+        <!-- Quick scan targets (single mode only) -->
+        <div class="quick-targets" id="quickTargets">
             <span class="quick-label">Quick scan:</span>
             <button class="quick-btn" onclick="setTarget('google.com')">google.com</button>
             <button class="quick-btn" onclick="setTarget('github.com')">github.com</button>
@@ -149,6 +214,18 @@
         </div>
     </div>
 </section>
+{% else %}
+<section class="scan-section animate-fade-in-up delay-3">
+    <div class="scan-card glass-card" style="text-align: center; padding: 3rem;">
+        <div class="overview-icon" style="font-size: 3rem; margin-bottom: 1rem;">🔒</div>
+        <h2 style="margin-bottom: 0.5rem;">Restricted Access</h2>
+        <p style="color: var(--text-secondary); max-width: 400px; margin: 0 auto;">
+            Only users with the <strong>Admin</strong> role can initiate new scans. 
+            As a <strong>Viewer</strong>, you can browse existing scan results and historical data.
+        </p>
+    </div>
+</section>
+{% endif %}
 
 <!-- Features Grid -->
 <section class="features-section">
@@ -270,18 +347,79 @@
     </div>
 </section>
 
+<style>
+    .scan-tab {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        padding: 0.6rem 1.25rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+    }
+    .scan-tab:hover {
+        color: var(--text-primary);
+    }
+    .scan-tab-active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+    }
+</style>
+
 <script>
-    function setTarget(target) {
-        document.getElementById('scanTarget').value = target;
-        document.getElementById('scanTarget').focus();
+    function switchTab(mode) {
+        const tabSingle = document.getElementById('tabSingle');
+        const tabBulk = document.getElementById('tabBulk');
+        const modeSingle = document.getElementById('modeSingle');
+        const modeBulk = document.getElementById('modeBulk');
+        const quickTargets = document.getElementById('quickTargets');
+
+        if (mode === 'single') {
+            tabSingle.classList.add('scan-tab-active');
+            tabBulk.classList.remove('scan-tab-active');
+            modeSingle.style.display = 'block';
+            modeBulk.style.display = 'none';
+            quickTargets.style.display = 'flex';
+        } else {
+            tabBulk.classList.add('scan-tab-active');
+            tabSingle.classList.remove('scan-tab-active');
+            modeBulk.style.display = 'block';
+            modeSingle.style.display = 'none';
+            quickTargets.style.display = 'none';
+        }
     }
 
-    document.getElementById('scanForm').addEventListener('submit', function () {
-        const btn = document.getElementById('scanBtn');
-        btn.querySelector('.btn-text').style.display = 'none';
-        btn.querySelector('.btn-icon').style.display = 'none';
-        btn.querySelector('.btn-loading').style.display = 'inline-flex';
-        btn.disabled = true;
+    function setTarget(target) {
+        // Default to single mode if a quick target is clicked
+        switchTab('single');
+        document.getElementById('scanTargetSingle').value = target;
+        document.getElementById('scanTargetSingle').focus();
+    }
+
+    document.getElementById('scanForm').addEventListener('submit', function (e) {
+        const isBulk = document.getElementById('modeBulk').style.display === 'block';
+        const btnSingle = document.getElementById('scanBtnSingle');
+        const btnBulk = document.getElementById('scanBtnBulk');
+        
+        const activeBtn = isBulk ? btnBulk : btnSingle;
+        
+        activeBtn.querySelector('.btn-text').style.display = 'none';
+        if (activeBtn.querySelector('.btn-icon')) activeBtn.querySelector('.btn-icon').style.display = 'none';
+        activeBtn.querySelector('.btn-loading').style.display = 'inline-flex';
+        activeBtn.disabled = true;
+        
+        // Ensure only the relevant targets are submitted or handled
+        // If in single mode, clear bulk targets to avoid accidental dual submission if app logic allows
+        if (!isBulk) {
+            document.getElementById('scanTargetBulk').value = '';
+            // Reset file input if needed
+            document.getElementById('csvFile').value = '';
+        } else {
+            document.getElementById('scanTargetSingle').value = '';
+        }
     });
 </script>
 {% endblock %}
