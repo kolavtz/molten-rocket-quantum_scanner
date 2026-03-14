@@ -38,8 +38,8 @@ from flask_login import (
     current_user,
 )
 from flask_mail import Mail, Message
-from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 from functools import wraps
 
 import sys
@@ -79,8 +79,14 @@ from config import (
     MAIL_USE_SSL,
     MAIL_USERNAME,
     MAIL_PASSWORD,
-    MAIL_DEFAULT_SENDER
+    MAIL_DEFAULT_SENDER,
+    FORCE_HTTPS,
+    TRUST_PROXY_SSL_HEADER,
+    HSTS_SECONDS,
+    MAX_LOGIN_ATTEMPTS,
+    LOGIN_LOCKOUT_MINUTES,
 )
+
 app.config.update(
     MAX_CONTENT_LENGTH=MAX_CONTENT_LENGTH,
     SESSION_COOKIE_HTTPONLY=SESSION_COOKIE_HTTPONLY,
@@ -93,11 +99,19 @@ app.config.update(
     MAIL_USE_SSL=MAIL_USE_SSL,
     MAIL_USERNAME=MAIL_USERNAME,
     MAIL_PASSWORD=MAIL_PASSWORD,
-    MAIL_DEFAULT_SENDER=MAIL_DEFAULT_SENDER
+    MAIL_DEFAULT_SENDER=MAIL_DEFAULT_SENDER,
+    PREFERRED_URL_SCHEME="https" if FORCE_HTTPS else "http",
 )
 
+if TRUST_PROXY_SSL_HEADER:
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
 mail = Mail(app)
-serializer = URLSafeTimedSerializer(app.secret_key)
+
+SCAN_ROLES = {"Admin", "Manager", "SingleScan"}
+BULK_SCAN_ROLES = {"Admin", "Manager"}
+ADMIN_PANEL_ROLES = {"Admin"}
+ALL_APP_ROLES = {"Admin", "Manager", "SingleScan", "Viewer"}
 
 # Authentication
 login_manager = LoginManager()
@@ -108,11 +122,16 @@ class User(UserMixin):
     def __init__(self, user_dict):
         self.id = user_dict["id"]
         self.username = user_dict["username"]
-        self.role = user_dict["role"]
+        self.role = db.normalize_role(user_dict.get("role", "Viewer"))
+        self.is_active_user = bool(user_dict.get("is_active", True))
+
+    @property
+    def is_active(self):
+        return self.is_active_user
 
 @login_manager.user_loader
 def load_user(user_id):
-    user_data = db.get_user_by_id(int(user_id))
+    user_data = db.get_user_by_id(str(user_id))
     if user_data:
         return User(user_data)
     return None
@@ -129,6 +148,66 @@ def role_required(roles):
             return f(*args, **kwargs)
         return decorated_function
     return decorator
+
+
+def _is_https_request() -> bool:
+    if request.is_secure:
+        return True
+    return request.headers.get("X-Forwarded-Proto", "").lower() == "https"
+
+
+def _validate_password_strength(password: str) -> tuple[bool, str]:
+    if not password or len(password) < 12:
+        return False, "Password must be at least 12 characters long."
+    if not any(ch.isupper() for ch in password):
+        return False, "Password must include at least one uppercase letter."
+    if not any(ch.islower() for ch in password):
+        return False, "Password must include at least one lowercase letter."
+    if not any(ch.isdigit() for ch in password):
+        return False, "Password must include at least one number."
+    if not any(not ch.isalnum() for ch in password):
+        return False, "Password must include at least one special character."
+    return True, ""
+
+
+def _build_setup_link(token: str) -> str:
+    scheme = "https" if FORCE_HTTPS else None
+    return url_for("setup_password", token=token, _external=True, _scheme=scheme)
+
+
+@app.before_request
+def enforce_https_redirect():
+    if not FORCE_HTTPS:
+        return None
+    if app.config.get("TESTING") or request.path.startswith("/static/"):
+        return None
+    if _is_https_request():
+        return None
+    if request.host.startswith("127.0.0.1") or request.host.startswith("localhost"):
+        return None
+    secure_url = request.url.replace("http://", "https://", 1)
+    return redirect(secure_url, code=301)
+
+
+@app.after_request
+def add_security_headers(response):
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if FORCE_HTTPS:
+        response.headers["Strict-Transport-Security"] = f"max-age={HSTS_SECONDS}; includeSubDomains"
+    csp_policy = (
+        "default-src 'self'; "
+        "img-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "script-src 'self' 'unsafe-inline'; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'"
+    )
+    response.headers["Content-Security-Policy"] = csp_policy
+    return response
 
 # Ensure results directory exists
 os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -320,19 +399,31 @@ def login():
     """Simple login page."""
     if current_user.is_authenticated:
         return redirect(url_for('index'))
-    
+
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        
+        username = (request.form.get("username") or "").strip()
+        password = request.form.get("password") or ""
+
         user_data = db.get_user_by_username(username)
+        if user_data and user_data.get("lockout_until") and datetime.utcnow() < user_data["lockout_until"]:
+            flash("Account temporarily locked due to repeated failed login attempts. Please try again later.", "error")
+            return render_template("login.html")
+
         if user_data and check_password_hash(user_data["password_hash"], password):
+            db.mark_login_success(user_data["id"])
             user = User(user_data)
             login_user(user)
+            if user_data.get("must_change_password"):
+                token = db.create_password_setup_token(user_data["id"], expires_hours=2)
+                if token:
+                    flash("Please set a new password before continuing.", "warning")
+                    return redirect(url_for("setup_password", token=token))
             return redirect(url_for('index'))
         else:
+            if user_data:
+                db.mark_login_failure(user_data["id"], MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_MINUTES)
             flash("Invalid username or password.", "error")
-            
+
     return render_template("login.html")
 
 
@@ -345,96 +436,137 @@ def logout():
 
 
 @app.route("/admin/users", methods=["GET", "POST"])
-@role_required(["Admin"])
+@role_required(list(ADMIN_PANEL_ROLES))
 def admin_users():
     """Admin panel to manage users and send setup invites."""
     if request.method == "POST":
-        email = request.form.get("email")
-        role = request.form.get("role")
-        username = email.split("@")[0]
-        
-        user_id = str(uuid.uuid4())
-        temp_pass = str(uuid.uuid4())
-        
-        token = serializer.dumps(email, salt='password-setup-salt')
-        setup_url = url_for('setup_password', token=token, _external=True)
-        
-        conn = db._get_connection()
-        if conn is None:
-            flash("Database connection failed.", "error")
-            return redirect(url_for("admin_users"))
-            
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                "INSERT INTO users (id, username, email, password_hash, role) VALUES (%s, %s, %s, %s, %s)",
-                (user_id, username, email, generate_password_hash(temp_pass), role)
-            )
-            conn.commit()
-            
-            msg = Message("Welcome to QuantumShield - Setup Your Password", recipients=[email])
-            msg.body = f"Hello,\n\nYou have been invited to QuantumShield as a {role}.\n\nPlease click the link below to set up your password:\n{setup_url}\n\nThis link will expire in 24 hours."
-            
-            try:
-                # Flask-Mail will silently ignore if credentials are bad during debug unless configured otherwise,
-                # but it might throw exceptions. Let's catch them.
-                mail.send(msg)
-                flash(f"User {email} invited successfully. Setup email sent.", "success")
-            except Exception as e:
-                logger.error(f"Failed to send email to {email}: {e}")
-                flash(f"User created, but SMTP failed to send setup email. Link: {setup_url}", "warning")
+        employee_id = (request.form.get("employee_id") or "").strip()
+        email = (request.form.get("email") or "").strip().lower()
+        username = (request.form.get("username") or "").strip()
+        role = db.normalize_role(request.form.get("role") or "Viewer")
 
-        except Exception as e:
-            flash(f"Failed to create user: {e}", "error")
-        finally:
-            conn.close()
-            
-        return redirect(url_for("admin_users"))
-        
-    conn = db._get_connection()
-    users = []
-    if conn:
+        if not employee_id or not email or not username:
+            flash("Employee ID, email, and username are required.", "error")
+            return redirect(url_for("admin_users"))
+
+        temp_password = uuid.uuid4().hex
+        invited_user_id = db.create_invited_user(
+            employee_id=employee_id,
+            username=username,
+            email=email,
+            role=role,
+            created_by=current_user.id,
+            password_hash=generate_password_hash(temp_password),
+        )
+
+        if not invited_user_id:
+            flash("Failed to create user. Check for duplicate username/email/employee ID.", "error")
+            return redirect(url_for("admin_users"))
+
+        token = db.create_password_setup_token(invited_user_id, expires_hours=24)
+        if not token:
+            flash("User created, but setup token generation failed.", "warning")
+            return redirect(url_for("admin_users"))
+
+        setup_url = _build_setup_link(token)
+
         try:
-            cur = conn.cursor(dictionary=True)
-            cur.execute("SELECT id, username, email, role FROM users")
-            users = cur.fetchall()
-        finally:
-            conn.close()
-            
+            msg = Message("Welcome to QuantumShield - Setup Your Password", recipients=[email])
+            msg.body = (
+                "Hello,\n\n"
+                f"Your QuantumShield account has been created by admin.\n"
+                f"Employee ID: {employee_id}\n"
+                f"Username: {username}\n"
+                f"Role: {role}\n\n"
+                "Use the secure link below to set your password:\n"
+                f"{setup_url}\n\n"
+                "This link expires in 24 hours and can only be used once."
+            )
+            mail.send(msg)
+            flash(f"User {username} invited successfully. Setup email sent.", "success")
+        except Exception as exc:
+            logger.error("Failed to send setup email to %s: %s", email, exc)
+            flash(f"User created, but SMTP failed to send setup email. Temporary setup link: {setup_url}", "warning")
+
+        return redirect(url_for("admin_users"))
+
+    users = db.list_users()
     return render_template("admin_users.html", users=users)
+
+
+@app.route("/admin/users/<user_id>/reset-password", methods=["POST"])
+@role_required(list(ADMIN_PANEL_ROLES))
+def admin_reset_user_password(user_id: str):
+    """Admin-triggered password reset email for an existing user."""
+    user = db.get_user_by_id(user_id)
+    if not user:
+        flash("User not found or inactive.", "error")
+        return redirect(url_for("admin_users"))
+    if not user.get("email"):
+        flash("User has no email configured.", "error")
+        return redirect(url_for("admin_users"))
+
+    token = db.create_password_setup_token(user_id, expires_hours=24)
+    if not token:
+        flash("Failed to generate reset token.", "error")
+        return redirect(url_for("admin_users"))
+
+    setup_url = _build_setup_link(token)
+    try:
+        msg = Message("QuantumShield Password Reset", recipients=[user["email"]])
+        msg.body = (
+            "Hello,\n\n"
+            f"A password reset was initiated by admin for username: {user['username']}\n\n"
+            "Use this secure one-time link to set a new password:\n"
+            f"{setup_url}\n\n"
+            "This link expires in 24 hours."
+        )
+        mail.send(msg)
+        flash("Password reset email sent.", "success")
+    except Exception as exc:
+        logger.error("Password reset email failed for %s: %s", user["email"], exc)
+        flash(f"SMTP failed. Temporary setup link: {setup_url}", "warning")
+    return redirect(url_for("admin_users"))
+
+
+@app.route("/admin/users/<user_id>/update", methods=["POST"])
+@role_required(list(ADMIN_PANEL_ROLES))
+def admin_update_user(user_id: str):
+    role = db.normalize_role(request.form.get("role") or "Viewer")
+    is_active = request.form.get("is_active") == "on"
+    if db.update_user_profile(user_id, role=role, is_active=is_active):
+        flash("User profile updated.", "success")
+    else:
+        flash("Failed to update user profile.", "error")
+    return redirect(url_for("admin_users"))
 
 
 @app.route("/setup-password/<token>", methods=["GET", "POST"])
 def setup_password(token):
     """Secure link to allow new users to set their password."""
-    try:
-        email = serializer.loads(token, salt='password-setup-salt', max_age=86400) # 24 hours max
-    except Exception:
+    user_data = db.get_user_by_setup_token(token)
+    if not user_data:
         flash("The setup link is invalid or has expired.", "error")
         return redirect(url_for('login'))
-        
+
     if request.method == "POST":
-        password = request.form.get("password")
-        if not password or len(password) < 8:
-            flash("Password must be at least 8 characters long.", "error")
+        password = request.form.get("password") or ""
+        confirm_password = request.form.get("confirm_password") or ""
+
+        is_valid, message = _validate_password_strength(password)
+        if not is_valid:
+            flash(message, "error")
             return render_template("setup_password.html", token=token)
-            
-        conn = db._get_connection()
-        if conn is None:
-            flash("Database error.", "error")
+        if password != confirm_password:
+            flash("Password and confirmation do not match.", "error")
             return render_template("setup_password.html", token=token)
-            
-        try:
-            cur = conn.cursor()
-            cur.execute("UPDATE users SET password_hash = %s WHERE email = %s", (generate_password_hash(password), email))
-            conn.commit()
+
+        if db.set_user_password(user_data["id"], generate_password_hash(password)):
             flash("Password set successfully. You can now log in.", "success")
             return redirect(url_for('login'))
-        except Exception as e:
-            flash("Failed to update password.", "error")
-        finally:
-            conn.close()
-            
+
+        flash("Failed to update password.", "error")
+
     return render_template("setup_password.html", token=token)
 
 
@@ -488,7 +620,7 @@ def index():
 
 
 @app.route("/scan", methods=["POST"])
-@role_required(["Admin", "Manager", "Scanner"])
+@role_required(list(SCAN_ROLES))
 def scan():
     """Run a scan on one or multiple targets (text input + CSV upload)."""
     import re
@@ -555,8 +687,8 @@ def scan():
         
     # Enforce advanced RBAC
     is_bulk = (csv_file and csv_file.filename) or len(targets) > 1
-    if is_bulk and current_user.role not in ["Admin", "Manager"]:
-        flash("Your current role (Scanner) does not permit Bulk Scanning.", "error")
+    if is_bulk and current_user.role not in BULK_SCAN_ROLES:
+        flash("Your role allows single-target scans only.", "error")
         return redirect(url_for("index"))
 
     try:
@@ -702,6 +834,7 @@ def api_scan():
 
 
 @app.route("/api/scans")
+@login_required
 def api_list_scans():
     """List all stored scan results."""
     scans = [

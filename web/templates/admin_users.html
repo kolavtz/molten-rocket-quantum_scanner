@@ -29,6 +29,16 @@
             <h3 style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">Invite New User</h3>
             <form action="{{ url_for('admin_users') }}" method="POST" class="auth-form">
                 <div class="form-group">
+                    <label for="employee_id">Employee ID</label>
+                    <input type="text" id="employee_id" name="employee_id" class="input-modern" placeholder="EMP-1001" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" class="input-modern" placeholder="jane.doe" required>
+                </div>
+
+                <div class="form-group">
                     <label for="email">Email Address</label>
                     <input type="email" id="email" name="email" class="input-modern" placeholder="user@company.com" required>
                 </div>
@@ -38,7 +48,7 @@
                     <div class="select-wrapper">
                         <select id="role" name="role" class="input-modern" required>
                             <option value="Viewer" selected>Viewer (Read-only)</option>
-                            <option value="Scanner">Scanner (Single Scans only)</option>
+                            <option value="SingleScan">SingleScan (Single Scans only)</option>
                             <option value="Manager">Manager (Single & Bulk Scans)</option>
                             <option value="Admin">Admin (Full Access)</option>
                         </select>
@@ -47,7 +57,7 @@
                         Role definitions:<br>
                         - <strong>Admin</strong>: Manages users, runs all scans.<br>
                         - <strong>Manager</strong>: Runs bulk and single scans.<br>
-                        - <strong>Scanner</strong>: Runs single scans only.<br>
+                        - <strong>SingleScan</strong>: Runs single scans only.<br>
                         - <strong>Viewer</strong>: Views historical results only.
                     </small>
                 </div>
@@ -65,23 +75,56 @@
                 <table class="data-table">
                     <thead>
                         <tr>
+                            <th>Employee ID</th>
                             <th>Username</th>
                             <th>Email</th>
                             <th>Role</th>
+                            <th>Status</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for user in users %}
                         <tr>
+                            <td>{{ user.employee_id or 'N/A' }}</td>
                             <td>{{ user.username }}</td>
                             <td>{{ user.email or 'N/A' }}</td>
                             <td>
                                 <span class="role-badge role-{{ user.role|lower }}">{{ user.role }}</span>
                             </td>
+                            <td>
+                                {% if user.is_active %}
+                                <span class="role-badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">Active</span>
+                                {% else %}
+                                <span class="role-badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <form action="{{ url_for('admin_update_user', user_id=user.id) }}" method="POST" style="display:inline-block; margin-bottom: 0.3rem;">
+                                    <select name="role" class="input-modern" style="padding: 0.25rem 0.4rem; font-size: 0.75rem; min-width: 102px;">
+                                        <option value="Viewer" {% if user.role == 'Viewer' %}selected{% endif %}>Viewer</option>
+                                        <option value="SingleScan" {% if user.role == 'SingleScan' %}selected{% endif %}>SingleScan</option>
+                                        <option value="Manager" {% if user.role == 'Manager' %}selected{% endif %}>Manager</option>
+                                        <option value="Admin" {% if user.role == 'Admin' %}selected{% endif %}>Admin</option>
+                                    </select>
+                                    <label style="font-size: 0.72rem; color: var(--text-secondary); margin-left: 0.3rem;">
+                                        <input type="checkbox" name="is_active" {% if user.is_active %}checked{% endif %}> active
+                                    </label>
+                                    <button type="submit" class="btn-primary" style="padding: 0.35rem 0.6rem; font-size: 0.72rem; margin-left: 0.2rem;">Save</button>
+                                </form>
+                                <br>
+                                {% if user.email %}
+                                <form action="{{ url_for('admin_reset_user_password', user_id=user.id) }}" method="POST" style="display:inline;">
+                                    <button type="submit" class="btn-primary" style="padding: 0.35rem 0.6rem; font-size: 0.75rem;">Send Reset Link</button>
+                                </form>
+                                {% else %}
+                                <span style="color: var(--text-secondary); font-size: 0.75rem;">No email</span>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="3" class="text-center">No users found.</td>
+                            <td colspan="6" class="text-center">No users found.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -95,6 +138,6 @@
 <style>
 /* Add missing role colors */
 .role-manager { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
-.role-scanner { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+.role-singlescan { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
 </style>
 {% endblock %}

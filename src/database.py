@@ -26,10 +26,12 @@ from __future__ import annotations
 import json
 import logging
 import os
+import secrets
+import hashlib
 import sys
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone, timedelta
+from typing import Any, Dict, List, Optional, Tuple
 from cryptography.fernet import Fernet, InvalidToken
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -44,6 +46,32 @@ from config import (
 )
 
 logger = logging.getLogger(__name__)
+
+VALID_ROLES = {"Admin", "Manager", "SingleScan", "Viewer"}
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def normalize_role(role: str) -> str:
+    """Normalize user-submitted role names to supported internal roles."""
+    role_val = (role or "").strip().lower()
+    aliases = {
+        "admin": "Admin",
+        "manager": "Manager",
+        "viewer": "Viewer",
+        "scanner": "SingleScan",
+        "singlescan": "SingleScan",
+        "single_scan": "SingleScan",
+        "single-scan": "SingleScan",
+    }
+    normalized = aliases.get(role_val, role)
+    return normalized if normalized in VALID_ROLES else "Viewer"
+
+
+def _hash_token(raw_token: str) -> str:
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
 
 # ---------------------------------------------------------------------------
 # Encryption Helpers
@@ -139,13 +167,25 @@ def init_db() -> bool:
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                id            VARCHAR(36) PRIMARY KEY,
-                username      VARCHAR(150) UNIQUE NOT NULL,
-                email         VARCHAR(255) UNIQUE,
-                password_hash VARCHAR(255) NOT NULL,
-                role          VARCHAR(50) NOT NULL,
-                reset_token   VARCHAR(255) UNIQUE,
-                token_expiry  DATETIME
+                id                          VARCHAR(36) PRIMARY KEY,
+                employee_id                 VARCHAR(64) UNIQUE,
+                username                    VARCHAR(150) UNIQUE NOT NULL,
+                email                       VARCHAR(255) UNIQUE,
+                password_hash               VARCHAR(255) NOT NULL,
+                role                        VARCHAR(50) NOT NULL,
+                created_by                  VARCHAR(36),
+                is_active                   BOOLEAN DEFAULT TRUE,
+                password_setup_token_hash   CHAR(64) UNIQUE,
+                password_setup_token_expiry DATETIME,
+                must_change_password        BOOLEAN DEFAULT TRUE,
+                failed_login_attempts       INT DEFAULT 0,
+                lockout_until               DATETIME,
+                last_login_at               DATETIME,
+                password_changed_at         DATETIME,
+                created_at                  DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at                  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (created_by) REFERENCES users(id)
+                    ON DELETE SET NULL
             ) ENGINE=InnoDB
         """)
 
@@ -179,6 +219,19 @@ def init_db() -> bool:
             "ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE",
             "ALTER TABLE users ADD COLUMN reset_token VARCHAR(255) UNIQUE",
             "ALTER TABLE users ADD COLUMN token_expiry DATETIME",
+            "ALTER TABLE users ADD COLUMN employee_id VARCHAR(64) UNIQUE",
+            "ALTER TABLE users ADD COLUMN created_by VARCHAR(36)",
+            "ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT TRUE",
+            "ALTER TABLE users ADD COLUMN password_setup_token_hash CHAR(64) UNIQUE",
+            "ALTER TABLE users ADD COLUMN password_setup_token_expiry DATETIME",
+            "ALTER TABLE users ADD COLUMN must_change_password BOOLEAN DEFAULT TRUE",
+            "ALTER TABLE users ADD COLUMN failed_login_attempts INT DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN lockout_until DATETIME",
+            "ALTER TABLE users ADD COLUMN last_login_at DATETIME",
+            "ALTER TABLE users ADD COLUMN password_changed_at DATETIME",
+            "ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
+            "ALTER TABLE users ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+            "ALTER TABLE users ADD CONSTRAINT fk_users_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL",
             "ALTER TABLE scans ADD COLUMN is_encrypted BOOLEAN DEFAULT FALSE",
             "ALTER TABLE cbom_reports ADD COLUMN is_encrypted BOOLEAN DEFAULT FALSE",
             "ALTER TABLE scans MODIFY COLUMN report_json LONGTEXT NOT NULL",
@@ -193,12 +246,28 @@ def init_db() -> bool:
         cur.execute("SELECT COUNT(*) FROM users")
         if cur.fetchone()[0] == 0:
             from werkzeug.security import generate_password_hash
-            # Default creds: admin / admin123
-            # In a real production app, this should be set via env var on first boot
+
+            admin_username = os.environ.get("QSS_ADMIN_USERNAME", "admin")
+            admin_email = os.environ.get("QSS_ADMIN_EMAIL", "admin@localhost")
+            admin_employee_id = os.environ.get("QSS_ADMIN_EMPLOYEE_ID", "ADMIN-001")
             admin_pass = os.environ.get("QSS_ADMIN_PASSWORD", "admin123")
             cur.execute(
-                "INSERT INTO users (id, username, password_hash, role) VALUES (%s, %s, %s, %s)",
-                (str(uuid.uuid4()), "admin", generate_password_hash(admin_pass), "Admin")
+                """
+                INSERT INTO users
+                    (id, employee_id, username, email, password_hash, role, is_active, must_change_password, password_changed_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    admin_employee_id,
+                    admin_username,
+                    admin_email,
+                    generate_password_hash(admin_pass),
+                    "Admin",
+                    True,
+                    False,
+                    _utcnow(),
+                ),
             )
             logger.info("Default admin user created.")
 
@@ -420,37 +489,277 @@ def get_cbom(scan_id: str) -> Optional[Dict[str, Any]]:
 # RBAC User Management
 # ---------------------------------------------------------------------------
 
-def get_user_by_id(user_id: int) -> Optional[Dict[str, Any]]:
-    """Load a user by ID."""
+def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
+    """Load an active user by ID."""
     conn = _get_connection()
-    if conn is None: return None
+    if conn is None:
+        return None
     try:
         cur = conn.cursor(dictionary=True)
-        cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
-        return cur.fetchone()
+        cur.execute("SELECT * FROM users WHERE id = %s AND is_active = TRUE", (str(user_id),))
+        user = cur.fetchone()
+        if user:
+            user["role"] = normalize_role(user.get("role", "Viewer"))
+        return user
     finally:
         conn.close()
+
 
 def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
-    """Load a user by username."""
+    """Load an active user by username."""
     conn = _get_connection()
-    if conn is None: return None
+    if conn is None:
+        return None
     try:
         cur = conn.cursor(dictionary=True)
-        cur.execute("SELECT * FROM users WHERE username = %s", (username,))
-        return cur.fetchone()
+        cur.execute("SELECT * FROM users WHERE username = %s AND is_active = TRUE", (username,))
+        user = cur.fetchone()
+        if user:
+            user["role"] = normalize_role(user.get("role", "Viewer"))
+        return user
     finally:
         conn.close()
 
-def create_user(username: str, password_hash: str, role: str = 'Viewer') -> bool:
-    """Create a new user."""
+
+def list_users() -> List[Dict[str, Any]]:
     conn = _get_connection()
-    if conn is None: return False
+    if conn is None:
+        return []
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT id, employee_id, username, email, role, is_active, created_by,
+                   last_login_at, created_at
+            FROM users
+            ORDER BY created_at DESC
+            """
+        )
+        users = cur.fetchall() or []
+        for user in users:
+            user["role"] = normalize_role(user.get("role", "Viewer"))
+        return users
+    finally:
+        conn.close()
+
+
+def create_invited_user(
+    employee_id: str,
+    username: str,
+    email: str,
+    role: str,
+    created_by: str,
+    password_hash: str,
+) -> Optional[str]:
+    """Create a user invited by an admin/manager and return the new user ID."""
+    conn = _get_connection()
+    if conn is None:
+        return None
+    user_id = str(uuid.uuid4())
     try:
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO users (username, password_hash, role) VALUES (%s, %s, %s)",
-            (username, password_hash, role)
+            """
+            INSERT INTO users
+                (id, employee_id, username, email, password_hash, role, created_by,
+                 is_active, must_change_password, failed_login_attempts)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE, TRUE, 0)
+            """,
+            (
+                user_id,
+                employee_id,
+                username,
+                email,
+                password_hash,
+                normalize_role(role),
+                created_by,
+            ),
+        )
+        conn.commit()
+        return user_id
+    except Exception as exc:
+        logger.error("MySQL create_invited_user error: %s", exc)
+        return None
+    finally:
+        conn.close()
+
+
+def update_user_profile(user_id: str, role: Optional[str] = None, is_active: Optional[bool] = None) -> bool:
+    conn = _get_connection()
+    if conn is None:
+        return False
+    updates = []
+    params: List[Any] = []
+    if role is not None:
+        updates.append("role = %s")
+        params.append(normalize_role(role))
+    if is_active is not None:
+        updates.append("is_active = %s")
+        params.append(bool(is_active))
+    if not updates:
+        conn.close()
+        return True
+    params.append(str(user_id))
+    try:
+        cur = conn.cursor()
+        cur.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = %s", tuple(params))
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as exc:
+        logger.error("MySQL update_user_profile error: %s", exc)
+        return False
+    finally:
+        conn.close()
+
+
+def mark_login_success(user_id: str) -> None:
+    conn = _get_connection()
+    if conn is None:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE users
+            SET failed_login_attempts = 0,
+                lockout_until = NULL,
+                last_login_at = %s
+            WHERE id = %s
+            """,
+            (_utcnow(), str(user_id)),
+        )
+        conn.commit()
+    except Exception as exc:
+        logger.warning("mark_login_success failed: %s", exc)
+    finally:
+        conn.close()
+
+
+def mark_login_failure(user_id: str, max_attempts: int, lock_minutes: int) -> None:
+    conn = _get_connection()
+    if conn is None:
+        return
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute("SELECT failed_login_attempts FROM users WHERE id = %s", (str(user_id),))
+        row = cur.fetchone() or {"failed_login_attempts": 0}
+        attempts = int(row.get("failed_login_attempts", 0)) + 1
+        lockout_until = _utcnow() + timedelta(minutes=max(1, lock_minutes)) if attempts >= max_attempts else None
+
+        update_cur = conn.cursor()
+        update_cur.execute(
+            """
+            UPDATE users
+            SET failed_login_attempts = %s,
+                lockout_until = %s
+            WHERE id = %s
+            """,
+            (attempts, lockout_until, str(user_id)),
+        )
+        conn.commit()
+    except Exception as exc:
+        logger.warning("mark_login_failure failed: %s", exc)
+    finally:
+        conn.close()
+
+
+def create_password_setup_token(user_id: str, expires_hours: int = 24) -> Optional[str]:
+    """Create and persist a one-time password setup token; returns the raw token."""
+    conn = _get_connection()
+    if conn is None:
+        return None
+    raw_token = secrets.token_urlsafe(48)
+    token_hash = _hash_token(raw_token)
+    expiry = _utcnow() + timedelta(hours=max(1, expires_hours))
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE users
+            SET password_setup_token_hash = %s,
+                password_setup_token_expiry = %s,
+                must_change_password = TRUE
+            WHERE id = %s
+            """,
+            (token_hash, expiry, str(user_id)),
+        )
+        conn.commit()
+        if cur.rowcount == 0:
+            return None
+        return raw_token
+    except Exception as exc:
+        logger.error("create_password_setup_token failed: %s", exc)
+        return None
+    finally:
+        conn.close()
+
+
+def get_user_by_setup_token(raw_token: str) -> Optional[Dict[str, Any]]:
+    conn = _get_connection()
+    if conn is None:
+        return None
+    token_hash = _hash_token(raw_token)
+    now_ts = _utcnow()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT *
+            FROM users
+            WHERE password_setup_token_hash = %s
+              AND password_setup_token_expiry IS NOT NULL
+              AND password_setup_token_expiry >= %s
+              AND is_active = TRUE
+            """,
+            (token_hash, now_ts),
+        )
+        user = cur.fetchone()
+        if user:
+            user["role"] = normalize_role(user.get("role", "Viewer"))
+        return user
+    finally:
+        conn.close()
+
+
+def set_user_password(user_id: str, password_hash: str) -> bool:
+    conn = _get_connection()
+    if conn is None:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE users
+            SET password_hash = %s,
+                password_setup_token_hash = NULL,
+                password_setup_token_expiry = NULL,
+                must_change_password = FALSE,
+                password_changed_at = %s,
+                failed_login_attempts = 0,
+                lockout_until = NULL
+            WHERE id = %s
+            """,
+            (password_hash, _utcnow(), str(user_id)),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as exc:
+        logger.error("set_user_password failed: %s", exc)
+        return False
+    finally:
+        conn.close()
+
+
+def create_user(username: str, password_hash: str, role: str = "Viewer") -> bool:
+    """Backwards-compatible helper for tests/legacy call sites."""
+    conn = _get_connection()
+    if conn is None:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO users (id, username, password_hash, role, is_active) VALUES (%s, %s, %s, %s, TRUE)",
+            (str(uuid.uuid4()), username, password_hash, normalize_role(role)),
         )
         conn.commit()
         return True
