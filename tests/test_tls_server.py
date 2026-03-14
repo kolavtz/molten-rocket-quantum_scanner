@@ -19,7 +19,7 @@ CERT = os.path.join(os.path.dirname(__file__), "test_cert.pem")
 KEY  = os.path.join(os.path.dirname(__file__), "test_key.pem")
 
 
-class TestHandler(http.server.BaseHTTPRequestHandler):
+class TLSTestHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-Type", "text/html")
@@ -40,7 +40,7 @@ def main():
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.load_cert_chain(CERT, KEY)
 
-    server = http.server.HTTPServer(("127.0.0.1", PORT), TestHandler)
+    server = http.server.HTTPServer(("127.0.0.1", PORT), TLSTestHandler)
     server.socket = ctx.wrap_socket(server.socket, server_side=True)
 
     print(f"TLS test server running on https://127.0.0.1:{PORT}")

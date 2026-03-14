@@ -354,11 +354,19 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None) -> dict:
     # 2. Filter to TLS-capable endpoints only
     tls_endpoints = [ep for ep in all_services if ep.is_tls]
 
-    # Fallback: if no TLS endpoints from broad sweep, try port 443 directly
+    # Fallback: if no TLS endpoints from broad sweep, try deeper discovery
     if not tls_endpoints:
         endpoints = scanner.discover_targets(target, ports)
 
-        if not tls_endpoints:
+        if endpoints:
+            # Use endpoints found by discover_targets for full TLS analysis
+            analyzer = TLSAnalyzer()
+            tls_results = []
+            for ep in endpoints:
+                result = analyzer.analyze_endpoint(ep.host, ep.port)
+                if result.is_successful:
+                    tls_results.append(result.to_dict())
+        else:
             # Last resort: direct TLS analysis on port 443
             analyzer = TLSAnalyzer()
             tls_result = analyzer.analyze_endpoint(target, 443)
@@ -884,6 +892,9 @@ def scan():
 @login_required
 def results(scan_id: str):
     """Display scan results (memory → disk → MySQL fallback)."""
+    import re as _re
+    if not _re.match(r'^[a-f0-9A-F\-]+$', scan_id):
+        return render_template("error.html", error_message="Invalid scan ID."), 404
     report = scan_store.get(scan_id)
     if not report:
         # Try loading from disk
@@ -909,6 +920,9 @@ def results(scan_id: str):
 @login_required
 def download_cbom(scan_id: str):
     """Download CBOM JSON file (disk → MySQL fallback)."""
+    import re as _re
+    if not _re.match(r'^[a-f0-9A-F\-]+$', scan_id):
+        return jsonify({"error": "Invalid scan ID."}), 404
     cbom_path = os.path.join(RESULTS_DIR, f"{scan_id}_cbom.json")
     if os.path.exists(cbom_path):
         _audit("scan", "download_cbom", "success", target_scan_id=scan_id, details={"source": "disk"})
