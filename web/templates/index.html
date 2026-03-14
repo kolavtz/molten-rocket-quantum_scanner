@@ -73,7 +73,7 @@
 {% endif %}
 
 <!-- Scan Form -->
-{% if current_user.role == 'Admin' %}
+{% if current_user.role in ['Admin', 'Manager', 'Scanner'] %}
 <section class="scan-section animate-fade-in-up delay-3">
     <div class="scan-card glass-card">
         <div class="scan-header">
@@ -90,9 +90,11 @@
             <button type="button" id="tabSingle" class="scan-tab scan-tab-active" onclick="switchTab('single')">
                 🌐 Single Target
             </button>
+            {% if current_user.role in ['Admin', 'Manager'] %}
             <button type="button" id="tabBulk" class="scan-tab" onclick="switchTab('bulk')">
                 📋 Bulk Scan
             </button>
+            {% endif %}
         </div>
 
         <form action="/scan" method="POST" class="scan-form" id="scanForm" enctype="multipart/form-data">
@@ -220,8 +222,8 @@
         <div class="overview-icon" style="font-size: 3rem; margin-bottom: 1rem;">🔒</div>
         <h2 style="margin-bottom: 0.5rem;">Restricted Access</h2>
         <p style="color: var(--text-secondary); max-width: 400px; margin: 0 auto;">
-            Only users with the <strong>Admin</strong> role can initiate new scans. 
-            As a <strong>Viewer</strong>, you can browse existing scan results and historical data.
+            Your current role is <strong>Viewer</strong>. 
+            You can browse existing results and historical data, but you do not have permission to initiate new scans.
         </p>
     </div>
 </section>

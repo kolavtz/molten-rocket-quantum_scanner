@@ -52,7 +52,7 @@ SAMPLE_CBOM = {
 def mock_cursor():
     """Create a mock cursor with common attributes."""
     cursor = MagicMock()
-    cursor.fetchone.return_value = None
+    cursor.fetchone.return_value = (0,)
     cursor.fetchall.return_value = []
     return cursor
 
@@ -77,8 +77,8 @@ class TestInitDb:
         result = init_db()
 
         assert result is True
-        # Should execute 4 SQL statements: CREATE DB, USE, CREATE scans, CREATE cbom_reports
-        assert mock_cursor.execute.call_count == 4
+        # Should execute CREATE DB, USE, CREATE tables, ALTER tables, etc.
+        assert mock_cursor.execute.call_count >= 4
         mock_conn.commit.assert_called_once()
         mock_conn.close.assert_called_once()
 
@@ -129,8 +129,9 @@ class TestSaveScan:
         assert params[4] == 3                # total_assets
         assert params[5] == 1                # quantum_safe
         assert params[6] == 2                # quantum_vulnerable
-        # params[7] is datetime, params[8] is JSON string
+        # params[7] is datetime, params[8] is JSON string, params[9] is is_encrypted
         assert json.loads(params[8])["scan_id"] == "abc12345"
+        assert params[9] is False
 
         mock_conn.commit.assert_called_once()
         mock_conn.close.assert_called_once()
@@ -175,6 +176,7 @@ class TestSaveCbom:
         assert "INSERT INTO cbom_reports" in sql
         assert params[0] == "abc12345"
         assert json.loads(params[1])["bomFormat"] == "CycloneDX"
+        assert params[2] is False
         mock_conn.commit.assert_called_once()
 
     @patch("src.database._get_connection")
@@ -195,7 +197,7 @@ class TestGetScan:
     def test_get_scan_found(self, mock_get_conn, mock_conn, mock_cursor):
         """get_scan should return deserialized report dict."""
         mock_get_conn.return_value = mock_conn
-        mock_cursor.fetchone.return_value = (json.dumps(SAMPLE_REPORT),)
+        mock_cursor.fetchone.return_value = (json.dumps(SAMPLE_REPORT), False)
         from src.database import get_scan
 
         result = get_scan("abc12345")
@@ -236,8 +238,8 @@ class TestListScans:
         report2 = {**SAMPLE_REPORT, "scan_id": "def67890", "target": "github.com"}
         mock_get_conn.return_value = mock_conn
         mock_cursor.fetchall.return_value = [
-            (json.dumps(SAMPLE_REPORT),),
-            (json.dumps(report2),),
+            (json.dumps(SAMPLE_REPORT), False),
+            (json.dumps(report2), False),
         ]
         from src.database import list_scans
 
@@ -279,7 +281,7 @@ class TestGetCbom:
     def test_get_cbom_found(self, mock_get_conn, mock_conn, mock_cursor):
         """get_cbom should return deserialized CBOM dict."""
         mock_get_conn.return_value = mock_conn
-        mock_cursor.fetchone.return_value = (json.dumps(SAMPLE_CBOM),)
+        mock_cursor.fetchone.return_value = (json.dumps(SAMPLE_CBOM), False)
         from src.database import get_cbom
 
         result = get_cbom("abc12345")
