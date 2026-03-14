@@ -28,6 +28,7 @@ from flask import (
     url_for,
     Response,
     flash,
+    session,
 )
 from flask_login import (
     LoginManager,
@@ -85,6 +86,9 @@ from config import (
     HSTS_SECONDS,
     MAX_LOGIN_ATTEMPTS,
     LOGIN_LOCKOUT_MINUTES,
+    SESSION_COOKIE_NAME,
+    SESSION_IDLE_TIMEOUT_SECONDS,
+    AUDIT_LOG_PAGE_SIZE,
 )
 
 app.config.update(
@@ -101,6 +105,7 @@ app.config.update(
     MAIL_PASSWORD=MAIL_PASSWORD,
     MAIL_DEFAULT_SENDER=MAIL_DEFAULT_SENDER,
     PREFERRED_URL_SCHEME="https" if FORCE_HTTPS else "http",
+    SESSION_COOKIE_NAME=SESSION_COOKIE_NAME,
 )
 
 if TRUST_PROXY_SSL_HEADER:
@@ -141,8 +146,19 @@ def role_required(roles):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not current_user.is_authenticated:
+                db.append_audit_log(
+                    event_category="auth",
+                    event_type="unauthenticated_access_attempt",
+                    status="denied",
+                    ip_address=_get_request_ip(),
+                    user_agent=request.headers.get("User-Agent", "")[:512],
+                    request_method=request.method,
+                    request_path=request.path,
+                    details={"required_roles": roles},
+                )
                 return redirect(url_for('login'))
             if current_user.role not in roles:
+                _audit("auth", "authorization_denied", "denied", details={"required_roles": roles, "actual_role": current_user.role})
                 flash("You do not have permission to access this resource.", "error")
                 return redirect(url_for('index'))
             return f(*args, **kwargs)
@@ -175,6 +191,39 @@ def _build_setup_link(token: str) -> str:
     return url_for("setup_password", token=token, _external=True, _scheme=scheme)
 
 
+def _get_request_ip() -> str:
+    forwarded_for = request.headers.get("X-Forwarded-For", "")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.headers.get("X-Real-IP") or request.remote_addr or "unknown"
+
+
+def _audit(
+    event_category: str,
+    event_type: str,
+    status: str,
+    target_user_id: str | None = None,
+    target_scan_id: str | None = None,
+    details: dict | None = None,
+) -> None:
+    actor_id = getattr(current_user, "id", None) if getattr(current_user, "is_authenticated", False) else None
+    actor_username = getattr(current_user, "username", None) if getattr(current_user, "is_authenticated", False) else None
+    db.append_audit_log(
+        event_category=event_category,
+        event_type=event_type,
+        status=status,
+        actor_user_id=actor_id,
+        actor_username=actor_username,
+        target_user_id=target_user_id,
+        target_scan_id=target_scan_id,
+        ip_address=_get_request_ip(),
+        user_agent=request.headers.get("User-Agent", "")[:512],
+        request_method=request.method,
+        request_path=request.path,
+        details=details or {},
+    )
+
+
 @app.before_request
 def enforce_https_redirect():
     if not FORCE_HTTPS:
@@ -187,6 +236,37 @@ def enforce_https_redirect():
         return None
     secure_url = request.url.replace("http://", "https://", 1)
     return redirect(secure_url, code=301)
+
+
+@app.before_request
+def enforce_session_idle_timeout():
+    if not getattr(current_user, "is_authenticated", False):
+        session.pop("last_activity", None)
+        return None
+
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+    last_activity = session.get("last_activity")
+    if last_activity and now_ts - int(last_activity) > SESSION_IDLE_TIMEOUT_SECONDS:
+        user_name = getattr(current_user, "username", "unknown")
+        logout_user()
+        session.clear()
+        db.append_audit_log(
+            event_category="auth",
+            event_type="session_timeout",
+            status="success",
+            actor_username=user_name,
+            ip_address=_get_request_ip(),
+            user_agent=request.headers.get("User-Agent", "")[:512],
+            request_method=request.method,
+            request_path=request.path,
+            details={"idle_timeout_seconds": SESSION_IDLE_TIMEOUT_SECONDS},
+        )
+        flash("Session expired due to inactivity. Please sign in again.", "warning")
+        return redirect(url_for("login"))
+
+    session.permanent = True
+    session["last_activity"] = now_ts
+    return None
 
 
 @app.after_request
@@ -405,23 +485,50 @@ def login():
         password = request.form.get("password") or ""
 
         user_data = db.get_user_by_username(username)
-        if user_data and user_data.get("lockout_until") and datetime.utcnow() < user_data["lockout_until"]:
+        if user_data and user_data.get("lockout_until") and datetime.now(timezone.utc).replace(tzinfo=None) < user_data["lockout_until"]:
+            db.append_audit_log(
+                event_category="auth",
+                event_type="login_blocked_locked_account",
+                status="denied",
+                actor_user_id=user_data.get("id"),
+                actor_username=username,
+                ip_address=_get_request_ip(),
+                user_agent=request.headers.get("User-Agent", "")[:512],
+                request_method=request.method,
+                request_path=request.path,
+                details={"lockout_until": user_data.get("lockout_until").isoformat() if user_data.get("lockout_until") else None},
+            )
             flash("Account temporarily locked due to repeated failed login attempts. Please try again later.", "error")
             return render_template("login.html")
 
         if user_data and check_password_hash(user_data["password_hash"], password):
             db.mark_login_success(user_data["id"])
             user = User(user_data)
+            session.clear()
             login_user(user)
+            _audit("auth", "login_success", "success", target_user_id=user_data["id"], details={"role": user.role})
             if user_data.get("must_change_password"):
                 token = db.create_password_setup_token(user_data["id"], expires_hours=2)
                 if token:
+                    _audit("auth", "password_change_required", "success", target_user_id=user_data["id"], details={"reason": "must_change_password"})
                     flash("Please set a new password before continuing.", "warning")
                     return redirect(url_for("setup_password", token=token))
             return redirect(url_for('index'))
         else:
             if user_data:
                 db.mark_login_failure(user_data["id"], MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_MINUTES)
+            db.append_audit_log(
+                event_category="auth",
+                event_type="login_failed",
+                status="failed",
+                actor_user_id=user_data.get("id") if user_data else None,
+                actor_username=username,
+                ip_address=_get_request_ip(),
+                user_agent=request.headers.get("User-Agent", "")[:512],
+                request_method=request.method,
+                request_path=request.path,
+                details={"user_exists": bool(user_data)},
+            )
             flash("Invalid username or password.", "error")
 
     return render_template("login.html")
@@ -431,7 +538,9 @@ def login():
 @login_required
 def logout():
     """Logout current user."""
+    _audit("auth", "logout", "success")
     logout_user()
+    session.clear()
     return redirect(url_for('login'))
 
 
@@ -446,6 +555,7 @@ def admin_users():
         role = db.normalize_role(request.form.get("role") or "Viewer")
 
         if not employee_id or not email or not username:
+            _audit("admin", "create_user_validation_failed", "failed", details={"has_employee_id": bool(employee_id), "has_email": bool(email), "has_username": bool(username)})
             flash("Employee ID, email, and username are required.", "error")
             return redirect(url_for("admin_users"))
 
@@ -460,11 +570,13 @@ def admin_users():
         )
 
         if not invited_user_id:
+            _audit("admin", "create_user", "failed", details={"email": email, "username": username, "employee_id": employee_id, "role": role})
             flash("Failed to create user. Check for duplicate username/email/employee ID.", "error")
             return redirect(url_for("admin_users"))
 
         token = db.create_password_setup_token(invited_user_id, expires_hours=24)
         if not token:
+            _audit("admin", "create_user_token", "failed", target_user_id=invited_user_id, details={"email": email})
             flash("User created, but setup token generation failed.", "warning")
             return redirect(url_for("admin_users"))
 
@@ -483,9 +595,11 @@ def admin_users():
                 "This link expires in 24 hours and can only be used once."
             )
             mail.send(msg)
+            _audit("admin", "create_user", "success", target_user_id=invited_user_id, details={"email": email, "username": username, "employee_id": employee_id, "role": role, "email_sent": True})
             flash(f"User {username} invited successfully. Setup email sent.", "success")
         except Exception as exc:
             logger.error("Failed to send setup email to %s: %s", email, exc)
+            _audit("admin", "create_user", "partial", target_user_id=invited_user_id, details={"email": email, "username": username, "role": role, "email_sent": False, "error": str(exc)})
             flash(f"User created, but SMTP failed to send setup email. Temporary setup link: {setup_url}", "warning")
 
         return redirect(url_for("admin_users"))
@@ -494,20 +608,31 @@ def admin_users():
     return render_template("admin_users.html", users=users)
 
 
+@app.route("/admin/audit")
+@role_required(list(ADMIN_PANEL_ROLES))
+def admin_audit_logs():
+    logs = db.list_audit_logs(limit=AUDIT_LOG_PAGE_SIZE)
+    is_valid, issues = db.verify_audit_log_chain(limit=max(AUDIT_LOG_PAGE_SIZE, 500))
+    return render_template("admin_audit.html", logs=logs, chain_valid=is_valid, chain_issues=issues)
+
+
 @app.route("/admin/users/<user_id>/reset-password", methods=["POST"])
 @role_required(list(ADMIN_PANEL_ROLES))
 def admin_reset_user_password(user_id: str):
     """Admin-triggered password reset email for an existing user."""
     user = db.get_user_by_id(user_id)
     if not user:
+        _audit("admin", "reset_password", "failed", target_user_id=user_id, details={"reason": "user_not_found"})
         flash("User not found or inactive.", "error")
         return redirect(url_for("admin_users"))
     if not user.get("email"):
+        _audit("admin", "reset_password", "failed", target_user_id=user_id, details={"reason": "missing_email"})
         flash("User has no email configured.", "error")
         return redirect(url_for("admin_users"))
 
     token = db.create_password_setup_token(user_id, expires_hours=24)
     if not token:
+        _audit("admin", "reset_password", "failed", target_user_id=user_id, details={"reason": "token_generation_failed"})
         flash("Failed to generate reset token.", "error")
         return redirect(url_for("admin_users"))
 
@@ -522,9 +647,11 @@ def admin_reset_user_password(user_id: str):
             "This link expires in 24 hours."
         )
         mail.send(msg)
+        _audit("admin", "reset_password", "success", target_user_id=user_id, details={"email": user["email"], "email_sent": True})
         flash("Password reset email sent.", "success")
     except Exception as exc:
         logger.error("Password reset email failed for %s: %s", user["email"], exc)
+        _audit("admin", "reset_password", "partial", target_user_id=user_id, details={"email": user["email"], "email_sent": False, "error": str(exc)})
         flash(f"SMTP failed. Temporary setup link: {setup_url}", "warning")
     return redirect(url_for("admin_users"))
 
@@ -535,8 +662,10 @@ def admin_update_user(user_id: str):
     role = db.normalize_role(request.form.get("role") or "Viewer")
     is_active = request.form.get("is_active") == "on"
     if db.update_user_profile(user_id, role=role, is_active=is_active):
+        _audit("admin", "update_user", "success", target_user_id=user_id, details={"role": role, "is_active": is_active})
         flash("User profile updated.", "success")
     else:
+        _audit("admin", "update_user", "failed", target_user_id=user_id, details={"role": role, "is_active": is_active})
         flash("Failed to update user profile.", "error")
     return redirect(url_for("admin_users"))
 
@@ -546,6 +675,16 @@ def setup_password(token):
     """Secure link to allow new users to set their password."""
     user_data = db.get_user_by_setup_token(token)
     if not user_data:
+        db.append_audit_log(
+            event_category="auth",
+            event_type="password_setup_invalid_token",
+            status="failed",
+            ip_address=_get_request_ip(),
+            user_agent=request.headers.get("User-Agent", "")[:512],
+            request_method=request.method,
+            request_path=request.path,
+            details={},
+        )
         flash("The setup link is invalid or has expired.", "error")
         return redirect(url_for('login'))
 
@@ -555,16 +694,32 @@ def setup_password(token):
 
         is_valid, message = _validate_password_strength(password)
         if not is_valid:
+            _audit("auth", "password_setup", "failed", target_user_id=user_data["id"], details={"reason": message})
             flash(message, "error")
             return render_template("setup_password.html", token=token)
         if password != confirm_password:
+            _audit("auth", "password_setup", "failed", target_user_id=user_data["id"], details={"reason": "confirmation_mismatch"})
             flash("Password and confirmation do not match.", "error")
             return render_template("setup_password.html", token=token)
 
         if db.set_user_password(user_data["id"], generate_password_hash(password)):
+            db.append_audit_log(
+                event_category="auth",
+                event_type="password_setup_completed",
+                status="success",
+                actor_user_id=user_data["id"],
+                actor_username=user_data.get("username"),
+                target_user_id=user_data["id"],
+                ip_address=_get_request_ip(),
+                user_agent=request.headers.get("User-Agent", "")[:512],
+                request_method=request.method,
+                request_path=request.path,
+                details={},
+            )
             flash("Password set successfully. You can now log in.", "success")
             return redirect(url_for('login'))
 
+        _audit("auth", "password_setup", "failed", target_user_id=user_data["id"], details={"reason": "database_update_failed"})
         flash("Failed to update password.", "error")
 
     return render_template("setup_password.html", token=token)
@@ -683,11 +838,13 @@ def scan():
             pass  # silently skip malformed CSV
 
     if not targets:
+        _audit("scan", "scan_requested", "failed", details={"reason": "no_targets"})
         return redirect(url_for("index"))
         
     # Enforce advanced RBAC
     is_bulk = (csv_file and csv_file.filename) or len(targets) > 1
     if is_bulk and current_user.role not in BULK_SCAN_ROLES:
+        _audit("scan", "bulk_scan_denied", "denied", details={"role": current_user.role, "target_count": len(targets)})
         flash("Your role allows single-target scans only.", "error")
         return redirect(url_for("index"))
 
@@ -697,19 +854,23 @@ def scan():
             host, ports = targets[0]
             clean_target, _ = sanitize_target(host)
             report = run_scan_pipeline(clean_target, ports)
+            _audit("scan", "single_scan", "success", target_scan_id=report.get("scan_id"), details={"target": clean_target})
             return redirect(url_for("results", scan_id=report.get("scan_id", "")))
         else:
             # Bulk scan: run all and redirect to dashboard
             for host, ports in targets:
                 try:
                     clean_target, _ = sanitize_target(host)
-                    run_scan_pipeline(clean_target, ports)
+                    report = run_scan_pipeline(clean_target, ports)
+                    _audit("scan", "bulk_scan_item", "success", target_scan_id=report.get("scan_id"), details={"target": clean_target})
                 except Exception:
                     continue  # skip invalid targets in bulk mode
 
+            _audit("scan", "bulk_scan", "success", details={"target_count": len(targets)})
             return redirect(url_for("index"))
 
     except Exception as exc:
+        _audit("scan", "scan_error", "failed", details={"error": str(exc), "target_count": len(targets)})
         error_id = str(uuid.uuid4())[:8]
         return render_template(
             "error.html",
@@ -737,8 +898,10 @@ def results(scan_id: str):
             if report:
                 scan_store[scan_id] = report
             else:
+                _audit("scan", "view_result", "failed", target_scan_id=scan_id, details={"reason": "not_found"})
                 return render_template("error.html", error_message="Scan not found."), 404
 
+    _audit("scan", "view_result", "success", target_scan_id=scan_id, details={"target": report.get("target")})
     return render_template("results.html", report=report, scan_id=scan_id)
 
 
@@ -748,6 +911,7 @@ def download_cbom(scan_id: str):
     """Download CBOM JSON file (disk → MySQL fallback)."""
     cbom_path = os.path.join(RESULTS_DIR, f"{scan_id}_cbom.json")
     if os.path.exists(cbom_path):
+        _audit("scan", "download_cbom", "success", target_scan_id=scan_id, details={"source": "disk"})
         return send_file(
             cbom_path,
             mimetype="application/json",
@@ -757,7 +921,9 @@ def download_cbom(scan_id: str):
     # Fallback: try MySQL
     cbom_data = db.get_cbom(scan_id)
     if cbom_data:
+        _audit("scan", "download_cbom", "success", target_scan_id=scan_id, details={"source": "database"})
         return jsonify(cbom_data)
+    _audit("scan", "download_cbom", "failed", target_scan_id=scan_id, details={"reason": "not_found"})
     return jsonify({"error": "CBOM not found"}), 404
 
 
