@@ -151,3 +151,437 @@
 [2026-03-14 22:01:32,181] ERROR in database: MySQL init_db error: 3780 (HY000): Referencing column 'actor_user_id' and referenced column 'id' in foreign key constraint 'audit_logs_ibfk_1' are incompatible.
 [2026-03-14 22:01:32,477] INFO in app: QuantumShield application starting up...
 [2026-03-14 22:01:32,612] ERROR in database: MySQL init_db error: 3780 (HY000): Referencing column 'actor_user_id' and referenced column 'id' in foreign key constraint 'audit_logs_ibfk_1' are incompatible.
+[2026-03-15 07:32:06,535] INFO in app: QuantumShield application starting up...
+[2026-03-15 07:32:06,765] ERROR in database: MySQL init_db error: 3780 (HY000): Referencing column 'actor_user_id' and referenced column 'id' in foreign key constraint 'audit_logs_ibfk_1' are incompatible.
+[2026-03-15 07:32:07,205] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-15 07:32:07,205] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-15 07:32:07,208] INFO in _internal:  * Restarting with stat
+[2026-03-15 07:32:07,636] INFO in app: QuantumShield application starting up...
+[2026-03-15 07:32:07,740] ERROR in database: MySQL init_db error: 3780 (HY000): Referencing column 'actor_user_id' and referenced column 'id' in foreign key constraint 'audit_logs_ibfk_1' are incompatible.
+[2026-03-15 07:32:07,766] WARNING in _internal:  * Debugger is active!
+[2026-03-15 07:32:07,773] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 07:35:05,457] INFO in app: QuantumShield application starting up...
+[2026-03-15 07:35:05,616] ERROR in database: MySQL init_db error: 3780 (HY000): Referencing column 'actor_user_id' and referenced column 'id' in foreign key constraint 'audit_logs_ibfk_1' are incompatible.
+[2026-03-15 07:44:45,741] INFO in app: QuantumShield application starting up...
+[2026-03-15 07:44:45,840] ERROR in database: MySQL init_db error: 3780 (HY000): Referencing column 'actor_user_id' and referenced column 'id' in foreign key constraint 'audit_logs_ibfk_1' are incompatible.
+[2026-03-15 10:58:10,807] INFO in app: QuantumShield application starting up...
+[2026-03-15 10:58:10,900] ERROR in database: MySQL init_db error: 3780 (HY000): Referencing column 'actor_user_id' and referenced column 'id' in foreign key constraint 'audit_logs_ibfk_1' are incompatible.
+[2026-03-15 10:58:10,975] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-15 10:58:10,975] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-15 10:58:10,977] INFO in _internal:  * Restarting with stat
+[2026-03-15 10:58:11,435] INFO in app: QuantumShield application starting up...
+[2026-03-15 10:58:11,523] ERROR in database: MySQL init_db error: 3780 (HY000): Referencing column 'actor_user_id' and referenced column 'id' in foreign key constraint 'audit_logs_ibfk_1' are incompatible.
+[2026-03-15 10:58:11,549] WARNING in _internal:  * Debugger is active!
+[2026-03-15 10:58:11,553] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 10:59:39,663] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 10:59:39] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-15 10:59:39,737] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 10:59:39] "GET /login?next=/ HTTP/1.1" 200 -
+[2026-03-15 10:59:39,982] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 10:59:39] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-15 10:59:40,035] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 10:59:40] "GET /static/js/app.js HTTP/1.1" 200 -
+[2026-03-15 10:59:41,246] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 10:59:41] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+[2026-03-15 11:01:00,045] ERROR in database: append_audit_log failed: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-15 11:01:00,132] ERROR in database: append_audit_log failed: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-15 11:01:00,138] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:01:00] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-15 11:01:00,279] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:01:00] "GET /setup-password/jhco7Bw9O3rUVtHsrH1RLcW1cmGAPos5cXBv3tL2TfotpqzFfpgFfIlRqPH4HKNV HTTP/1.1" 200 -
+[2026-03-15 11:01:00,466] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:01:00] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-15 11:01:00,473] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:01:00] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 11:02:00,131] ERROR in database: append_audit_log failed: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-15 11:02:00,141] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:02:00] "[32mPOST /setup-password/jhco7Bw9O3rUVtHsrH1RLcW1cmGAPos5cXBv3tL2TfotpqzFfpgFfIlRqPH4HKNV HTTP/1.1[0m" 302 -
+[2026-03-15 11:02:00,248] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:02:00] "[32mGET /login HTTP/1.1[0m" 302 -
+[2026-03-15 11:02:00,396] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:02:00] "GET / HTTP/1.1" 200 -
+[2026-03-15 11:02:00,579] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:02:00] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 11:02:00,583] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:02:00] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-15 11:02:46,337] ERROR in database: append_audit_log failed: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-15 11:02:46,338] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:02:46] "[32mPOST /scan HTTP/1.1[0m" 302 -
+[2026-03-15 11:02:46,379] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:02:46] "GET / HTTP/1.1" 200 -
+[2026-03-15 11:02:46,550] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:02:46] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-15 11:02:46,568] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:02:46] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 11:03:22,603] ERROR in database: append_audit_log failed: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-15 11:03:22,610] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:03:22] "[32mPOST /scan HTTP/1.1[0m" 302 -
+[2026-03-15 11:03:22,738] ERROR in database: append_audit_log failed: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-15 11:03:22,823] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:03:22] "GET /results/cbd7f6b8 HTTP/1.1" 200 -
+[2026-03-15 11:03:22,981] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:03:22] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-15 11:03:22,987] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:03:22] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 11:03:22,992] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:03:22] "GET /api/badge/test.openquantumsafe.org HTTP/1.1" 200 -
+[2026-03-15 11:03:43,006] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:03:43] "GET /admin/users HTTP/1.1" 200 -
+[2026-03-15 11:03:43,142] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:03:43] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 11:03:43,159] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:03:43] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-15 11:04:32,365] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:04:32] "[35m[1mGET /admin/audit HTTP/1.1[0m" 500 -
+[2026-03-15 11:04:32,437] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:04:32] "GET /admin/audit?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1" 200 -
+[2026-03-15 11:04:32,464] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:04:32] "GET /admin/audit?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1" 200 -
+[2026-03-15 11:04:32,515] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:04:32] "GET /admin/audit?__debugger__=yes&cmd=resource&f=console.png&s=yO4yIElysHe2hrluZ2ii HTTP/1.1" 200 -
+[2026-03-15 11:04:32,534] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 11:04:32] "GET /admin/audit?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1" 200 -
+[2026-03-15 11:20:18,952] INFO in app: QuantumShield application starting up...
+[2026-03-15 11:20:19,048] ERROR in database: MySQL init_db error: 3780 (HY000): Referencing column 'actor_user_id' and referenced column 'id' in foreign key constraint 'audit_logs_ibfk_1' are incompatible.
+[2026-03-15 14:16:05,845] INFO in app: QuantumShield application starting up...
+[2026-03-15 14:16:06,054] ERROR in database: MySQL init_db error: 3780 (HY000): Referencing column 'actor_user_id' and referenced column 'id' in foreign key constraint 'audit_logs_ibfk_1' are incompatible.
+[2026-03-15 14:16:06,482] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-15 14:16:06,482] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-15 14:16:06,485] INFO in _internal:  * Restarting with stat
+[2026-03-15 14:16:06,990] INFO in app: QuantumShield application starting up...
+[2026-03-15 14:16:07,103] ERROR in database: MySQL init_db error: 3780 (HY000): Referencing column 'actor_user_id' and referenced column 'id' in foreign key constraint 'audit_logs_ibfk_1' are incompatible.
+[2026-03-15 14:16:07,137] WARNING in _internal:  * Debugger is active!
+[2026-03-15 14:16:07,147] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 14:22:04,312] INFO in app: QuantumShield application starting up...
+[2026-03-15 14:22:04,850] ERROR in database: MySQL init_db error: 3780 (HY000): Referencing column 'actor_user_id' and referenced column 'id' in foreign key constraint 'audit_logs_ibfk_1' are incompatible.
+[2026-03-15 14:22:05,239] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-15 14:22:05,240] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-15 14:22:05,249] INFO in _internal:  * Restarting with stat
+[2026-03-15 14:22:05,907] INFO in app: QuantumShield application starting up...
+[2026-03-15 14:22:06,006] ERROR in database: MySQL init_db error: 3780 (HY000): Referencing column 'actor_user_id' and referenced column 'id' in foreign key constraint 'audit_logs_ibfk_1' are incompatible.
+[2026-03-15 14:22:06,037] WARNING in _internal:  * Debugger is active!
+[2026-03-15 14:22:06,045] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 14:26:56,341] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:26:56] "GET /login HTTP/1.1" 200 -
+[2026-03-15 14:26:56,652] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:26:56] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-15 14:26:57,136] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:26:57] "GET /static/js/app.js HTTP/1.1" 200 -
+[2026-03-15 14:26:57,407] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:26:57] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+[2026-03-15 14:27:20,592] ERROR in database: append_audit_log failed: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-15 14:27:20,602] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:27:20] "POST /login HTTP/1.1" 200 -
+[2026-03-15 14:27:20,740] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:27:20] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:27:21,467] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:27:21] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:27:36,047] ERROR in database: append_audit_log failed: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-15 14:27:36,053] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:27:36] "POST /login HTTP/1.1" 200 -
+[2026-03-15 14:27:36,836] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:27:36] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:27:36,864] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:27:36] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:27:58,863] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:27:58] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-15 14:27:59,530] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:27:59] "GET /login?next=/ HTTP/1.1" 200 -
+[2026-03-15 14:27:59,771] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:27:59] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:28:00,268] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:28:00] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:28:08,976] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:28:08] "[33mGET /setup_password HTTP/1.1[0m" 404 -
+[2026-03-15 14:28:18,239] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:28:18] "GET /login HTTP/1.1" 200 -
+[2026-03-15 14:28:18,486] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:28:18] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:28:18,970] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:28:18] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:28:28,141] ERROR in database: append_audit_log failed: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-15 14:28:28,149] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:28:28] "POST /login HTTP/1.1" 200 -
+[2026-03-15 14:28:28,698] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:28:28] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:28:28,934] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:28:28] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:28:49,579] ERROR in database: append_audit_log failed: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-15 14:28:49,591] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:28:49] "POST /login HTTP/1.1" 200 -
+[2026-03-15 14:28:49,708] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:28:49] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:28:50,468] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:28:50] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:28:56,399] ERROR in database: append_audit_log failed: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-15 14:28:56,400] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:28:56] "[32mGET /admin/users HTTP/1.1[0m" 302 -
+[2026-03-15 14:28:57,002] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:28:57] "GET /login HTTP/1.1" 200 -
+[2026-03-15 14:28:57,263] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:28:57] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:28:57,654] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:28:57] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:29:23,642] ERROR in database: append_audit_log failed: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-15 14:29:23,652] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:29:23] "POST /login HTTP/1.1" 200 -
+[2026-03-15 14:29:24,384] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:29:24] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:29:24,389] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:29:24] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:29:37,859] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:29:37] "[33mGET /admin HTTP/1.1[0m" 404 -
+[2026-03-15 14:29:44,956] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:29:44] "[33mGET /admin_users HTTP/1.1[0m" 404 -
+[2026-03-15 14:29:51,521] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:29:51] "GET /static/js/app.js HTTP/1.1" 200 -
+[2026-03-15 14:29:58,160] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:29:58] "GET /login HTTP/1.1" 200 -
+[2026-03-15 14:29:58,403] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:29:58] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:29:58,897] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:29:58] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:30:07,819] ERROR in database: append_audit_log failed: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-15 14:30:07,828] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:30:07] "POST /login HTTP/1.1" 200 -
+[2026-03-15 14:30:08,533] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:30:08] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:30:08,537] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:30:08] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:30:33,502] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:30:33] "[33mGET /results HTTP/1.1[0m" 404 -
+[2026-03-15 14:30:40,985] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:30:40] "[33mGET /index HTTP/1.1[0m" 404 -
+[2026-03-15 14:30:47,938] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:30:47] "GET /login HTTP/1.1" 200 -
+[2026-03-15 14:30:48,602] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:30:48] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:30:48,609] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:30:48] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:30:56,077] ERROR in database: append_audit_log failed: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-15 14:30:56,107] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:30:56] "POST /login HTTP/1.1" 200 -
+[2026-03-15 14:30:56,617] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:30:56] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:30:56,893] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:30:56] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:36:47,881] ERROR in database: append_audit_log failed: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-15 14:36:47,883] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:36:47] "POST /login HTTP/1.1" 200 -
+[2026-03-15 14:36:48,095] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:36:48] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:36:48,533] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:36:48] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:36:57,353] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:36:57] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-15 14:36:57,981] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:36:57] "GET /login?next=/ HTTP/1.1" 200 -
+[2026-03-15 14:36:58,242] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:36:58] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:36:58,636] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:36:58] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:37:06,541] ERROR in database: append_audit_log failed: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-15 14:37:06,542] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:37:06] "[32mGET /admin/audit HTTP/1.1[0m" 302 -
+[2026-03-15 14:37:06,552] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:37:06] "GET /login HTTP/1.1" 200 -
+[2026-03-15 14:37:06,592] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:37:06] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-15 14:37:06,597] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:37:06] "GET /static/js/app.js HTTP/1.1" 200 -
+[2026-03-15 14:37:20,724] ERROR in database: append_audit_log failed: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-15 14:37:20,726] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:37:20] "POST /login HTTP/1.1" 200 -
+[2026-03-15 14:37:20,760] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:37:20] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:37:20,765] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:37:20] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:40:19,477] INFO in app: QuantumShield application starting up...
+[2026-03-15 14:40:20,259] INFO in database: Default admin user created.
+[2026-03-15 14:40:20,262] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 14:40:20,510] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-15 14:40:20,511] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-15 14:40:20,513] INFO in _internal:  * Restarting with stat
+[2026-03-15 14:40:21,314] INFO in app: QuantumShield application starting up...
+[2026-03-15 14:40:21,544] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 14:40:21,600] WARNING in _internal:  * Debugger is active!
+[2026-03-15 14:40:21,615] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 14:40:54,559] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:40:54] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-15 14:40:54,643] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:40:54] "GET / HTTP/1.1" 200 -
+[2026-03-15 14:40:55,229] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:40:55] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:40:55,335] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:40:55] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:41:08,138] ERROR in database: append_audit_log failed: 1452 (23000): Cannot add or update a child row: a foreign key constraint fails (`quantumshield`.`audit_logs`, CONSTRAINT `audit_logs_ibfk_3` FOREIGN KEY (`target_scan_id`) REFERENCES `scans` (`scan_id`) ON DELETE SET NULL)
+[2026-03-15 14:41:08,167] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:41:08] "GET /results/2bb1543b HTTP/1.1" 200 -
+[2026-03-15 14:41:08,753] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:41:08] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:41:08,830] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:41:08] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:41:27,577] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:41:27] "GET /admin/audit HTTP/1.1" 200 -
+[2026-03-15 14:41:27,701] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:41:27] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:41:28,239] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:41:28] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:41:38,485] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:41:38] "GET /admin/users HTTP/1.1" 200 -
+[2026-03-15 14:41:39,063] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:41:39] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:41:39,156] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:41:39] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:41:51,108] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:41:51] "GET / HTTP/1.1" 200 -
+[2026-03-15 14:41:51,287] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:41:51] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:41:51,750] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:41:51] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:44:04,182] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:44:04] "GET /admin/users HTTP/1.1" 200 -
+[2026-03-15 14:44:04,245] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:44:04] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:44:04,853] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:44:04] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:44:17,017] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:44:17] "GET /admin/audit HTTP/1.1" 200 -
+[2026-03-15 14:44:17,646] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:44:17] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:44:17,769] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:44:17] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:44:24,886] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:44:24] "GET / HTTP/1.1" 200 -
+[2026-03-15 14:44:25,010] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:44:25] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:44:25,687] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:44:25] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:44:54,696] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:44:54] "[32mPOST /scan HTTP/1.1[0m" 302 -
+[2026-03-15 14:44:55,467] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:44:55] "GET /results/18d9000d HTTP/1.1" 200 -
+[2026-03-15 14:44:55,657] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:44:55] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:44:56,252] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:44:56] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:45:32,583] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:45:32] "GET /admin/users HTTP/1.1" 200 -
+[2026-03-15 14:45:33,178] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:45:33] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:45:33,309] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:45:33] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:45:40,114] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:45:40] "GET /admin/audit HTTP/1.1" 200 -
+[2026-03-15 14:45:40,241] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:45:40] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 14:45:40,855] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 14:45:40] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 14:45:54,697] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\config.py', reloading
+[2026-03-15 14:45:54,910] INFO in _internal:  * Restarting with stat
+[2026-03-15 14:45:55,131] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\config.py', reloading
+[2026-03-15 14:45:55,228] INFO in _internal:  * Detected change in 'c:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\config.py', reloading
+[2026-03-15 14:45:55,265] INFO in _internal:  * Restarting with stat
+[2026-03-15 14:45:55,564] INFO in _internal:  * Restarting with stat
+[2026-03-15 14:45:55,903] INFO in app: QuantumShield application starting up...
+[2026-03-15 14:45:56,038] INFO in app: QuantumShield application starting up...
+[2026-03-15 14:45:56,084] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 14:45:56,157] WARNING in _internal:  * Debugger is active!
+[2026-03-15 14:45:56,168] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 14:45:56,214] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 14:45:56,256] WARNING in _internal:  * Debugger is active!
+[2026-03-15 14:45:56,264] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 14:45:56,353] INFO in app: QuantumShield application starting up...
+[2026-03-15 14:45:56,559] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 14:45:56,611] WARNING in _internal:  * Debugger is active!
+[2026-03-15 14:45:56,619] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:15:25,365] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:15:25,571] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 17:15:25,693] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-15 17:15:25,694] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-15 17:15:25,696] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:15:26,264] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:15:26,400] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 17:15:26,442] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:15:26,448] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:16:00,216] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:16:00] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-15 17:16:00,455] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:16:00] "GET /login?next=/ HTTP/1.1" 200 -
+[2026-03-15 17:16:00,943] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:16:00] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-15 17:16:01,112] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:16:01] "GET /static/js/app.js HTTP/1.1" 200 -
+[2026-03-15 17:22:16,963] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:22:16] "GET /login?next=/ HTTP/1.1" 200 -
+[2026-03-15 17:22:17,227] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:22:17] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-15 17:22:17,613] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:22:17] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 17:22:38,864] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:22:38] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-15 17:22:39,613] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:22:39] "GET / HTTP/1.1" 200 -
+[2026-03-15 17:22:39,798] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:22:39] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 17:22:40,453] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:22:40] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 17:22:43,155] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:22:43] "[33mGET /setup_password HTTP/1.1[0m" 404 -
+[2026-03-15 17:22:47,863] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:22:47] "GET /admin/users HTTP/1.1" 200 -
+[2026-03-15 17:22:48,481] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:22:48] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 17:22:48,666] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:22:48] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 17:23:03,763] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:23:03] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-15 17:23:03,806] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:23:03] "GET /login?next=/ HTTP/1.1" 200 -
+[2026-03-15 17:23:03,874] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:23:03] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-15 17:23:03,881] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:23:03] "GET /static/js/app.js HTTP/1.1" 200 -
+[2026-03-15 17:23:31,277] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:23:31] "POST /login HTTP/1.1" 200 -
+[2026-03-15 17:23:31,334] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:23:31] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-15 17:23:31,339] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:23:31] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 17:23:45,177] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:23:45] "POST /login HTTP/1.1" 200 -
+[2026-03-15 17:23:45,280] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:23:45] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-15 17:23:45,285] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:23:45] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 17:23:54,815] ERROR in app: Failed to send setup email to manager@s.jyotishsanchar.com.np: The message does not specify a sender and a default sender has not been configured
+[2026-03-15 17:23:54,859] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:23:54] "[32mPOST /admin/users HTTP/1.1[0m" 302 -
+[2026-03-15 17:23:54,948] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:23:54] "GET /admin/users HTTP/1.1" 200 -
+[2026-03-15 17:23:55,744] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:23:55] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 17:23:55,769] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:23:55] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 17:24:04,481] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:24:04] "POST /login HTTP/1.1" 200 -
+[2026-03-15 17:24:04,588] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:24:04] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 17:24:04,594] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:24:04] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 17:24:09,265] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:24:09] "[33mGET /setup HTTP/1.1[0m" 404 -
+[2026-03-15 17:24:19,790] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:24:19] "[33mGET /SETUP-PASSWORD/WD-WTNXILUPFG3D1TOXQJQKKQ_YHZKENVFQHIBTPKLKSBG6GEXQ-6X4Q-BF1DHGX HTTP/1.1[0m" 404 -
+[2026-03-15 17:24:27,927] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:24:27] "[32mGET /setup-password/jhco7Bw9O3rUVtHsrH1RLcW1cmGAPos5cXBv3tL2TfotpqzFfpgFfIlRqPH4HKNV HTTP/1.1[0m" 302 -
+[2026-03-15 17:24:27,981] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:24:27] "GET /login HTTP/1.1" 200 -
+[2026-03-15 17:24:28,084] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:24:28] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 17:24:28,088] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:24:28] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-15 17:24:33,695] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:24:33] "[32mGET /results/cbd7f6b8 HTTP/1.1[0m" 302 -
+[2026-03-15 17:24:33,741] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:24:33] "GET /login?next=/results/cbd7f6b8 HTTP/1.1" 200 -
+[2026-03-15 17:24:33,858] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:24:33] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 17:24:33,864] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:24:33] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 17:24:49,683] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:24:49] "POST /login HTTP/1.1" 200 -
+[2026-03-15 17:24:49,799] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:24:49] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 17:24:49,808] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:24:49] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 17:25:21,496] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:25:21] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-15 17:25:21,512] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:25:21] "GET / HTTP/1.1" 200 -
+[2026-03-15 17:25:21,561] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:25:21] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 17:25:21,590] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:25:21] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 17:28:44,803] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:28:44] "GET /admin/users HTTP/1.1" 200 -
+[2026-03-15 17:28:44,992] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:28:44] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-15 17:28:45,515] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:28:45] "GET /static/js/app.js HTTP/1.1" 200 -
+[2026-03-15 17:28:59,709] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:28:59] "GET / HTTP/1.1" 200 -
+[2026-03-15 17:29:00,327] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:29:00] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 17:29:00,409] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:29:00] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 17:29:22,562] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:29:22] "[32mPOST /scan HTTP/1.1[0m" 302 -
+[2026-03-15 17:29:22,700] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:29:22] "GET /results/b5af67c6 HTTP/1.1" 200 -
+[2026-03-15 17:29:23,405] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:29:23] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 17:29:23,422] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:29:23] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 17:29:36,574] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:29:36] "GET /admin/audit HTTP/1.1" 200 -
+[2026-03-15 17:29:37,082] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:29:37] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 17:29:37,273] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 17:29:37] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 17:43:28,834] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 17:43:29,246] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 17:43:29,320] INFO in _internal:  * Detected change in 'c:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 17:43:29,730] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 17:43:30,629] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:43:30,659] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:43:30,660] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:43:30,801] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:43:32,985] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:43:33,085] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:43:33,183] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:43:33,278] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:43:34,432] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:43:34,433] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:43:34,514] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:43:34,515] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:43:34,566] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:43:34,568] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:43:34,622] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:43:34,623] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:43:34,634] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:43:34,634] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:43:34,643] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:43:34,656] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:43:34,656] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:43:34,658] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:43:34,725] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:43:34,737] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:44:02,761] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 17:44:02,774] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 17:44:02,909] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:44:02,933] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:44:02,937] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 17:44:02,948] INFO in _internal:  * Detected change in 'c:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 17:44:03,142] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:44:03,156] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:44:04,588] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:44:04,655] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:44:05,076] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:44:05,100] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:44:06,159] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:44:06,159] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:44:06,255] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:44:06,257] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:44:06,264] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:44:06,277] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:44:06,330] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:44:06,346] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:44:06,495] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:44:06,496] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:44:06,574] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:44:06,587] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:44:06,587] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:44:06,588] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:44:06,674] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:44:06,689] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:45:06,448] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 17:45:06,545] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:45:06,975] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 17:45:07,059] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:45:07,127] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 17:45:07,203] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:45:07,217] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:45:07,459] INFO in _internal:  * Detected change in 'c:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 17:45:07,566] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:45:07,789] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:45:07,944] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:45:08,275] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:45:08,510] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:45:08,510] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:45:08,553] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:45:08,559] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:45:09,097] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:45:09,098] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:45:09,139] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:45:09,145] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:45:09,248] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:45:09,248] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:45:09,290] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:45:09,296] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:45:09,573] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:45:09,573] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:45:09,608] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:45:09,618] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:46:32,963] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 17:46:33,060] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:46:33,568] INFO in _internal:  * Detected change in 'c:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 17:46:33,649] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:46:33,682] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 17:46:33,706] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:46:33,786] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:46:33,858] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 17:46:33,960] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:46:34,362] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:46:34,526] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:46:34,664] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:46:35,027] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:46:35,027] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:46:35,066] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:46:35,072] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:46:35,674] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:46:35,674] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:46:35,701] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:46:35,706] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:46:35,819] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:46:35,819] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:46:35,857] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:46:35,864] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:46:35,955] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:46:35,956] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:46:35,994] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:46:36,000] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:46:58,006] INFO in _internal:  * Detected change in 'c:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 17:46:58,070] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:46:58,162] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 17:46:58,224] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 17:46:58,241] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:46:58,248] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 17:46:58,340] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:46:58,374] INFO in _internal:  * Restarting with stat
+[2026-03-15 17:46:58,781] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:46:58,947] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:46:59,035] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:46:59,066] INFO in app: QuantumShield application starting up...
+[2026-03-15 17:47:00,081] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:47:00,081] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:47:00,116] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:47:00,122] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:47:00,254] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:47:00,254] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:47:00,286] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:47:00,291] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:47:00,331] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:47:00,332] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:47:00,362] WARNING in database: MySQL server connection failed after 3 attempts: Unsupported argument 'reconnect'
+[2026-03-15 17:47:00,363] INFO in database: MySQL unavailable — running in JSON-only mode.
+[2026-03-15 17:47:00,369] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:47:00,377] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 17:47:00,397] WARNING in _internal:  * Debugger is active!
+[2026-03-15 17:47:00,404] INFO in _internal:  * Debugger PIN: 118-432-274

@@ -12,33 +12,30 @@
     {% block head %}{% endblock %}
 </head>
 <body>
-    <!-- Animated background particles -->
-    <div class="bg-particles" id="particles"></div>
-
     <!-- Navigation -->
     <nav class="navbar">
         <div class="nav-container">
             <a href="/" class="nav-brand">
-                <span class="brand-icon">🔒</span>
-                <span class="brand-text">QuantumShield</span>
-                <span class="brand-badge">Scanner</span>
+                <span class="brand-text">QUANTUMSHIELD</span>
+                <span class="brand-badge" style="background:var(--text-primary);color:var(--bg-primary);">V1</span>
             </a>
             <div class="nav-links">
-                <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Dashboard</a>
+                <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">DASHBOARD</a>
                 {% if current_user.is_authenticated %}
                     {% if current_user.role == 'Admin' %}
-                    <a href="/admin/users" class="nav-link {% if request.path == '/admin/users' %}active{% endif %}">Admin</a>
-                    <a href="/admin/audit" class="nav-link {% if request.path == '/admin/audit' %}active{% endif %}">Audit</a>
+                    <a href="/admin/users" class="nav-link {% if request.path == '/admin/users' %}active{% endif %}">ADMIN</a>
+                    <a href="/admin/audit" class="nav-link {% if request.path == '/admin/audit' %}active{% endif %}">AUDIT</a>
                     {% endif %}
-                    <div class="user-profile">
+                    <div class="user-profile" style="border-left: 1px solid var(--text-muted); padding-left: 1rem;">
                         <span class="user-info">
                             <span class="user-name">{{ current_user.username }}</span>
-                            <span class="role-badge" style="background:var(--accent);color:#fff;">{{ current_user.role }}</span>
+                            <span class="role-badge" style="color:var(--accent);">{{ current_user.role }}</span>
                         </span>
-                        <a href="/logout" class="nav-link logout-link">Logout</a>
+                        <a href="/profile" class="nav-link {% if request.path == '/profile' %}active{% endif %}" title="View &amp; manage your API key">API_KEY</a>
+                        <a href="/logout" class="nav-link logout-link">LOGOUT</a>
                     </div>
                 {% else %}
-                    <a href="/login" class="nav-link">Login</a>
+                    <a href="/login" class="nav-link">LOGIN</a>
                 {% endif %}
             </div>
         </div>
@@ -53,11 +50,10 @@
     <footer class="footer">
         <div class="footer-container">
             <p class="footer-text">
-                <span class="footer-brand">QuantumShield Scanner v1.0</span> — 
-                Built for the PNB Cybersecurity Hackathon 2026
+                <span class="footer-brand">QS-SCANNER // PNB-HACKATHON-26</span>
             </p>
             <p class="footer-sub">
-                NIST FIPS 203/204/205 Compliant • CycloneDX CBOM • Post-Quantum Cryptography
+                STARK MINIMALISM • PQC READINESS • FIPS COMPLIANT
             </p>
         </div>
     </footer>

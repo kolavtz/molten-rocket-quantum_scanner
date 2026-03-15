@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}API KEY — QuantumShield{% endblock %}
+
+{% block content %}
+<div class="page-container" style="max-width:760px;margin:0 auto;padding:2rem 1rem;">
+
+    <header style="margin-bottom:2.5rem;">
+        <h1 style="font-family:'JetBrains Mono',monospace;font-size:2.2rem;letter-spacing:0.08em;margin:0;">API KEY</h1>
+        <p style="color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-size:.85rem;margin:.5rem 0 0;">
+            machine-access credentials // programmatic scanning
+        </p>
+    </header>
+
+    <!-- Flash messages (api_key category = one-time reveal) -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            {% if category == 'api_key' %}
+            <div id="key-reveal-banner" style="
+                border:2px solid #00ff88;
+                background:rgba(0,255,136,.06);
+                padding:1.25rem;
+                margin-bottom:1.5rem;
+                font-family:'JetBrains Mono',monospace;
+                font-size:.78rem;
+            ">
+                <div style="color:var(--text-muted);margin-bottom:.5rem;font-size:.7rem;letter-spacing:.1em;">
+                    ⚠ COPY NOW — THIS KEY WILL NOT BE SHOWN AGAIN
+                </div>
+                <div id="new-key-value" style="color:#00ff88;word-break:break-all;font-size:.9rem;margin-bottom:1rem;">
+                    {{ message | replace('NEW_API_KEY: ', '') }}
+                </div>
+                <button onclick="copyKey('new-key-value', this)"
+                    style="background:#00ff88;color:#000;border:none;padding:.4rem 1rem;font-family:inherit;font-size:.75rem;letter-spacing:.08em;cursor:pointer;font-weight:700;">
+                    [ COPY KEY ]
+                </button>
+            </div>
+            {% else %}
+            <div style="
+                border:1px solid {{ '#c45c5c' if category == 'error' else '#5b9e6f' }};
+                padding:.75rem 1rem;
+                margin-bottom:1rem;
+                font-family:'JetBrains Mono',monospace;
+                font-size:.78rem;
+                color:{{ '#c45c5c' if category == 'error' else '#5b9e6f' }};
+            ">{{ message }}</div>
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <!-- Auto-issued key on first visit -->
+    {% if new_key %}
+    <div id="key-reveal-banner" style="
+        border:2px solid #00ff88;
+        background:rgba(0,255,136,.06);
+        padding:1.25rem;
+        margin-bottom:1.5rem;
+        font-family:'JetBrains Mono',monospace;
+        font-size:.78rem;
+    ">
+        <div style="color:var(--text-muted);margin-bottom:.5rem;font-size:.7rem;letter-spacing:.1em;">
+            ✦ API KEY AUTO-ISSUED — COPY NOW — NOT STORED IN PLAINTEXT
+        </div>
+        <div id="auto-key-value" style="color:#00ff88;word-break:break-all;font-size:.9rem;margin-bottom:1rem;">{{ new_key }}</div>
+        <button onclick="copyKey('auto-key-value', this)"
+            style="background:#00ff88;color:#000;border:none;padding:.4rem 1rem;font-family:inherit;font-size:.75rem;letter-spacing:.08em;cursor:pointer;font-weight:700;">
+            [ COPY KEY ]
+        </button>
+    </div>
+    {% endif %}
+
+    <!-- User info panel -->
+    <section style="border:1px solid var(--text-muted);padding:1.5rem;margin-bottom:1.5rem;">
+        <h2 style="font-family:'JetBrains Mono',monospace;font-size:.85rem;letter-spacing:.12em;color:var(--text-muted);margin:0 0 1rem;border-bottom:1px solid var(--text-muted);padding-bottom:.5rem;">
+            ACCOUNT
+        </h2>
+        <table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.82rem;">
+            <tr>
+                <td style="color:var(--text-muted);padding:.4rem 0;width:40%;">USERNAME</td>
+                <td style="color:var(--text-primary);">{{ user.username if user else current_user.username }}</td>
+            </tr>
+            <tr>
+                <td style="color:var(--text-muted);padding:.4rem 0;">ROLE</td>
+                <td style="color:var(--accent);">{{ user.role if user else current_user.role }}</td>
+            </tr>
+            <tr>
+                <td style="color:var(--text-muted);padding:.4rem 0;">API KEY STATUS</td>
+                <td>
+                    {% if key_issued %}
+                        <span style="color:#5b9e6f;">● ISSUED</span>
+                    {% else %}
+                        <span style="color:#c45c5c;">○ NOT ISSUED</span>
+                    {% endif %}
+                </td>
+            </tr>
+        </table>
+    </section>
+
+    <!-- API Key Management -->
+    <section style="border:1px solid var(--text-muted);padding:1.5rem;margin-bottom:1.5rem;">
+        <h2 style="font-family:'JetBrains Mono',monospace;font-size:.85rem;letter-spacing:.12em;color:var(--text-muted);margin:0 0 1rem;border-bottom:1px solid var(--text-muted);padding-bottom:.5rem;">
+            API KEY MANAGEMENT
+        </h2>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--text-muted);margin:0 0 1.2rem;">
+            Your API key is stored as a one-way hash. To see it again, rotate it — the new key is shown <em>once</em>.
+        </p>
+        <form method="POST" action="{{ url_for('rotate_api_key') }}"
+            onsubmit="return confirm('Rotate API key? Current key will be immediately revoked.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" id="rotate-btn" style="
+                background:transparent;
+                border:1px solid var(--text-primary);
+                color:var(--text-primary);
+                font-family:'JetBrains Mono',monospace;
+                font-size:.8rem;
+                letter-spacing:.1em;
+                padding:.6rem 1.5rem;
+                cursor:pointer;
+                transition: background .15s;
+            " onmouseover="this.style.background='var(--text-primary)';this.style.color='var(--bg-primary)';"
+               onmouseout="this.style.background='transparent';this.style.color='var(--text-primary)';">
+                [ ROTATE KEY ]
+            </button>
+        </form>
+    </section>
+
+    <!-- API Usage Reference -->
+    <section style="border:1px solid var(--text-muted);padding:1.5rem;">
+        <h2 style="font-family:'JetBrains Mono',monospace;font-size:.85rem;letter-spacing:.12em;color:var(--text-muted);margin:0 0 1rem;border-bottom:1px solid var(--text-muted);padding-bottom:.5rem;">
+            API USAGE
+        </h2>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.76rem;background:#0a0a0a;border:1px solid #222;padding:1rem;margin-bottom:.75rem;">
+            <div style="color:var(--text-muted);margin-bottom:.4rem;"># Header-based (preferred)</div>
+            <div style="color:#00ff88;">curl -H "X-API-Key: qss_..." \</div>
+            <div style="color:#00ff88;">     "https://localhost:5000/api/scan?target=example.com"</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.76rem;background:#0a0a0a;border:1px solid #222;padding:1rem;margin-bottom:.75rem;">
+            <div style="color:var(--text-muted);margin-bottom:.4rem;"># Query param (CI/CD fallback)</div>
+            <div style="color:#00ff88;">curl "https://localhost:5000/api/scan?target=example.com&amp;api_key=qss_..."</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.76rem;background:#0a0a0a;border:1px solid #222;padding:1rem;margin-bottom:.75rem;">
+            <div style="color:var(--text-muted);margin-bottom:.4rem;"># POST JSON</div>
+            <div style="color:#00ff88;">curl -X POST https://localhost:5000/api/scan \</div>
+            <div style="color:#00ff88;">     -H "Content-Type: application/json" \</div>
+            <div style="color:#00ff88;">     -d '{"target":"example.com","api_key":"qss_..."}'</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:.76rem;background:#0a0a0a;border:1px solid #222;padding:1rem;">
+            <div style="color:var(--text-muted);margin-bottom:.4rem;"># List all scans</div>
+            <div style="color:#00ff88;">curl -H "X-API-Key: qss_..." "https://localhost:5000/api/scans"</div>
+        </div>
+        <div style="margin-top:1rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text-muted);">
+            <strong>RESPONSES</strong>: 200 = scan JSON, 401 = invalid/missing key, 403 = insufficient role, 400 = bad request
+        </div>
+    </section>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyKey(elementId, btn) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const text = el.textContent.trim();
+    navigator.clipboard.writeText(text).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = '[ COPIED ✓ ]';
+        btn.style.background = '#5b9e6f';
+        setTimeout(() => {
+            btn.textContent = orig;
+            btn.style.background = '#00ff88';
+        }, 2500);
+    }).catch(() => {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        btn.textContent = '[ COPIED ✓ ]';
+    });
+}
+</script>
+{% endblock %}
