@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 
 from flask import (
     Flask,
+    g,
     render_template,
     request,
     jsonify,
@@ -39,6 +40,10 @@ from flask_login import (
     current_user,
 )
 from flask_mail import Mail, Message
+from flask_wtf.csrf import CSRFProtect
+from flask_talisman import Talisman
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 from functools import wraps
@@ -89,6 +94,9 @@ from config import (
     SESSION_COOKIE_NAME,
     SESSION_IDLE_TIMEOUT_SECONDS,
     AUDIT_LOG_PAGE_SIZE,
+    RATELIMIT_STORAGE_URI,
+    RATELIMIT_DEFAULT_LIMITS,
+    CSP_CONFIG,
 )
 
 app.config.update(
@@ -112,6 +120,14 @@ if TRUST_PROXY_SSL_HEADER:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 mail = Mail(app)
+csrf = CSRFProtect(app)
+talisman = Talisman(app, content_security_policy=CSP_CONFIG, force_https=FORCE_HTTPS)
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=RATELIMIT_DEFAULT_LIMITS,
+    storage_uri=RATELIMIT_STORAGE_URI,
+)
 
 SCAN_ROLES = {"Admin", "Manager", "SingleScan"}
 BULK_SCAN_ROLES = {"Admin", "Manager"}
@@ -165,6 +181,64 @@ def role_required(roles):
         return decorated_function
     return decorator
 
+
+def require_api_key(f):
+    """Decorator — enforces API key authentication for machine-facing endpoints.
+
+    Reads the key from the ``X-API-Key`` header (preferred) or the
+    ``api_key`` query parameter (CI/CD fallback).  On success, the resolved
+    user dict is stored in ``flask.g.api_user``.  On failure returns a
+    structured JSON 401 and logs the attempt.
+    """
+
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        raw_key = (
+            request.headers.get("X-API-Key", "")
+            or request.args.get("api_key", "")
+            or (request.get_json(silent=True) or {}).get("api_key", "")
+        ).strip()
+
+        if not raw_key:
+            db.append_audit_log(
+                event_category="api",
+                event_type="api_key_missing",
+                status="denied",
+                ip_address=_get_request_ip(),
+                user_agent=request.headers.get("User-Agent", "")[:512],
+                request_method=request.method,
+                request_path=request.path,
+            )
+            return jsonify({"error": "API key required", "hint": "Pass X-API-Key header or ?api_key= param"}), 401
+
+        user_data = db.get_user_by_api_key(raw_key)
+        if not user_data:
+            db.append_audit_log(
+                event_category="api",
+                event_type="api_key_invalid",
+                status="denied",
+                ip_address=_get_request_ip(),
+                user_agent=request.headers.get("User-Agent", "")[:512],
+                request_method=request.method,
+                request_path=request.path,
+            )
+            return jsonify({"error": "Invalid or revoked API key"}), 401
+
+        g.api_user = user_data
+        db.append_audit_log(
+            event_category="api",
+            event_type="api_key_authenticated",
+            status="success",
+            actor_user_id=user_data.get("id"),
+            actor_username=user_data.get("username"),
+            ip_address=_get_request_ip(),
+            user_agent=request.headers.get("User-Agent", "")[:512],
+            request_method=request.method,
+            request_path=request.path,
+            details={"role": user_data.get("role")},
+        )
+        return f(*args, **kwargs)
+    return decorated
 
 def _is_https_request() -> bool:
     if request.is_secure:
@@ -335,7 +409,7 @@ else:
 
 def run_scan_pipeline(target: str, ports: list[int] | None = None) -> dict:
     """Execute the full scan pipeline and return a report dict."""
-    scan_id = str(uuid.uuid4())[:8]
+    scan_id = uuid.uuid4().hex[:8]
 
     # 1. Service Discovery (broad port sweep)
     scanner = NetworkScanner()
@@ -483,6 +557,7 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None) -> dict:
 
 
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("5 per minute")
 def login():
     """Simple login page."""
     if current_user.is_authenticated:
@@ -738,7 +813,7 @@ def setup_password(token):
 def index():
     """Scanner dashboard with enterprise metrics, scan form, and recent results."""
     recent_scans = sorted(
-        scan_store.values(),
+        list(scan_store.values()),
         key=lambda s: s.get("generated_at", ""),
         reverse=True,
     )[:10]
@@ -767,7 +842,7 @@ def index():
         
         # Count critical findings
         for finding in scan.get("findings", []):
-            if finding.get("severity", "").upper() == "CRITICAL":
+            if isinstance(finding, dict) and finding.get("severity", "").upper() == "CRITICAL":
                 enterprise_metrics["critical_findings"] += 1
 
     if enterprise_metrics["scan_count"] > 0:
@@ -783,6 +858,7 @@ def index():
 
 
 @app.route("/scan", methods=["POST"])
+@limiter.limit("20 per hour")
 @role_required(list(SCAN_ROLES))
 def scan():
     """Run a scan on one or multiple targets (text input + CSV upload)."""
@@ -825,7 +901,7 @@ def scan():
             stream = io.StringIO(csv_file.stream.read().decode("utf-8-sig"))
             reader = csv.DictReader(stream)
             # Normalize column headers to lowercase
-            if reader.fieldnames:
+            if reader.fieldnames is not None:
                 reader.fieldnames = [f.strip().lower() for f in reader.fieldnames]
             for row in reader:
                 host = (
@@ -879,7 +955,7 @@ def scan():
 
     except Exception as exc:
         _audit("scan", "scan_error", "failed", details={"error": str(exc), "target_count": len(targets)})
-        error_id = str(uuid.uuid4())[:8]
+        error_id = uuid.uuid4().hex[:8]
         return render_template(
             "error.html",
             error_id=error_id,
@@ -993,9 +1069,18 @@ def api_badge(target: str):
 
 
 @app.route("/api/scan", methods=["GET", "POST"])
-@role_required(["Admin", "Manager"])
+@csrf.exempt  # Machine clients send API keys, not CSRF tokens
+@limiter.limit("60 per hour")
+@require_api_key
 def api_scan():
-    """REST API endpoint for CI/CD integration."""
+    """REST API endpoint for CI/CD integration. Requires X-API-Key header.
+
+    GET  /api/scan?target=example.com&api_key=qss_...
+    POST /api/scan  {"target": "example.com", "api_key": "qss_..."}
+    """
+    from flask import g as _g
+    api_user = _g.api_user
+
     if request.method == "GET":
         target = request.args.get("target", "")
     else:
@@ -1005,18 +1090,49 @@ def api_scan():
     if not target:
         return jsonify({"error": "Missing 'target' parameter"}), 400
 
+    # Enforce role on API users too
+    if api_user.get("role") not in SCAN_ROLES:
+        db.append_audit_log(
+            event_category="api",
+            event_type="api_scan_forbidden",
+            status="denied",
+            actor_user_id=api_user.get("id"),
+            actor_username=api_user.get("username"),
+            ip_address=_get_request_ip(),
+            request_method=request.method,
+            request_path=request.path,
+            details={"role": api_user.get("role"), "required_roles": list(SCAN_ROLES)},
+        )
+        return jsonify({"error": "Your API key role does not permit scanning"}), 403
+
     try:
         clean_target, _ = sanitize_target(target)
         report = run_scan_pipeline(clean_target)
+        db.append_audit_log(
+            event_category="api",
+            event_type="api_scan",
+            status="success",
+            actor_user_id=api_user.get("id"),
+            actor_username=api_user.get("username"),
+            target_scan_id=report.get("scan_id"),
+            ip_address=_get_request_ip(),
+            request_method=request.method,
+            request_path=request.path,
+            details={"target": clean_target},
+        )
         return jsonify(report)
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 
 
+
 @app.route("/api/scans")
-@login_required
+@csrf.exempt
+@require_api_key
 def api_list_scans():
-    """List all stored scan results."""
+    """List all stored scan results. Requires X-API-Key header."""
+    from flask import g as _g
+    api_user = _g.api_user
     scans = [
         {
             "scan_id": r.get("scan_id"),
@@ -1030,16 +1146,87 @@ def api_list_scans():
     return jsonify(scans)
 
 
+@app.route("/profile", methods=["GET"])
+@login_required
+def profile():
+    """User profile page showing API key info."""
+    user_data = db.get_user_by_id(current_user.id)
+    # Auto-issue an API key on first visit if none exists
+    new_key = None
+    if user_data and not user_data.get("api_key_hash"):
+        new_key = db.generate_api_key(current_user.id)
+        if new_key:
+            _audit("api", "api_key_auto_issued", "success",
+                   details={"reason": "first_visit"})
+    key_issued = db.has_api_key(current_user.id)
+    return render_template(
+        "profile.html",
+        user=user_data,
+        key_issued=key_issued,
+        new_key=new_key,  # Only shown once on auto-issue
+    )
+
+
+@app.route("/profile/rotate-api-key", methods=["POST"])
+@login_required
+def rotate_api_key():
+    """Revoke the current API key and issue a fresh one."""
+    db.revoke_api_key(current_user.id)
+    new_key = db.generate_api_key(current_user.id)
+    if new_key:
+        _audit("api", "api_key_rotated", "success")
+        flash(f"NEW_API_KEY: {new_key}", "api_key")  # One-time display
+    else:
+        _audit("api", "api_key_rotated", "failed")
+        flash("Failed to rotate API key. Try again.", "error")
+    return redirect(url_for("profile"))
+
+
+@app.route("/admin/users/<user_id>/regen-api-key", methods=["POST"])
+@role_required(list(ADMIN_PANEL_ROLES))
+def admin_regen_api_key(user_id: str):
+    """Admin: revoke and reissue an API key for any user."""
+    user = db.get_user_by_id(user_id)
+    if not user:
+        flash("User not found.", "error")
+        return redirect(url_for("admin_users"))
+    db.revoke_api_key(user_id)
+    new_key = db.generate_api_key(user_id)
+    if new_key:
+        _audit("admin", "api_key_regen", "success", target_user_id=user_id,
+               details={"username": user.get("username")})
+        flash(f"New API key for {user.get('username')}: {new_key}", "api_key")
+    else:
+        _audit("admin", "api_key_regen", "failed", target_user_id=user_id)
+        flash("Failed to regenerate API key.", "error")
+    return redirect(url_for("admin_users"))
+
+
+
 # ── Main ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     print(f"\n{'='*60}")
-    print(f"  🔒 {app.import_name} — Quantum-Safe TLS Scanner")
-    print(f"  📡 Running on https://{FLASK_HOST}:{FLASK_PORT}")
+    print(f"  \U0001f512 {app.import_name} \u2014 Quantum-Safe TLS Scanner")
+    print(f"  \U0001f4e1 Running on https://{FLASK_HOST}:{FLASK_PORT}")
     print(f"{'='*60}\n")
-    if DEBUG:
-        # Enforce HTTPS locally via AdHoc certificates
-        app.run(host=FLASK_HOST, port=FLASK_PORT, debug=True, ssl_context='adhoc')
+
+    # Prefer mkcert-generated trusted certs (no browser warning)
+    _cert_file = os.path.join(BASE_DIR, "certs", "cert.pem")
+    _key_file  = os.path.join(BASE_DIR, "certs", "key.pem")
+    if os.path.exists(_cert_file) and os.path.exists(_key_file):
+        _ssl_ctx = (_cert_file, _key_file)
+        print("  \u2705 Using mkcert trusted SSL certificate (no browser warnings)")
     else:
-        # Expected to be run by Gunicorn behind a reverse proxy handling SSL
-        app.run(host=FLASK_HOST, port=FLASK_PORT, debug=False)
+        _ssl_ctx = "adhoc"
+        print("  \u26a0  No certs/ dir found - using adhoc self-signed cert (browser will warn)")
+        print("     To fix, run these commands once:")
+        print("       mkcert -install")
+        print("       mkcert -key-file certs/key.pem -cert-file certs/cert.pem localhost 127.0.0.1")
+
+    app.run(
+        host=FLASK_HOST,
+        port=FLASK_PORT,
+        debug=DEBUG,
+        ssl_context=_ssl_ctx,
+    )

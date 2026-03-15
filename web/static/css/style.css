@@ -5,43 +5,44 @@
 
 /* ── CSS Variables ── */
 :root {
-    /* Monochromatic slate palette — easy on the eyes */
-    --bg-primary: #111318;
-    --bg-secondary: #1a1d24;
-    --bg-card: #1e2128;
-    --bg-input: #15171d;
-    --border-subtle: #2a2e38;
-    --border-hover: #3a3f4d;
+    /* Brutally Minimalist Foundation — High Contrast & Industrial */
+    --bg-primary: #000000;
+    --bg-secondary: #050505;
+    --bg-card: #000000;
+    --bg-input: #000000;
+    --border-subtle: #ffffff;
+    --border-hover: #00ff00; /* Industrial Green Accent */
 
-    --text-primary: #d4d7de;
-    --text-secondary: #9198a5;
-    --text-muted: #636a78;
+    --text-primary: #ffffff;
+    --text-secondary: #aaaaaa;
+    --text-muted: #666666;
 
-    /* Single accent — muted teal (easy on eyes, not aggressive) */
-    --accent: #5ba4b5;
-    --accent-muted: rgba(91, 164, 181, 0.12);
-    --accent-hover: #73b8c9;
+    /* Accent — High Visibility Industrial Green */
+    --accent: #00ff00;
+    --accent-muted: rgba(0, 255, 0, 0.1);
+    --accent-hover: #00ff00;
 
-    /* Semantic — subdued, low-saturation tones */
-    --safe: #5b9e6f;
-    --safe-bg: rgba(91, 158, 111, 0.10);
-    --warn: #c9a24e;
-    --warn-bg: rgba(201, 162, 78, 0.10);
-    --danger: #c45c5c;
-    --danger-bg: rgba(196, 92, 92, 0.10);
-    --info-bg: rgba(91, 164, 181, 0.08);
+    /* Semantic — Stark Contrast */
+    --safe: #00ff00;
+    --safe-bg: #000000;
+    --warn: #ffff00;
+    --warn-bg: #000000;
+    --danger: #ff0000;
+    --danger-bg: #000000;
+    --info-bg: #000000;
 
-    /* Spacing */
-    --radius-sm: 6px;
-    --radius-md: 10px;
-    --radius-lg: 14px;
+    /* Spacing & Borders — Sharp & Heavy */
+    --radius-sm: 0px;
+    --radius-md: 0px;
+    --radius-lg: 0px;
+    --border-width: 2px;
 
-    /* Shadows — very subtle */
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.25);
-    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.3);
+    /* Shadows — None (Brutalism) */
+    --shadow-sm: none;
+    --shadow-md: none;
 
-    /* Transition */
-    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    /* Transition — Instant or Snappy */
+    --ease-out: steps(4);
 }
 
 /* ── Reset & Base ── */
@@ -60,7 +61,7 @@ html {
 }
 
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'JetBrains Mono', 'Inter', monospace;
     background: var(--bg-primary);
     color: var(--text-primary);
     line-height: 1.6;
@@ -83,32 +84,22 @@ a:hover {
     color: var(--accent-hover);
 }
 
-/* ── Background — clean, no particles ── */
+/* ── Background — Clean Total Black ── */
 .bg-particles {
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background: radial-gradient(ellipse at 30% 20%, rgba(91, 164, 181, 0.03) 0%, transparent 60%),
-        radial-gradient(ellipse at 70% 80%, rgba(91, 164, 181, 0.02) 0%, transparent 60%);
-}
-
-.bg-particles::before,
-.bg-particles::after {
     display: none;
 }
 
-/* ── Card ── */
+/* ── Industrial Card ── */
 .glass-card {
     background: var(--bg-card);
-    border: 1px solid var(--border-subtle);
+    border: var(--border-width) solid var(--border-subtle);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
-    transition: border-color 0.25s ease;
+    transition: border-color 0.1s steps(2);
 }
 
 .glass-card:hover {
-    border-color: var(--border-hover);
+    border-color: var(--accent);
 }
 
 /* ── Navbar ── */
@@ -116,9 +107,8 @@ a:hover {
     position: sticky;
     top: 0;
     z-index: 100;
-    background: rgba(17, 19, 24, 0.92);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-primary);
+    border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
 .nav-container {
@@ -252,26 +242,26 @@ a:hover {
 }
 
 .hero-title {
-    font-size: 2.8rem;
+    font-size: 4rem;
     font-weight: 800;
-    line-height: 1.15;
-    margin-bottom: 0.75rem;
-    letter-spacing: -0.5px;
+    line-height: 1;
+    margin-bottom: 1rem;
+    letter-spacing: -2px;
     color: var(--text-primary);
+    text-transform: uppercase;
 }
 
 .gradient-text {
     color: var(--accent);
-    -webkit-text-fill-color: var(--accent);
-    background: none;
 }
 
 .hero-subtitle {
-    font-size: 1.05rem;
+    font-size: 1.2rem;
     color: var(--text-secondary);
-    max-width: 560px;
+    max-width: 600px;
     margin: 0 auto;
-    line-height: 1.65;
+    line-height: 1.5;
+    text-transform: lowercase;
 }
 
 /* ── Scan Section ── */
@@ -324,12 +314,12 @@ a:hover {
     width: 100%;
     padding: 0.8rem 1rem 0.8rem 2.6rem;
     background: var(--bg-input);
-    border: 1px solid var(--border-subtle);
+    border: var(--border-width) solid var(--border-subtle);
     border-radius: var(--radius-md);
     color: var(--text-primary);
-    font-family: 'Inter', sans-serif;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 0.92rem;
-    transition: border-color 0.25s;
+    transition: border-color 0.1s;
     outline: none;
 }
 
@@ -343,28 +333,32 @@ a:hover {
 
 .scan-button {
     padding: 0.8rem 1.5rem;
-    background: var(--accent);
-    color: var(--bg-primary);
-    border: none;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: var(--border-width) solid var(--border-subtle);
     border-radius: var(--radius-md);
-    font-family: 'Inter', sans-serif;
-    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
     font-size: 0.92rem;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    transition: background 0.25s;
+    transition: all 0.1s steps(2);
     white-space: nowrap;
+    text-transform: uppercase;
 }
 
 .scan-button:hover {
-    background: var(--accent-hover);
+    background: var(--accent);
+    color: var(--bg-primary);
+    border-color: var(--accent);
 }
 
 .scan-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    filter: grayscale(1);
 }
 
 .spinner {
@@ -478,13 +472,14 @@ a:hover {
 
 .scans-table th {
     text-align: left;
-    padding: 0.85rem 1.1rem;
-    font-size: 0.72rem;
-    font-weight: 600;
+    padding: 1rem;
+    font-size: 0.8rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-muted);
-    border-bottom: 1px solid var(--border-subtle);
+    letter-spacing: 1px;
+    color: var(--bg-primary);
+    background: var(--text-primary);
+    border: var(--border-width) solid var(--text-primary);
 }
 
 .scans-table td {
@@ -512,20 +507,12 @@ a:hover {
 
 .status-badge {
     display: inline-block;
-    padding: 0.18rem 0.55rem;
-    border-radius: 100px;
-    font-size: 0.72rem;
-    font-weight: 600;
-}
-
-.status-complete {
-    background: var(--safe-bg);
-    color: var(--safe);
-}
-
-.status-error {
-    background: var(--danger-bg);
-    color: var(--danger);
+    padding: 2px 8px;
+    border: 1px solid currentColor;
+    border-radius: 0;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
 }
 
 .score-pill {
@@ -1113,13 +1100,20 @@ code.tls-value {
     padding: 1rem;
     text-align: center;
     cursor: pointer;
-    font-family: 'Inter', sans-serif;
-    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
     font-size: 0.88rem;
     background: var(--bg-card);
-    border: 1px solid var(--border-subtle);
+    border: var(--border-width) solid var(--border-subtle);
     color: var(--text-primary);
     text-decoration: none;
+    text-transform: uppercase;
+    transition: all 0.1s steps(2);
+}
+
+.action-btn:hover {
+    background: var(--text-primary);
+    color: var(--bg-primary);
 }
 
 .action-icon {

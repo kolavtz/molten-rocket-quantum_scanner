@@ -6,7 +6,7 @@ used across the application are defined here.
 """
 
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # type: ignore
 
 # Load user's .env file if present
 load_dotenv()
@@ -513,3 +513,20 @@ QSS_ADMIN_PASSWORD = os.environ.get("QSS_ADMIN_PASSWORD", "admin123")
 # Must be a 32-url-safe-base64-encoded bytes string for Fernet
 # Generate one via: cryptography.fernet.Fernet.generate_key()
 ENCRYPTION_KEY = os.environ.get("QSS_ENCRYPTION_KEY")
+
+# ---------------------------------------------------------------------------
+# Security Hardening (Harden Phase)
+# ---------------------------------------------------------------------------
+# Rate Limiting
+RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
+RATELIMIT_DEFAULT_LIMITS = ["200 per day", "50 per hour"]
+
+# Content Security Policy (Simple restrictive policy)
+# Allows self, Google Fonts, and inline styles for the glassmorphism effects
+CSP_CONFIG = {
+    'default-src': ["'self'"],
+    'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+    'font-src': ["'self'", 'https://fonts.gstatic.com'],
+    'img-src': ["'self'", 'data:', 'https://*'],
+    'script-src': ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"], # app.js, inline scripts and Chart.js
+}

@@ -19,14 +19,14 @@ from typing import Any, Dict, List, Optional
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from config import APP_NAME, APP_VERSION, CBOM_SPEC_VERSION
+from config import APP_NAME, APP_VERSION, CBOM_SPEC_VERSION  # type: ignore
 
 # Try cyclonedx library; fall back to manual JSON if not installed
 try:
-    from cyclonedx.model.bom import Bom
-    from cyclonedx.model.component import Component, ComponentType
-    from cyclonedx.model import Property
-    from cyclonedx.output.json import JsonV1Dot6
+    from cyclonedx.model.bom import Bom  # type: ignore
+    from cyclonedx.model.component import Component, ComponentType  # type: ignore
+    from cyclonedx.model import Property  # type: ignore
+    from cyclonedx.output.json import JsonV1Dot6  # type: ignore
     HAS_CYCLONEDX_LIB = True
 except ImportError:
     HAS_CYCLONEDX_LIB = False

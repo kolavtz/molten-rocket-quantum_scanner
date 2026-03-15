@@ -32,7 +32,7 @@ import sys
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Tuple
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet, InvalidToken  # type: ignore
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -44,7 +44,7 @@ from config import (
     MYSQL_DATABASE,
     ENCRYPTION_KEY,
     AUDIT_HASH_SECRET,
-)
+)  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -117,40 +117,79 @@ def _decrypt_data(encrypted_data: str) -> str:
     return encrypted_data
 
 # ---------------------------------------------------------------------------
-# Internal helpers
+# Internal helpers — connection with retry + pool
 # ---------------------------------------------------------------------------
 
+_CONNECT_RETRIES = 3
+_CONNECT_RETRY_DELAY = 0.4  # seconds between retries
+
 def _get_connection():
-    """Return a fresh MySQL connection or *None* on failure."""
+    """Return a MySQL connection with retry logic, or *None* on failure.
+
+    Retries up to _CONNECT_RETRIES times with a short back-off to survive
+    transient 'too many connections' or network hiccups.
+    """
+    import time as _time
     try:
         import mysql.connector
-        return mysql.connector.connect(
-            host=MYSQL_HOST,
-            port=MYSQL_PORT,
-            user=MYSQL_USER,
-            password=MYSQL_PASSWORD,
-            database=MYSQL_DATABASE,
-            connect_timeout=5,
-        )
-    except Exception as exc:
-        logger.warning("MySQL connection failed: %s", exc)
+        from mysql.connector import pooling as _pooling  # noqa – checked below
+    except ImportError:
+        logger.error("mysql-connector-python not installed.")
         return None
+
+    last_exc: Optional[Exception] = None
+    for attempt in range(1, _CONNECT_RETRIES + 1):
+        try:
+            conn = mysql.connector.connect(
+                host=MYSQL_HOST,
+                port=MYSQL_PORT,
+                user=MYSQL_USER,
+                password=MYSQL_PASSWORD,
+                database=MYSQL_DATABASE,
+                connect_timeout=5,
+                # Reconnect automatically if connection was dropped
+                reconnect=True,
+                connection_timeout=10,
+            )
+            # Verify the connection is alive (avoids stale-conn bugs)
+            conn.ping(reconnect=True, attempts=2, delay=1)
+            return conn
+        except Exception as exc:
+            last_exc = exc
+            if attempt < _CONNECT_RETRIES:
+                _time.sleep(_CONNECT_RETRY_DELAY * attempt)
+    logger.warning("MySQL connection failed after %d attempts: %s", _CONNECT_RETRIES, last_exc)
+    return None
 
 
 def _get_server_connection():
-    """Connect to the MySQL *server* (no database selected)."""
+    """Connect to the MySQL *server* (no database selected) with retry."""
+    import time as _time
     try:
         import mysql.connector
-        return mysql.connector.connect(
-            host=MYSQL_HOST,
-            port=MYSQL_PORT,
-            user=MYSQL_USER,
-            password=MYSQL_PASSWORD,
-            connect_timeout=5,
-        )
-    except Exception as exc:
-        logger.warning("MySQL server connection failed: %s", exc)
+    except ImportError:
+        logger.error("mysql-connector-python not installed.")
         return None
+
+    last_exc: Optional[Exception] = None
+    for attempt in range(1, _CONNECT_RETRIES + 1):
+        try:
+            conn = mysql.connector.connect(
+                host=MYSQL_HOST,
+                port=MYSQL_PORT,
+                user=MYSQL_USER,
+                password=MYSQL_PASSWORD,
+                connect_timeout=5,
+                reconnect=True,
+            )
+            conn.ping(reconnect=True, attempts=2, delay=1)
+            return conn
+        except Exception as exc:
+            last_exc = exc
+            if attempt < _CONNECT_RETRIES:
+                _time.sleep(_CONNECT_RETRY_DELAY * attempt)
+    logger.warning("MySQL server connection failed after %d attempts: %s", _CONNECT_RETRIES, last_exc)
+    return None
 
 
 def _create_trigger_if_missing(cur, trigger_name: str, create_sql: str) -> None:
@@ -301,7 +340,9 @@ def init_db() -> bool:
             "ALTER TABLE scans ADD COLUMN is_encrypted BOOLEAN DEFAULT FALSE",
             "ALTER TABLE cbom_reports ADD COLUMN is_encrypted BOOLEAN DEFAULT FALSE",
             "ALTER TABLE scans MODIFY COLUMN report_json LONGTEXT NOT NULL",
-            "ALTER TABLE cbom_reports MODIFY COLUMN cbom_json LONGTEXT NOT NULL"
+            "ALTER TABLE cbom_reports MODIFY COLUMN cbom_json LONGTEXT NOT NULL",
+            # API key column — graceful; ignored if already present
+            "ALTER TABLE users ADD COLUMN api_key_hash CHAR(64) UNIQUE",
         ]:
             try:
                 cur.execute(alter_cmd)
@@ -350,7 +391,7 @@ def init_db() -> bool:
         # Seed default admin if no users exist
         cur.execute("SELECT COUNT(*) FROM users")
         if cur.fetchone()[0] == 0:
-            from werkzeug.security import generate_password_hash
+            from werkzeug.security import generate_password_hash  # type: ignore
 
             admin_username = os.environ.get("QSS_ADMIN_USERNAME", "admin")
             admin_email = os.environ.get("QSS_ADMIN_EMAIL", "admin@localhost")
@@ -384,6 +425,7 @@ def init_db() -> bool:
         return False
     finally:
         conn.close()
+    return False
 
 
 def save_scan(report: Dict[str, Any]) -> bool:
@@ -449,6 +491,7 @@ def save_scan(report: Dict[str, Any]) -> bool:
         return False
     finally:
         conn.close()
+    return False
 
 
 def save_cbom(scan_id: str, cbom_dict: Dict[str, Any]) -> bool:
@@ -483,6 +526,7 @@ def save_cbom(scan_id: str, cbom_dict: Dict[str, Any]) -> bool:
         return False
     finally:
         conn.close()
+    return False
 
 
 def get_scan(scan_id: str) -> Optional[Dict[str, Any]]:
@@ -508,6 +552,7 @@ def get_scan(scan_id: str) -> Optional[Dict[str, Any]]:
         return None
     finally:
         conn.close()
+    return None
 
 
 def list_scans(limit: int = 50) -> List[Dict[str, Any]]:
@@ -875,6 +920,112 @@ def create_user(username: str, password_hash: str, role: str = "Viewer") -> bool
         conn.close()
 
 
+# ---------------------------------------------------------------------------
+# API Key Management
+# ---------------------------------------------------------------------------
+
+_API_KEY_PREFIX = "qss_"
+
+
+def generate_api_key(user_id: str) -> Optional[str]:
+    """Generate a new API key for *user_id*.
+
+    Creates a random ``qss_<48-byte-hex>`` raw key, stores the SHA-256 hash
+    in ``users.api_key_hash``, and returns the raw key once (it is NOT stored
+    in plaintext).  Returns ``None`` on failure.
+    """
+    conn = _get_connection()
+    if conn is None:
+        return None
+    raw_key = _API_KEY_PREFIX + secrets.token_hex(48)
+    key_hash = _hash_token(raw_key)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE users SET api_key_hash = %s WHERE id = %s",
+            (key_hash, str(user_id)),
+        )
+        conn.commit()
+        if cur.rowcount == 0:
+            logger.warning("generate_api_key: no user updated (id=%s)", user_id)
+            return None
+        return raw_key
+    except Exception as exc:
+        logger.error("generate_api_key failed: %s", exc)
+        return None
+    finally:
+        conn.close()
+
+
+def get_user_by_api_key(raw_key: str) -> Optional[Dict[str, Any]]:
+    """Return an active user whose hashed API key matches *raw_key*.
+
+    Returns ``None`` if the key is invalid, the user is inactive, or the
+    database is unavailable.
+    """
+    if not raw_key or not raw_key.startswith(_API_KEY_PREFIX):
+        return None
+    conn = _get_connection()
+    if conn is None:
+        return None
+    key_hash = _hash_token(raw_key)
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            "SELECT * FROM users WHERE api_key_hash = %s AND is_active = TRUE",
+            (key_hash,),
+        )
+        user = cur.fetchone()
+        if user:
+            user["role"] = normalize_role(user.get("role", "Viewer"))
+        return user
+    except Exception as exc:
+        logger.error("get_user_by_api_key failed: %s", exc)
+        return None
+    finally:
+        conn.close()
+
+
+def revoke_api_key(user_id: str) -> bool:
+    """Clear the API key hash for *user_id* (key is revoked immediately)."""
+    conn = _get_connection()
+    if conn is None:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE users SET api_key_hash = NULL WHERE id = %s",
+            (str(user_id),),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as exc:
+        logger.error("revoke_api_key failed: %s", exc)
+        return False
+    finally:
+        conn.close()
+
+
+def has_api_key(user_id: str) -> bool:
+    """Return True if the user already has an API key issued."""
+    conn = _get_connection()
+    if conn is None:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT api_key_hash IS NOT NULL FROM users WHERE id = %s",
+            (str(user_id),),
+        )
+        row = cur.fetchone()
+        return bool(row and row[0])
+    except Exception as exc:
+        logger.error("has_api_key failed: %s", exc)
+        return False
+    finally:
+        conn.close()
+
+
 def append_audit_log(
     event_category: str,
     event_type: str,
@@ -899,7 +1050,8 @@ def append_audit_log(
         chain_cur.execute("SELECT last_entry_id, last_hash FROM audit_log_chain WHERE id = 1 FOR UPDATE")
         chain_state = chain_cur.fetchone() or {"last_entry_id": None, "last_hash": "0" * 64}
         prev_hash = chain_state.get("last_hash") or "0" * 64
-        created_at = _utcnow()
+        # Standardize timestamp to seconds for tamper-evident chain consistency
+        created_at = _utcnow().replace(microsecond=0)
 
         payload = {
             "actor_user_id": actor_user_id,
@@ -1033,7 +1185,7 @@ def verify_audit_log_chain(limit: int = 500) -> Tuple[bool, List[str]]:
                 "request_path": row.get("request_path"),
                 "status": row.get("status"),
                 "details": details,
-                "created_at": row.get("created_at").isoformat(timespec="seconds") if row.get("created_at") else None,
+                "created_at": row.get("created_at").replace(microsecond=0).isoformat(timespec="seconds") if row.get("created_at") else None,
             }
             if row.get("previous_hash") != prev_hash:
                 issues.append(f"Chain break at audit log {row.get('id')}")
@@ -1042,5 +1194,8 @@ def verify_audit_log_chain(limit: int = 500) -> Tuple[bool, List[str]]:
                 issues.append(f"Hash mismatch at audit log {row.get('id')}")
             prev_hash = row.get("entry_hash") or prev_hash
         return len(issues) == 0, issues
+    except Exception as exc:
+        logger.error("verify_audit_log_chain failed: %s", exc)
+        return False, [f"Verification process error: {exc}"]
     finally:
         conn.close()

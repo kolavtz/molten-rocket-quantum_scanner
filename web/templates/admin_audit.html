@@ -1,69 +1,72 @@
 {% extends "base.html" %}
 
-{% block title %}Audit Review - QuantumShield{% endblock %}
+{% block title %}AUDIT_LOG // QUANTUMSHIELD{% endblock %}
 
 {% block content %}
-<header class="section-header animate-fade-in-up">
-    <div class="header-icon">🧾</div>
-    <h1>Audit Review</h1>
-    <p class="subtitle">Tamper-evident administrative and authentication event history.</p>
+<header class="section-header">
+    <h1 class="hero-title">AUDIT TRAIL</h1>
+    <p class="hero-subtitle">tamper-evident immutable event history</p>
 </header>
 
-<div class="admin-container animate-fade-in-up delay-1">
-    <div class="scan-card glass-card" style="margin-bottom: 1.5rem;">
-        <h3 style="margin-bottom: 0.75rem;">Audit Chain Status</h3>
+<div class="admin-container" style="margin-top: 2rem;">
+    <div class="glass-card" style="margin-bottom: 2rem; padding: 1.5rem;">
+        <h3 style="margin-bottom: 1rem; text-transform: uppercase; font-size: 1rem; letter-spacing: 1px;">CHAIN INTEGRITY STATUS</h3>
         {% if chain_valid %}
-        <div class="flash-msg flash-success">Audit hash chain verified successfully.</div>
+        <div style="color: var(--safe); font-weight: 800; border: 1px solid var(--safe); padding: 0.75rem; text-align: center;">
+            VERIFIED // HASH_CHAIN_LOCKED
+        </div>
         {% else %}
-        <div class="flash-msg flash-error">Audit chain verification failed.</div>
-        <ul style="color: var(--text-secondary); margin-top: 1rem; padding-left: 1.2rem;">
+        <div style="color: var(--danger); font-weight: 800; border: 1px solid var(--danger); padding: 0.75rem; text-align: center;">
+            FAILED // CHAIN_BREACH_DETECTED
+        </div>
+        <ul style="color: var(--text-secondary); margin-top: 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; padding-left: 1.2rem;">
             {% for issue in chain_issues %}
-            <li>{{ issue }}</li>
+            <li>ERROR: {{ issue|upper }}</li>
             {% endfor %}
         </ul>
         {% endif %}
     </div>
 
-    <div class="scan-card glass-card">
-        <h3 style="margin-bottom: 1rem;">Recent Audit Events</h3>
-        <div class="table-container">
-            <table class="data-table">
+    <div class="glass-card" style="padding: 1.5rem;">
+        <h3 style="margin-bottom: 1.5rem; text-transform: uppercase; font-size: 1rem; letter-spacing: 1px; border-bottom: 1px solid var(--text-muted); padding-bottom: 0.5rem;">SYSTEM LOGS</h3>
+        <div class="scans-table-wrapper">
+            <table class="scans-table">
                 <thead>
                     <tr>
                         <th>ID</th>
-                        <th>Time</th>
-                        <th>Category</th>
-                        <th>Event</th>
-                        <th>Status</th>
-                        <th>Actor</th>
-                        <th>IP</th>
-                        <th>Path</th>
-                        <th>Details</th>
+                        <th>TS</th>
+                        <th>CAT</th>
+                        <th>TYPE</th>
+                        <th>STAT</th>
+                        <th>ACTOR</th>
+                        <th>ADDR</th>
+                        <th>OP</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for log in logs %}
-                    <tr>
-                        <td>{{ log.id }}</td>
-                        <td>{{ log.created_at }}</td>
-                        <td>{{ log.event_category }}</td>
-                        <td>{{ log.event_type }}</td>
+                    <tr class="scan-row" style="font-size: 0.75rem;">
+                        <td class="time-cell">{{ log.id }}</td>
+                        <td class="time-cell">{{ log.created_at }}</td>
+                        <td>{{ log.event_category|upper }}</td>
+                        <td>{{ log.event_type|upper }}</td>
                         <td>
-                            <span class="role-badge role-{{ log.status|lower }}">{{ log.status }}</span>
+                            <span class="status-badge" style="color: {% if log.status == 'success' %}var(--safe){% else %}var(--danger){% endif %};">
+                                {{ log.status|upper }}
+                            </span>
                         </td>
-                        <td>{{ log.actor_username or log.actor_user_id or 'system' }}</td>
-                        <td>{{ log.ip_address or 'N/A' }}</td>
-                        <td>{{ log.request_method or '' }} {{ log.request_path or '' }}</td>
+                        <td class="target-cell">{{ log.actor_username or 'SYSTEM' }}</td>
+                        <td class="time-cell">{{ log.ip_address or '---' }}</td>
                         <td>
                             <details>
-                                <summary style="cursor: pointer; color: var(--accent);">View</summary>
-                                <pre style="white-space: pre-wrap; color: var(--text-secondary); font-size: 0.78rem; margin-top: 0.5rem;">{{ log.details | tojson(indent=2) }}</pre>
+                                <summary style="cursor: pointer; color: var(--accent); font-weight: 800;">DATA</summary>
+                                <pre style="background: var(--bg-secondary); border: 1px solid var(--text-muted); padding: 0.5rem; color: var(--text-secondary); margin-top: 0.5rem; font-size: 0.7rem;">{{ log.details | tojson(indent=2) }}</pre>
                             </details>
                         </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="9" class="text-center">No audit events found.</td>
+                        <td colspan="8" class="text-center" style="padding: 2rem; color: var(--text-muted);">NULL_SET // NO AUDIT DATA</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -71,11 +74,4 @@
         </div>
     </div>
 </div>
-
-<style>
-.role-success { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
-.role-failed { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
-.role-denied { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-.role-partial { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
-</style>
 {% endblock %}

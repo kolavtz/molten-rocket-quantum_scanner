@@ -16,6 +16,7 @@ from unittest.mock import patch
 def client():
     app.config['TESTING'] = True
     app.config['LOGIN_DISABLED'] = True
+    app.config['WTF_CSRF_ENABLED'] = False
     # disable csrf for testing if needed
     with app.test_client() as c:
         yield c

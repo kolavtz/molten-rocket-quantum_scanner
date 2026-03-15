@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Login | QuantumShield{% endblock %}
+{% block title %}LOGIN // QUANTUMSHIELD{% endblock %}
 
 {% block head %}
 <style>
@@ -8,80 +8,81 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        min-height: 50vh;
-        margin-top: 2rem;
+        min-height: 60vh;
     }
     .login-card {
         width: 100%;
-        max-width: 400px;
-        backdrop-filter: blur(12px);
-        background: rgba(30, 41, 59, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
-        padding: 2.5rem;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        max-width: 360px;
+        background: var(--bg-primary);
+        border: var(--border-width) solid var(--text-primary);
+        padding: 2rem;
     }
     .login-header {
-        text-align: center;
         margin-bottom: 2rem;
+        border-bottom: var(--border-width) solid var(--text-primary);
+        padding-bottom: 1rem;
     }
     .login-header h1 {
-        font-size: 1.5rem;
-        font-weight: 700;
-        margin-bottom: 0.5rem;
+        font-size: 1.2rem;
+        font-weight: 800;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        margin: 0;
     }
     .login-header p {
-        color: #94a3b8;
-        font-size: 0.875rem;
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        margin-top: 0.5rem;
+        text-transform: lowercase;
     }
     .form-group {
         margin-bottom: 1.5rem;
     }
     .form-label {
         display: block;
-        margin-bottom: 0.5rem;
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: #e2e8f0;
+        margin-bottom: 0.4rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }
     .form-input {
         width: 100%;
-        background: rgba(15, 23, 42, 0.6);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 6px;
-        padding: 0.75rem 1rem;
-        color: white;
-        font-family: inherit;
-        transition: all 0.2s;
+        background: var(--bg-primary);
+        border: 1px solid var(--text-muted);
+        border-radius: 0;
+        padding: 0.8rem;
+        color: var(--text-primary);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.9rem;
+        outline: none;
     }
     .form-input:focus {
-        outline: none;
-        border-color: #6366f1;
-        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        border-color: var(--accent);
     }
     .btn-login {
         width: 100%;
-        background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-        color: white;
+        background: var(--text-primary);
+        color: var(--bg-primary);
         border: none;
-        border-radius: 6px;
-        padding: 0.75rem;
-        font-weight: 600;
+        padding: 1rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 1px;
         cursor: pointer;
-        transition: transform 0.2s, opacity 0.2s;
+        transition: all 0.1s steps(2);
     }
     .btn-login:hover {
-        transform: translateY(-1px);
-        opacity: 0.9;
+        background: var(--accent);
     }
     .flash-error {
-        background: rgba(185, 28, 28, 0.2);
-        border: 1px solid rgba(185, 28, 28, 0.3);
-        color: #fca5a5;
+        border: 1px solid var(--danger);
+        color: var(--danger);
         padding: 0.75rem;
-        border-radius: 6px;
         margin-bottom: 1.5rem;
-        font-size: 0.875rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
         text-align: center;
     }
 </style>
@@ -91,8 +92,8 @@
 <div class="login-container">
     <div class="login-card">
         <div class="login-header">
-            <h1><span class="gradient-text">Welcome Back</span></h1>
-            <p>Sign in to access the Quantum Scanner</p>
+            <h1>AUTHENTICATION</h1>
+            <p>restricted access // quantum shielding active</p>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -104,15 +105,16 @@
         {% endwith %}
 
         <form method="POST" action="/login">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
-                <label class="form-label" for="username">Username</label>
-                <input class="form-input" type="text" id="username" name="username" required autocomplete="username">
+                <label class="form-label" for="username">USER_ID</label>
+                <input class="form-input" type="text" id="username" name="username" required autocomplete="username" placeholder="ROOT">
             </div>
             <div class="form-group">
-                <label class="form-label" for="password">Password</label>
-                <input class="form-input" type="password" id="password" name="password" required autocomplete="current-password">
+                <label class="form-label" for="password">PASS_KEY</label>
+                <input class="form-input" type="password" id="password" name="password" required autocomplete="current-password" placeholder="********">
             </div>
-            <button type="submit" class="btn-login">Sign In</button>
+            <button type="submit" class="btn-login">AUTHORIZE</button>
         </form>
     </div>
 </div>

@@ -1,40 +1,33 @@
 {% extends "base.html" %}
 
-{% block title %}QuantumShield — Quantum-Safe TLS Scanner{% endblock %}
+{% block title %}DASHBOARD // QUANTUMSHIELD{% endblock %}
 
 {% block content %}
 <!-- Hero Section -->
 <section class="hero">
     <div class="hero-content">
-        <div class="hero-badge animate-fade-in">
-            <span class="badge-dot"></span>
-            PNB Cybersecurity Hackathon 2026
-        </div>
-        <h1 class="hero-title animate-fade-in-up">
-            Quantum-Safe<br>
-            <span class="gradient-text">TLS Scanner</span>
+        <h1 class="hero-title">
+            QUANTUM-SAFE<br>
+            <span class="gradient-text">TLS SCANNER</span>
         </h1>
-        <p class="hero-subtitle animate-fade-in-up delay-1">
-            Quantum-Ready Cybersecurity for Future-Safe Banking.
-            Discover crypto assets, build CBOM inventory, validate NIST PQC compliance,
-            and issue &ldquo;Fully Quantum Safe&rdquo; certification labels.
+        <p class="hero-subtitle">
+            pqc readiness // cryptovulnerability analysis // nist compliance
         </p>
     </div>
 </section>
+
 {% if enterprise_metrics and enterprise_metrics.scan_count > 0 %}
 <!-- Enterprise Metrics Dashboard -->
-<section class="overview-section animate-fade-in-up delay-2" style="margin-bottom: 2rem;">
-    <h2 class="section-title" style="text-align: center; margin-bottom: 1.5rem;">
-        <span class="icon">&#x1F3DB;&#xFE0F;</span> Enterprise Operations Console
+<section class="overview-section" style="margin-bottom: 2rem;">
+    <h2 class="section-title" style="text-align: center; margin-bottom: 1.5rem; text-transform: uppercase;">
+        OPERATIONS_CONSOLE
     </h2>
     <div class="overview-grid">
         <div class="overview-card glass-card">
-            <div class="overview-icon">&#x1F4E6;</div>
             <div class="overview-value">{{ enterprise_metrics.total_assets }}</div>
-            <div class="overview-label">Total Assets Scanned</div>
+            <div class="overview-label">TOTAL ASSETS</div>
         </div>
-        <div class="overview-card glass-card card-safe">
-            <div class="overview-icon">&#x2705;</div>
+        <div class="overview-card glass-card" style="border-top: 4px solid var(--safe);">
             <div class="overview-value">
                 {% if enterprise_metrics.total_assets > 0 %}
                 {{ ((enterprise_metrics.quantum_safe / enterprise_metrics.total_assets) * 100)|round|int }}%
@@ -42,31 +35,23 @@
                 0%
                 {% endif %}
             </div>
-            <div class="overview-label">Quantum Safe</div>
+            <div class="overview-label">PQC_READY</div>
         </div>
-        <div class="overview-card glass-card card-vuln">
-            <div class="overview-icon">&#x26A0;&#xFE0F;</div>
+        <div class="overview-card glass-card" style="border-top: 4px solid var(--danger);">
             <div class="overview-value">{{ enterprise_metrics.quantum_vulnerable }}</div>
-            <div class="overview-label">Vulnerable Assets</div>
+            <div class="overview-label">VULNERABLE</div>
         </div>
         <div class="overview-card glass-card">
-            <div class="overview-icon">&#x1F6A8;</div>
             <div class="overview-value">
                 <span class="{% if enterprise_metrics.critical_findings > 0 %}text-vuln{% else %}text-safe{% endif %}">
                     {{ enterprise_metrics.critical_findings }}
                 </span>
             </div>
-            <div class="overview-label">Critical Findings</div>
+            <div class="overview-label">CRIT_FINDINGS</div>
         </div>
         <div class="overview-card glass-card">
-            <div class="overview-icon">&#x1F4CA;</div>
-            <div class="overview-value">
-                <span
-                    class="{% if enterprise_metrics.avg_score >= 80 %}text-safe{% elif enterprise_metrics.avg_score >= 50 %}text-partial{% else %}text-vuln{% endif %}">
-                    {{ enterprise_metrics.avg_score }}%
-                </span>
-            </div>
-            <div class="overview-label">Avg PQC Compliance</div>
+            <div class="overview-value">{{ enterprise_metrics.avg_score }}%</div>
+            <div class="overview-label">AVG_COMPLIANCE</div>
         </div>
     </div>
 </section>
@@ -74,245 +59,120 @@
 
 <!-- Scan Form -->
 {% if current_user.role in ['Admin', 'Manager', 'SingleScan'] %}
-<section class="scan-section animate-fade-in-up delay-3">
-    <div class="scan-card glass-card">
+<section class="scan-section">
+    <div class="glass-card" style="padding: 2rem;">
         <div class="scan-header">
-            <h2 class="scan-title">
-                <span class="icon">&#x1F3AF;</span> Start a Scan
-            </h2>
-            <p class="scan-description">
-                Discover crypto assets, validate PQC compliance, generate a CBOM report
-            </p>
+            <h2 class="scan-title" style="text-transform: uppercase;">INITIALIZE_SCAN</h2>
+            <p class="scan-description">discover crypto assets // generate cbom</p>
         </div>
 
         <!-- Mode Tabs -->
-        <div class="scan-tabs" style="display:flex; gap:0.5rem; margin-bottom:1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0;">
-            <button type="button" id="tabSingle" class="scan-tab scan-tab-active" onclick="switchTab('single')">
-                🌐 Single Target
-            </button>
+        <div class="scan-tabs" style="display:flex; gap:1.5rem; margin-bottom:1.5rem; border-bottom: 1px solid var(--text-muted);">
+            <button type="button" id="tabSingle" class="scan-tab scan-tab-active" onclick="switchTab('single')">SINGLE_TARGET</button>
             {% if current_user.role in ['Admin', 'Manager'] %}
-            <button type="button" id="tabBulk" class="scan-tab" onclick="switchTab('bulk')">
-                📋 Bulk Scan
-            </button>
+            <button type="button" id="tabBulk" class="scan-tab" onclick="switchTab('bulk')">BULK_RECIPIENT_SET</button>
             {% endif %}
         </div>
 
         <form action="/scan" method="POST" class="scan-form" id="scanForm" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-            <!-- ── SINGLE MODE ── -->
             <div id="modeSingle">
-                <!-- URL Input + Autodiscovery in one row -->
-                <div style="display:flex; gap:0.75rem; align-items: flex-start;">
-                    <div class="input-wrapper" style="flex:1;">
-                        <span class="input-icon">🌐</span>
-                        <input type="text" name="target" id="scanTargetSingle"
-                            placeholder="e.g. google.com  |  192.168.1.1  |  https://example.com"
-                            class="scan-input" autocomplete="off">
-                    </div>
-                    <button type="submit" class="scan-button" id="scanBtnSingle" style="flex-shrink:0;">
-                        <span class="btn-text">Scan Now</span>
-                        <span class="btn-icon">&rarr;</span>
-                        <span class="btn-loading" style="display:none;">
-                            <span class="spinner"></span> Scanning...
-                        </span>
+                <div style="display:flex; gap:1rem; align-items: stretch; margin-bottom: 1rem;">
+                    <input type="text" name="target" id="scanTargetSingle"
+                        placeholder="HOST / IP_ADDR / URL"
+                        class="scan-input" style="flex:1;">
+                    <button type="submit" class="scan-button" id="scanBtnSingle">
+                        <span class="btn-text">RUN_SCAN</span>
+                        <span class="btn-loading" style="display:none;">PENDING...</span>
                     </button>
                 </div>
 
-                <!-- Autodiscovery — right under the input, very prominent -->
-                <div style="margin-top:0.75rem; display:flex; align-items:center; gap:1rem; background:rgba(96,165,250,0.07); border:1px solid rgba(96,165,250,0.2); border-radius:8px; padding:0.6rem 1rem;">
-                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer; user-select:none; flex-shrink:0;">
-                        <input type="checkbox" name="autodiscovery" id="autodiscoveryToggle"
-                            style="width:18px; height:18px; accent-color:var(--accent); cursor:pointer;">
-                        <span style="font-weight:700; color:var(--accent); white-space:nowrap;">🔍 Autodiscovery</span>
+                <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
+                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
+                        <input type="checkbox" name="autodiscovery" id="autodiscoveryToggle" style="accent-color:var(--accent);">
+                        <span style="font-weight:700; color:var(--accent);">AUTODISCOVERY</span>
                     </label>
-                    <span style="color:var(--text-muted); font-size:0.8rem; line-height:1.4;">
-                        Scans <strong style="color:var(--text-secondary);">65+ ports</strong> — web, databases, queues, VPN, IoT, CI/CD.
-                        Best for <strong style="color:var(--accent);">private networks</strong>.
-                    </span>
+                    <p style="margin: 0.4rem 0 0 0; font-size: 0.7rem; color: var(--text-secondary);">DEEP SCAN // 65+ PORTS // INTRA_NETWORK_ONLY</p>
                 </div>
 
-                <!-- Optional ports -->
-                <div class="input-wrapper" style="margin-top:0.75rem;">
-                    <span class="input-icon">🔌</span>
-                    <input type="text" name="ports" id="scanPorts"
-                        placeholder="Custom ports (optional): 443, 8080, 3306 …" autocomplete="off"
-                        class="scan-input">
-                </div>
+                <input type="text" name="ports" id="scanPorts" placeholder="PORTS (OPTIONAL: 443, 8443...)" class="scan-input" style="width: 100%;">
             </div>
 
-            <!-- ── BULK MODE ── -->
             <div id="modeBulk" style="display:none;">
-                <div style="background:rgba(96,165,250,0.05); border:1px solid rgba(96,165,250,0.15); border-radius:8px; padding:0.9rem 1.1rem; margin-bottom:0.9rem;">
-                    <p style="color:var(--text-secondary); font-size:0.88rem; margin:0 0 0.4rem 0; line-height:1.5;">
-                        <strong style="color:var(--text-primary);">Option A — Paste targets below</strong> (comma or newline separated).
-                    </p>
-                    <p style="color:var(--text-muted); font-size:0.8rem; margin:0;">
-                        e.g. <code style="color:var(--accent);">google.com, github.com, 192.168.1.0/24</code>
-                    </p>
-                </div>
-
-                <div class="input-wrapper" style="height:auto;">
-                    <span class="input-icon" style="top:1rem;">🌐</span>
-                    <textarea name="target" id="scanTargetBulk"
-                        placeholder="google.com&#10;github.com&#10;192.168.1.1"
-                        class="scan-input"
-                        style="resize:vertical; min-height:90px; padding-top:1rem; line-height:1.5;"></textarea>
-                </div>
-
-                <div style="display:flex; align-items:center; gap:0.75rem; margin:0.9rem 0; color:var(--text-muted); font-size:0.85rem;">
-                    <div style="flex:1; height:1px; background:var(--border);"></div>
-                    <span>OR</span>
-                    <div style="flex:1; height:1px; background:var(--border);"></div>
-                </div>
-
-                <div style="background:rgba(96,165,250,0.05); border:1px solid rgba(96,165,250,0.15); border-radius:8px; padding:0.9rem 1.1rem; margin-bottom:0.9rem;">
-                    <p style="color:var(--text-secondary); font-size:0.88rem; margin:0 0 0.4rem 0; line-height:1.5;">
-                        <strong style="color:var(--text-primary);">Option B — Upload a CSV file</strong>
-                        with columns: <code style="color:var(--accent);">ip</code>, <code style="color:var(--accent);">port</code>
-                    </p>
-                    <p style="color:var(--text-muted); font-size:0.8rem; margin:0;">
-                        Example row: <code style="color:var(--accent);">google.com,443</code>
-                    </p>
-                </div>
-
-                <div class="input-wrapper" style="height:auto; padding:0.75rem 1rem 0.75rem 2.8rem; cursor:pointer;"
-                    onclick="document.getElementById('csvFile').click()">
-                    <span class="input-icon" style="top:0.85rem;">📄</span>
-                    <span id="csvLabel" style="color:var(--text-secondary); font-size:0.9rem;">Click to choose CSV file…</span>
+                <textarea name="target" id="scanTargetBulk" placeholder="TARGET_LIST (NEWLINE_SEP)" class="scan-input" style="min-height:100px; margin-bottom: 1rem; width: 100%;"></textarea>
+                
+                <div style="border: 1px dashed var(--text-muted); padding: 1rem; text-align: center; margin-bottom: 1rem;" 
+                     onclick="document.getElementById('csvFile').click()">
+                    <span id="csvLabel" style="font-size:0.8rem;">UPLOAD CSV (IP,PORT)</span>
                     <input type="file" name="csv_file" id="csvFile" accept=".csv" style="display:none;"
-                        onchange="document.getElementById('csvLabel').textContent = this.files[0] ? '✅ ' + this.files[0].name : 'Click to choose CSV file…'">
+                        onchange="document.getElementById('csvLabel').textContent = 'FILE_LOADED: ' + this.files[0].name">
                 </div>
 
-                <!-- Autodiscovery for Bulk -->
-                <div style="margin-top:0.75rem; display:flex; align-items:center; gap:1rem; background:rgba(96,165,250,0.07); border:1px solid rgba(96,165,250,0.2); border-radius:8px; padding:0.6rem 1rem;">
-                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer; user-select:none; flex-shrink:0;">
-                        <input type="checkbox" name="autodiscovery" id="autodiscoveryBulk"
-                            style="width:18px; height:18px; accent-color:var(--accent); cursor:pointer;">
-                        <span style="font-weight:700; color:var(--accent); white-space:nowrap;">🔍 Autodiscovery</span>
+                <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
+                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
+                        <input type="checkbox" name="autodiscovery" id="autodiscoveryBulk" style="accent-color:var(--accent);">
+                        <span style="font-weight:700; color:var(--accent);">AUTODISCOVERY_BULK</span>
                     </label>
-                    <span style="color:var(--text-muted); font-size:0.8rem;">
-                        Scan all 65+ ports per target.
-                    </span>
                 </div>
 
-                <button type="submit" class="scan-button" id="scanBtnBulk" style="width:100%; margin-top:1rem; justify-content:center;">
-                    <span class="btn-text">Run Bulk Scan</span>
-                    <span class="btn-icon">&rarr;</span>
-                    <span class="btn-loading" style="display:none;">
-                        <span class="spinner"></span> Scanning…
-                    </span>
-                </button>
+                <button type="submit" class="scan-button" id="scanBtnBulk" style="width:100%;">RUN_BULK_PROCESS</button>
             </div>
-
         </form>
 
-        <!-- Quick scan targets (single mode only) -->
-        <div class="quick-targets" id="quickTargets">
-            <span class="quick-label">Quick scan:</span>
-            <button class="quick-btn" onclick="setTarget('google.com')">google.com</button>
-            <button class="quick-btn" onclick="setTarget('github.com')">github.com</button>
-            <button class="quick-btn" onclick="setTarget('cloudflare.com')">cloudflare.com</button>
-            <button class="quick-btn" onclick="setTarget('test.openquantumsafe.org')">OQS Test Server</button>
+        <div class="quick-targets" id="quickTargets" style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <span style="font-size: 0.7rem; color: var(--text-muted); align-self: center;">QUICK_HOOKS:</span>
+            <button class="quick-btn" onclick="setTarget('google.com')">GOOGLE</button>
+            <button class="quick-btn" onclick="setTarget('test.openquantumsafe.org')">OQS_TEST</button>
         </div>
     </div>
 </section>
 {% else %}
-<section class="scan-section animate-fade-in-up delay-3">
-    <div class="scan-card glass-card" style="text-align: center; padding: 3rem;">
-        <div class="overview-icon" style="font-size: 3rem; margin-bottom: 1rem;">🔒</div>
-        <h2 style="margin-bottom: 0.5rem;">Restricted Access</h2>
-        <p style="color: var(--text-secondary); max-width: 400px; margin: 0 auto;">
-            Your current role is <strong>Viewer</strong>. 
-            You can browse existing results and historical data, but you do not have permission to initiate new scans.
-        </p>
+<section class="scan-section">
+    <div class="glass-card" style="text-align: center; padding: 3rem;">
+        <h2 style="text-transform: uppercase;">RESTRICTED</h2>
+        <p style="color: var(--text-secondary); max-width: 400px; margin: 0 auto; font-size: 0.8rem;">READ_ONLY // NO_PROVISIONING_RIGHTS</p>
     </div>
 </section>
 {% endif %}
 
-<!-- Features Grid -->
-<section class="features-section">
-    <div class="features-grid">
-        <div class="feature-card glass-card animate-fade-in-up delay-1">
-            <div class="feature-icon">🔍</div>
-            <h3 class="feature-title">Crypto Discovery</h3>
-            <p class="feature-desc">Scan TLS certificates, VPN endpoints, and APIs. Detect cipher suites, key exchange
-                mechanisms, and protocol versions.</p>
-        </div>
-        <div class="feature-card glass-card animate-fade-in-up delay-2">
-            <div class="feature-icon">📋</div>
-            <h3 class="feature-title">CBOM Generation</h3>
-            <p class="feature-desc">Generate CycloneDX-format Cryptographic Bill of Materials with complete asset
-                inventory and vulnerability mapping.</p>
-        </div>
-        <div class="feature-card glass-card animate-fade-in-up delay-3">
-            <div class="feature-icon">🛡️</div>
-            <h3 class="feature-title">PQC Validation</h3>
-            <p class="feature-desc">Validate against NIST FIPS 203/204/205 standards. Check ML-KEM, ML-DSA, and SLH-DSA
-                compliance.</p>
-        </div>
-        <div class="feature-card glass-card animate-fade-in-up delay-4">
-            <div class="feature-icon">🏷️</div>
-            <h3 class="feature-title">Quantum-Safe Labels</h3>
-            <p class="feature-desc">Issue "PQC Ready" certificates and digital labels for compliant systems with
-                tamper-proof checksums.</p>
-        </div>
-        <div class="feature-card glass-card animate-fade-in-up delay-5">
-            <div class="feature-icon">📊</div>
-            <h3 class="feature-title">Risk Assessment</h3>
-            <p class="feature-desc">HNDL (Harvest Now, Decrypt Later) risk scoring with priority-based migration
-                recommendations.</p>
-        </div>
-        <div class="feature-card glass-card animate-fade-in-up delay-6">
-            <div class="feature-icon">🔧</div>
-            <h3 class="feature-title">Actionable Fixes</h3>
-            <p class="feature-desc">Server-specific configuration snippets for Nginx, Apache, HAProxy, and cloud ALBs.
-            </p>
-        </div>
-    </div>
-</section>
-
 <!-- Recent Scans -->
 {% if recent_scans %}
 <section class="recent-section">
-    <h2 class="section-title">
-        <span class="icon">📜</span> Recent Scans
-    </h2>
+    <h2 class="section-title" style="text-transform: uppercase;">SCAN_CACHE</h2>
     <div class="scans-table-wrapper glass-card">
         <table class="scans-table">
             <thead>
                 <tr>
-                    <th>Scan ID</th>
-                    <th>Target</th>
-                    <th>Status</th>
-                    <th>Assets</th>
-                    <th>Score</th>
-                    <th>Time</th>
-                    <th></th>
+                    <th>SCAN_ID</th>
+                    <th>TARGET</th>
+                    <th>STATUS</th>
+                    <th>NODES</th>
+                    <th>PQC_SCORE</th>
+                    <th>TIMESTAMP</th>
+                    <th>CTRL</th>
                 </tr>
             </thead>
             <tbody>
                 {% for scan in recent_scans %}
                 <tr class="scan-row">
-                    <td><code>{{ scan.scan_id }}</code></td>
+                    <td class="time-cell">{{ scan.scan_id }}</td>
                     <td class="target-cell">{{ scan.target }}</td>
                     <td>
-                        {% if scan.status == 'complete' %}
-                        <span class="status-badge status-complete">Complete</span>
-                        {% else %}
-                        <span class="status-badge status-error">{{ scan.status }}</span>
-                        {% endif %}
+                        <span class="status-badge" style="color: {% if scan.status == 'complete' %}var(--safe){% else %}var(--danger){% endif %};">
+                            {{ scan.status|upper }}
+                        </span>
                     </td>
                     <td>{{ scan.overview.total_assets if scan.overview else 0 }}</td>
                     <td>
                         {% set score = scan.overview.average_compliance_score if scan.overview else 0 %}
-                        <span
-                            class="score-pill {% if score >= 80 %}score-good{% elif score >= 50 %}score-partial{% else %}score-bad{% endif %}">
+                        <span style="color: {% if score >= 80 %}var(--safe){% elif score >= 50 %}var(--warn){% else %}var(--danger){% endif %}; font-weight: 800;">
                             {{ score }}%
                         </span>
                     </td>
                     <td class="time-cell">{{ scan.generated_at[:16] if scan.generated_at else '' }}</td>
                     <td>
-                        <a href="/results/{{ scan.scan_id }}" class="view-btn">View →</a>
+                        <a href="/results/{{ scan.scan_id }}" class="scan-button" style="padding: 0.3rem 0.6rem; font-size: 0.7rem;">DECRYPT</a>
                     </td>
                 </tr>
                 {% endfor %}
@@ -322,80 +182,16 @@
 </section>
 {% endif %}
 
-<!-- NIST Standards Info -->
-<section class="standards-section">
-    <h2 class="section-title">
-        <span class="icon">📐</span> NIST PQC Standards We Validate
-    </h2>
-    <div class="standards-grid">
-        <div class="standard-card glass-card">
-            <div class="standard-badge fips-203">FIPS 203</div>
-            <h3>ML-KEM (Kyber)</h3>
-            <p>Module-Lattice Key Encapsulation Mechanism — replaces RSA/ECDH key exchange</p>
-            <div class="standard-variants">ML-KEM-512 • ML-KEM-768 • ML-KEM-1024</div>
-        </div>
-        <div class="standard-card glass-card">
-            <div class="standard-badge fips-204">FIPS 204</div>
-            <h3>ML-DSA (Dilithium)</h3>
-            <p>Module-Lattice Digital Signature Algorithm — replaces RSA/ECDSA signatures</p>
-            <div class="standard-variants">ML-DSA-44 • ML-DSA-65 • ML-DSA-87</div>
-        </div>
-        <div class="standard-card glass-card">
-            <div class="standard-badge fips-205">FIPS 205</div>
-            <h3>SLH-DSA (SPHINCS+)</h3>
-            <p>Stateless Hash-Based Digital Signature — conservative fallback signature</p>
-            <div class="standard-variants">SHA2-128f • SHA2-256f • SHAKE-128f • SHAKE-256f</div>
-        </div>
-    </div>
-</section>
-
-<style>
-    .scan-tab {
-        background: none;
-        border: none;
-        color: var(--text-muted);
-        padding: 0.6rem 1.25rem;
-        font-size: 0.95rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        border-bottom: 2px solid transparent;
-        margin-bottom: -1px;
-    }
-    .scan-tab:hover {
-        color: var(--text-primary);
-    }
-    .scan-tab-active {
-        color: var(--accent);
-        border-bottom-color: var(--accent);
-    }
-</style>
-
 <script>
     function switchTab(mode) {
-        const tabSingle = document.getElementById('tabSingle');
-        const tabBulk = document.getElementById('tabBulk');
-        const modeSingle = document.getElementById('modeSingle');
-        const modeBulk = document.getElementById('modeBulk');
-        const quickTargets = document.getElementById('quickTargets');
-
-        if (mode === 'single') {
-            tabSingle.classList.add('scan-tab-active');
-            tabBulk.classList.remove('scan-tab-active');
-            modeSingle.style.display = 'block';
-            modeBulk.style.display = 'none';
-            quickTargets.style.display = 'flex';
-        } else {
-            tabBulk.classList.add('scan-tab-active');
-            tabSingle.classList.remove('scan-tab-active');
-            modeBulk.style.display = 'block';
-            modeSingle.style.display = 'none';
-            quickTargets.style.display = 'none';
-        }
+        document.getElementById('tabSingle').classList.toggle('scan-tab-active', mode === 'single');
+        document.getElementById('tabBulk').classList.toggle('scan-tab-active', mode === 'bulk');
+        document.getElementById('modeSingle').style.display = mode === 'single' ? 'block' : 'none';
+        document.getElementById('modeBulk').style.display = mode === 'bulk' ? 'block' : 'none';
+        document.getElementById('quickTargets').style.display = mode === 'single' ? 'flex' : 'none';
     }
 
     function setTarget(target) {
-        // Default to single mode if a quick target is clicked
         switchTab('single');
         document.getElementById('scanTargetSingle').value = target;
         document.getElementById('scanTargetSingle').focus();
@@ -403,25 +199,41 @@
 
     document.getElementById('scanForm').addEventListener('submit', function (e) {
         const isBulk = document.getElementById('modeBulk').style.display === 'block';
-        const btnSingle = document.getElementById('scanBtnSingle');
-        const btnBulk = document.getElementById('scanBtnBulk');
-        
-        const activeBtn = isBulk ? btnBulk : btnSingle;
-        
+        const activeBtn = isBulk ? document.getElementById('scanBtnBulk') : document.getElementById('scanBtnSingle');
         activeBtn.querySelector('.btn-text').style.display = 'none';
-        if (activeBtn.querySelector('.btn-icon')) activeBtn.querySelector('.btn-icon').style.display = 'none';
-        activeBtn.querySelector('.btn-loading').style.display = 'inline-flex';
+        activeBtn.querySelector('.btn-loading').style.display = 'inline-block';
         activeBtn.disabled = true;
-        
-        // Ensure only the relevant targets are submitted or handled
-        // If in single mode, clear bulk targets to avoid accidental dual submission if app logic allows
-        if (!isBulk) {
-            document.getElementById('scanTargetBulk').value = '';
-            // Reset file input if needed
-            document.getElementById('csvFile').value = '';
-        } else {
-            document.getElementById('scanTargetSingle').value = '';
-        }
     });
 </script>
+
+<style>
+    .scan-tab {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        padding: 0.6rem;
+        font-size: 0.8rem;
+        font-weight: 800;
+        cursor: pointer;
+        transition: all 0.1s steps(2);
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+    }
+    .scan-tab-active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+    }
+    .quick-btn {
+        background: none;
+        border: 1px solid var(--text-muted);
+        color: var(--text-muted);
+        font-size: 0.65rem;
+        padding: 0.2rem 0.5rem;
+        cursor: pointer;
+    }
+    .quick-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+</style>
 {% endblock %}
