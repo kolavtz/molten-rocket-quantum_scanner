@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}CBOM | PNB Cyber Observability{% endblock %}
+{% block content %}
+<section class="hero" style="padding-bottom:1rem;">
+  <h2 class="hero-title" style="font-size:2rem;">CBOM</h2>
+  <p class="hero-subtitle">Cryptographic bill of materials and weakness visibility</p>
+</section>
+
+<section class="overview-grid" style="margin-bottom:1rem;">
+  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.total_applications }}</div><div class="overview-label">TOTAL APPLICATIONS</div></div>
+  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.sites_surveyed }}</div><div class="overview-label">SITES SURVEYED</div></div>
+  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.active_certificates }}</div><div class="overview-label">ACTIVE CERTIFICATES</div></div>
+  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.weak_cryptography }}</div><div class="overview-label">WEAK CRYPTOGRAPHY</div></div>
+  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.certificate_issues }}</div><div class="overview-label">CERTIFICATE ISSUES</div></div>
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;">
+  <div>
+    <h3 style="margin-bottom:0.6rem;">Key Length Distribution</h3>
+    {% for k,v in vm.key_length_distribution.items() %}
+    <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.4rem;"><span style="width:60px;color:var(--text-secondary);font-size:0.75rem;">{{ k }}</span><div style="height:8px;flex:1;background:var(--bg-secondary);border-radius:999px;"><div class="dyn-bar" data-width="{{ (v*4)|int }}" style="height:100%;background:var(--accent);"></div></div><span style="font-size:0.74rem;">{{ v }}</span></div>
+    {% endfor %}
+  </div>
+  <div>
+    <h3 style="margin-bottom:0.6rem;">Cipher Usage</h3>
+    {% for k,v in vm.cipher_usage.items() %}
+    <div style="display:flex;justify-content:space-between;gap:0.5rem;padding:0.32rem 0;border-bottom:1px solid var(--border-subtle);font-size:0.73rem;"><span>{{ k }}</span><strong>{{ v }}</strong></div>
+    {% endfor %}
+  </div>
+  <div>
+    <h3 style="margin-bottom:0.6rem;">Top Certificate Authorities</h3>
+    {% for k,v in vm.top_cas.items() %}
+    <div style="display:flex;justify-content:space-between;padding:0.32rem 0;border-bottom:1px solid var(--border-subtle);font-size:0.75rem;"><span>{{ k }}</span><strong>{{ v }}</strong></div>
+    {% endfor %}
+  </div>
+  <div>
+    <h3 style="margin-bottom:0.6rem;">Encryption Protocols</h3>
+    {% for k,v in vm.protocols.items() %}
+    <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.45rem;"><span style="width:72px;font-size:0.75rem;color:var(--text-secondary);">{{ k }}</span><div style="height:8px;flex:1;background:var(--bg-secondary);border-radius:999px;overflow:hidden;"><div class="dyn-bar" data-width="{{ v }}" style="height:100%;background:var(--safe);"></div></div><span style="font-size:0.74rem;">{{ v }}</span></div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="glass-card" style="padding:1rem;">
+  <h3 style="margin-bottom:0.7rem;">Applications Crypto Table</h3>
+  <table class="scans-table">
+    <thead><tr><th>Application</th><th>Key Length</th><th>Cipher</th><th>Certificate Authority</th></tr></thead>
+    <tbody>
+      {% for row in vm.rows %}
+      <tr><td>{{ row.application }}</td><td>{{ row.key_length }}</td><td>{{ row.cipher }}</td><td>{{ row.ca }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script>
+(function () {
+  document.querySelectorAll('.dyn-bar').forEach((bar) => {
+    const w = Number(bar.getAttribute('data-width') || '0');
+    bar.style.width = Math.max(0, Math.min(100, w)) + '%';
+  });
+})();
+</script>
+{% endblock %}

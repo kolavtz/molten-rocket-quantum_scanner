@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Posture of PQC | PNB Cyber Observability{% endblock %}
+{% block content %}
+<section class="hero" style="padding-bottom:1rem;">
+  <h2 class="hero-title" style="font-size:2rem;">POSTURE OF PQC</h2>
+  <p class="hero-subtitle">Readiness status, risk heatmap, and migration guidance</p>
+</section>
+
+<section class="overview-grid" style="margin-bottom:1rem;">
+  <div class="overview-card glass-card"><div class="overview-value">{{ vm.overall.elite }}%</div><div class="overview-label">ELITE-PQC READY</div></div>
+  <div class="overview-card glass-card"><div class="overview-value">{{ vm.overall.standard }}%</div><div class="overview-label">STANDARD</div></div>
+  <div class="overview-card glass-card"><div class="overview-value">{{ vm.overall.legacy }}%</div><div class="overview-label">LEGACY</div></div>
+  <div class="overview-card glass-card"><div class="overview-value">{{ vm.overall.critical_apps }}</div><div class="overview-label">CRITICAL APPS</div></div>
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+  <div>
+    <h3 style="margin-bottom:0.6rem;">Asset Classifications</h3>
+    {% for k,v in vm.grade_counts.items() %}
+    <div style="display:flex;justify-content:space-between;padding:0.35rem 0;border-bottom:1px solid var(--border-subtle);font-size:0.78rem;"><span>{{ k }}</span><strong>{{ v }}</strong></div>
+    {% endfor %}
+    <h3 style="margin:0.9rem 0 0.6rem;">Application Status Distribution</h3>
+    {% for k,v in vm.status_distribution.items() %}
+    <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.4rem;"><span style="width:130px;font-size:0.74rem;color:var(--text-secondary);">{{ k }}</span><div style="height:8px;flex:1;background:var(--bg-secondary);"><div class="dyn-bar" data-width="{{ v }}" style="height:100%;background:var(--accent);"></div></div><span style="font-size:0.72rem;">{{ v }}%</span></div>
+    {% endfor %}
+  </div>
+  <div>
+    <h3 style="margin-bottom:0.6rem;">Risk Heatmap</h3>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.35rem;">
+      <div style="background:#7f1d1d;padding:0.7rem;border-radius:6px;text-align:center;">High</div>
+      <div style="background:#b45309;padding:0.7rem;border-radius:6px;text-align:center;">Elevated</div>
+      <div style="background:#4d7c0f;padding:0.7rem;border-radius:6px;text-align:center;">Moderate</div>
+      <div style="background:#166534;padding:0.7rem;border-radius:6px;text-align:center;">Safe</div>
+      <div style="background:#991b1b;padding:0.7rem;border-radius:6px;text-align:center;">Legacy TLS</div>
+      <div style="background:#a16207;padding:0.7rem;border-radius:6px;text-align:center;">RSA Only</div>
+      <div style="background:#65a30d;padding:0.7rem;border-radius:6px;text-align:center;">Hybrid Ready</div>
+      <div style="background:#15803d;padding:0.7rem;border-radius:6px;text-align:center;">PQC Ready</div>
+    </div>
+  </div>
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+  <h3 style="margin-bottom:0.6rem;">PQC Support</h3>
+  <table class="scans-table" id="supportTable">
+    <thead><tr><th>Asset Name (Host + IP)</th><th>PQC Support</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for row in vm.support_rows %}
+      <tr data-owner="{{ row.owner }}" data-exposure="{{ row.exposure }}" data-tls="{{ row.tls }}" data-score="{{ row.score }}" data-status="{{ row.status }}">
+        <td>{{ row.asset_name }}</td>
+        <td>{% if row.pqc_support %}YES{% else %}NO{% endif %}</td>
+        <td>{{ row.status }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+  <div class="glass-card" style="padding:1rem;">
+    <h3 style="margin-bottom:0.6rem;">Recommendations</h3>
+    <ul style="padding-left:1.2rem;">
+      {% for rec in vm.recommendations %}
+      <li style="margin-bottom:0.4rem;">{{ rec }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="glass-card" style="padding:1rem;">
+    <h3 style="margin-bottom:0.6rem;">App Details</h3>
+    <div style="font-size:0.8rem;color:var(--text-secondary);display:grid;gap:0.4rem;">
+      <div>Owner: <strong id="detailOwner" style="color:var(--text-primary);">-</strong></div>
+      <div>Exposure: <strong id="detailExposure" style="color:var(--text-primary);">-</strong></div>
+      <div>TLS: <strong id="detailTls" style="color:var(--text-primary);">-</strong></div>
+      <div>Score: <strong id="detailScore" style="color:var(--text-primary);">-</strong></div>
+      <div>Status: <strong id="detailStatus" style="color:var(--text-primary);">-</strong></div>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  const rows = Array.from(document.querySelectorAll('#supportTable tbody tr'));
+  function selectRow(row) {
+    document.getElementById('detailOwner').textContent = row.dataset.owner;
+    document.getElementById('detailExposure').textContent = row.dataset.exposure;
+    document.getElementById('detailTls').textContent = row.dataset.tls;
+    document.getElementById('detailScore').textContent = row.dataset.score;
+    document.getElementById('detailStatus').textContent = row.dataset.status;
+  }
+  document.querySelectorAll('.dyn-bar').forEach((bar) => {
+    const w = Number(bar.getAttribute('data-width') || '0');
+    bar.style.width = Math.max(0, Math.min(100, w)) + '%';
+  });
+  rows.forEach((row) => row.addEventListener('click', () => selectRow(row)));
+  if (rows.length) selectRow(rows[0]);
+})();
+</script>
+{% endblock %}

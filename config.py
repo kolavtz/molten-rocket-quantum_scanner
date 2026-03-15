@@ -479,7 +479,15 @@ SESSION_IDLE_TIMEOUT_SECONDS = int(os.environ.get("QSS_SESSION_IDLE_TIMEOUT_SECO
 FORCE_HTTPS = os.environ.get("QSS_FORCE_HTTPS", str(not DEBUG)).lower() == "true"
 TRUST_PROXY_SSL_HEADER = os.environ.get("QSS_TRUST_PROXY_SSL", "true").lower() == "true"
 HSTS_SECONDS = int(os.environ.get("QSS_HSTS_SECONDS", "31536000"))
-MAX_LOGIN_ATTEMPTS = int(os.environ.get("QSS_MAX_LOGIN_ATTEMPTS", "5"))
+# Backward-compatible lockout threshold key:
+# - Preferred: QSS_INVALID_USERNAME_LOCKOUT_ATTEMPTS
+# - Legacy:    QSS_MAX_LOGIN_ATTEMPTS
+MAX_LOGIN_ATTEMPTS = int(
+    os.environ.get(
+        "QSS_INVALID_USERNAME_LOCKOUT_ATTEMPTS",
+        os.environ.get("QSS_MAX_LOGIN_ATTEMPTS", "5"),
+    )
+)
 LOGIN_LOCKOUT_MINUTES = int(os.environ.get("QSS_LOGIN_LOCKOUT_MINUTES", "15"))
 
 # ---------------------------------------------------------------------------
