@@ -6,6 +6,13 @@
   <p class="hero-subtitle">Readiness status, risk heatmap, and migration guidance</p>
 </section>
 
+{% if vm.empty %}
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+  <strong>No PQC telemetry available yet.</strong>
+  <p style="margin-top:0.4rem;color:var(--text-secondary);">Run at least one scan with TLS findings to populate PQC posture analytics.</p>
+</section>
+{% endif %}
+
 <section class="overview-grid" style="margin-bottom:1rem;">
   <div class="overview-card glass-card"><div class="overview-value">{{ vm.overall.elite }}%</div><div class="overview-label">ELITE-PQC READY</div></div>
   <div class="overview-card glass-card"><div class="overview-value">{{ vm.overall.standard }}%</div><div class="overview-label">STANDARD</div></div>
@@ -26,15 +33,13 @@
   </div>
   <div>
     <h3 style="margin-bottom:0.6rem;">Risk Heatmap</h3>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.35rem;">
-      <div style="background:#7f1d1d;padding:0.7rem;border-radius:6px;text-align:center;">High</div>
-      <div style="background:#b45309;padding:0.7rem;border-radius:6px;text-align:center;">Elevated</div>
-      <div style="background:#4d7c0f;padding:0.7rem;border-radius:6px;text-align:center;">Moderate</div>
-      <div style="background:#166534;padding:0.7rem;border-radius:6px;text-align:center;">Safe</div>
-      <div style="background:#991b1b;padding:0.7rem;border-radius:6px;text-align:center;">Legacy TLS</div>
-      <div style="background:#a16207;padding:0.7rem;border-radius:6px;text-align:center;">RSA Only</div>
-      <div style="background:#65a30d;padding:0.7rem;border-radius:6px;text-align:center;">Hybrid Ready</div>
-      <div style="background:#15803d;padding:0.7rem;border-radius:6px;text-align:center;">PQC Ready</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.35rem;">
+      {% for cell in vm.risk_heatmap %}
+      <div style="background:var(--bg-secondary);padding:0.7rem;border-radius:6px;text-align:center;border:1px solid var(--border-subtle);">
+        <div style="font-size:0.68rem;color:var(--text-secondary);">{{ cell.x }} · {{ cell.y }}</div>
+        <div style="font-size:1rem;font-weight:700;">{{ cell.value }}</div>
+      </div>
+      {% endfor %}
     </div>
   </div>
 </section>
@@ -50,6 +55,8 @@
         <td>{% if row.pqc_support %}YES{% else %}NO{% endif %}</td>
         <td>{{ row.status }}</td>
       </tr>
+      {% else %}
+      <tr><td colspan="3" style="text-align:center;color:var(--text-secondary);">No PQC support records from live scans.</td></tr>
       {% endfor %}
     </tbody>
   </table>

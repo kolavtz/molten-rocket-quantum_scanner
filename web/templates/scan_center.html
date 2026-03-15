@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}Scan Center | PNB Cyber Observability{% endblock %}
+{% block content %}
+<section class="hero" style="padding-bottom:1rem;">
+  <h2 class="hero-title" style="font-size:2rem;">SCAN CENTER</h2>
+  <p class="hero-subtitle">Dedicated workflow for single and bulk scan operations</p>
+</section>
+
+<section class="glass-card" style="padding: 1.2rem; margin-bottom: 1rem;">
+  <h3 style="margin-bottom:0.5rem; text-transform: uppercase;">Operational Notes</h3>
+  <ul style="padding-left:1.1rem; color:var(--text-secondary); font-size:0.8rem; display:grid; gap:0.3rem;">
+    <li>Use auto-discovery only for assets you are authorized to probe.</li>
+    <li>Select manual asset class when policy or ownership requires strict categorization.</li>
+    <li>For bulk mode, upload CSV with columns like ip/host/target and optional port.</li>
+  </ul>
+</section>
+
+<section class="scan-section">
+  <div class="glass-card" style="padding: 2rem;">
+    <div class="scan-header">
+      <h2 class="scan-title" style="text-transform: uppercase;">INITIALIZE_SCAN</h2>
+      <p class="scan-description">discover crypto assets // generate cbom</p>
+    </div>
+
+    <div class="scan-tabs" style="display:flex; gap:1.5rem; margin-bottom:1.5rem; border-bottom: 1px solid var(--text-muted);">
+      <button type="button" id="tabSingle" class="scan-tab scan-tab-active" onclick="switchTab('single')">SINGLE_TARGET</button>
+      {% if current_user.role in ['Admin', 'Manager'] %}
+      <button type="button" id="tabBulk" class="scan-tab" onclick="switchTab('bulk')">BULK_RECIPIENT_SET</button>
+      {% endif %}
+    </div>
+
+    <form action="/scan" method="POST" class="scan-form" id="scanForm" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div id="modeSingle">
+        <div style="display:flex; gap:1rem; align-items: stretch; margin-bottom: 1rem;">
+          <input type="text" name="target" id="scanTargetSingle" placeholder="HOST / IP_ADDR / URL" class="scan-input" style="flex:1;">
+          <button type="submit" class="scan-button" id="scanBtnSingle">
+            <span class="btn-text">RUN_SCAN</span>
+            <span class="btn-loading" style="display:none;">PENDING...</span>
+          </button>
+        </div>
+
+        <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
+          <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
+            <input type="checkbox" name="autodiscovery" id="autodiscoveryToggle" style="accent-color:var(--accent);">
+            <span style="font-weight:700; color:var(--accent);">AUTODISCOVERY</span>
+          </label>
+          <p style="margin: 0.4rem 0 0 0; font-size: 0.7rem; color: var(--text-secondary);">DEEP SCAN // 65+ PORTS // INTRA_NETWORK_ONLY</p>
+        </div>
+
+        <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
+          <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:0.5rem;">Asset Classification</div>
+          <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:0.6rem;">
+            <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
+              <input type="radio" name="asset_class_mode" value="auto" checked style="accent-color:var(--accent);">
+              <span style="font-size:0.74rem;">AUTO_DETECT</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
+              <input type="radio" name="asset_class_mode" value="manual" style="accent-color:var(--accent);">
+              <span style="font-size:0.74rem;">MANUAL_OVERRIDE</span>
+            </label>
+          </div>
+          <select name="asset_class_value" class="scan-input" style="width:100%;">
+            <option value="Banking Server">Banking Server</option>
+            <option value="Core Banking API">Core Banking API</option>
+            <option value="Payment Gateway">Payment Gateway</option>
+            <option value="ATM Network Node">ATM Network Node</option>
+            <option value="Internal Admin Portal">Internal Admin Portal</option>
+            <option value="Public Web Application">Public Web Application</option>
+            <option value="Database Server">Database Server</option>
+            <option value="Security Gateway">Security Gateway</option>
+            <option value="Corporate VPN">Corporate VPN</option>
+            <option value="Consumer App">Consumer App</option>
+          </select>
+        </div>
+
+        <input type="text" name="ports" id="scanPorts" placeholder="PORTS (OPTIONAL: 443, 8443...)" class="scan-input" style="width: 100%;">
+      </div>
+
+      <div id="modeBulk" style="display:none;">
+        <textarea name="target" id="scanTargetBulk" placeholder="TARGET_LIST (NEWLINE_SEP)" class="scan-input" style="min-height:100px; margin-bottom: 1rem; width: 100%;"></textarea>
+
+        <div style="border: 1px dashed var(--text-muted); padding: 1rem; text-align: center; margin-bottom: 1rem;" onclick="document.getElementById('csvFile').click()">
+          <span id="csvLabel" style="font-size:0.8rem;">UPLOAD CSV (IP,PORT)</span>
+          <input type="file" name="csv_file" id="csvFile" accept=".csv" style="display:none;" onchange="document.getElementById('csvLabel').textContent = 'FILE_LOADED: ' + this.files[0].name">
+        </div>
+
+        <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
+          <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
+            <input type="checkbox" name="autodiscovery" id="autodiscoveryBulk" style="accent-color:var(--accent);">
+            <span style="font-weight:700; color:var(--accent);">AUTODISCOVERY_BULK</span>
+          </label>
+        </div>
+
+        <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
+          <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:0.5rem;">Asset Classification</div>
+          <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:0.6rem;">
+            <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
+              <input type="radio" name="asset_class_mode_bulk" value="auto" checked style="accent-color:var(--accent);">
+              <span style="font-size:0.74rem;">AUTO_DETECT</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
+              <input type="radio" name="asset_class_mode_bulk" value="manual" style="accent-color:var(--accent);">
+              <span style="font-size:0.74rem;">MANUAL_OVERRIDE</span>
+            </label>
+          </div>
+          <select name="asset_class_value_bulk" class="scan-input" style="width:100%;">
+            <option value="Banking Server">Banking Server</option>
+            <option value="Core Banking API">Core Banking API</option>
+            <option value="Payment Gateway">Payment Gateway</option>
+            <option value="ATM Network Node">ATM Network Node</option>
+            <option value="Internal Admin Portal">Internal Admin Portal</option>
+            <option value="Public Web Application">Public Web Application</option>
+            <option value="Database Server">Database Server</option>
+            <option value="Security Gateway">Security Gateway</option>
+            <option value="Corporate VPN">Corporate VPN</option>
+            <option value="Consumer App">Consumer App</option>
+          </select>
+        </div>
+
+        <button type="submit" class="scan-button" id="scanBtnBulk" style="width:100%;">
+          <span class="btn-text">RUN_BULK_PROCESS</span>
+          <span class="btn-loading" style="display:none;">PENDING...</span>
+        </button>
+      </div>
+    </form>
+
+    <div class="quick-targets" id="quickTargets" style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <span style="font-size: 0.7rem; color: var(--text-muted); align-self: center;">QUICK_HOOKS:</span>
+      <button class="quick-btn" onclick="setTarget('google.com')">GOOGLE</button>
+      <button class="quick-btn" onclick="setTarget('test.openquantumsafe.org')">OQS_TEST</button>
+      <button class="quick-btn" onclick="setTarget('pnbnet.pnb.bank.in')">PNBNET</button>
+    </div>
+  </div>
+</section>
+
+<script>
+function switchTab(mode) {
+  const tabSingle = document.getElementById('tabSingle');
+  const tabBulk = document.getElementById('tabBulk');
+  const modeSingle = document.getElementById('modeSingle');
+  const modeBulk = document.getElementById('modeBulk');
+  if (tabSingle) tabSingle.classList.toggle('scan-tab-active', mode === 'single');
+  if (tabBulk) tabBulk.classList.toggle('scan-tab-active', mode === 'bulk');
+  if (modeSingle) modeSingle.style.display = mode === 'single' ? 'block' : 'none';
+  if (modeBulk) modeBulk.style.display = mode === 'bulk' ? 'block' : 'none';
+  const quickTargets = document.getElementById('quickTargets');
+  if (quickTargets) quickTargets.style.display = mode === 'single' ? 'flex' : 'none';
+}
+
+function setTarget(target) {
+  switchTab('single');
+  const input = document.getElementById('scanTargetSingle');
+  if (input) {
+    input.value = target;
+    input.focus();
+  }
+}
+
+document.getElementById('scanForm').addEventListener('submit', function () {
+  const modeBulk = document.getElementById('modeBulk');
+  const isBulk = modeBulk && modeBulk.style.display === 'block';
+  const activeBtn = isBulk ? document.getElementById('scanBtnBulk') : document.getElementById('scanBtnSingle');
+  if (!activeBtn) return;
+  const btnText = activeBtn.querySelector('.btn-text');
+  const btnLoading = activeBtn.querySelector('.btn-loading');
+  if (btnText && btnLoading) {
+    btnText.style.display = 'none';
+    btnLoading.style.display = 'inline-block';
+  }
+  activeBtn.disabled = true;
+});
+</script>
+
+<style>
+.scan-tab {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.1s steps(2);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.scan-tab-active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.quick-btn {
+  background: none;
+  border: 1px solid var(--text-muted);
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+}
+.quick-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+</style>
+{% endblock %}

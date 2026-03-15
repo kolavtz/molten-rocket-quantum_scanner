@@ -2,6 +2,10 @@
 
 {% block title %}DASHBOARD // QUANTUMSHIELD{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+{% endblock %}
+
 {% block content %}
 <!-- Hero Section -->
 <section class="hero">
@@ -65,88 +69,181 @@
             <div class="overview-value">{{ enterprise_metrics.avg_score }}%</div>
             <div class="overview-label">AVG_COMPLIANCE</div>
         </div>
+        <div class="overview-card glass-card">
+            <div class="overview-value">{{ enterprise_metrics.dns_records_total }}</div>
+            <div class="overview-label">DNS_RECORDS</div>
+        </div>
+        <div class="overview-card glass-card">
+            <div class="overview-value" style="font-size:1rem;">
+                {{ enterprise_metrics.latest_scan[:16] if enterprise_metrics.latest_scan else 'N/A' }}
+            </div>
+            <div class="overview-label">LATEST_SCAN</div>
+        </div>
+    </div>
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1.2rem;">
+    <h3 style="margin-bottom:0.8rem; text-transform:uppercase;">Crypto_Security_Overview</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;">
+        <div>
+            <div style="font-size:0.78rem;margin-bottom:0.55rem;">ASSET CLASS DISTRIBUTION</div>
+            {% for k,v in enterprise_metrics.asset_class_distribution.items() %}
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
+                <span style="width:130px;font-size:0.72rem;color:var(--text-secondary);">{{ k }}</span>
+                <div style="height:8px;flex:1;background:var(--bg-secondary);border-radius:999px;overflow:hidden;"><div class="metric-bar" data-width="{{ (v * 12)|int }}"></div></div>
+                <span style="font-size:0.72rem;">{{ v }}</span>
+            </div>
+            {% else %}
+            <div style="font-size:0.75rem;color:var(--text-secondary);">No class telemetry yet.</div>
+            {% endfor %}
+        </div>
+        <div>
+            <div style="font-size:0.78rem;margin-bottom:0.55rem;">API SERVICE TOTALS</div>
+            <div class="overview-card glass-card" style="padding:0.9rem;">
+                <div class="overview-value">{{ enterprise_metrics.api_services }}</div>
+                <div class="overview-label">API_TOUCHPOINTS</div>
+            </div>
+            <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:0.5rem;">Counts API-like services discovered across scan inventory.</div>
+        </div>
+        <div>
+            <div style="font-size:0.78rem;margin-bottom:0.55rem;">SSL EXPIRY TIMELINE</div>
+            {% for bucket,v in enterprise_metrics.ssl_expiry.items() %}
+            <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-subtle);padding:0.35rem 0;font-size:0.74rem;">
+                <span>{{ bucket }} DAYS</span>
+                <strong>{{ v }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+        <div>
+            <div style="font-size:0.78rem;margin-bottom:0.55rem;">IP BREAKDOWN (ASSET-WISE)</div>
+            <div style="height:14px;background:var(--bg-secondary);border-radius:999px;overflow:hidden;display:flex;">
+                <div class="metric-bar" data-width="{{ enterprise_metrics.ip_breakdown['IPv4'] }}"></div>
+                <div class="metric-bar metric-bar-safe" data-width="{{ enterprise_metrics.ip_breakdown['IPv6'] }}"></div>
+            </div>
+            <div style="margin-top:0.45rem;font-size:0.74rem;color:var(--text-secondary);">IPv4 {{ enterprise_metrics.ip_breakdown['IPv4'] }}% | IPv6 {{ enterprise_metrics.ip_breakdown['IPv6'] }}%</div>
+        </div>
+    </div>
+    <div style="margin-top:1rem;">
+        <div style="font-size:0.78rem;margin-bottom:0.5rem;">TOP CRYPTO TELEMETRY</div>
+        <div class="scans-table-wrapper">
+            <table class="scans-table">
+                <thead><tr><th>ASSET</th><th>KEY</th><th>CIPHER</th><th>TLS</th><th>CA</th></tr></thead>
+                <tbody>
+                    {% for row in enterprise_metrics.crypto_overview[:8] %}
+                    <tr><td>{{ row.asset }}</td><td>{{ row.key_length }}</td><td>{{ row.cipher_suite }}</td><td>{{ row.tls_version }}</td><td>{{ row.ca }}</td></tr>
+                    {% else %}
+                    <tr><td colspan="5" style="text-align:center;color:var(--text-secondary);">No crypto overview rows yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1.2rem;">
+    <h3 style="margin-bottom:0.75rem; text-transform:uppercase;">SSL Certificate Intelligence</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.8rem;margin-bottom:0.9rem;">
+        {% for bucket, value in enterprise_metrics.ssl_expiry_extended.items() %}
+        <div style="padding:0.65rem;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-secondary);">
+            <div style="font-size:0.72rem;color:var(--text-secondary);">{{ bucket }} DAYS</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.7rem;margin-top:0.35rem;">
+                <strong style="font-size:1.05rem;">{{ value }}</strong>
+                <div style="height:8px;flex:1;background:var(--bg-card);border-radius:999px;overflow:hidden;"><div class="metric-bar cert-bar" data-width="{{ value * 12 }}"></div></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="scans-table-wrapper">
+        <table class="scans-table">
+            <thead>
+                <tr>
+                    <th>ASSET</th><th>COMMON NAME</th><th>ISSUER</th><th>KEY</th><th>TLS</th><th>SIG ALG</th><th>VALID TO</th><th>DAYS LEFT</th><th>STATUS</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cert in enterprise_metrics.certificate_inventory[:12] %}
+                <tr>
+                    <td>{{ cert.asset }}</td>
+                    <td>{{ cert.common_name }}</td>
+                    <td>{{ cert.issuer }}</td>
+                    <td>{{ cert.key_length }}</td>
+                    <td>{{ cert.tls_version }}</td>
+                    <td>{{ cert.signature_algorithm }}</td>
+                    <td>{{ cert.valid_to or '-' }}</td>
+                    <td>{{ cert.days_remaining if cert.days_remaining is not none else '-' }}</td>
+                    <td>
+                        <span style="color:{% if cert.status == 'Expired' %}var(--danger){% elif cert.status == 'Expiring' %}var(--warn){% else %}var(--safe){% endif %};font-weight:700;">
+                            {{ cert.status }}
+                        </span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="9" style="text-align:center;color:var(--text-secondary);">No certificate telemetry available yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </section>
 {% endif %}
 
-<!-- Scan Form -->
-{% if current_user.role in ['Admin', 'Manager', 'SingleScan'] %}
-<section class="scan-section">
-    <div class="glass-card" style="padding: 2rem;">
-        <div class="scan-header">
-            <h2 class="scan-title" style="text-transform: uppercase;">INITIALIZE_SCAN</h2>
-            <p class="scan-description">discover crypto assets // generate cbom</p>
-        </div>
+<section class="glass-card" style="padding:1rem;margin-bottom:1.2rem;display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap;">
+    <div>
+        <h3 style="text-transform:uppercase;margin-bottom:0.35rem;">Scan Operations</h3>
+        <div style="font-size:0.8rem;color:var(--text-secondary);">Dashboard remains analytics-first. Start scans from dedicated workflow page.</div>
+    </div>
+    {% if current_user.role in ['Admin', 'Manager', 'SingleScan'] %}
+    <a href="/scan-center" class="scan-button" style="padding:0.6rem 1rem;">OPEN_SCAN_CENTER</a>
+    {% else %}
+    <div style="font-size:0.8rem;color:var(--text-secondary);">Read-only role</div>
+    {% endif %}
+</section>
 
-        <!-- Mode Tabs -->
-        <div class="scan-tabs" style="display:flex; gap:1.5rem; margin-bottom:1.5rem; border-bottom: 1px solid var(--text-muted);">
-            <button type="button" id="tabSingle" class="scan-tab scan-tab-active" onclick="switchTab('single')">SINGLE_TARGET</button>
-            {% if current_user.role in ['Admin', 'Manager'] %}
-            <button type="button" id="tabBulk" class="scan-tab" onclick="switchTab('bulk')">BULK_RECIPIENT_SET</button>
-            {% endif %}
-        </div>
-
-        <form action="/scan" method="POST" class="scan-form" id="scanForm" enctype="multipart/form-data">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-            <div id="modeSingle">
-                <div style="display:flex; gap:1rem; align-items: stretch; margin-bottom: 1rem;">
-                    <input type="text" name="target" id="scanTargetSingle"
-                        placeholder="HOST / IP_ADDR / URL"
-                        class="scan-input" style="flex:1;">
-                    <button type="submit" class="scan-button" id="scanBtnSingle">
-                        <span class="btn-text">RUN_SCAN</span>
-                        <span class="btn-loading" style="display:none;">PENDING...</span>
-                    </button>
-                </div>
-
-                <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
-                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
-                        <input type="checkbox" name="autodiscovery" id="autodiscoveryToggle" style="accent-color:var(--accent);">
-                        <span style="font-weight:700; color:var(--accent);">AUTODISCOVERY</span>
-                    </label>
-                    <p style="margin: 0.4rem 0 0 0; font-size: 0.7rem; color: var(--text-secondary);">DEEP SCAN // 65+ PORTS // INTRA_NETWORK_ONLY</p>
-                </div>
-
-                <input type="text" name="ports" id="scanPorts" placeholder="PORTS (OPTIONAL: 443, 8443...)" class="scan-input" style="width: 100%;">
-            </div>
-
-            <div id="modeBulk" style="display:none;">
-                <textarea name="target" id="scanTargetBulk" placeholder="TARGET_LIST (NEWLINE_SEP)" class="scan-input" style="min-height:100px; margin-bottom: 1rem; width: 100%;"></textarea>
-                
-                <div style="border: 1px dashed var(--text-muted); padding: 1rem; text-align: center; margin-bottom: 1rem;" 
-                     onclick="document.getElementById('csvFile').click()">
-                    <span id="csvLabel" style="font-size:0.8rem;">UPLOAD CSV (IP,PORT)</span>
-                    <input type="file" name="csv_file" id="csvFile" accept=".csv" style="display:none;"
-                        onchange="document.getElementById('csvLabel').textContent = 'FILE_LOADED: ' + this.files[0].name">
-                </div>
-
-                <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
-                    <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
-                        <input type="checkbox" name="autodiscovery" id="autodiscoveryBulk" style="accent-color:var(--accent);">
-                        <span style="font-weight:700; color:var(--accent);">AUTODISCOVERY_BULK</span>
-                    </label>
-                </div>
-
-                <button type="submit" class="scan-button" id="scanBtnBulk" style="width:100%;">RUN_BULK_PROCESS</button>
-            </div>
-        </form>
-
-        <div class="quick-targets" id="quickTargets" style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            <span style="font-size: 0.7rem; color: var(--text-muted); align-self: center;">QUICK_HOOKS:</span>
-            <button class="quick-btn" onclick="setTarget('google.com')">GOOGLE</button>
-            <button class="quick-btn" onclick="setTarget('test.openquantumsafe.org')">OQS_TEST</button>
-        </div>
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+    <h3 style="margin-bottom:0.8rem;">Asset Inventory Snapshot</h3>
+    <div class="scans-table-wrapper">
+        <table class="scans-table">
+            <thead>
+                <tr>
+                    <th>Asset</th><th>URL</th><th>IPv4</th><th>IPv6</th><th>Type</th><th>Class</th><th>Owner</th><th>Risk</th><th>Cert</th><th>Key</th><th>Last Scan</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in inventory_vm.assets[:12] %}
+                <tr>
+                    <td>{{ row.asset_name }}</td><td>{{ row.url }}</td><td>{{ row.ipv4 or '-' }}</td><td>{{ row.ipv6 or '-' }}</td><td>{{ row.type }}</td><td>{{ row.asset_class or 'Other' }}</td><td>{{ row.owner }}</td><td>{{ row.risk }}</td><td>{{ row.cert_status }}</td><td>{{ row.key_length }}</td><td>{{ row.last_scan }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="11" style="text-align:center;color:var(--text-secondary);">No inventory rows yet. Run scans from Scan Center.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </section>
-{% else %}
-<section class="scan-section">
-    <div class="glass-card" style="text-align: center; padding: 3rem;">
-        <h2 style="text-transform: uppercase;">RESTRICTED</h2>
-        <p style="color: var(--text-secondary); max-width: 400px; margin: 0 auto; font-size: 0.8rem;">READ_ONLY // NO_PROVISIONING_RIGHTS</p>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;display:grid;grid-template-columns:1.2fr 1fr;gap:1rem;">
+    <div>
+        <h3 style="margin-bottom:0.6rem;">Asset Geo Map</h3>
+        {% if inventory_vm.asset_locations %}
+        <div id="dashboardAssetMap" style="height:280px;border:1px solid var(--border-subtle);border-radius:8px;"></div>
+        <script id="dashboardLocationPayload" type="application/json">{{ inventory_vm.asset_locations|tojson }}</script>
+        {% else %}
+        <div style="font-size:0.8rem;color:var(--text-secondary);">Location points will appear after successful host geolocation.</div>
+        {% endif %}
+    </div>
+    <div>
+        <h3 style="margin-bottom:0.6rem;">DNS Records</h3>
+        <table class="scans-table">
+            <thead><tr><th>Host</th><th>Type</th><th>Value</th><th>TTL</th></tr></thead>
+            <tbody>
+                {% for row in inventory_vm.nameserver_records[:8] %}
+                <tr><td>{{ row.hostname }}</td><td>{{ row.type }}</td><td>{{ row.ip or row.ipv6 or '-' }}</td><td>{{ row.ttl }}</td></tr>
+                {% else %}
+                <tr><td colspan="4" style="text-align:center;color:var(--text-secondary);">No DNS records captured yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </section>
-{% endif %}
 
 <!-- Recent Scans -->
 {% if recent_scans %}
@@ -194,58 +291,57 @@
 </section>
 {% endif %}
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
-    function switchTab(mode) {
-        document.getElementById('tabSingle').classList.toggle('scan-tab-active', mode === 'single');
-        document.getElementById('tabBulk').classList.toggle('scan-tab-active', mode === 'bulk');
-        document.getElementById('modeSingle').style.display = mode === 'single' ? 'block' : 'none';
-        document.getElementById('modeBulk').style.display = mode === 'bulk' ? 'block' : 'none';
-        document.getElementById('quickTargets').style.display = mode === 'single' ? 'flex' : 'none';
-    }
-
-    function setTarget(target) {
-        switchTab('single');
-        document.getElementById('scanTargetSingle').value = target;
-        document.getElementById('scanTargetSingle').focus();
-    }
-
-    document.getElementById('scanForm').addEventListener('submit', function (e) {
-        const isBulk = document.getElementById('modeBulk').style.display === 'block';
-        const activeBtn = isBulk ? document.getElementById('scanBtnBulk') : document.getElementById('scanBtnSingle');
-        activeBtn.querySelector('.btn-text').style.display = 'none';
-        activeBtn.querySelector('.btn-loading').style.display = 'inline-block';
-        activeBtn.disabled = true;
+    document.querySelectorAll('.metric-bar').forEach((el) => {
+        const w = Number(el.getAttribute('data-width') || '0');
+        el.style.width = Math.max(0, Math.min(100, w)) + '%';
     });
+
+    const payloadNode = document.getElementById('dashboardLocationPayload');
+    if (payloadNode && typeof L !== 'undefined') {
+        let points = [];
+        try {
+            points = JSON.parse(payloadNode.textContent || '[]');
+        } catch (e) {
+            points = [];
+        }
+        if (Array.isArray(points) && points.length) {
+            const map = L.map('dashboardAssetMap', { scrollWheelZoom: false }).setView([20.5937, 78.9629], 4);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 18,
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+            const bounds = [];
+            points.forEach((pt) => {
+                const lat = Number(pt.lat);
+                const lon = Number(pt.lon);
+                if (Number.isFinite(lat) && Number.isFinite(lon)) {
+                    const marker = L.circleMarker([lat, lon], {
+                        radius: 6,
+                        color: 'var(--accent)',
+                        fillColor: 'var(--accent)',
+                        fillOpacity: 0.85
+                    }).addTo(map);
+                    marker.bindPopup((pt.asset || pt.ip || 'asset') + ' :: ' + (pt.city || '') + ' ' + (pt.country || ''));
+                    bounds.push([lat, lon]);
+                }
+            });
+            if (bounds.length) {
+                map.fitBounds(bounds, { padding: [24, 24] });
+            }
+        }
+    }
 </script>
 
 <style>
-    .scan-tab {
-        background: none;
-        border: none;
-        color: var(--text-muted);
-        padding: 0.6rem;
-        font-size: 0.8rem;
-        font-weight: 800;
-        cursor: pointer;
-        transition: all 0.1s steps(2);
-        border-bottom: 2px solid transparent;
-        margin-bottom: -1px;
+    .metric-bar {
+        height: 100%;
+        background: var(--accent);
+        transition: width 180ms ease;
     }
-    .scan-tab-active {
-        color: var(--accent);
-        border-bottom-color: var(--accent);
-    }
-    .quick-btn {
-        background: none;
-        border: 1px solid var(--text-muted);
-        color: var(--text-muted);
-        font-size: 0.65rem;
-        padding: 0.2rem 0.5rem;
-        cursor: pointer;
-    }
-    .quick-btn:hover {
-        border-color: var(--accent);
-        color: var(--accent);
+    .metric-bar-safe {
+        background: var(--safe);
     }
 </style>
 {% endblock %}

@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="system">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Quantum-Safe TLS Scanner{% endblock %}</title>
     <meta name="description" content="Scan, assess, and certify your systems for Post-Quantum Cryptography (PQC) readiness. Generate CBOM, validate NIST compliance, and get actionable migration recommendations.">
+    <meta name="color-scheme" content="light dark">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,6 +16,7 @@
 <body>
     {% set section_map = {
         '/': 'Home',
+        '/scan-center': 'Scan Center',
         '/asset-inventory': 'Asset Inventory',
         '/asset-discovery': 'Asset Discovery',
         '/cbom-dashboard': 'CBOM',
@@ -30,13 +32,17 @@
     <nav class="navbar">
         <div class="nav-container">
             <a href="/" class="nav-brand">
-                <span class="brand-text">QuantumShield | PNB HACKATHON 2026</span>
-                <span class="brand-badge" style="background:var(--text-primary);color:var(--bg-primary);">SECURITY PORTAL</span>
+                <span class="brand-text">QuantumShield</span>
+                <span class="brand-sep">|</span>
+                <span class="brand-sub">PNB Security Console</span>
             </a>
             <button class="nav-hamburger" id="navHamburger" aria-label="Toggle navigation" aria-expanded="false" aria-controls="navLinks">&#9776;</button>
             <div class="nav-links" id="navLinks" role="navigation" aria-label="Primary">
                 <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}" {% if request.path == '/' %}aria-current="page"{% endif %}>HOME</a>
                 {% if current_user.is_authenticated %}
+                    {% if current_user.role in ['Admin', 'Manager', 'SingleScan'] %}
+                    <a href="/scan-center" class="nav-link {% if request.path == '/scan-center' %}active{% endif %}" {% if request.path == '/scan-center' %}aria-current="page"{% endif %}>SCAN</a>
+                    {% endif %}
                     <a href="/asset-inventory" class="nav-link {% if request.path == '/asset-inventory' %}active{% endif %}" {% if request.path == '/asset-inventory' %}aria-current="page"{% endif %}>ASSET INVENTORY</a>
                     <a href="/asset-discovery" class="nav-link {% if request.path == '/asset-discovery' %}active{% endif %}" {% if request.path == '/asset-discovery' %}aria-current="page"{% endif %}>ASSET DISCOVERY</a>
                     <a href="/cbom-dashboard" class="nav-link {% if request.path == '/cbom-dashboard' %}active{% endif %}" {% if request.path == '/cbom-dashboard' %}aria-current="page"{% endif %}>CBOM</a>
@@ -47,13 +53,17 @@
                     <a href="/admin/users" class="nav-link {% if request.path == '/admin/users' %}active{% endif %}">ADMIN</a>
                     <a href="/admin/audit" class="nav-link {% if request.path == '/admin/audit' %}active{% endif %}">AUDIT</a>
                     {% endif %}
-                    <div class="user-profile" style="border-left: 1px solid var(--text-muted); padding-left: 1rem;">
+                    <button id="themeToggle" class="nav-link" type="button" aria-label="Toggle light and night mode" style="background:none;border:none;cursor:pointer;">THEME</button>
+                    <div class="user-profile">
                         <span class="user-info">
-                            <span class="user-name">Welcome User: {{ current_user.username }}..!</span>
+                            <span class="user-name">{{ current_user.username }}</span>
                             <span class="role-badge" style="color:var(--accent);">{{ current_user.role }}</span>
                         </span>
-                        <a href="/profile" class="nav-link {% if request.path == '/profile' %}active{% endif %}" title="View &amp; manage your API key">API_KEY</a>
-                        <a href="/logout" class="nav-link logout-link">LOGOUT</a>
+                        <a href="/profile" class="nav-link {% if request.path == '/profile' %}active{% endif %}" title="View &amp; manage your API key">API KEY</a>
+                        <form action="/logout" method="POST" style="display:inline-flex;align-items:center;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="nav-link logout-link" style="background:none;border:none;cursor:pointer;">LOGOUT</button>
+                        </form>
                     </div>
                 {% else %}
                     <a href="/login" class="nav-link">LOGIN</a>

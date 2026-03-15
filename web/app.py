@@ -16,6 +16,9 @@ import os
 import uuid
 import traceback
 import logging
+import socket
+import urllib.request
+import urllib.parse
 from datetime import datetime, timezone
 
 from flask import (
@@ -361,11 +364,11 @@ def add_security_headers(response):
         response.headers["Strict-Transport-Security"] = f"max-age={HSTS_SECONDS}; includeSubDomains"
     csp_policy = (
         "default-src 'self'; "
-        "img-src 'self' data: blob:; "
+        "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; "
         "font-src 'self' https://fonts.gstatic.com https://unpkg.com; "
-        "script-src 'self' 'unsafe-inline' https://unpkg.com; "
-        "connect-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; "
+        "connect-src 'self' https://ipapi.co; "
         "worker-src blob:; "
         "frame-ancestors 'none'"
     )
@@ -390,6 +393,213 @@ logger.info("QuantumShield application starting up...")
 
 # In-memory store — hydrated from MySQL on cold start
 scan_store: dict = {}
+_geo_cache: dict[str, dict] = {}
+
+
+def _parse_cert_time(value: str) -> str:
+    """Convert OpenSSL-style certificate timestamp into ISO date string."""
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    for fmt in ("%b %d %H:%M:%S %Y %Z", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%d"):
+        try:
+            dt = datetime.strptime(raw, fmt)
+            return dt.date().isoformat()
+        except ValueError:
+            continue
+    return raw[:10]
+
+
+def _days_to_expiry(cert_not_after: str) -> int | None:
+    """Return days until expiry from OpenSSL-style notAfter string."""
+    raw = str(cert_not_after or "").strip()
+    if not raw:
+        return None
+    try:
+        exp_dt = datetime.strptime(raw, "%b %d %H:%M:%S %Y %Z")
+        now = datetime.utcnow()
+        return int((exp_dt - now).days)
+    except ValueError:
+        return None
+
+
+def _normalize_tls_result(raw_result: dict) -> dict:
+    """Normalize TLS analyzer output into dashboard/report-friendly schema."""
+    raw = dict(raw_result or {})
+    cert = raw.get("certificate") if isinstance(raw.get("certificate"), dict) else {}
+    issuer = cert.get("issuer") if isinstance(cert.get("issuer"), dict) else {}
+    subject = cert.get("subject") if isinstance(cert.get("subject"), dict) else {}
+
+    cipher_suite = str(raw.get("cipher_suite") or "")
+    cipher_suites = raw.get("all_cipher_suites") if isinstance(raw.get("all_cipher_suites"), list) else []
+    if not cipher_suites and cipher_suite:
+        cipher_suites = [cipher_suite]
+
+    cert_days = cert.get("days_until_expiry") if isinstance(cert.get("days_until_expiry"), int) else None
+    if cert_days is None:
+        cert_days = _days_to_expiry(str(cert.get("not_after") or ""))
+
+    cert_expired = bool(cert.get("is_expired"))
+    if cert_days is not None and cert_days < 0:
+        cert_expired = True
+
+    cert_status = "Unknown"
+    if cert_expired:
+        cert_status = "Expired"
+    elif cert_days is not None:
+        cert_status = "Expiring" if cert_days <= 30 else "Valid"
+
+    key_bits = cert.get("public_key_bits")
+    if not isinstance(key_bits, int):
+        key_bits = int(raw.get("cipher_bits") or 0)
+
+    return {
+        "host": raw.get("host"),
+        "port": raw.get("port"),
+        "tls_version": raw.get("protocol_version") or raw.get("tls_version") or "Unknown",
+        "protocol_version": raw.get("protocol_version") or raw.get("tls_version") or "Unknown",
+        "cipher_suite": cipher_suite or "Unknown",
+        "cipher_suites": cipher_suites,
+        "cipher_bits": int(raw.get("cipher_bits") or 0),
+        "key_exchange": raw.get("key_exchange") or "Unknown",
+        "certificate_chain_length": int(raw.get("certificate_chain_length") or 0),
+        "issuer": issuer,
+        "subject": subject,
+        "serial_number": str(cert.get("serial_number") or ""),
+        "key_type": str(cert.get("public_key_type") or "Unknown"),
+        "key_size": key_bits,
+        "key_length": key_bits,
+        "signature_algorithm": str(cert.get("signature_algorithm") or ""),
+        "cert_sha256": str(cert.get("fingerprint_sha256") or ""),
+        "san_domains": cert.get("san_domains") if isinstance(cert.get("san_domains"), list) else [],
+        "valid_from": _parse_cert_time(str(cert.get("not_before") or "")),
+        "valid_to": _parse_cert_time(str(cert.get("not_after") or "")),
+        "cert_days_remaining": cert_days,
+        "cert_expired": cert_expired,
+        "cert_status": cert_status,
+        "error": raw.get("error"),
+    }
+
+
+def _collect_dns_records(host: str) -> list[dict]:
+    """Collect DNS records with stdlib and optional dnspython if available."""
+    records: list[dict] = []
+    host = _host_from_target(host)
+    if not host:
+        return records
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    try:
+        _, _, ip_list = socket.gethostbyname_ex(host)
+        for ip in ip_list:
+            records.append({"hostname": host, "record_type": "A", "record_value": ip, "ttl": 300, "resolved_at": now})
+    except Exception:
+        pass
+
+    try:
+        infos = socket.getaddrinfo(host, None, socket.AF_INET6)
+        seen = set()
+        for info in infos:
+            ip6 = info[4][0]
+            if ip6 in seen:
+                continue
+            seen.add(ip6)
+            records.append({"hostname": host, "record_type": "AAAA", "record_value": ip6, "ttl": 300, "resolved_at": now})
+    except Exception:
+        pass
+
+    try:
+        reverse_name = socket.gethostbyaddr(host)[0]
+        records.append({"hostname": host, "record_type": "PTR", "record_value": reverse_name, "ttl": 300, "resolved_at": now})
+    except Exception:
+        pass
+
+    try:
+        import dns.resolver  # type: ignore
+
+        for record_type in ("CNAME", "MX", "NS", "TXT"):
+            try:
+                answers = dns.resolver.resolve(host, record_type, lifetime=2.5)
+                ttl = int(getattr(answers.rrset, "ttl", 300)) if getattr(answers, "rrset", None) else 300
+                for ans in answers:
+                    records.append(
+                        {
+                            "hostname": host,
+                            "record_type": record_type,
+                            "record_value": str(ans).strip(),
+                            "ttl": ttl,
+                            "resolved_at": now,
+                        }
+                    )
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    uniq = set()
+    deduped = []
+    for r in records:
+        key = (r["hostname"], r["record_type"], r["record_value"])
+        if key in uniq:
+            continue
+        uniq.add(key)
+        deduped.append(r)
+    return deduped
+
+
+def _geolocate_ip(ip_addr: str) -> dict:
+    """Resolve IP to approximate geo metadata for map visualization."""
+    if not ip_addr:
+        return {}
+    cached = _geo_cache.get(ip_addr)
+    if cached is not None:
+        return cached
+
+    result: dict = {}
+    try:
+        url = f"https://ipapi.co/{urllib.parse.quote(ip_addr)}/json/"
+        req = urllib.request.Request(url, headers={"User-Agent": "QuantumShield/1.0"})
+        with urllib.request.urlopen(req, timeout=2.0) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+        lat = payload.get("latitude")
+        lon = payload.get("longitude")
+        if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
+            result = {
+                "ip": ip_addr,
+                "lat": float(lat),
+                "lon": float(lon),
+                "city": str(payload.get("city") or ""),
+                "region": str(payload.get("region") or ""),
+                "country": str(payload.get("country_name") or payload.get("country") or ""),
+            }
+    except Exception:
+        result = {}
+
+    _geo_cache[ip_addr] = result
+    return result
+
+
+def _autodetect_asset_class(target: str, discovered_services: list[dict], manual_class: str | None = None) -> str:
+    """Resolve business asset class from operator hint or scan evidence."""
+    if manual_class:
+        return manual_class
+
+    target_l = str(target).lower()
+    ports = {int(s.get("port") or 0) for s in discovered_services if str(s.get("port") or "").isdigit()}
+    service_text = " ".join(str(s.get("service") or "") + " " + str(s.get("banner") or "") for s in discovered_services).lower()
+
+    if "vpn" in target_l or 1194 in ports or 500 in ports or 4500 in ports:
+        return "Corporate VPN"
+    if "consumer" in target_l or "mobile" in target_l or "retail" in target_l:
+        return "Consumer App"
+    if "api" in target_l or "gateway" in target_l or 8443 in ports:
+        return "API Service"
+    if "db" in target_l or "oracle" in service_text or "mysql" in service_text:
+        return "Core Banking Data"
+    if 443 in ports or 80 in ports:
+        return "Internet Banking"
+    return "Other"
 
 # Initialise MySQL (if available) and hydrate scan_store
 _db_available = db.init_db()
@@ -416,7 +626,7 @@ else:
 # ── Pipeline ─────────────────────────────────────────────────────────
 
 
-def run_scan_pipeline(target: str, ports: list[int] | None = None) -> dict:
+def run_scan_pipeline(target: str, ports: list[int] | None = None, asset_class_hint: str | None = None) -> dict:
     """Execute the full scan pipeline and return a report dict."""
     scan_id = uuid.uuid4().hex[:8]
 
@@ -433,6 +643,7 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None) -> dict:
         }
         for ep in all_services
     ]
+    dns_records = _collect_dns_records(target)
 
     # 2. Filter to TLS-capable endpoints only
     tls_endpoints = [ep for ep in all_services if ep.is_tls]
@@ -448,13 +659,13 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None) -> dict:
             for ep in endpoints:
                 result = analyzer.analyze_endpoint(ep.host, ep.port)
                 if result.is_successful:
-                    tls_results.append(result.to_dict())
+                    tls_results.append(_normalize_tls_result(result.to_dict()))
         else:
             # Last resort: direct TLS analysis on port 443
             analyzer = TLSAnalyzer()
             tls_result = analyzer.analyze_endpoint(target, 443)
             if tls_result.is_successful:
-                tls_results = [tls_result.to_dict()]
+                tls_results = [_normalize_tls_result(tls_result.to_dict())]
             else:
                 return {
                     "scan_id": scan_id,
@@ -471,7 +682,7 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None) -> dict:
         for ep in tls_endpoints:
             result = analyzer.analyze_endpoint(ep.host, ep.port)
             if result.is_successful:
-                tls_results.append(result.to_dict())
+                tls_results.append(_normalize_tls_result(result.to_dict()))
 
     if not tls_results:
         return {
@@ -534,13 +745,30 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None) -> dict:
     # 8. Generate report
     reporter = ReportGenerator()
     report = reporter.generate_summary(cbom_dict, validations, labels)
+    asset_class = _autodetect_asset_class(target, discovered_services, asset_class_hint)
+    location_points = []
+    seen_geo = set()
+    for svc in discovered_services:
+        ip = str(svc.get("host") or "")
+        geo = _geolocate_ip(ip)
+        if not geo:
+            continue
+        key = (geo.get("ip"), geo.get("lat"), geo.get("lon"))
+        if key in seen_geo:
+            continue
+        seen_geo.add(key)
+        location_points.append(geo)
+
     report["scan_id"] = scan_id
     report["target"] = target
+    report["asset_class"] = asset_class
     report["status"] = "complete"
     report["tls_results"] = tls_results
     report["pqc_assessments"] = pqc_dicts
     report["recommendations_detailed"] = recommendations
     report["discovered_services"] = discovered_services
+    report["dns_records"] = dns_records
+    report["asset_locations"] = location_points
 
     # 9. Export CBOM JSON
     cdx_gen = CycloneDXGenerator()
@@ -555,6 +783,7 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None) -> dict:
     # 11. Save to MySQL (redundant copy)
     db.save_scan(report)
     db.save_cbom(scan_id, cbom_dict)
+    db.save_dns_records(scan_id, dns_records)
 
     # Store in memory
     scan_store[scan_id] = report
@@ -684,7 +913,7 @@ If you did not request this, please ignore this email.
     return render_template("forgot_password.html")
 
 
-@app.route("/logout")
+@app.route("/logout", methods=["GET", "POST"])
 @login_required
 def logout():
     """Logout current user."""
@@ -894,7 +1123,18 @@ def index():
         "scan_count": 0,
         "avg_score": 0,
         "critical_findings": 0,
+        "api_services": 0,
+        "asset_class_distribution": {},
+        "risk_distribution": {"Critical": 0, "High": 0, "Medium": 0, "Low": 0},
+        "ssl_expiry": {"0-30": 0, "30-60": 0, "60-90": 0, ">90": 0},
+        "ssl_expiry_extended": {"Expired": 0, "0-7": 0, "8-30": 0, "31-90": 0, ">90": 0},
+        "ip_breakdown": {"IPv4": 0, "IPv6": 0},
+        "crypto_overview": [],
+        "certificate_inventory": [],
+        "dns_records_total": 0,
+        "latest_scan": "",
     }
+    class_counter: dict[str, int] = {}
 
     for scan in scan_store.values():
         if scan.get("status") != "complete" or not scan.get("overview"):
@@ -906,117 +1146,279 @@ def index():
         enterprise_metrics["quantum_safe"] += overview.get("quantum_safe", 0)
         enterprise_metrics["quantum_vulnerable"] += overview.get("quantum_vulnerable", 0)
         enterprise_metrics["total_score"] += overview.get("average_compliance_score", 0)
+        cls = str(scan.get("asset_class") or "Other")
+        class_counter[cls] = class_counter.get(cls, 0) + 1
         
         # Count critical findings
         for finding in scan.get("findings", []):
             if isinstance(finding, dict) and finding.get("severity", "").upper() == "CRITICAL":
                 enterprise_metrics["critical_findings"] += 1
 
+        for svc in (scan.get("discovered_services") or []):
+            if "api" in str(svc.get("service") or "").lower() or "api" in str(scan.get("target") or "").lower():
+                enterprise_metrics["api_services"] += 1
+
+            host = str(svc.get("host") or "")
+            if ":" in host:
+                enterprise_metrics["ip_breakdown"]["IPv6"] += 1
+            elif host and host[0].isdigit():
+                enterprise_metrics["ip_breakdown"]["IPv4"] += 1
+
+        score = float(overview.get("average_compliance_score") or 0)
+        risk = _score_to_risk(score if score > 100 else score * 10)
+        if risk in enterprise_metrics["risk_distribution"]:
+            enterprise_metrics["risk_distribution"][risk] += 1
+
+        for tr_raw in (scan.get("tls_results") or []):
+            tr = _normalize_tls_result(tr_raw)
+            days = tr.get("cert_days_remaining")
+            if isinstance(days, (int, float)):
+                if days <= 30:
+                    enterprise_metrics["ssl_expiry"]["0-30"] += 1
+                elif days <= 60:
+                    enterprise_metrics["ssl_expiry"]["30-60"] += 1
+                elif days <= 90:
+                    enterprise_metrics["ssl_expiry"]["60-90"] += 1
+                else:
+                    enterprise_metrics["ssl_expiry"][">90"] += 1
+
+                if days < 0:
+                    enterprise_metrics["ssl_expiry_extended"]["Expired"] += 1
+                elif days <= 7:
+                    enterprise_metrics["ssl_expiry_extended"]["0-7"] += 1
+                elif days <= 30:
+                    enterprise_metrics["ssl_expiry_extended"]["8-30"] += 1
+                elif days <= 90:
+                    enterprise_metrics["ssl_expiry_extended"]["31-90"] += 1
+                else:
+                    enterprise_metrics["ssl_expiry_extended"][">90"] += 1
+
+            issuer = tr.get("issuer") if isinstance(tr.get("issuer"), dict) else {}
+            subject = tr.get("subject") if isinstance(tr.get("subject"), dict) else {}
+            enterprise_metrics["crypto_overview"].append(
+                {
+                    "asset": _host_from_target(str(scan.get("target") or "")),
+                    "key_length": tr.get("key_size") or tr.get("key_length") or 0,
+                    "cipher_suite": (tr.get("cipher_suites") or ["Unknown"])[0],
+                    "tls_version": tr.get("tls_version") or "Unknown",
+                    "ca": issuer.get("O") or issuer.get("CN") or "Unknown",
+                }
+            )
+
+            enterprise_metrics["certificate_inventory"].append(
+                {
+                    "asset": _host_from_target(str(scan.get("target") or "")),
+                    "common_name": subject.get("commonName") or subject.get("CN") or _host_from_target(str(scan.get("target") or "")),
+                    "issuer": issuer.get("O") or issuer.get("CN") or "Unknown",
+                    "serial": tr.get("serial_number") or "",
+                    "signature_algorithm": tr.get("signature_algorithm") or "Unknown",
+                    "key_length": tr.get("key_size") or tr.get("key_length") or 0,
+                    "tls_version": tr.get("tls_version") or "Unknown",
+                    "valid_from": tr.get("valid_from") or "",
+                    "valid_to": tr.get("valid_to") or "",
+                    "days_remaining": days if isinstance(days, (int, float)) else None,
+                    "status": tr.get("cert_status") or "Unknown",
+                    "san_count": len(tr.get("san_domains") or []),
+                    "fingerprint": tr.get("cert_sha256") or "",
+                }
+            )
+
+        enterprise_metrics["dns_records_total"] += len(scan.get("dns_records") or [])
+
+        generated_at = str(scan.get("generated_at") or "")
+        if generated_at and (not enterprise_metrics["latest_scan"] or generated_at > str(enterprise_metrics["latest_scan"])):
+            enterprise_metrics["latest_scan"] = generated_at
+
     if enterprise_metrics["scan_count"] > 0:
         enterprise_metrics["avg_score"] = round(
             enterprise_metrics["total_score"] / enterprise_metrics["scan_count"]
         )
 
+    enterprise_metrics["asset_class_distribution"] = class_counter
+    ip_total = max(1, enterprise_metrics["ip_breakdown"]["IPv4"] + enterprise_metrics["ip_breakdown"]["IPv6"])
+    enterprise_metrics["ip_breakdown"] = {
+        "IPv4": round((enterprise_metrics["ip_breakdown"]["IPv4"] * 100) / ip_total),
+        "IPv6": round((enterprise_metrics["ip_breakdown"]["IPv6"] * 100) / ip_total),
+    }
+    enterprise_metrics["crypto_overview"] = enterprise_metrics["crypto_overview"][:20]
+    enterprise_metrics["certificate_inventory"] = sorted(
+        enterprise_metrics["certificate_inventory"],
+        key=lambda row: 10**9 if row.get("days_remaining") is None else int(row.get("days_remaining")),
+    )[:30]
+
+    inventory_vm = _build_asset_inventory_view()
+
     return render_template(
-        "index.html", 
-        recent_scans=recent_scans, 
-        enterprise_metrics=enterprise_metrics
+        "index.html",
+        recent_scans=recent_scans,
+        enterprise_metrics=enterprise_metrics,
+        inventory_vm=inventory_vm,
     )
 
 
-def _build_asset_inventory_view() -> dict:
-    """Build asset inventory view — seeded + enriched from live scan store."""
-    seed_assets = [
-        {
-            "asset_name": "pnb-banking-portal",
-            "url": "https://banking.pnb.example",
-            "ipv4": "203.0.113.10",
-            "ipv6": "2001:db8:100::10",
-            "type": "Web App",
-            "owner": "IT",
-            "risk": "High",
-            "cert_status": "Expiring",
-            "key_length": 2048,
-            "last_scan": "2h ago",
-        },
-        {
-            "asset_name": "pnb-api-gateway",
-            "url": "https://api.pnb.example",
-            "ipv4": "203.0.113.11",
-            "ipv6": "2001:db8:100::11",
-            "type": "API",
-            "owner": "DevOps",
-            "risk": "Critical",
-            "cert_status": "Valid",
-            "key_length": 2048,
-            "last_scan": "28m ago",
-        },
-        {
-            "asset_name": "pnb-payment-core",
-            "url": "https://pay.pnb.example",
-            "ipv4": "203.0.113.25",
-            "ipv6": "",
-            "type": "Server",
-            "owner": "Infra",
-            "risk": "Medium",
-            "cert_status": "Valid",
-            "key_length": 3072,
-            "last_scan": "1d ago",
-        },
-        {
-            "asset_name": "pnb-mobile-api",
-            "url": "https://mobile-api.pnb.example",
-            "ipv4": "203.0.113.30",
-            "ipv6": "2001:db8:100::30",
-            "type": "API",
-            "owner": "IT",
-            "risk": "Low",
-            "cert_status": "Valid",
-            "key_length": 4096,
-            "last_scan": "4h ago",
-        },
-    ]
+@app.route("/scan-center")
+@role_required(list(SCAN_ROLES))
+def scan_center():
+    """Dedicated page for scan initiation workflows."""
+    return render_template("scan_center.html")
 
-    # Merge live scans into asset list
-    seen_targets: set[str] = {a["url"] for a in seed_assets}
-    for scan in sorted(scan_store.values(),
-                       key=lambda s: s.get("generated_at", ""), reverse=True):
+
+def _score_to_risk(score: float) -> str:
+    if score >= 700:
+        return "Low"
+    if score >= 400:
+        return "Medium"
+    if score >= 200:
+        return "High"
+    return "Critical"
+
+
+def _iso_date(value: str) -> str:
+    if not value:
+        return ""
+    return str(value)[:10]
+
+
+def _host_from_target(target: str) -> str:
+    raw = str(target or "").strip()
+    if not raw:
+        return ""
+    if "://" in raw:
+        raw = raw.split("://", 1)[1]
+    return raw.split("/", 1)[0].split(":", 1)[0]
+
+
+def _build_asset_inventory_view() -> dict:
+    """Build inventory view-model from live scans only (no seed fallback)."""
+    from collections import Counter
+    import ipaddress
+
+    assets: list[dict] = []
+    nameserver_records: list[dict] = []
+    crypto_overview: list[dict] = []
+    asset_locations: list[dict] = []
+    cert_bucket = Counter({"0-30": 0, "30-60": 0, "60-90": 0, ">90": 0})
+
+    for scan in sorted(scan_store.values(), key=lambda s: s.get("generated_at", ""), reverse=True):
         if scan.get("status") != "complete":
             continue
-        target = scan.get("target", "")
-        if not target or target in seen_targets:
+
+        target = str(scan.get("target", "")).strip()
+        host = _host_from_target(target)
+        if not host:
             continue
-        seen_targets.add(target)
+
         overview = scan.get("overview") or {}
-        score = overview.get("average_compliance_score", 500)
-        risk = "Low" if score >= 700 else ("Medium" if score >= 400 else ("High" if score >= 200 else "Critical"))
         tls_results = scan.get("tls_results") or []
-        key_length = 2048
-        tls_ver = "TLS 1.2"
-        cipher = "ECDHE-RSA-AES256-GCM-SHA384"
-        if tls_results:
-            first = tls_results[0]
-            key_length = first.get("key_size") or first.get("key_length") or 2048
-            tls_ver = first.get("tls_version") or "TLS 1.2"
-            ciphers = first.get("cipher_suites") or []
-            cipher = ciphers[0] if ciphers else cipher
-        seed_assets.append({
-            "asset_name": target,
-            "url": f"https://{target}" if not target.startswith("http") else target,
-            "ipv4": "",
-            "ipv6": "",
-            "type": "Web App",
-            "owner": "IT",
+        discovered = scan.get("discovered_services") or []
+        score = float(overview.get("average_compliance_score") or 0)
+        risk = _score_to_risk(score if score > 100 else score * 10)
+
+        ipv4 = ""
+        ipv6 = ""
+        for svc in discovered:
+            cand = str(svc.get("host", ""))
+            if not cand:
+                continue
+            try:
+                parsed = ipaddress.ip_address(cand)
+                if parsed.version == 4 and not ipv4:
+                    ipv4 = cand
+                if parsed.version == 6 and not ipv6:
+                    ipv6 = cand
+            except ValueError:
+                continue
+
+        first = tls_results[0] if tls_results else {}
+        key_length = first.get("key_size") or first.get("key_length") or 0
+        tls_version = first.get("tls_version") or "Unknown"
+        ciphers = first.get("cipher_suites") or []
+        cipher_suite = ciphers[0] if ciphers else "Unknown"
+        issuer = first.get("issuer") if isinstance(first.get("issuer"), dict) else {}
+        issuer_name = issuer.get("O") or issuer.get("CN") or "Unknown"
+
+        cert_days = first.get("cert_days_remaining")
+        cert_status = "Unknown"
+        if isinstance(cert_days, (int, float)):
+            if cert_days < 0:
+                cert_status = "Expired"
+            elif cert_days <= 30:
+                cert_status = "Expiring"
+                cert_bucket["0-30"] += 1
+            elif cert_days <= 60:
+                cert_status = "Valid"
+                cert_bucket["30-60"] += 1
+            elif cert_days <= 90:
+                cert_status = "Valid"
+                cert_bucket["60-90"] += 1
+            else:
+                cert_status = "Valid"
+                cert_bucket[">90"] += 1
+
+        kind = "Web App"
+        if any("api" in str(s).lower() for s in (host, target)):
+            kind = "API"
+        elif any("gateway" in str(s).lower() for s in (host, target)):
+            kind = "Load Balancer"
+        elif discovered:
+            kind = "Server"
+
+        row = {
+            "asset_name": host,
+            "url": target if str(target).startswith("http") else f"https://{host}",
+            "ipv4": ipv4,
+            "ipv6": ipv6,
+            "type": kind,
+            "asset_class": str(scan.get("asset_class") or "Other"),
+            "owner": "Infra",
             "risk": risk,
-            "cert_status": "Valid",
+            "cert_status": cert_status,
             "key_length": key_length,
-            "last_scan": scan.get("generated_at", "")[:16],
-            "_live": True,
-            "_tls_version": tls_ver,
-            "_cipher_suite": cipher,
+            "last_scan": _iso_date(str(scan.get("generated_at", ""))),
+        }
+        assets.append(row)
+
+        crypto_overview.append({
+            "asset": host,
+            "key_length": key_length,
+            "cipher_suite": cipher_suite,
+            "tls_version": tls_version,
+            "ca": issuer_name,
+            "last_scan": row["last_scan"],
         })
 
-    assets = seed_assets
+        for dns_row in (scan.get("dns_records") or []):
+            if not isinstance(dns_row, dict):
+                continue
+            nameserver_records.append(
+                {
+                    "hostname": str(dns_row.get("hostname") or host),
+                    "type": str(dns_row.get("record_type") or "A"),
+                    "ip": str(dns_row.get("record_value") or "") if str(dns_row.get("record_type") or "").upper() in {"A", "MX", "NS", "PTR", "CNAME"} else "",
+                    "ipv6": str(dns_row.get("record_value") or "") if str(dns_row.get("record_type") or "").upper() == "AAAA" else "",
+                    "ttl": int(dns_row.get("ttl") or 300),
+                }
+            )
+
+        for loc in (scan.get("asset_locations") or []):
+            if not isinstance(loc, dict):
+                continue
+            lat = loc.get("lat")
+            lon = loc.get("lon")
+            if not isinstance(lat, (int, float)) or not isinstance(lon, (int, float)):
+                continue
+            asset_locations.append(
+                {
+                    "asset": host,
+                    "ip": str(loc.get("ip") or ""),
+                    "lat": float(lat),
+                    "lon": float(lon),
+                    "city": str(loc.get("city") or ""),
+                    "region": str(loc.get("region") or ""),
+                    "country": str(loc.get("country") or ""),
+                }
+            )
+
     kpis = {
         "total_assets": len(assets),
         "public_web_apps": sum(1 for a in assets if a["type"] == "Web App"),
@@ -1025,11 +1427,23 @@ def _build_asset_inventory_view() -> dict:
         "expiring_certificates": sum(1 for a in assets if a["cert_status"] == "Expiring"),
         "high_risk_assets": sum(1 for a in assets if a["risk"] in {"Critical", "High"}),
     }
-    from collections import Counter
-    type_dist = dict(Counter(a["type"] for a in assets))
-    risk_dist = dict(Counter(a["risk"] for a in assets))
+
+    type_dist = Counter(a["type"] for a in assets)
+    risk_dist = Counter(a["risk"] for a in assets)
+    ipv4_count = sum(1 for a in assets if a["ipv4"])
+    ipv6_count = sum(1 for a in assets if a["ipv6"])
+    total_ip_assets = max(1, ipv4_count + ipv6_count)
+
+    owners = sorted({a["owner"] for a in assets}) or ["Infra"]
+    heatmap = []
+    for owner in owners:
+        owner_rows = [a for a in assets if a["owner"] == owner]
+        for band in ("Critical", "High", "Medium", "Low"):
+            value = sum(1 for a in owner_rows if a["risk"] == band)
+            heatmap.append({"x": owner, "y": band, "value": value})
 
     return {
+        "empty": len(assets) == 0,
         "kpis": kpis,
         "asset_type_distribution": {
             "Web Applications": type_dist.get("Web App", 0),
@@ -1044,46 +1458,187 @@ def _build_asset_inventory_view() -> dict:
             "Medium": risk_dist.get("Medium", 0),
             "Low": risk_dist.get("Low", 0),
         },
-        "certificate_expiry_timeline": {"0-30": 1, "30-60": 1, "60-90": 1, ">90": max(len(assets) - 3, 1)},
-        "ip_version_breakdown": {"IPv4": 75, "IPv6": 25},
+        "risk_heatmap": heatmap,
+        "certificate_expiry_timeline": dict(cert_bucket),
+        "ip_version_breakdown": {
+            "IPv4": round((ipv4_count * 100) / total_ip_assets),
+            "IPv6": round((ipv6_count * 100) / total_ip_assets),
+        },
         "assets": assets,
-        "nameserver_records": [
-            {"hostname": "ns1.pnb.example", "type": "A", "ip": "203.0.113.53", "ipv6": "", "ttl": 3600},
-            {"hostname": "ns2.pnb.example", "type": "AAAA", "ip": "", "ipv6": "2001:db8:53::2", "ttl": 3600},
-        ],
-        "crypto_overview": [
-            {
-                "asset": a.get("asset_name") or a.get("url", ""),
-                "key_length": a.get("key_length", 2048),
-                "cipher_suite": a.get("_cipher_suite", "ECDHE-RSA-AES256-GCM-SHA384"),
-                "tls_version": a.get("_tls_version", "TLS 1.2"),
-                "ca": "DigiCert",
-                "last_scan": a.get("last_scan", ""),
-            }
-            for a in assets[:10]
-        ],
+        "nameserver_records": nameserver_records,
+        "crypto_overview": crypto_overview,
+        "asset_locations": asset_locations,
     }
 
 
-def _build_asset_discovery_view() -> dict:
+def _build_asset_discovery_view(include_in_progress: bool = False) -> dict:
+    """Build discovery view from live scan artifacts only."""
+    from collections import Counter
+    import ipaddress
+
+    domains: list[dict] = []
+    ssl: list[dict] = []
+    ip_subnets: list[dict] = []
+    software: list[dict] = []
+    nodes: list[dict] = []
+    edges: list[dict] = []
+
+    node_ids: set[str] = set()
+    edge_ids: set[str] = set()
+
+    def add_node(node_id: str, label: str, group: str, title: str) -> None:
+        if node_id in node_ids:
+            return
+        node_ids.add(node_id)
+        nodes.append({"id": node_id, "label": label, "group": group, "title": title})
+
+    def add_edge(src: str, dst: str) -> None:
+        key = f"{src}->{dst}"
+        if key in edge_ids:
+            return
+        edge_ids.add(key)
+        edges.append({"from": src, "to": dst})
+
+    for scan in sorted(scan_store.values(), key=lambda s: s.get("generated_at", ""), reverse=True):
+        if scan.get("status") != "complete" and not include_in_progress:
+            continue
+
+        target = str(scan.get("target", "")).strip()
+        host = _host_from_target(target)
+        if not host:
+            continue
+
+        detection_date = _iso_date(str(scan.get("generated_at", "")))
+        add_node(f"domain:{host}", host, "domain", f"Domain · {host}")
+
+        domains.append(
+            {
+                "status": "Confirmed" if scan.get("status") == "complete" else "New",
+                "detection_date": detection_date,
+                "domain_name": host,
+                "registration_date": "",
+                "registrar": "",
+                "company": "PNB",
+            }
+        )
+
+        discovered_services = scan.get("discovered_services") or []
+        tls_results = scan.get("tls_results") or []
+
+        for svc in discovered_services:
+            svc_host = str(svc.get("host", "")).strip()
+            port = svc.get("port")
+            service_name = str(svc.get("service", "unknown"))
+            banner = str(svc.get("banner", ""))
+
+            if svc_host:
+                try:
+                    parsed = ipaddress.ip_address(svc_host)
+                    subnet = f"{svc_host}/32" if parsed.version == 4 else f"{svc_host}/128"
+                    ip_subnets.append(
+                        {
+                            "status": "Confirmed" if scan.get("status") == "complete" else "New",
+                            "detection_date": detection_date,
+                            "ip": svc_host,
+                            "ports": str(port or ""),
+                            "subnet": subnet,
+                            "asn": "",
+                            "netname": "",
+                            "location": "",
+                            "company": "PNB",
+                        }
+                    )
+                    add_node(f"ip:{svc_host}", svc_host, "ip", f"IP · {svc_host}")
+                    add_edge(f"domain:{host}", f"ip:{svc_host}")
+                    if port:
+                        add_node(
+                            f"service:{svc_host}:{port}",
+                            f"{service_name.upper()}:{port}",
+                            "service",
+                            f"Service · {service_name}:{port}",
+                        )
+                        add_edge(f"ip:{svc_host}", f"service:{svc_host}:{port}")
+                except ValueError:
+                    pass
+
+            if banner:
+                version = ""
+                if "/" in banner:
+                    pieces = banner.split("/", 1)
+                    service_name = pieces[0] or service_name
+                    version = pieces[1]
+                software.append(
+                    {
+                        "status": "Confirmed" if scan.get("status") == "complete" else "New",
+                        "detection_date": detection_date,
+                        "product": service_name,
+                        "version": version,
+                        "type": "Service",
+                        "port": port or "",
+                        "host": host,
+                        "company": "PNB",
+                    }
+                )
+
+        for tr in tls_results:
+            fingerprint = str(tr.get("cert_sha256") or tr.get("fingerprint") or "")
+            issuer = tr.get("issuer") if isinstance(tr.get("issuer"), dict) else {}
+            ssl.append(
+                {
+                    "status": "Confirmed" if scan.get("status") == "complete" else "New",
+                    "detection_date": detection_date,
+                    "fingerprint": fingerprint,
+                    "valid_from": str(tr.get("valid_from", ""))[:10],
+                    "common_name": str(tr.get("server_name") or host),
+                    "company": "PNB",
+                    "ca": issuer.get("O") or issuer.get("CN") or "Unknown",
+                }
+            )
+
+    # Keep rows unique and stable.
+    def _uniq(rows: list[dict], key_fn):
+        seen = set()
+        out = []
+        for row in rows:
+            k = key_fn(row)
+            if k in seen:
+                continue
+            seen.add(k)
+            out.append(row)
+        return out
+
+    domains = _uniq(domains, lambda r: (r["domain_name"], r["detection_date"]))
+    ssl = _uniq(ssl, lambda r: (r["fingerprint"], r["common_name"], r["detection_date"]))
+    ip_subnets = _uniq(ip_subnets, lambda r: (r["ip"], r["ports"], r["detection_date"]))
+    software = _uniq(software, lambda r: (r["host"], r["product"], r["port"], r["detection_date"]))
+
+    status_counts = Counter(
+        [r.get("status", "") for r in domains + ssl + ip_subnets + software if r.get("status")]
+    )
+
     return {
-        "overview": {"domains": 12, "ssl": 19, "ip_subnets": 24, "software": 35},
-        "domains": [
-            {"status": "New", "detection_date": "2026-03-15", "domain_name": "new-auth.pnb.example", "registration_date": "2026-03-10", "registrar": "MarkMonitor", "company": "PNB"},
-            {"status": "Confirmed", "detection_date": "2026-03-14", "domain_name": "payments.pnb.example", "registration_date": "2023-04-09", "registrar": "CSC", "company": "PNB"},
-        ],
-        "ssl": [
-            {"status": "New", "detection_date": "2026-03-15", "fingerprint": "AA:BB:CC:DD:11", "valid_from": "2026-02-01", "common_name": "payments.pnb.example", "company": "PNB", "ca": "DigiCert"},
-            {"status": "False Positive", "detection_date": "2026-03-14", "fingerprint": "EF:12:45:AB:88", "valid_from": "2025-11-20", "common_name": "legacy.pnb.example", "company": "PNB", "ca": "Thawte"},
-        ],
-        "ip_subnets": [
-            {"status": "Confirmed", "detection_date": "2026-03-15", "ip": "198.51.100.24", "ports": "443,8443", "subnet": "198.51.100.0/24", "asn": "AS64500", "netname": "PNB-EDGE", "location": "SG", "company": "PNB"},
-            {"status": "New", "detection_date": "2026-03-13", "ip": "203.0.113.88", "ports": "443", "subnet": "203.0.113.0/24", "asn": "AS64501", "netname": "PNB-API", "location": "MY", "company": "PNB"},
-        ],
-        "software": [
-            {"status": "New", "detection_date": "2026-03-15", "product": "nginx", "version": "1.25.5", "type": "WebServer", "port": 443, "host": "payments.pnb.example", "company": "PNB"},
-            {"status": "Confirmed", "detection_date": "2026-03-15", "product": "OpenSSL", "version": "3.2.1", "type": "Crypto Library", "port": 443, "host": "api.pnb.example", "company": "PNB"},
-        ],
+        "empty": not (domains or ssl or ip_subnets or software),
+        "overview": {
+            "domains": len(domains),
+            "ssl": len(ssl),
+            "ip_subnets": len(ip_subnets),
+            "software": len(software),
+        },
+        "status_counts": {
+            "New": status_counts.get("New", 0),
+            "False Positive": status_counts.get("False Positive", 0),
+            "Confirmed": status_counts.get("Confirmed", 0),
+            "All": len(domains) + len(ssl) + len(ip_subnets) + len(software),
+        },
+        "domains": domains,
+        "ssl": ssl,
+        "ip_subnets": ip_subnets,
+        "software": software,
+        "graph_payload": {
+            "nodes": nodes,
+            "edges": edges,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        },
     }
 
 
@@ -1099,75 +1654,79 @@ def asset_discovery():
     return render_template("asset_discovery.html", vm=_build_asset_discovery_view())
 
 
+@app.route("/api/discovery-graph")
+@login_required
+def discovery_graph_payload():
+    """Realtime discovery graph payload for incremental frontend updates."""
+    vm = _build_asset_discovery_view(include_in_progress=True)
+    return jsonify(vm.get("graph_payload", {"nodes": [], "edges": [], "updated_at": ""}))
+
+
 @app.route("/cbom-dashboard")
 @login_required
 def cbom_dashboard():
-    """Build CBOM view — aggregates cipher/key/protocol data from live scans."""
+    """Build CBOM view using live cryptographic telemetry only."""
     from collections import Counter
-
-    seed_cipher = {
-        "ECDHE-RSA-AES256-GCM-SHA384": 17,
-        "ECDHE-ECDSA-AES256-GCM-SHA384": 11,
-        "AES256-GCM-SHA384": 8,
-        "AES128-GCM-SHA256": 13,
-        "TLS_RSA_WITH_DES_CBC_SHA": 3,
-    }
-    seed_keys = {"4096": 16, "3078": 8, "2048": 21, "2044": 4, "others": 7}
-    seed_protocols = {"TLS 1.3": 31, "TLS 1.2": 62, "TLS 1.1": 8, "TLS 1.0": 2}
-    live_rows: list[dict] = []
 
     key_counter: Counter = Counter()
     cipher_counter: Counter = Counter()
     proto_counter: Counter = Counter()
+    ca_counter: Counter = Counter()
+    rows: list[dict] = []
 
     for scan in scan_store.values():
         if scan.get("status") != "complete":
             continue
+        app_name = _host_from_target(str(scan.get("target", ""))) or str(scan.get("target", ""))
         for tr in (scan.get("tls_results") or []):
-            tls_ver = tr.get("tls_version") or "TLS 1.2"
+            tls_ver = str(tr.get("tls_version") or "Unknown")
             proto_counter[tls_ver] += 1
-            key_sz = tr.get("key_size") or tr.get("key_length")
+            key_sz = tr.get("key_size") or tr.get("key_length") or 0
             if key_sz:
                 key_counter[str(key_sz)] += 1
-            for cs in (tr.get("cipher_suites") or []):
+            ciphers = tr.get("cipher_suites") or []
+            for cs in ciphers:
                 if cs:
-                    cipher_counter[cs] += 1
-            live_rows.append({
-                "application": scan.get("target", ""),
-                "key_length": key_sz or 2048,
-                "cipher": (tr.get("cipher_suites") or ["—"])[0],
-                "ca": tr.get("issuer", {}).get("O", "Unknown") if isinstance(tr.get("issuer"), dict) else "Unknown",
-            })
+                    cipher_counter[str(cs)] += 1
+            issuer = tr.get("issuer") if isinstance(tr.get("issuer"), dict) else {}
+            ca_name = issuer.get("O") or issuer.get("CN") or "Unknown"
+            ca_counter[str(ca_name)] += 1
+            rows.append(
+                {
+                    "application": app_name,
+                    "key_length": key_sz,
+                    "cipher": ciphers[0] if ciphers else "Unknown",
+                    "ca": ca_name,
+                }
+            )
 
-    # Merge live counters with seeds
-    for k, v in key_counter.items():
-        seed_keys[k] = seed_keys.get(k, 0) + v
-    for c, v in cipher_counter.most_common(5):
-        seed_cipher[c] = seed_cipher.get(c, 0) + v
-    for p, v in proto_counter.items():
-        seed_protocols[p] = seed_protocols.get(p, 0) + v
+    weak_keys = sum(v for k, v in key_counter.items() if str(k).isdigit() and int(k) < 2048)
+    weak_protocols = sum(v for p, v in proto_counter.items() if p in {"TLS 1.0", "TLS 1.1", "SSLv3", "SSLv2"})
+    weak_ciphers = sum(v for c, v in cipher_counter.items() if "DES" in c or "RC4" in c or "MD5" in c)
 
-    seed_rows = [
-        {"application": "pnb-banking-portal", "key_length": 2048, "cipher": "ECDHE-RSA-AES256-GCM-SHA384", "ca": "DigiCert"},
-        {"application": "pnb-mobile-api", "key_length": 4096, "cipher": "ECDHE-ECDSA-AES256-GCM-SHA384", "ca": "Let's Encrypt"},
-        {"application": "legacy-gateway", "key_length": 1024, "cipher": "TLS_RSA_WITH_DES_CBC_SHA", "ca": "COMODO"},
-    ]
-    all_rows = seed_rows + live_rows
-
-    total_apps = len({r["application"] for r in all_rows})
+    total_apps = len({r["application"] for r in rows})
     vm = {
+        "empty": len(rows) == 0,
         "kpis": {
             "total_applications": total_apps,
-            "sites_surveyed": max(41, total_apps),
-            "active_certificates": max(103, total_apps * 2),
-            "weak_cryptography": sum(1 for r in all_rows if int(r.get("key_length", 9999)) < 2048),
-            "certificate_issues": 8,
+            "sites_surveyed": total_apps,
+            "active_certificates": len(rows),
+            "weak_cryptography": weak_keys + weak_protocols + weak_ciphers,
+            "certificate_issues": weak_protocols,
         },
-        "key_length_distribution": seed_keys,
-        "cipher_usage": seed_cipher,
-        "top_cas": {"DigiCert": 32, "Thawte": 8, "Let's Encrypt": 24, "COMODO": 12, "Other": 27},
-        "protocols": seed_protocols,
-        "rows": all_rows[:25],
+        "key_length_distribution": dict(key_counter),
+        "cipher_usage": dict(cipher_counter.most_common(10)),
+        "top_cas": dict(ca_counter.most_common(10)),
+        "protocols": dict(proto_counter),
+        "rows": rows[:50],
+        "weakness_heatmap": [
+            {"x": "Key Length", "y": "Weak", "value": weak_keys},
+            {"x": "Protocol", "y": "Weak", "value": weak_protocols},
+            {"x": "Cipher", "y": "Weak", "value": weak_ciphers},
+            {"x": "Key Length", "y": "Strong", "value": max(len(rows) - weak_keys, 0)},
+            {"x": "Protocol", "y": "Strong", "value": max(len(rows) - weak_protocols, 0)},
+            {"x": "Cipher", "y": "Strong", "value": max(len(rows) - weak_ciphers, 0)},
+        ],
     }
     return render_template("cbom_dashboard.html", vm=vm)
 
@@ -1175,37 +1734,57 @@ def cbom_dashboard():
 @app.route("/pqc-posture")
 @login_required
 def pqc_posture():
-    """Build PQC posture view — aggregates PQC assessments from live scans."""
-    seed_rows = [
-        {"asset_name": "payments.pnb.example (203.0.113.25)", "pqc_support": True, "owner": "Infra", "exposure": "Internet", "tls": "ECC", "score": 860, "status": "Elite"},
-        {"asset_name": "legacy-gateway.pnb.example (198.51.100.30)", "pqc_support": False, "owner": "IT", "exposure": "Internet", "tls": "RSA", "score": 390, "status": "Critical"},
-        {"asset_name": "api.pnb.example (203.0.113.11)", "pqc_support": False, "owner": "DevOps", "exposure": "Internet", "tls": "RSA", "score": 620, "status": "Standard"},
-    ]
+    """Build PQC posture from live assessments only."""
+    support_rows: list[dict] = []
 
     for scan in scan_store.values():
         if scan.get("status") != "complete":
             continue
-        for pqc in (scan.get("pqc_assessments") or []):
-            score = pqc.get("pqc_score") or pqc.get("score") or 500
+        host = _host_from_target(str(scan.get("target", ""))) or str(scan.get("target", ""))
+        pqc_list = scan.get("pqc_assessments") or []
+        if not pqc_list:
+            continue
+        for pqc in pqc_list:
+            score = int(pqc.get("pqc_score") or pqc.get("score") or 0)
             is_pqc = bool(pqc.get("pqc_ready") or pqc.get("is_pqc_ready") or score >= 700)
-            status = "Elite" if score >= 700 else ("Standard" if score >= 400 else "Critical")
-            seed_rows.append({
-                "asset_name": f"{scan.get('target', '')}",
-                "pqc_support": is_pqc,
-                "owner": "IT",
-                "exposure": "Internet",
-                "tls": pqc.get("key_type", "RSA"),
-                "score": score,
-                "status": status,
-            })
+            if score >= 800:
+                status = "Elite"
+            elif score >= 500:
+                status = "Standard"
+            elif score >= 300:
+                status = "Legacy"
+            else:
+                status = "Critical"
+            support_rows.append(
+                {
+                    "asset_name": host,
+                    "pqc_support": is_pqc,
+                    "owner": "Infra",
+                    "exposure": "Internet",
+                    "tls": str(pqc.get("key_type") or "Unknown"),
+                    "score": score,
+                    "status": status,
+                }
+            )
 
-    elite = sum(1 for r in seed_rows if r["status"] == "Elite")
-    standard = sum(1 for r in seed_rows if r["status"] == "Standard")
-    legacy = sum(1 for r in seed_rows if r["status"] == "Legacy")
-    critical = sum(1 for r in seed_rows if r["status"] == "Critical")
-    total = max(len(seed_rows), 1)
+    elite = sum(1 for r in support_rows if r["status"] == "Elite")
+    standard = sum(1 for r in support_rows if r["status"] == "Standard")
+    legacy = sum(1 for r in support_rows if r["status"] == "Legacy")
+    critical = sum(1 for r in support_rows if r["status"] == "Critical")
+    total = max(len(support_rows), 1)
+
+    recommendations = []
+    if critical > 0:
+        recommendations.append("Upgrade critical legacy endpoints to TLS 1.3 with hybrid-PQC key exchange.")
+    if legacy > 0:
+        recommendations.append("Prioritize RSA-only services for Kyber-ready TLS stack migration.")
+    if standard > 0:
+        recommendations.append("Increase modern key sizes and rotate certificates to PQC-compatible profiles.")
+    if not recommendations:
+        recommendations.append("No immediate PQC remediation required. Maintain continuous scanning cadence.")
 
     vm = {
+        "empty": len(support_rows) == 0,
         "overall": {
             "elite": round(elite * 100 / total),
             "standard": round(standard * 100 / total),
@@ -1219,12 +1798,15 @@ def pqc_posture():
             "Legacy": round(legacy * 100 / total),
             "Critical": round(critical * 100 / total),
         },
-        "support_rows": seed_rows[:30],
-        "recommendations": [
-            "Upgrade to TLS 1.3 with PQC",
-            "Implement Kyber for Key Exchange",
-            "Update Cryptographic Libraries",
-            "Develop PQC Migration Plan",
+        "support_rows": support_rows[:50],
+        "recommendations": recommendations,
+        "risk_heatmap": [
+            {"x": "Protocol", "y": "High", "value": critical},
+            {"x": "Protocol", "y": "Moderate", "value": legacy},
+            {"x": "Protocol", "y": "Safe", "value": elite + standard},
+            {"x": "Key Exchange", "y": "High", "value": sum(1 for r in support_rows if r["tls"].upper() == "RSA")},
+            {"x": "Key Exchange", "y": "Moderate", "value": sum(1 for r in support_rows if r["tls"].upper() == "ECC")},
+            {"x": "Key Exchange", "y": "Safe", "value": sum(1 for r in support_rows if "PQC" in r["tls"].upper() or "KYBER" in r["tls"].upper())},
         ],
     }
     return render_template("pqc_posture.html", vm=vm)
@@ -1233,7 +1815,7 @@ def pqc_posture():
 @app.route("/cyber-rating")
 @login_required
 def cyber_rating():
-    """Build cyber rating — derives score from live scan compliance scores."""
+    """Build cyber rating from live compliance scores only."""
     scores: list[int] = []
     url_scores: list[dict] = []
 
@@ -1251,24 +1833,35 @@ def cyber_rating():
             "pqc_score": normalized,
         })
 
-    # Seed URL scores for display even with no live data
-    seed_urls = [
-        {"url": "https://banking.pnb.example", "pqc_score": 812},
-        {"url": "https://api.pnb.example", "pqc_score": 655},
-        {"url": "https://legacy-gateway.pnb.example", "pqc_score": 325},
-    ]
-    # Merge (live overrides seed by URL)
-    live_url_set = {u["url"] for u in url_scores}
-    merged_urls = url_scores + [u for u in seed_urls if u["url"] not in live_url_set]
-
-    overall = round(sum(scores) / len(scores)) if scores else 755
+    overall = round(sum(scores) / len(scores)) if scores else 0
     overall = max(0, min(overall, 1000))
     label = "Elite-PQC" if overall > 700 else ("Standard" if overall >= 400 else "Legacy")
 
+    tier_counts = {
+        "Critical": sum(1 for s in scores if s < 200),
+        "Legacy": sum(1 for s in scores if 200 <= s < 400),
+        "Standard": sum(1 for s in scores if 400 <= s <= 700),
+        "Elite-PQC": sum(1 for s in scores if s > 700),
+    }
+
+    heatmap = []
+    for label_name, min_score, max_score in [
+        ("Critical", 0, 199),
+        ("Legacy", 200, 399),
+        ("Standard", 400, 700),
+        ("Elite-PQC", 701, 1000),
+    ]:
+        band_scores = [s for s in scores if min_score <= s <= max_score]
+        heatmap.append({"x": label_name, "y": "Volume", "value": len(band_scores)})
+        heatmap.append({"x": label_name, "y": "Avg", "value": round(sum(band_scores) / len(band_scores)) if band_scores else 0})
+
     vm = {
+        "empty": len(url_scores) == 0,
         "overall_score": overall,
         "label": label,
-        "url_scores": sorted(merged_urls, key=lambda u: u["pqc_score"], reverse=True)[:20],
+        "url_scores": sorted(url_scores, key=lambda u: u["pqc_score"], reverse=True)[:50],
+        "tier_counts": tier_counts,
+        "tier_heatmap": heatmap,
     }
     return render_template("cyber_rating.html", vm=vm)
 
@@ -1276,14 +1869,43 @@ def cyber_rating():
 @app.route("/reporting")
 @login_required
 def reporting():
+    inv = _build_asset_inventory_view()
+    dis = _build_asset_discovery_view()
+
+    pqc_rows = []
+    for scan in scan_store.values():
+        if scan.get("status") == "complete":
+            pqc_rows.extend(scan.get("pqc_assessments") or [])
+
+    weak_components = 0
+    for scan in scan_store.values():
+        if scan.get("status") != "complete":
+            continue
+        for tr in (scan.get("tls_results") or []):
+            key_len = int(tr.get("key_size") or tr.get("key_length") or 0)
+            if key_len and key_len < 2048:
+                weak_components += 1
+            if (tr.get("tls_version") or "") in {"TLS 1.0", "TLS 1.1", "SSLv3", "SSLv2"}:
+                weak_components += 1
+
+    cyber_scores = []
+    for scan in scan_store.values():
+        if scan.get("status") != "complete":
+            continue
+        overview = scan.get("overview") or {}
+        raw = overview.get("average_compliance_score") or 0
+        score = min(int(raw * 10) if raw <= 100 else int(raw), 1000)
+        cyber_scores.append(score)
+
     vm = {
         "summary": {
-            "discovery": "Domains/IPs/Subdomains monitored: 71 | Cloud assets: 19",
-            "pqc": "Elite 42% | Standard 33% | Legacy 18% | Critical 7%",
-            "cbom": "Total vulnerable crypto components: 11",
-            "cyber_rating": "Tier 1 and 2 coverage improving across internet-facing assets",
-            "inventory": "SSL certs: 103 | Software components: 35 | IoT devices: 4 | Login forms: 22",
-        }
+            "discovery": f"Domains: {dis['overview']['domains']} | SSL: {dis['overview']['ssl']} | IP/Subnets: {dis['overview']['ip_subnets']} | Software: {dis['overview']['software']}",
+            "pqc": f"Assessed endpoints: {len(pqc_rows)}",
+            "cbom": f"Total vulnerable crypto components: {weak_components}",
+            "cyber_rating": f"Average enterprise score: {round(sum(cyber_scores) / len(cyber_scores)) if cyber_scores else 0}/1000",
+            "inventory": f"Assets: {inv['kpis']['total_assets']} | Expiring certs: {inv['kpis']['expiring_certificates']} | High risk assets: {inv['kpis']['high_risk_assets']}",
+        },
+        "empty": len(scan_store) == 0,
     }
     return render_template("reporting.html", vm=vm)
 
@@ -1300,6 +1922,17 @@ def scan():
     target_input = request.form.get("target", "").strip()
     ports_str = request.form.get("ports", "").strip()
     autodiscovery = request.form.get("autodiscovery") == "on"
+    asset_class_mode = (
+        request.form.get("asset_class_mode")
+        or request.form.get("asset_class_mode_bulk")
+        or "auto"
+    ).strip().lower()
+    asset_class_value = (
+        request.form.get("asset_class_value")
+        or request.form.get("asset_class_value_bulk")
+        or ""
+    ).strip()
+    asset_class_hint = asset_class_value if asset_class_mode == "manual" and asset_class_value else None
 
     # Parse global custom ports
     custom_ports = None
@@ -1368,7 +2001,7 @@ def scan():
             # Single scan: redirect directly to results page
             host, ports = targets[0]
             clean_target, _ = sanitize_target(host)
-            report = run_scan_pipeline(clean_target, ports)
+            report = run_scan_pipeline(clean_target, ports, asset_class_hint=asset_class_hint)
             _audit("scan", "single_scan", "success", target_scan_id=report.get("scan_id"), details={"target": clean_target})
             return redirect(url_for("results", scan_id=report.get("scan_id", "")))
         else:
@@ -1376,7 +2009,7 @@ def scan():
             for host, ports in targets:
                 try:
                     clean_target, _ = sanitize_target(host)
-                    report = run_scan_pipeline(clean_target, ports)
+                    report = run_scan_pipeline(clean_target, ports, asset_class_hint=asset_class_hint)
                     _audit("scan", "bulk_scan_item", "success", target_scan_id=report.get("scan_id"), details={"target": clean_target})
                 except Exception:
                     continue  # skip invalid targets in bulk mode
@@ -1692,49 +2325,79 @@ def _make_pdf_report(report_type: str, username: str, sections: list[str]) -> by
         Spacer(1, 0.3 * cm),
     ]
 
-    # ── Section data keyed by module name ───────────────────────────
+    inv = _build_asset_inventory_view()
+    dis = _build_asset_discovery_view()
+
+    cb_rows = []
+    cb_key_dist: dict[str, int] = {}
+    cb_cipher_usage: dict[str, int] = {}
+    cb_protocols: dict[str, int] = {}
+    for scan in scan_store.values():
+        if scan.get("status") != "complete":
+            continue
+        for tr in (scan.get("tls_results") or []):
+            key = str(tr.get("key_size") or tr.get("key_length") or "0")
+            cb_key_dist[key] = cb_key_dist.get(key, 0) + 1
+            for cs in (tr.get("cipher_suites") or []):
+                cb_cipher_usage[cs] = cb_cipher_usage.get(cs, 0) + 1
+            proto = str(tr.get("tls_version") or "Unknown")
+            cb_protocols[proto] = cb_protocols.get(proto, 0) + 1
+            cb_rows.append((
+                _host_from_target(str(scan.get("target", ""))) or str(scan.get("target", "")),
+                key,
+                (tr.get("cipher_suites") or ["Unknown"])[0],
+                (tr.get("issuer") or {}).get("O", "Unknown") if isinstance(tr.get("issuer"), dict) else "Unknown",
+            ))
+
+    pqc_rows = []
+    for scan in scan_store.values():
+        if scan.get("status") != "complete":
+            continue
+        host = _host_from_target(str(scan.get("target", "")))
+        for pqc in (scan.get("pqc_assessments") or []):
+            score = int(pqc.get("pqc_score") or pqc.get("score") or 0)
+            status = "Elite" if score >= 800 else ("Standard" if score >= 500 else ("Legacy" if score >= 300 else "Critical"))
+            pqc_rows.append((host, str(score), status))
+
+    cyber_rows = []
+    for scan in scan_store.values():
+        if scan.get("status") != "complete":
+            continue
+        overview = scan.get("overview") or {}
+        raw = overview.get("average_compliance_score") or 0
+        norm = min(int(raw * 10) if raw <= 100 else int(raw), 1000)
+        cyber_rows.append((
+            str(scan.get("target", "")),
+            str(norm),
+        ))
+
     section_data: dict[str, list] = {
         "Asset Inventory": [
             ("KPI", "Value"),
-            ("Total Assets", "56"),
-            ("Public Web Apps", "12"),
-            ("APIs", "18"),
-            ("Servers", "14"),
-            ("Expiring Certificates", "5"),
-            ("High Risk Assets", "9"),
+            ("Total Assets", str(inv["kpis"]["total_assets"])),
+            ("Public Web Apps", str(inv["kpis"]["public_web_apps"])),
+            ("APIs", str(inv["kpis"]["apis"])),
+            ("Servers", str(inv["kpis"]["servers"])),
+            ("Expiring Certificates", str(inv["kpis"]["expiring_certificates"])),
+            ("High Risk Assets", str(inv["kpis"]["high_risk_assets"])),
         ],
         "Asset Discovery": [
             ("Category", "Count"),
-            ("Domains discovered", "71"),
-            ("SSL certificates", "103"),
-            ("IP/Subnets", "244"),
-            ("Software components", "35"),
-            ("New (unconfirmed)", "6"),
+            ("Domains discovered", str(dis["overview"]["domains"])),
+            ("SSL certificates", str(dis["overview"]["ssl"])),
+            ("IP/Subnets", str(dis["overview"]["ip_subnets"])),
+            ("Software components", str(dis["overview"]["software"])),
+            ("New (unconfirmed)", str(dis["status_counts"].get("New", 0))),
         ],
-        "CBOM": [
-            ("Metric", "Value"),
-            ("Total Applications", "56"),
-            ("Sites Surveyed", "41"),
-            ("Active Certificates", "103"),
-            ("Weak Cryptography", "11"),
-            ("Certificate Issues", "8"),
-            ("Dominant TLS version", "TLS 1.2 (62%)"),
-            ("Top Cipher Suite", "ECDHE-RSA-AES256-GCM-SHA384"),
+        "CBOM": [("Metric", "Value")] + [
+            ("Unique Applications", str(len({r[0] for r in cb_rows}))),
+            ("Active Certificates", str(len(cb_rows))),
+            ("Key Length Buckets", str(len(cb_key_dist))),
+            ("Cipher Suites", str(len(cb_cipher_usage))),
+            ("TLS Protocol Families", str(len(cb_protocols))),
         ],
-        "PQC Posture": [
-            ("Classification", "% / Count"),
-            ("Elite-PQC Ready", "42%"),
-            ("Standard", "33%"),
-            ("Legacy", "18%"),
-            ("Critical Apps", "7"),
-        ],
-        "Cyber Rating": [
-            ("Tier", "Score Range", "Assets"),
-            ("Elite-PQC (Tier 1)", ">700", "29"),
-            ("Standard (Tier 2)", "400–700", "18"),
-            ("Legacy (Tier 3)", "<400", "5"),
-            ("Critical", "<200", "4"),
-        ],
+        "PQC Posture": [("Asset", "Score", "Status")] + (pqc_rows[:20] if pqc_rows else [("No data", "0", "N/A")]),
+        "Cyber Rating": [("URL", "PQC Score")] + (cyber_rows[:20] if cyber_rows else [("No data", "0")]),
     }
 
     # ── Aggregate metrics from live scan store ───────────────────────
@@ -1804,6 +2467,9 @@ _SCHEDULES_PATH = os.path.join(RESULTS_DIR, "report_schedules.json")
 
 
 def _load_schedules() -> list[dict]:
+    db_rows = db.list_report_schedules(limit=1000)
+    if db_rows:
+        return db_rows
     try:
         with open(_SCHEDULES_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -1812,6 +2478,12 @@ def _load_schedules() -> list[dict]:
 
 
 def _save_schedules(schedules: list[dict]) -> None:
+    ok_count = 0
+    for row in schedules:
+        if db.save_report_schedule(row):
+            ok_count += 1
+    if ok_count == len(schedules):
+        return
     with open(_SCHEDULES_PATH, "w", encoding="utf-8") as f:
         json.dump(schedules, f, indent=2, default=str)
 
@@ -1884,6 +2556,7 @@ def schedule_report():
 
     schedule = {
         "id": uuid.uuid4().hex[:12],
+        "created_by_id": str(getattr(current_user, "id", "")) or None,
         "created_by": getattr(current_user, "username", "unknown"),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "enabled": _single(data.get("enabled", "true")).lower() not in ("false", "0", "off", ""),
@@ -1900,9 +2573,10 @@ def schedule_report():
         "status": "scheduled",
     }
 
-    schedules = _load_schedules()
-    schedules.append(schedule)
-    _save_schedules(schedules)
+    if not db.save_report_schedule(schedule):
+        schedules = _load_schedules()
+        schedules.append(schedule)
+        _save_schedules(schedules)
 
     _audit("report", "schedule_created", "success", details={
         "schedule_id": schedule["id"],
@@ -1917,6 +2591,9 @@ def schedule_report():
 @login_required
 def list_report_schedules():
     """Return all saved report schedules as JSON."""
+    schedules = db.list_report_schedules(limit=1000)
+    if schedules:
+        return jsonify(schedules)
     return jsonify(_load_schedules())
 
 

@@ -21,5 +21,6 @@
         "reportIncompatibleMethodOverride": "none",
         "reportAttributeAccessIssue": "none",
         "reportOptionalMemberAccess": "none"
-    }
+    },
+    "window.autoDetectColorScheme": true
 }

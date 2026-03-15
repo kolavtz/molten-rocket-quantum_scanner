@@ -272,6 +272,7 @@ def init_db() -> bool:
             CREATE TABLE IF NOT EXISTS scans (
                 scan_id          VARCHAR(36)  PRIMARY KEY,
                 target           VARCHAR(512) NOT NULL,
+                asset_class      VARCHAR(64),
                 status           VARCHAR(32),
                 compliance_score INT          DEFAULT 0,
                 total_assets     INT          DEFAULT 0,
@@ -280,6 +281,22 @@ def init_db() -> bool:
                 scanned_at       DATETIME,
                 report_json      LONGTEXT     NOT NULL,
                 is_encrypted     BOOLEAN      DEFAULT FALSE
+            ) ENGINE=InnoDB
+        """)
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS asset_dns_records (
+                id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+                scan_id       VARCHAR(36) NOT NULL,
+                hostname      VARCHAR(255) NOT NULL,
+                record_type   VARCHAR(16) NOT NULL,
+                record_value  VARCHAR(1024) NOT NULL,
+                ttl           INT DEFAULT 300,
+                resolved_at   DATETIME,
+                FOREIGN KEY (scan_id) REFERENCES scans(scan_id)
+                    ON DELETE CASCADE,
+                INDEX idx_dns_scan_id (scan_id),
+                INDEX idx_dns_hostname (hostname)
             ) ENGINE=InnoDB
         """)
 
@@ -337,6 +354,31 @@ def init_db() -> bool:
             ) ENGINE=InnoDB
         """)
 
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS report_schedules (
+                schedule_id     VARCHAR(36) PRIMARY KEY,
+                created_by_id   VARCHAR(36),
+                created_by_name VARCHAR(150),
+                created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                enabled         BOOLEAN DEFAULT TRUE,
+                report_type     VARCHAR(120) NOT NULL,
+                frequency       VARCHAR(32) NOT NULL,
+                assets          VARCHAR(256),
+                sections_json   LONGTEXT,
+                schedule_date   VARCHAR(20),
+                schedule_time   VARCHAR(10),
+                timezone_name   VARCHAR(64),
+                email_list      VARCHAR(512),
+                save_path       VARCHAR(512),
+                download_link   BOOLEAN DEFAULT FALSE,
+                status          VARCHAR(32) DEFAULT 'scheduled',
+                FOREIGN KEY (created_by_id) REFERENCES users(id)
+                    ON DELETE SET NULL,
+                INDEX idx_report_schedules_created_at (created_at),
+                INDEX idx_report_schedules_status (status)
+            ) ENGINE=InnoDB
+        """)
+
         # Attempt to migrate existing tables gracefully
         for alter_cmd in [
             "ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE",
@@ -355,12 +397,31 @@ def init_db() -> bool:
             "ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
             "ALTER TABLE users ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
             "ALTER TABLE users ADD CONSTRAINT fk_users_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL",
+            "ALTER TABLE scans ADD COLUMN asset_class VARCHAR(64)",
             "ALTER TABLE scans ADD COLUMN is_encrypted BOOLEAN DEFAULT FALSE",
             "ALTER TABLE cbom_reports ADD COLUMN is_encrypted BOOLEAN DEFAULT FALSE",
             "ALTER TABLE scans MODIFY COLUMN report_json LONGTEXT NOT NULL",
             "ALTER TABLE cbom_reports MODIFY COLUMN cbom_json LONGTEXT NOT NULL",
             # API key column — graceful; ignored if already present
             "ALTER TABLE users ADD COLUMN api_key_hash CHAR(64) UNIQUE",
+            "ALTER TABLE report_schedules ADD COLUMN created_by_id VARCHAR(36)",
+            "ALTER TABLE report_schedules ADD COLUMN created_by_name VARCHAR(150)",
+            "ALTER TABLE report_schedules ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "ALTER TABLE report_schedules ADD COLUMN enabled BOOLEAN DEFAULT TRUE",
+            "ALTER TABLE report_schedules ADD COLUMN report_type VARCHAR(120) NOT NULL",
+            "ALTER TABLE report_schedules ADD COLUMN frequency VARCHAR(32) NOT NULL",
+            "ALTER TABLE report_schedules ADD COLUMN assets VARCHAR(256)",
+            "ALTER TABLE report_schedules ADD COLUMN sections_json LONGTEXT",
+            "ALTER TABLE report_schedules ADD COLUMN schedule_date VARCHAR(20)",
+            "ALTER TABLE report_schedules ADD COLUMN schedule_time VARCHAR(10)",
+            "ALTER TABLE report_schedules ADD COLUMN timezone_name VARCHAR(64)",
+            "ALTER TABLE report_schedules ADD COLUMN email_list VARCHAR(512)",
+            "ALTER TABLE report_schedules ADD COLUMN save_path VARCHAR(512)",
+            "ALTER TABLE report_schedules ADD COLUMN download_link BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE report_schedules ADD COLUMN status VARCHAR(32) DEFAULT 'scheduled'",
+            "ALTER TABLE report_schedules ADD CONSTRAINT fk_report_schedules_created_by FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE SET NULL",
+            "ALTER TABLE asset_dns_records ADD COLUMN ttl INT DEFAULT 300",
+            "ALTER TABLE asset_dns_records ADD COLUMN resolved_at DATETIME",
         ]:
             try:
                 cur.execute(alter_cmd)
@@ -475,11 +536,12 @@ def save_scan(report: Dict[str, Any]) -> bool:
         cur.execute(
             """
             INSERT INTO scans
-                (scan_id, target, status, compliance_score,
+                (scan_id, target, asset_class, status, compliance_score,
                  total_assets, quantum_safe, quantum_vuln,
                  scanned_at, report_json, is_encrypted)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE
+                asset_class      = VALUES(asset_class),
                 status           = VALUES(status),
                 compliance_score = VALUES(compliance_score),
                 total_assets     = VALUES(total_assets),
@@ -492,6 +554,7 @@ def save_scan(report: Dict[str, Any]) -> bool:
             (
                 report.get("scan_id", ""),
                 report.get("target", ""),
+                report.get("asset_class", "Other"),
                 report.get("status", ""),
                 overview.get("average_compliance_score", 0),
                 overview.get("total_assets", 0),
@@ -595,6 +658,215 @@ def list_scans(limit: int = 50) -> List[Dict[str, Any]]:
         return results
     except Exception as exc:
         logger.error("MySQL list_scans error: %s", exc)
+        return []
+    finally:
+        conn.close()
+
+
+def save_dns_records(scan_id: str, records: List[Dict[str, Any]]) -> bool:
+    """Persist DNS records discovered during a scan."""
+    conn = _get_connection()
+    if conn is None:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM asset_dns_records WHERE scan_id = %s", (scan_id,))
+        for record in records:
+            resolved = record.get("resolved_at")
+            resolved_at = None
+            if isinstance(resolved, str) and resolved:
+                try:
+                    resolved_at = datetime.fromisoformat(resolved.replace("Z", "+00:00")).replace(tzinfo=None)
+                except ValueError:
+                    resolved_at = _utcnow()
+            cur.execute(
+                """
+                INSERT INTO asset_dns_records
+                    (scan_id, hostname, record_type, record_value, ttl, resolved_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    scan_id,
+                    str(record.get("hostname") or ""),
+                    str(record.get("record_type") or "A"),
+                    str(record.get("record_value") or ""),
+                    int(record.get("ttl") or 300),
+                    resolved_at,
+                ),
+            )
+        conn.commit()
+        return True
+    except Exception as exc:
+        logger.error("save_dns_records failed: %s", exc)
+        return False
+    finally:
+        conn.close()
+
+
+def list_dns_records(scan_id: Optional[str] = None, limit: int = 500) -> List[Dict[str, Any]]:
+    """Return DNS records, optionally filtered by scan_id."""
+    conn = _get_connection()
+    if conn is None:
+        return []
+    try:
+        cur = conn.cursor(dictionary=True)
+        if scan_id:
+            cur.execute(
+                """
+                SELECT scan_id, hostname, record_type, record_value, ttl, resolved_at
+                FROM asset_dns_records
+                WHERE scan_id = %s
+                ORDER BY id DESC
+                LIMIT %s
+                """,
+                (scan_id, limit),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT scan_id, hostname, record_type, record_value, ttl, resolved_at
+                FROM asset_dns_records
+                ORDER BY id DESC
+                LIMIT %s
+                """,
+                (limit,),
+            )
+        rows = cur.fetchall() or []
+        out = []
+        for row in rows:
+            ttl_raw = row.get("ttl")
+            try:
+                ttl_value = int(ttl_raw) if ttl_raw is not None else 300
+            except (TypeError, ValueError):
+                ttl_value = 300
+            out.append(
+                {
+                    "scan_id": row.get("scan_id"),
+                    "hostname": row.get("hostname"),
+                    "record_type": row.get("record_type"),
+                    "record_value": row.get("record_value"),
+                    "ttl": ttl_value,
+                    "resolved_at": row.get("resolved_at").isoformat() if row.get("resolved_at") else "",
+                }
+            )
+        return out
+    except Exception as exc:
+        logger.error("list_dns_records failed: %s", exc)
+        return []
+    finally:
+        conn.close()
+
+
+def save_report_schedule(schedule: Dict[str, Any]) -> bool:
+    """Persist one report schedule in MySQL."""
+    conn = _get_connection()
+    if conn is None:
+        return False
+    try:
+        cur = conn.cursor()
+        sections = schedule.get("sections")
+        sections_json = json.dumps(sections if isinstance(sections, list) else [], ensure_ascii=False)
+        cur.execute(
+            """
+            INSERT INTO report_schedules
+                (schedule_id, created_by_id, created_by_name, created_at, enabled,
+                 report_type, frequency, assets, sections_json, schedule_date,
+                 schedule_time, timezone_name, email_list, save_path, download_link, status)
+            VALUES
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                enabled = VALUES(enabled),
+                report_type = VALUES(report_type),
+                frequency = VALUES(frequency),
+                assets = VALUES(assets),
+                sections_json = VALUES(sections_json),
+                schedule_date = VALUES(schedule_date),
+                schedule_time = VALUES(schedule_time),
+                timezone_name = VALUES(timezone_name),
+                email_list = VALUES(email_list),
+                save_path = VALUES(save_path),
+                download_link = VALUES(download_link),
+                status = VALUES(status)
+            """,
+            (
+                schedule.get("id"),
+                schedule.get("created_by_id"),
+                schedule.get("created_by"),
+                _utcnow(),
+                bool(schedule.get("enabled", True)),
+                schedule.get("report_type", "Executive Summary Report"),
+                schedule.get("frequency", "Weekly"),
+                schedule.get("assets", "All Assets"),
+                sections_json,
+                schedule.get("schedule_date", ""),
+                schedule.get("schedule_time", ""),
+                schedule.get("timezone", "UTC"),
+                schedule.get("email_list", ""),
+                schedule.get("save_path", ""),
+                bool(schedule.get("download_link", False)),
+                schedule.get("status", "scheduled"),
+            ),
+        )
+        conn.commit()
+        return True
+    except Exception as exc:
+        logger.error("save_report_schedule failed: %s", exc)
+        return False
+    finally:
+        conn.close()
+
+
+def list_report_schedules(limit: int = 500) -> List[Dict[str, Any]]:
+    """Return report schedules ordered by created_at descending."""
+    conn = _get_connection()
+    if conn is None:
+        return []
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT schedule_id, created_by_id, created_by_name, created_at, enabled,
+                   report_type, frequency, assets, sections_json, schedule_date,
+                   schedule_time, timezone_name, email_list, save_path, download_link, status
+            FROM report_schedules
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            (limit,),
+        )
+        rows = cur.fetchall() or []
+        out = []
+        for row in rows:
+            sections = []
+            raw_sections = row.get("sections_json")
+            if isinstance(raw_sections, str) and raw_sections:
+                try:
+                    sections = json.loads(raw_sections)
+                except json.JSONDecodeError:
+                    sections = []
+            out.append(
+                {
+                    "id": row.get("schedule_id"),
+                    "created_by_id": row.get("created_by_id"),
+                    "created_by": row.get("created_by_name"),
+                    "created_at": row.get("created_at").isoformat() if row.get("created_at") else "",
+                    "enabled": bool(row.get("enabled")),
+                    "report_type": row.get("report_type"),
+                    "frequency": row.get("frequency"),
+                    "assets": row.get("assets"),
+                    "sections": sections,
+                    "schedule_date": row.get("schedule_date"),
+                    "schedule_time": row.get("schedule_time"),
+                    "timezone": row.get("timezone_name"),
+                    "email_list": row.get("email_list"),
+                    "save_path": row.get("save_path"),
+                    "download_link": bool(row.get("download_link")),
+                    "status": row.get("status"),
+                }
+            )
+        return out
+    except Exception as exc:
+        logger.error("list_report_schedules failed: %s", exc)
         return []
     finally:
         conn.close()

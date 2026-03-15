@@ -6,6 +6,13 @@
   <p class="hero-subtitle">Enterprise cyber score and tier mapping</p>
 </section>
 
+{% if vm.empty %}
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+  <strong>No cyber score data yet.</strong>
+  <p style="margin-top:0.4rem;color:var(--text-secondary);">Run complete scans to generate normalized enterprise scores and tier mapping.</p>
+</section>
+{% endif %}
+
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;text-align:center;">
   <div style="font-size:3rem;font-weight:800;color:var(--accent);">{{ vm.overall_score }}/1000</div>
   <div style="font-size:1rem;letter-spacing:0.08em;">{{ vm.label }}</div>
@@ -31,9 +38,31 @@
     <tbody>
       {% for row in vm.url_scores %}
       <tr><td>{{ row.url }}</td><td>{{ row.pqc_score }}</td></tr>
+      {% else %}
+      <tr><td colspan="2" style="text-align:center;color:var(--text-secondary);">No URL-level scores from live scans.</td></tr>
       {% endfor %}
     </tbody>
   </table>
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+  <h3 style="margin-bottom:0.6rem;">Cyber Tier Heatmap</h3>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;">
+    {% for cell in vm.tier_heatmap %}
+    <div style="background:var(--bg-secondary);border:1px solid var(--border-subtle);border-radius:6px;padding:0.55rem;">
+      <div style="font-size:0.68rem;color:var(--text-secondary);">{{ cell.x }} · {{ cell.y }}</div>
+      <div style="font-size:1rem;font-weight:700;">{{ cell.value }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;margin-top:0.7rem;">
+    {% for tier,count in vm.tier_counts.items() %}
+    <div style="background:var(--bg-secondary);border:1px solid var(--border-subtle);border-radius:6px;padding:0.5rem;">
+      <div style="font-size:0.68rem;color:var(--text-secondary);">{{ tier }}</div>
+      <div style="font-size:1rem;font-weight:700;">{{ count }}</div>
+    </div>
+    {% endfor %}
+  </div>
 </section>
 
 <section class="glass-card" style="padding:1rem;">
