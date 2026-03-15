@@ -6,6 +6,13 @@
   <p class="hero-subtitle">Executive, scheduled, and on-demand reporting workflows</p>
 </section>
 
+{% if vm.empty %}
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+  <strong>No live reporting data yet.</strong>
+  <p style="margin-top:0.4rem;color:var(--text-secondary);">You can still schedule report jobs, but summary metrics will remain zero until scans are completed.</p>
+</section>
+{% endif %}
+
 <!-- ── Reporting Landing Cards ─── -->
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
   <h3 style="margin-bottom:0.6rem;">Reporting Options</h3>

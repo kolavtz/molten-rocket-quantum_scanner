@@ -8,6 +8,7 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from web.app import app
+import web.app as web_app_module
 
 
 from unittest.mock import patch
@@ -36,11 +37,42 @@ class TestRoutes:
         resp = client.get('/')
         assert resp.status_code == 200
         assert b'QuantumShield' in resp.data
+        assert b'OPERATIONS_CONSOLE' in resp.data
+
+    def test_scan_center_get(self, client, mock_admin):
+        resp = client.get('/scan-center')
+        assert resp.status_code == 200
+        assert b'SCAN CENTER' in resp.data
 
     def test_scan_post_empty_target(self, client, mock_admin):
         resp = client.post('/scan', data={'target': ''})
         # Should redirect to index
         assert resp.status_code == 302
+
+    def test_scan_manual_asset_class_forwarded(self, client, mock_admin):
+        fake_report = {
+            'scan_id': 'manual001',
+            'status': 'complete',
+            'overview': {
+                'average_compliance_score': 80,
+                'total_assets': 1,
+                'quantum_safe': 1,
+                'quantum_vulnerable': 0,
+            }
+        }
+        with patch('web.app.run_scan_pipeline', return_value=fake_report) as mocked_pipeline:
+            resp = client.post(
+                '/scan',
+                data={
+                    'target': 'example.com',
+                    'asset_class_mode': 'manual',
+                    'asset_class_value': 'Payment Gateway',
+                },
+            )
+            assert resp.status_code == 302
+            mocked_pipeline.assert_called_once()
+            _, kwargs = mocked_pipeline.call_args
+            assert kwargs.get('asset_class_hint') == 'Payment Gateway'
 
     def test_results_not_found(self, client, mock_admin):
         resp = client.get('/results/nonexistent')
@@ -150,4 +182,44 @@ class TestReportEndpoints:
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert isinstance(data, list)
+
+
+class TestDiscoveryGraph:
+    """Tests for the realtime discovery graph payload endpoint."""
+
+    def test_discovery_graph_empty_payload(self, client, mock_admin):
+        with patch.dict(web_app_module.scan_store, {}, clear=True):
+            resp = client.get('/api/discovery-graph')
+            assert resp.status_code == 200
+            data = json.loads(resp.data)
+            assert isinstance(data.get('nodes'), list)
+            assert isinstance(data.get('edges'), list)
+            assert data['nodes'] == []
+            assert data['edges'] == []
+
+    def test_discovery_graph_live_payload(self, client, mock_admin):
+        sample_scan = {
+            'scan_id': 'abc12345',
+            'target': 'example.org',
+            'status': 'complete',
+            'generated_at': '2026-03-15T10:00:00Z',
+            'discovered_services': [
+                {'host': '203.0.113.10', 'port': 443, 'service': 'https', 'banner': 'nginx/1.25.5', 'is_tls': True}
+            ],
+            'tls_results': [
+                {
+                    'tls_version': 'TLS 1.3',
+                    'cipher_suites': ['TLS_AES_256_GCM_SHA384'],
+                    'issuer': {'O': 'Test CA', 'CN': 'Test CA Root'}
+                }
+            ],
+        }
+        with patch.dict(web_app_module.scan_store, {'abc12345': sample_scan}, clear=True):
+            resp = client.get('/api/discovery-graph')
+            assert resp.status_code == 200
+            data = json.loads(resp.data)
+            node_ids = {n['id'] for n in data.get('nodes', [])}
+            assert 'domain:example.org' in node_ids
+            assert 'ip:203.0.113.10' in node_ids
+            assert any(e.get('from') == 'domain:example.org' and e.get('to') == 'ip:203.0.113.10' for e in data.get('edges', []))
 

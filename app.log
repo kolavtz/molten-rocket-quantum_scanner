@@ -1145,3 +1145,519 @@
 [2026-03-15 22:08:28,597] INFO in database: MySQL database 'quantumshield' initialised.
 [2026-03-15 22:08:28,653] WARNING in _internal:  * Debugger is active!
 [2026-03-15 22:08:28,660] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:25:19,317] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:25:19,450] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:25:19,489] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:25:19,658] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:25:20,078] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:25:20,584] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:25:22,642] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:25:22,679] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:25:22,690] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:25:23,269] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:25:23,497] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:25:23,546] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:25:23,576] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:25:23,701] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:25:23,702] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:25:23,702] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:25:23,730] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:25:23,730] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:25:23,730] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:25:23,781] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:25:58,672] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 22:25:58,708] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 22:25:58,918] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:25:58,966] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:25:59,034] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 22:25:59,236] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:25:59,929] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:25:59,933] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:25:59,958] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:26:00,236] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:26:00,428] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:26:00,456] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:26:00,457] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:26:00,558] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:26:00,570] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:26:00,572] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:26:00,581] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:26:00,636] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:26:00,649] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:26:41,854] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:26:42,100] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:26:42,114] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:26:42,330] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:26:42,808] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:26:43,016] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:26:43,330] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:26:43,435] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:26:43,616] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:26:43,696] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:26:43,703] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:26:43,710] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:26:43,771] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:26:43,782] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:26:43,792] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:26:44,054] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:26:44,092] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:26:44,282] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:26:44,348] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:26:44,354] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:29:56,590] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_web_app.py', reloading
+[2026-03-15 22:29:56,758] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:29:56,846] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_web_app.py', reloading
+[2026-03-15 22:29:56,926] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_web_app.py', reloading
+[2026-03-15 22:29:57,019] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:29:57,141] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:29:57,630] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:29:57,805] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:29:57,812] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:29:57,860] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:29:57,876] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:29:57,877] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:29:57,883] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:29:58,027] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:29:58,068] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:29:58,082] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:29:58,084] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:29:58,090] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:29:58,133] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:29:58,140] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:33:28,262] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 22:33:28,341] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_web_app.py', reloading
+[2026-03-15 22:33:28,374] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:33:28,458] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:33:28,470] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:33:28,596] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:33:29,296] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:33:29,322] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:33:29,425] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:33:29,500] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:33:29,523] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:33:29,555] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:33:29,565] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:33:29,576] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:33:29,587] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:33:29,621] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:33:29,690] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:33:29,697] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:33:29,741] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:33:29,922] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:35:12,256] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:35:12,434] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:35:12,478] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:35:12,674] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:35:13,276] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:35:13,453] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:35:13,610] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:35:13,788] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:35:13,844] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:35:13,897] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:35:13,908] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:35:14,018] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:35:14,068] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:35:14,086] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:35:14,093] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:35:14,263] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:35:14,336] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:35:14,523] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:35:14,591] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:35:14,596] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:35:44,630] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:35:44,816] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:35:45,102] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:35:45,285] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:35:45,662] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:35:45,911] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:35:46,045] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:35:46,280] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:35:46,341] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:35:46,351] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:35:46,435] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:35:46,537] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:35:46,668] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:35:46,738] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:35:46,745] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:35:46,774] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:35:46,898] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:35:47,141] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:35:47,208] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:35:47,216] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:35:51,808] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:35:51,950] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:35:52,245] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:35:52,394] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:35:52,660] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:35:52,816] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:35:52,856] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:35:53,071] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:35:53,129] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:35:53,137] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:35:53,171] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:35:53,269] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:35:53,369] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:35:53,444] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:35:53,496] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:35:53,505] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:35:53,641] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:35:53,798] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:35:53,854] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:35:53,859] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:36:18,536] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 22:36:18,658] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:36:18,698] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 22:36:18,907] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:36:19,451] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 22:36:19,639] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:36:19,762] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:36:19,938] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:36:20,047] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:36:20,090] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:36:20,098] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:36:20,136] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:36:20,180] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:36:20,187] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:36:20,201] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:36:20,375] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:36:20,426] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:36:20,627] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:36:20,663] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:36:20,669] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:41:11,234] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_database.py', reloading
+[2026-03-15 22:41:11,358] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:41:11,815] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_database.py', reloading
+[2026-03-15 22:41:11,816] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_database.py', reloading
+[2026-03-15 22:41:12,044] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:41:12,044] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:41:12,331] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:41:12,519] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:41:12,575] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:41:12,583] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:41:12,585] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:41:12,786] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:41:12,792] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:41:12,793] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:41:13,006] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:41:13,008] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:41:13,054] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:41:13,060] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:41:13,073] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:41:13,081] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:41:25,942] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_web_app.py', reloading
+[2026-03-15 22:41:26,053] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:41:26,568] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_web_app.py', reloading
+[2026-03-15 22:41:26,687] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:41:26,762] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:41:26,851] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_web_app.py', reloading
+[2026-03-15 22:41:26,956] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:41:26,979] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:41:27,030] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:41:27,037] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:41:27,201] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:41:27,380] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:41:27,407] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:41:27,591] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:41:27,630] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:41:27,636] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:41:27,683] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:41:27,879] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:41:27,918] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:41:27,924] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:41:45,212] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:41:45,368] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:41:45,878] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:41:45,887] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:41:46,098] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:41:46,104] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:41:46,401] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:41:46,600] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:41:46,609] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:41:46,659] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:41:46,671] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:41:46,845] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:41:46,978] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:41:46,992] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:41:47,182] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:41:47,190] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:41:47,247] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:41:47,251] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:41:47,255] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:41:47,258] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:42:48,167] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 22:42:48,281] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 22:42:48,316] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:42:48,441] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:42:48,634] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 22:42:48,770] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:42:49,078] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:42:49,106] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:42:49,187] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:42:49,281] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:42:49,293] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:42:49,342] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:42:49,350] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:42:49,377] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:42:49,424] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:42:49,433] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:42:49,506] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:42:49,665] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:42:49,700] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:42:49,705] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:44:51,739] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_database.py', reloading
+[2026-03-15 22:44:51,857] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:44:51,961] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-15 22:44:52,102] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:44:52,292] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_database.py', reloading
+[2026-03-15 22:44:52,398] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:44:52,653] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:44:52,798] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:44:52,861] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:44:52,905] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:44:52,915] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:44:52,987] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:44:53,005] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:44:53,062] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:44:53,069] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:44:53,165] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:44:53,199] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:44:53,346] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:44:53,403] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:44:53,409] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:45:27,016] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:45:27,175] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:45:27,216] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-15 22:45:27,217] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-15 22:45:27,218] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:45:27,807] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:45:27,982] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:45:28,038] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:45:28,044] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:45:33,834] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:45:33] "GET / HTTP/1.1" 200 -
+[2026-03-15 22:45:34,148] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:45:34] "GET /static/js/app.js HTTP/1.1" 200 -
+[2026-03-15 22:45:34,149] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:45:34] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-15 22:45:40,428] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:45:40] "GET / HTTP/1.1" 200 -
+[2026-03-15 22:45:40,480] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:45:40] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 22:45:40,483] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:45:40] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 22:45:41,917] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:45:41] "GET / HTTP/1.1" 200 -
+[2026-03-15 22:45:41,973] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:45:41] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 22:45:42,004] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:45:42] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 22:47:49,216] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:47:49] "[32mPOST /scan HTTP/1.1[0m" 302 -
+[2026-03-15 22:47:49,291] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:47:49] "GET /results/e2c89bc7 HTTP/1.1" 200 -
+[2026-03-15 22:47:49,396] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:47:49] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 22:47:49,425] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:47:49] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 22:50:10,748] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:50:10,872] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:50:10,980] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:50:11,053] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:50:11,153] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:50:11,348] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:50:12,267] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:50:12,346] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:50:12,452] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:50:12,466] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:50:12,510] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:50:12,580] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:50:12,589] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:50:12,626] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:50:12,702] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:50:12,715] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:50:12,738] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:50:12,758] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:50:12,810] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:50:12,819] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:51:27,776] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:51:27] "GET /results/e2c89bc7 HTTP/1.1" 200 -
+[2026-03-15 22:51:27,945] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:51:27] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 22:51:27,974] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:51:27] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 22:54:50,471] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:54:50,624] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:54:50,626] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:54:50,650] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:54:50,864] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:54:50,870] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:54:51,632] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:54:51,677] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:54:51,789] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:54:51,794] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:54:51,905] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:54:51,955] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:54:51,993] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:54:52,008] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:54:52,058] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:54:52,077] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:54:52,132] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:54:52,146] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:54:52,162] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:54:52,171] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:57:30,349] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_web_app.py', reloading
+[2026-03-15 22:57:30,481] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:57:30,562] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_web_app.py', reloading
+[2026-03-15 22:57:30,682] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:57:30,723] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_web_app.py', reloading
+[2026-03-15 22:57:30,838] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:57:31,225] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:57:31,241] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:57:31,422] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:57:31,426] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:57:31,461] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:57:31,479] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:57:31,488] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:57:31,609] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:57:31,636] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:57:31,704] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:57:31,710] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:57:31,798] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:57:31,851] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:57:31,856] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:58:00,990] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_web_app.py', reloading
+[2026-03-15 22:58:01,087] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:58:01,596] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_web_app.py', reloading
+[2026-03-15 22:58:01,726] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:58:01,761] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_web_app.py', reloading
+[2026-03-15 22:58:01,780] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:58:01,911] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:58:01,998] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:58:02,074] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:58:02,082] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:58:02,264] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:58:02,448] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:58:02,529] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:58:02,663] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:58:02,698] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:58:02,762] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:58:02,772] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:58:02,844] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:58:02,892] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:58:02,898] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:59:48,760] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_web_app.py', reloading
+[2026-03-15 22:59:48,882] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 22:59:48,891] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:59:49,017] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:59:49,182] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\tests\\test_web_app.py', reloading
+[2026-03-15 22:59:49,276] INFO in _internal:  * Restarting with stat
+[2026-03-15 22:59:49,657] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:59:49,707] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:59:49,856] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:59:49,906] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:59:49,922] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:59:49,928] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:59:49,978] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:59:49,989] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:59:50,032] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:59:50,054] INFO in app: QuantumShield application starting up...
+[2026-03-15 22:59:50,210] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:59:50,245] WARNING in _internal:  * Debugger is active!
+[2026-03-15 22:59:50,250] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 22:59:50,253] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 22:59:53,992] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:59:53] "GET / HTTP/1.1" 200 -
+[2026-03-15 22:59:54,287] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:59:54] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-15 22:59:54,291] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 22:59:54] "GET /static/js/app.js HTTP/1.1" 200 -
+[2026-03-15 23:00:45,646] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 23:00:45] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-15 23:00:45,658] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 23:00:45] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-15 23:00:45,741] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 23:00:45] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-15 23:00:45,746] INFO in _internal: 127.0.0.1 - - [15/Mar/2026 23:00:45] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-15 23:06:05,714] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 23:06:05,919] INFO in _internal:  * Restarting with stat
+[2026-03-15 23:06:06,311] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 23:06:06,322] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 23:06:06,574] INFO in _internal:  * Restarting with stat
+[2026-03-15 23:06:06,575] INFO in _internal:  * Restarting with stat
+[2026-03-15 23:06:07,150] INFO in app: QuantumShield application starting up...
+[2026-03-15 23:06:07,457] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 23:06:07,551] WARNING in _internal:  * Debugger is active!
+[2026-03-15 23:06:07,559] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 23:06:07,634] INFO in app: QuantumShield application starting up...
+[2026-03-15 23:06:07,684] INFO in app: QuantumShield application starting up...
+[2026-03-15 23:06:07,688] INFO in app: QuantumShield application starting up...
+[2026-03-15 23:06:07,937] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 23:06:07,945] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 23:06:07,951] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 23:06:08,009] WARNING in _internal:  * Debugger is active!
+[2026-03-15 23:06:08,014] WARNING in _internal:  * Debugger is active!
+[2026-03-15 23:06:08,021] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 23:06:08,027] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 23:06:24,055] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 23:06:24,172] INFO in _internal:  * Restarting with stat
+[2026-03-15 23:06:24,401] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 23:06:24,597] INFO in _internal:  * Restarting with stat
+[2026-03-15 23:06:24,957] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-15 23:06:25,182] INFO in _internal:  * Restarting with stat
+[2026-03-15 23:06:25,329] INFO in app: QuantumShield application starting up...
+[2026-03-15 23:06:25,572] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 23:06:25,644] WARNING in _internal:  * Debugger is active!
+[2026-03-15 23:06:25,653] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 23:06:25,677] INFO in app: QuantumShield application starting up...
+[2026-03-15 23:06:25,837] INFO in app: QuantumShield application starting up...
+[2026-03-15 23:06:25,909] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 23:06:25,978] WARNING in _internal:  * Debugger is active!
+[2026-03-15 23:06:25,988] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-15 23:06:26,058] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 23:06:26,094] INFO in app: QuantumShield application starting up...
+[2026-03-15 23:06:26,313] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-15 23:06:26,380] WARNING in _internal:  * Debugger is active!
+[2026-03-15 23:06:26,391] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-16 00:24:16,670] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-16 00:24:16,783] INFO in _internal:  * Restarting with stat
+[2026-03-16 00:24:17,293] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-16 00:24:17,319] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-16 00:24:17,431] INFO in _internal:  * Restarting with stat
+[2026-03-16 00:24:17,463] INFO in _internal:  * Restarting with stat
+[2026-03-16 00:24:17,536] INFO in app: QuantumShield application starting up...
+[2026-03-16 00:24:17,688] INFO in app: QuantumShield application starting up...
+[2026-03-16 00:24:17,745] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 00:24:17,821] WARNING in _internal:  * Debugger is active!
+[2026-03-16 00:24:17,828] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-16 00:24:17,900] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 00:24:18,182] INFO in app: QuantumShield application starting up...
+[2026-03-16 00:24:18,192] INFO in app: QuantumShield application starting up...
+[2026-03-16 00:24:18,363] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 00:24:18,374] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 00:24:18,418] WARNING in _internal:  * Debugger is active!
+[2026-03-16 00:24:18,425] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-16 00:24:18,434] WARNING in _internal:  * Debugger is active!
+[2026-03-16 00:24:18,442] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-16 00:24:22,207] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:24:22] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-16 00:24:22,249] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:24:22] "GET /login?next=/ HTTP/1.1" 200 -
+[2026-03-16 00:24:22,592] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:24:22] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 00:24:22,620] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:24:22] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 00:24:56,775] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:24:56] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-16 00:24:56,886] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:24:56] "GET / HTTP/1.1" 200 -
+[2026-03-16 00:24:56,978] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:24:56] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 00:24:57,010] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:24:57] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 00:27:04,304] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:27:04] "GET /cbom-dashboard HTTP/1.1" 200 -
+[2026-03-16 00:27:04,378] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:27:04] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 00:27:04,381] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:27:04] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 00:27:10,145] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:27:10] "GET /pqc-posture HTTP/1.1" 200 -
+[2026-03-16 00:27:10,227] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:27:10] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 00:27:10,231] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:27:10] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 00:27:47,987] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:27:47] "GET /cyber-rating HTTP/1.1" 200 -
+[2026-03-16 00:27:48,072] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:27:48] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 00:27:48,098] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:27:48] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 00:27:49,721] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:27:49] "GET /reporting HTTP/1.1" 200 -
+[2026-03-16 00:27:49,800] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:27:49] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 00:27:49,805] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:27:49] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 00:28:18,137] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:28:18] "[33mGET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1[0m" 404 -
+[2026-03-16 00:28:18,142] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:28:18] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 00:30:28,997] INFO in app: QuantumShield application starting up...
+[2026-03-16 00:30:29,280] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 00:31:41,010] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-16 00:31:41,184] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-16 00:31:41,247] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-16 00:31:41,516] INFO in _internal:  * Restarting with stat
+[2026-03-16 00:31:41,645] INFO in _internal:  * Restarting with stat
+[2026-03-16 00:31:41,701] INFO in _internal:  * Restarting with stat
+[2026-03-16 00:31:43,151] INFO in app: QuantumShield application starting up...
+[2026-03-16 00:31:43,306] INFO in app: QuantumShield application starting up...
+[2026-03-16 00:31:43,413] INFO in app: QuantumShield application starting up...
+[2026-03-16 00:31:43,796] INFO in app: QuantumShield application starting up...
+[2026-03-16 00:31:43,798] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 00:31:43,979] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 00:31:44,000] WARNING in _internal:  * Debugger is active!
+[2026-03-16 00:31:44,015] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 00:31:44,036] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-16 00:31:44,114] WARNING in _internal:  * Debugger is active!
+[2026-03-16 00:31:44,129] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-16 00:31:44,132] WARNING in _internal:  * Debugger is active!
+[2026-03-16 00:31:44,151] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-16 00:31:44,363] INFO in database: MySQL database 'quantumshield' initialised.

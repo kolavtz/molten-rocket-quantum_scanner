@@ -6,6 +6,13 @@
   <p class="hero-subtitle">Domains, SSL, IP/Subnets, and software intelligence</p>
 </section>
 
+{% if vm.empty %}
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+  <strong>No discovery data yet.</strong>
+  <p style="margin-top:0.4rem;color:var(--text-secondary);">Run a scan from Home to populate domains, SSL, IP/subnet, software, and graph relationships.</p>
+</section>
+{% endif %}
+
 <section class="overview-grid" style="margin-bottom:1rem;">
   <div class="overview-card glass-card"><div class="overview-value">{{ vm.overview.domains }}</div><div class="overview-label">DOMAINS</div></div>
   <div class="overview-card glass-card"><div class="overview-value">{{ vm.overview.ssl }}</div><div class="overview-label">SSL</div></div>
@@ -30,10 +37,10 @@
   </div>
 
   <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.8rem;">
-    <button class="scan-button statusBtn" data-status="New" style="padding:0.25rem 0.55rem;">New</button>
-    <button class="scan-button statusBtn" data-status="False Positive" style="padding:0.25rem 0.55rem;">False Positive</button>
-    <button class="scan-button statusBtn" data-status="Confirmed" style="padding:0.25rem 0.55rem;">Confirmed</button>
-    <button class="scan-button statusBtn" data-status="All" style="padding:0.25rem 0.55rem;">All</button>
+    <button class="scan-button statusBtn" data-status="New" style="padding:0.25rem 0.55rem;">New ({{ vm.status_counts.New }})</button>
+    <button class="scan-button statusBtn" data-status="False Positive" style="padding:0.25rem 0.55rem;">False Positive ({{ vm.status_counts['False Positive'] }})</button>
+    <button class="scan-button statusBtn" data-status="Confirmed" style="padding:0.25rem 0.55rem;">Confirmed ({{ vm.status_counts.Confirmed }})</button>
+    <button class="scan-button statusBtn" data-status="All" style="padding:0.25rem 0.55rem;">All ({{ vm.status_counts.All }})</button>
   </div>
 
   <div id="tab-domains" class="tabPane">
@@ -68,6 +75,7 @@
       <button id="graphBtnDomain" class="scan-button graphFilter" data-type="domain" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Domains</button>
       <button id="graphBtnIp" class="scan-button graphFilter" data-type="ip" style="padding:0.3rem 0.6rem;font-size:0.75rem;">IPs</button>
       <button id="graphBtnService" class="scan-button graphFilter" data-type="service" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Services</button>
+      <button id="graphBtnAsset" class="scan-button graphFilter" data-type="asset" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Assets</button>
       <button id="graphBtnAll" class="scan-button graphFilter" data-type="all" style="padding:0.3rem 0.6rem;font-size:0.75rem;">All</button>
       <button id="graphResetBtn" class="scan-button" style="padding:0.3rem 0.6rem;font-size:0.75rem;background:var(--bg-secondary);">⟳ Reset</button>
     </div>
@@ -81,32 +89,28 @@
 </section>
 
 <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<script id="graphPayload" type="application/json">{{ vm.graph_payload|tojson }}</script>
 <script>
 (function () {
-  // ── Graph data ──────────────────────────────────────────
   const COLOR = { domain: '#4a9ead', ip: '#34d399', service: '#fbbf24', asset: '#a78bfa' };
+  const payloadRaw = document.getElementById('graphPayload');
+  const initialPayload = payloadRaw ? JSON.parse(payloadRaw.textContent || '{}') : { nodes: [], edges: [] };
 
-  const allNodes = new vis.DataSet([
-    { id: 1, label: 'payments.pnb.example', group: 'domain', title: 'Domain · payments.pnb.example · Status: Confirmed', color: { background: 'rgba(74,158,173,0.18)', border: COLOR.domain }, font: { color: '#e8ecf1', size: 12 } },
-    { id: 2, label: 'new-auth.pnb.example', group: 'domain', title: 'Domain · new-auth.pnb.example · Status: New', color: { background: 'rgba(74,158,173,0.1)', border: COLOR.domain }, font: { color: '#e8ecf1', size: 12 } },
-    { id: 3, label: '203.0.113.88', group: 'ip', title: 'IP · 203.0.113.88 · ASN: AS64501 · MY', color: { background: 'rgba(52,211,153,0.15)', border: COLOR.ip }, font: { color: '#e8ecf1', size: 12 } },
-    { id: 4, label: '198.51.100.24', group: 'ip', title: 'IP · 198.51.100.24 · ASN: AS64500 · SG', color: { background: 'rgba(52,211,153,0.15)', border: COLOR.ip }, font: { color: '#e8ecf1', size: 12 } },
-    { id: 5, label: 'HTTPS:443', group: 'service', title: 'Service · HTTPS:443 · nginx 1.25.5', color: { background: 'rgba(251,191,36,0.15)', border: COLOR.service }, font: { color: '#e8ecf1', size: 12 } },
-    { id: 6, label: 'HTTPS:8443', group: 'service', title: 'Service · HTTPS:8443 · OpenSSL 3.2.1', color: { background: 'rgba(251,191,36,0.15)', border: COLOR.service }, font: { color: '#e8ecf1', size: 12 } },
-    { id: 7, label: 'pnb-api-gateway', group: 'asset', title: 'Asset · pnb-api-gateway · TLS 1.3 · Elite-PQC', color: { background: 'rgba(167,139,250,0.15)', border: COLOR.asset }, font: { color: '#e8ecf1', size: 12 } },
-    { id: 8, label: 'pnb-payment-core', group: 'asset', title: 'Asset · pnb-payment-core · TLS 1.2 · Standard', color: { background: 'rgba(167,139,250,0.15)', border: COLOR.asset }, font: { color: '#e8ecf1', size: 12 } },
-  ]);
+  const toNode = (node) => {
+    const group = node.group || 'asset';
+    const border = COLOR[group] || COLOR.asset;
+    return {
+      id: node.id,
+      label: node.label,
+      group,
+      title: node.title || node.label,
+      color: { background: 'rgba(148,163,184,0.12)', border },
+      font: { color: '#e8ecf1', size: 12 }
+    };
+  };
 
-  const allEdges = new vis.DataSet([
-    { from: 1, to: 3, color: { color: '#4a9ead', opacity: 0.6 } },
-    { from: 1, to: 5, color: { color: '#4a9ead', opacity: 0.6 } },
-    { from: 2, to: 3, color: { color: '#4a9ead', opacity: 0.5 } },
-    { from: 3, to: 7, color: { color: '#34d399', opacity: 0.6 } },
-    { from: 4, to: 8, color: { color: '#34d399', opacity: 0.6 } },
-    { from: 4, to: 6, color: { color: '#34d399', opacity: 0.5 } },
-    { from: 5, to: 7, color: { color: '#fbbf24', opacity: 0.6 } },
-    { from: 6, to: 8, color: { color: '#fbbf24', opacity: 0.6 } },
-  ]);
+  const allNodes = new vis.DataSet((initialPayload.nodes || []).map(toNode));
+  const allEdges = new vis.DataSet(initialPayload.edges || []);
 
   const options = {
     autoResize: true,
@@ -170,6 +174,34 @@
     allNodes.getIds().forEach(id => allNodes.update({ id, hidden: false, opacity: 1 }));
     network.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
   });
+
+  function mergePayload(payload) {
+    const nodes = payload.nodes || [];
+    const edges = payload.edges || [];
+    nodes.forEach((n) => {
+      const existing = allNodes.get(n.id);
+      const node = toNode(n);
+      if (existing) {
+        allNodes.update(node);
+      } else {
+        allNodes.add(node);
+      }
+    });
+    edges.forEach((e) => {
+      const edgeId = e.id || (String(e.from) + '->' + String(e.to));
+      if (!allEdges.get(edgeId)) {
+        allEdges.add({ id: edgeId, from: e.from, to: e.to });
+      }
+    });
+  }
+
+  // Realtime incremental updates during active scans.
+  setInterval(function () {
+    fetch('/api/discovery-graph', { headers: { 'Accept': 'application/json' } })
+      .then((r) => r.ok ? r.json() : null)
+      .then((payload) => { if (payload) mergePayload(payload); })
+      .catch(() => null);
+  }, 7000);
 })();
 </script>
 

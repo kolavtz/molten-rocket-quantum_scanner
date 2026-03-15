@@ -6,6 +6,13 @@
   <p class="hero-subtitle">Cryptographic bill of materials and weakness visibility</p>
 </section>
 
+{% if vm.empty %}
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+  <strong>No CBOM telemetry available yet.</strong>
+  <p style="margin-top:0.4rem;color:var(--text-secondary);">Run a scan to populate keys, ciphers, protocols, and CA usage.</p>
+</section>
+{% endif %}
+
 <section class="overview-grid" style="margin-bottom:1rem;">
   <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.total_applications }}</div><div class="overview-label">TOTAL APPLICATIONS</div></div>
   <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.sites_surveyed }}</div><div class="overview-label">SITES SURVEYED</div></div>
@@ -42,12 +49,24 @@
 </section>
 
 <section class="glass-card" style="padding:1rem;">
+  <h3 style="margin-bottom:0.7rem;">Weakness Heatmap</h3>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-bottom:1rem;">
+    {% for cell in vm.weakness_heatmap %}
+    <div style="background:var(--bg-secondary);border:1px solid var(--border-subtle);border-radius:6px;padding:0.55rem;">
+      <div style="font-size:0.68rem;color:var(--text-secondary);">{{ cell.x }} · {{ cell.y }}</div>
+      <div style="font-size:1rem;font-weight:700;">{{ cell.value }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
   <h3 style="margin-bottom:0.7rem;">Applications Crypto Table</h3>
   <table class="scans-table">
     <thead><tr><th>Application</th><th>Key Length</th><th>Cipher</th><th>Certificate Authority</th></tr></thead>
     <tbody>
       {% for row in vm.rows %}
       <tr><td>{{ row.application }}</td><td>{{ row.key_length }}</td><td>{{ row.cipher }}</td><td>{{ row.ca }}</td></tr>
+      {% else %}
+      <tr><td colspan="4" style="text-align:center;color:var(--text-secondary);">No CBOM rows from live scans.</td></tr>
       {% endfor %}
     </tbody>
   </table>

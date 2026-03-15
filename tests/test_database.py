@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 SAMPLE_REPORT = {
     "scan_id": "abc12345",
     "target": "example.com",
+    "asset_class": "Public Web Application",
     "status": "complete",
     "generated_at": "2026-03-10T12:00:00+00:00",
     "overview": {
@@ -124,14 +125,15 @@ class TestSaveScan:
         assert "INSERT INTO scans" in sql
         assert params[0] == "abc12345"       # scan_id
         assert params[1] == "example.com"    # target
-        assert params[2] == "complete"       # status
-        assert params[3] == 33               # compliance_score
-        assert params[4] == 3                # total_assets
-        assert params[5] == 1                # quantum_safe
-        assert params[6] == 2                # quantum_vulnerable
-        # params[7] is datetime, params[8] is JSON string, params[9] is is_encrypted
-        assert json.loads(params[8])["scan_id"] == "abc12345"
-        assert params[9] is False
+        assert params[2] == "Public Web Application"  # asset_class
+        assert params[3] == "complete"       # status
+        assert params[4] == 33               # compliance_score
+        assert params[5] == 3                # total_assets
+        assert params[6] == 1                # quantum_safe
+        assert params[7] == 2                # quantum_vulnerable
+        # params[8] is datetime, params[9] is JSON string, params[10] is is_encrypted
+        assert json.loads(params[9])["scan_id"] == "abc12345"
+        assert params[10] is False
 
         mock_conn.commit.assert_called_once()
         mock_conn.close.assert_called_once()
@@ -309,3 +311,52 @@ class TestGetCbom:
         result = get_cbom("abc12345")
 
         assert result is None
+
+
+class TestDnsRecords:
+    @patch("src.database._get_connection")
+    def test_save_dns_records_success(self, mock_get_conn, mock_conn, mock_cursor):
+        mock_get_conn.return_value = mock_conn
+        from src.database import save_dns_records
+
+        records = [
+            {
+                "hostname": "example.com",
+                "record_type": "A",
+                "record_value": "93.184.216.34",
+                "ttl": 300,
+                "resolved_at": "2026-03-15T10:00:00Z",
+            }
+        ]
+
+        result = save_dns_records("abc12345", records)
+
+        assert result is True
+        assert mock_cursor.execute.call_count == 2
+        first_sql = mock_cursor.execute.call_args_list[0][0][0]
+        second_sql = mock_cursor.execute.call_args_list[1][0][0]
+        assert "DELETE FROM asset_dns_records" in first_sql
+        assert "INSERT INTO asset_dns_records" in second_sql
+
+    @patch("src.database._get_connection")
+    def test_list_dns_records(self, mock_get_conn, mock_conn, mock_cursor):
+        mock_get_conn.return_value = mock_conn
+        cur_dict = MagicMock()
+        cur_dict.fetchall.return_value = [
+            {
+                "scan_id": "abc12345",
+                "hostname": "example.com",
+                "record_type": "A",
+                "record_value": "93.184.216.34",
+                "ttl": 300,
+                "resolved_at": datetime(2026, 3, 15, 10, 0, 0),
+            }
+        ]
+        mock_conn.cursor.return_value = cur_dict
+        from src.database import list_dns_records
+
+        rows = list_dns_records("abc12345")
+
+        assert len(rows) == 1
+        assert rows[0]["hostname"] == "example.com"
+        assert rows[0]["record_type"] == "A"

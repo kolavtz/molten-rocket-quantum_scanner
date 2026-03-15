@@ -6,6 +6,13 @@
   <p class="hero-subtitle">Unified asset, certificate, and cryptography posture</p>
 </section>
 
+{% if vm.empty %}
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+  <strong>No asset inventory data yet.</strong>
+  <p style="margin-top:0.4rem;color:var(--text-secondary);">Run a scan to populate assets, certificates, and cryptography posture.</p>
+</section>
+{% endif %}
+
 <section class="overview-grid" style="margin-bottom:1rem;">
   <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.total_assets }}</div><div class="overview-label">TOTAL ASSETS</div></div>
   <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.public_web_apps }}</div><div class="overview-label">PUBLIC WEB APPS</div></div>
@@ -46,6 +53,17 @@
       {% endfor %}
     </div>
     <div>
+      <div style="font-size:0.8rem;margin-bottom:0.6rem;">Risk Heatmap (Owner x Risk)</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.4rem;">
+        {% for cell in vm.risk_heatmap %}
+        <div style="border:1px solid var(--border-subtle);border-radius:6px;padding:0.45rem;background:var(--bg-secondary);">
+          <div style="font-size:0.65rem;color:var(--text-secondary);">{{ cell.x }} · {{ cell.y }}</div>
+          <div style="font-size:1rem;font-weight:700;">{{ cell.value }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div>
       <div style="font-size:0.8rem;margin-bottom:0.6rem;">IP Version Breakdown</div>
       <div style="display:flex;gap:0.6rem;align-items:center;margin-top:0.75rem;">
         <div style="flex:1;background:var(--bg-secondary);height:14px;border-radius:999px;overflow:hidden;display:flex;">
@@ -72,6 +90,7 @@
           <th data-key="ipv4">IPv4 Address</th>
           <th data-key="ipv6">IPv6 Address</th>
           <th data-key="type">Type</th>
+          <th data-key="asset_class">Asset Class</th>
           <th data-key="owner">Owner</th>
           <th data-key="risk">Risk</th>
           <th data-key="cert_status">Cert Status</th>
@@ -83,7 +102,7 @@
         {% for row in vm.assets %}
         <tr>
           <td>{{ row.asset_name }}</td><td>{{ row.url }}</td><td>{{ row.ipv4 }}</td><td>{{ row.ipv6 or '-' }}</td>
-          <td>{{ row.type }}</td><td>{{ row.owner }}</td><td>{{ row.risk }}</td><td>{{ row.cert_status }}</td><td>{{ row.key_length }}</td><td>{{ row.last_scan }}</td>
+          <td>{{ row.type }}</td><td>{{ row.asset_class or 'Other' }}</td><td>{{ row.owner }}</td><td>{{ row.risk }}</td><td>{{ row.cert_status }}</td><td>{{ row.key_length }}</td><td>{{ row.last_scan }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -96,12 +115,24 @@
 </section>
 
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+  <h3 style="margin-bottom:0.6rem;">IP to Location Reverse Map</h3>
+  {% if vm.asset_locations %}
+  <div id="assetLocationMap" style="height:280px;border:1px solid var(--border-subtle);border-radius:8px;"></div>
+  <script id="assetLocationPayload" type="application/json">{{ vm.asset_locations|tojson }}</script>
+  {% else %}
+  <div style="font-size:0.8rem;color:var(--text-secondary);">Location data becomes available after DNS and host geolocation enrichment completes.</div>
+  {% endif %}
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
   <h3 style="margin-bottom:0.6rem;">Nameserver Records</h3>
   <table class="scans-table">
     <thead><tr><th>Hostname</th><th>Type</th><th>IP Address</th><th>IPv6 Address</th><th>TTL</th></tr></thead>
     <tbody>
       {% for row in vm.nameserver_records %}
       <tr><td>{{ row.hostname }}</td><td>{{ row.type }}</td><td>{{ row.ip or '-' }}</td><td>{{ row.ipv6 or '-' }}</td><td>{{ row.ttl }}</td></tr>
+      {% else %}
+      <tr><td colspan="5" style="text-align:center;color:var(--text-secondary);">No nameserver records from live scan data.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -114,11 +145,15 @@
     <tbody>
       {% for row in vm.crypto_overview %}
       <tr><td>{{ row.asset }}</td><td>{{ row.key_length }}</td><td>{{ row.cipher_suite }}</td><td>{{ row.tls_version }}</td><td>{{ row.ca }}</td><td>{{ row.last_scan }}</td></tr>
+      {% else %}
+      <tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">No cryptographic telemetry available from live scans.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </section>
 
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
 (function() {
   const table = document.getElementById('assetTable');
@@ -166,6 +201,42 @@
     });
   });
   render();
+
+  const payloadNode = document.getElementById('assetLocationPayload');
+  if (payloadNode && typeof L !== 'undefined') {
+    let points = [];
+    try {
+      points = JSON.parse(payloadNode.textContent || '[]');
+    } catch (e) {
+      points = [];
+    }
+    if (Array.isArray(points) && points.length) {
+      const map = L.map('assetLocationMap', { scrollWheelZoom: false }).setView([20.5937, 78.9629], 4);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      const bounds = [];
+      points.forEach((pt) => {
+        const lat = Number(pt.lat);
+        const lon = Number(pt.lon);
+        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+          const marker = L.circleMarker([lat, lon], {
+            radius: 6,
+            color: 'var(--accent)',
+            fillColor: 'var(--accent)',
+            fillOpacity: 0.85
+          }).addTo(map);
+          marker.bindPopup((pt.asset || pt.ip || 'asset') + ' :: ' + (pt.city || '') + ' ' + (pt.country || ''));
+          bounds.push([lat, lon]);
+        }
+      });
+      if (bounds.length > 0) {
+        map.fitBounds(bounds, { padding: [24, 24] });
+      }
+    }
+  }
 })();
 </script>
 {% endblock %}

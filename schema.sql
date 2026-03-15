@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS scans (
     scan_id          VARCHAR(36)  PRIMARY KEY,
     target           VARCHAR(512) NOT NULL,
+    asset_class      VARCHAR(64),
     status           VARCHAR(32),
     compliance_score INT          DEFAULT 0,
     total_assets     INT          DEFAULT 0,
@@ -40,7 +41,21 @@ CREATE TABLE IF NOT EXISTS scans (
     is_encrypted     BOOLEAN      DEFAULT FALSE
 ) ENGINE=InnoDB;
 
--- 3. CBOM Reports Table
+-- 3. DNS Records Table
+CREATE TABLE IF NOT EXISTS asset_dns_records (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    scan_id       VARCHAR(36) NOT NULL,
+    hostname      VARCHAR(255) NOT NULL,
+    record_type   VARCHAR(16) NOT NULL,
+    record_value  VARCHAR(1024) NOT NULL,
+    ttl           INT DEFAULT 300,
+    resolved_at   DATETIME,
+    FOREIGN KEY (scan_id) REFERENCES scans(scan_id) ON DELETE CASCADE,
+    INDEX idx_dns_scan_id (scan_id),
+    INDEX idx_dns_hostname (hostname)
+) ENGINE=InnoDB;
+
+-- 4. CBOM Reports Table
 CREATE TABLE IF NOT EXISTS cbom_reports (
     scan_id      VARCHAR(36) PRIMARY KEY,
     cbom_json    LONGTEXT NOT NULL,
@@ -48,7 +63,7 @@ CREATE TABLE IF NOT EXISTS cbom_reports (
     FOREIGN KEY (scan_id) REFERENCES scans(scan_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 4. Audit Log Chain (Consistency Check)
+-- 5. Audit Log Chain (Consistency Check)
 CREATE TABLE IF NOT EXISTS audit_log_chain (
     id             TINYINT PRIMARY KEY,
     last_entry_id  BIGINT,
@@ -56,7 +71,7 @@ CREATE TABLE IF NOT EXISTS audit_log_chain (
     updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- 5. Audit Logs Table (Immutable Event History)
+-- 6. Audit Logs Table (Immutable Event History)
 CREATE TABLE IF NOT EXISTS audit_logs (
     id               BIGINT AUTO_INCREMENT PRIMARY KEY,
     actor_user_id    VARCHAR(36),
@@ -82,7 +97,30 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     INDEX idx_audit_actor (actor_user_id)
 ) ENGINE=InnoDB;
 
--- 6. Immutability Triggers
+-- 7. Report Schedules (Executive / Scheduled Reporting)
+CREATE TABLE IF NOT EXISTS report_schedules (
+    schedule_id     VARCHAR(36) PRIMARY KEY,
+    created_by_id   VARCHAR(36),
+    created_by_name VARCHAR(150),
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    enabled         BOOLEAN DEFAULT TRUE,
+    report_type     VARCHAR(120) NOT NULL,
+    frequency       VARCHAR(32) NOT NULL,
+    assets          VARCHAR(256),
+    sections_json   LONGTEXT,
+    schedule_date   VARCHAR(20),
+    schedule_time   VARCHAR(10),
+    timezone_name   VARCHAR(64),
+    email_list      VARCHAR(512),
+    save_path       VARCHAR(512),
+    download_link   BOOLEAN DEFAULT FALSE,
+    status          VARCHAR(32) DEFAULT 'scheduled',
+    FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_report_schedules_created_at (created_at),
+    INDEX idx_report_schedules_status (status)
+) ENGINE=InnoDB;
+
+-- 8. Immutability Triggers
 -- Prevent updates to audit logs
 DELIMITER //
 CREATE TRIGGER audit_logs_no_update
@@ -112,7 +150,7 @@ END;
 //
 DELIMITER ;
 
--- 7. Initial Seed Data
+-- 9. Initial Seed Data
 INSERT IGNORE INTO audit_log_chain (id, last_entry_id, last_hash) 
 VALUES (1, NULL, '0000000000000000000000000000000000000000000000000000000000000000');
 
