@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Cyber Rating | PNB Cyber Observability{% endblock %}
+{% block content %}
+<section class="hero" style="padding-bottom:1rem;">
+  <h2 class="hero-title" style="font-size:2rem;">CYBER RATING</h2>
+  <p class="hero-subtitle">Enterprise cyber score and tier mapping</p>
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;text-align:center;">
+  <div style="font-size:3rem;font-weight:800;color:var(--accent);">{{ vm.overall_score }}/1000</div>
+  <div style="font-size:1rem;letter-spacing:0.08em;">{{ vm.label }}</div>
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+  <h3 style="margin-bottom:0.6rem;">Rating Categories</h3>
+  <table class="scans-table">
+    <thead><tr><th>Label</th><th>Range</th></tr></thead>
+    <tbody>
+      <tr><td>Legacy</td><td>&lt; 400</td></tr>
+      <tr><td>Standard</td><td>400 - 700</td></tr>
+      <tr><td>Elite-PQC</td><td>&gt; 700</td></tr>
+      <tr><td>Max Normalized Score</td><td>1000</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+  <h3 style="margin-bottom:0.6rem;">URL-level PQC Scores</h3>
+  <table class="scans-table">
+    <thead><tr><th>URL</th><th>PQC Score</th></tr></thead>
+    <tbody>
+      {% for row in vm.url_scores %}
+      <tr><td>{{ row.url }}</td><td>{{ row.pqc_score }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="glass-card" style="padding:1rem;">
+  <h3 style="margin-bottom:0.6rem;">Tier Criteria</h3>
+  <table class="scans-table">
+    <thead><tr><th>Tier</th><th>Security Level</th><th>Compliance Criteria</th><th>Priority/Action</th></tr></thead>
+    <tbody>
+      <tr><td>Tier-1 Elite</td><td>Highest</td><td>TLS 1.2/1.3 only, strong ciphers, PFS, key &gt; 2048-bit, HSTS, no weak protocols</td><td>Maintain continuous hardening</td></tr>
+      <tr><td>Tier-2 Standard</td><td>Good</td><td>Mostly modern configurations with limited legacy allowances</td><td>Planned uplift</td></tr>
+      <tr><td>Tier-3 Legacy</td><td>Weak</td><td>TLS 1.0/1.1 present, weak ciphers, possibly 1024-bit keys</td><td>High-priority remediation</td></tr>
+      <tr><td>Critical</td><td>Insecure</td><td>SSLv2/v3, key &lt; 1024-bit, very weak ciphers, known exploitable vulnerabilities</td><td>Immediate action</td></tr>
+    </tbody>
+  </table>
+</section>
+{% endblock %}

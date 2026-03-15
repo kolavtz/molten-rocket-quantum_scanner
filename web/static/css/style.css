@@ -1,48 +1,48 @@
 /* ============================================================
-   QuantumShield — Professional Monochromatic Design System
-   Clean · Eye-Friendly · Single Palette · Inter + JetBrains Mono
+   QuantumShield — Eye-Friendly Dark Slate Design System
+   Soft Corners · Warm Palette · Smooth Transitions
    ============================================================ */
 
 /* ── CSS Variables ── */
 :root {
-    /* Brutally Minimalist Foundation — High Contrast & Industrial */
-    --bg-primary: #000000;
-    --bg-secondary: #050505;
-    --bg-card: #000000;
-    --bg-input: #000000;
-    --border-subtle: #ffffff;
-    --border-hover: #00ff00; /* Industrial Green Accent */
+    /* Background — deep slate, not pure black */
+    --bg-primary: #0f1219;
+    --bg-secondary: #161b26;
+    --bg-card: #1a2030;
+    --bg-input: #141924;
+    --border-subtle: #2a3245;
+    --border-hover: #4a9ead;
 
-    --text-primary: #ffffff;
-    --text-secondary: #aaaaaa;
-    --text-muted: #666666;
+    --text-primary: #e8ecf1;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
 
-    /* Accent — High Visibility Industrial Green */
-    --accent: #00ff00;
-    --accent-muted: rgba(0, 255, 0, 0.1);
-    --accent-hover: #00ff00;
+    /* Accent — calming teal */
+    --accent: #4a9ead;
+    --accent-muted: rgba(74, 158, 173, 0.12);
+    --accent-hover: #5cb8c9;
 
-    /* Semantic — Stark Contrast */
-    --safe: #00ff00;
-    --safe-bg: #000000;
-    --warn: #ffff00;
-    --warn-bg: #000000;
-    --danger: #ff0000;
-    --danger-bg: #000000;
-    --info-bg: #000000;
+    /* Semantic — softer, desaturated */
+    --safe: #34d399;
+    --safe-bg: rgba(52, 211, 153, 0.08);
+    --warn: #fbbf24;
+    --warn-bg: rgba(251, 191, 36, 0.08);
+    --danger: #f87171;
+    --danger-bg: rgba(248, 113, 113, 0.08);
+    --info-bg: rgba(74, 158, 173, 0.08);
 
-    /* Spacing & Borders — Sharp & Heavy */
-    --radius-sm: 0px;
-    --radius-md: 0px;
-    --radius-lg: 0px;
-    --border-width: 2px;
+    /* Spacing & Borders — soft rounded */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --border-width: 1px;
 
-    /* Shadows — None (Brutalism) */
-    --shadow-sm: none;
-    --shadow-md: none;
+    /* Shadows — subtle depth */
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.25);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.35);
 
-    /* Transition — Instant or Snappy */
-    --ease-out: steps(4);
+    /* Transition — smooth */
+    --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 /* ── Reset & Base ── */
@@ -84,22 +84,23 @@ a:hover {
     color: var(--accent-hover);
 }
 
-/* ── Background — Clean Total Black ── */
+/* ── Background ── */
 .bg-particles {
     display: none;
 }
 
-/* ── Industrial Card ── */
+/* ── Soft Glass Card ── */
 .glass-card {
     background: var(--bg-card);
     border: var(--border-width) solid var(--border-subtle);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
-    transition: border-color 0.1s steps(2);
+    transition: border-color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
 }
 
 .glass-card:hover {
-    border-color: var(--accent);
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-md);
 }
 
 /* ── Navbar ── */
@@ -107,7 +108,9 @@ a:hover {
     position: sticky;
     top: 0;
     z-index: 100;
-    background: var(--bg-primary);
+    background: rgba(15, 18, 25, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
@@ -333,9 +336,9 @@ a:hover {
 
 .scan-button {
     padding: 0.8rem 1.5rem;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    border: var(--border-width) solid var(--border-subtle);
+    background: var(--accent);
+    color: var(--bg-primary);
+    border: var(--border-width) solid var(--accent);
     border-radius: var(--radius-md);
     font-family: 'JetBrains Mono', monospace;
     font-weight: 700;
@@ -344,21 +347,21 @@ a:hover {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    transition: all 0.1s steps(2);
+    transition: all 0.25s var(--ease-out);
     white-space: nowrap;
     text-transform: uppercase;
 }
 
 .scan-button:hover {
-    background: var(--accent);
-    color: var(--bg-primary);
-    border-color: var(--accent);
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    box-shadow: 0 0 16px rgba(74, 158, 173, 0.3);
 }
 
 .scan-button:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
-    filter: grayscale(1);
+    filter: grayscale(0.8);
 }
 
 .spinner {
@@ -477,23 +480,23 @@ a:hover {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1px;
-    color: var(--bg-primary);
-    background: var(--text-primary);
-    border: var(--border-width) solid var(--text-primary);
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+    border-bottom: 2px solid var(--border-subtle);
 }
 
 .scans-table td {
     padding: 0.75rem 1.1rem;
     font-size: 0.88rem;
-    border-bottom: 1px solid rgba(42, 46, 56, 0.5);
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 .scan-row {
-    transition: background 0.15s;
+    transition: background 0.25s var(--ease-out);
 }
 
 .scan-row:hover {
-    background: rgba(91, 164, 181, 0.04);
+    background: rgba(74, 158, 173, 0.06);
 }
 
 .target-cell {
@@ -507,11 +510,11 @@ a:hover {
 
 .status-badge {
     display: inline-block;
-    padding: 2px 8px;
+    padding: 3px 10px;
     border: 1px solid currentColor;
-    border-radius: 0;
+    border-radius: 100px;
     font-size: 0.7rem;
-    font-weight: 800;
+    font-weight: 700;
     text-transform: uppercase;
 }
 
@@ -1101,19 +1104,22 @@ code.tls-value {
     text-align: center;
     cursor: pointer;
     font-family: 'JetBrains Mono', monospace;
-    font-weight: 800;
+    font-weight: 700;
     font-size: 0.88rem;
     background: var(--bg-card);
     border: var(--border-width) solid var(--border-subtle);
+    border-radius: var(--radius-md);
     color: var(--text-primary);
     text-decoration: none;
     text-transform: uppercase;
-    transition: all 0.1s steps(2);
+    transition: all 0.25s var(--ease-out);
 }
 
 .action-btn:hover {
-    background: var(--text-primary);
+    background: var(--accent);
     color: var(--bg-primary);
+    border-color: var(--accent);
+    box-shadow: var(--shadow-md);
 }
 
 .action-icon {
@@ -1301,25 +1307,177 @@ code.tls-value {
     }
 }
 
+/* ── Mobile-Responsive Layout ─────────────────────────────────────────
+   Full responsive behaviour for ≤ 768 px (tablets / phones)
+   ─────────────────────────────────────────────────────────────────── */
+
+/* Hamburger toggle — hidden on desktop */
+.nav-hamburger {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.3rem;
+    color: var(--text-primary);
+    font-size: 1.4rem;
+    line-height: 1;
+}
+
+@media (max-width: 768px) {
+    /* ── Navbar ── */
+    .nav-container {
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        padding: 0.6rem 1rem;
+    }
+
+    .nav-hamburger {
+        display: block;
+        margin-left: auto;
+    }
+
+    .nav-links {
+        display: none;
+        width: 100%;
+        flex-direction: column;
+        gap: 0;
+        padding-bottom: 0.5rem;
+        border-top: 1px solid var(--border-subtle);
+        margin-top: 0.4rem;
+    }
+
+    .nav-links.nav-open {
+        display: flex;
+    }
+
+    .nav-link {
+        padding: 0.55rem 0.25rem;
+        font-size: 0.9rem;
+        border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .nav-link:last-child {
+        border-bottom: none;
+    }
+
+    .user-profile {
+        border-left: none;
+        padding-left: 0;
+        margin-top: 0.3rem;
+        width: 100%;
+        justify-content: space-between;
+        border-top: 1px solid var(--border-subtle);
+        padding-top: 0.5rem;
+    }
+
+    /* ── Main content ── */
+    .main-content {
+        padding: 0 0.9rem 2.5rem;
+    }
+
+    /* ── Hero ── */
+    .hero-title {
+        font-size: 2rem;
+        letter-spacing: -1px;
+    }
+
+    .hero-subtitle {
+        font-size: 0.95rem;
+    }
+
+    /* ── KPI grids →  2 columns on mobile ── */
+    .kpi-grid,
+    .overview-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.6rem;
+    }
+
+    .kpi-card,
+    .overview-card {
+        padding: 0.75rem !important;
+    }
+
+    .kpi-value {
+        font-size: 1.5rem;
+    }
+
+    /* ── Charts & twin-column grids → 1 column ── */
+    .charts-grid,
+    .tls-grid,
+    .features-grid,
+    .standards-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Two-column section grids (e.g. Reporting) → 1 column */
+    .section-twocol {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* ── Tables: horizontal scroll container ── */
+    .table-scroll-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .scans-table {
+        min-width: 580px;
+    }
+
+    /* ── Scan input group: vertical on mobile ── */
+    .input-group {
+        flex-direction: column;
+    }
+
+    .scan-button {
+        width: 100%;
+        text-align: center;
+    }
+
+    /* ── Filter button rows: wrap ── */
+    .tab-bar,
+    .status-bar {
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }
+
+    /* ── Section header bar ── */
+    .section-header-bar {
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        padding: 0.5rem 0.9rem;
+    }
+
+    /* ── App detail panels: full width ── */
+    .detail-panel {
+        min-width: unset !important;
+        width: 100% !important;
+    }
+
+    /* ── Network graph: shorter on mobile ── */
+    #networkGraph {
+        height: 280px !important;
+    }
+
+    /* ── Reporting grid → single column ── */
+    .reporting-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
 @media (max-width: 480px) {
     .hero-title {
         font-size: 1.6rem;
     }
 
+    .kpi-grid,
     .overview-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
     }
 
-    .features-grid {
-        grid-template-columns: 1fr;
-    }
-
+    .features-grid,
     .standards-grid {
         grid-template-columns: 1fr;
-    }
-
-    .nav-links {
-        display: none;
     }
 }
 

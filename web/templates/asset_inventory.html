@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Asset Inventory | PNB Cyber Observability{% endblock %}
+{% block content %}
+<section class="hero" style="padding-bottom:1rem;">
+  <h2 class="hero-title" style="font-size:2rem;">ASSET INVENTORY</h2>
+  <p class="hero-subtitle">Unified asset, certificate, and cryptography posture</p>
+</section>
+
+<section class="overview-grid" style="margin-bottom:1rem;">
+  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.total_assets }}</div><div class="overview-label">TOTAL ASSETS</div></div>
+  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.public_web_apps }}</div><div class="overview-label">PUBLIC WEB APPS</div></div>
+  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.apis }}</div><div class="overview-label">APIs</div></div>
+  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.servers }}</div><div class="overview-label">SERVERS</div></div>
+  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.expiring_certificates }}</div><div class="overview-label">EXPIRING CERTIFICATES</div></div>
+  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.high_risk_assets }}</div><div class="overview-label">HIGH RISK ASSETS</div></div>
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+  <h3 style="margin-bottom:0.8rem;">Charts</h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1rem;">
+    <div>
+      <div style="font-size:0.8rem;margin-bottom:0.6rem;">Asset Type Distribution</div>
+      {% for k,v in vm.asset_type_distribution.items() %}
+      <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.4rem;">
+        <span style="width:130px;font-size:0.74rem;color:var(--text-secondary);">{{ k }}</span>
+        <div style="height:8px;flex:1;background:var(--bg-secondary);border-radius:999px;overflow:hidden;"><div class="dyn-bar" data-width="{{ (v*20)|int }}" style="height:100%;background:var(--accent);"></div></div>
+        <span style="font-size:0.72rem;">{{ v }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div>
+      <div style="font-size:0.8rem;margin-bottom:0.6rem;">Asset Risk Distribution</div>
+      {% for k,v in vm.asset_risk_distribution.items() %}
+      {% set c = 'var(--danger)' if k in ['Critical','High'] else ('var(--warn)' if k == 'Medium' else 'var(--safe)') %}
+      <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.4rem;">
+        <span style="width:80px;font-size:0.74rem;color:var(--text-secondary);">{{ k }}</span>
+        <div style="height:8px;flex:1;background:var(--bg-secondary);border-radius:999px;overflow:hidden;"><div class="dyn-bar" data-width="{{ (v*25)|int }}" data-color="{{ c }}" style="height:100%;"></div></div>
+        <span style="font-size:0.72rem;">{{ v }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div>
+      <div style="font-size:0.8rem;margin-bottom:0.6rem;">Certificate Expiry Timeline</div>
+      {% for k,v in vm.certificate_expiry_timeline.items() %}
+      <div style="display:flex;justify-content:space-between;padding:0.35rem 0;border-bottom:1px solid var(--border-subtle);font-size:0.75rem;"><span>{{ k }} days</span><strong>{{ v }}</strong></div>
+      {% endfor %}
+    </div>
+    <div>
+      <div style="font-size:0.8rem;margin-bottom:0.6rem;">IP Version Breakdown</div>
+      <div style="display:flex;gap:0.6rem;align-items:center;margin-top:0.75rem;">
+        <div style="flex:1;background:var(--bg-secondary);height:14px;border-radius:999px;overflow:hidden;display:flex;">
+          <div class="dyn-bar" data-width="{{ vm.ip_version_breakdown['IPv4'] }}" style="background:var(--accent);"></div>
+          <div class="dyn-bar" data-width="{{ vm.ip_version_breakdown['IPv6'] }}" style="background:var(--safe);"></div>
+        </div>
+      </div>
+      <div style="margin-top:0.5rem;font-size:0.75rem;color:var(--text-secondary);">IPv4 {{ vm.ip_version_breakdown['IPv4'] }}% | IPv6 {{ vm.ip_version_breakdown['IPv6'] }}%</div>
+    </div>
+  </div>
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+  <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap;">
+    <h3>Asset Inventory</h3>
+    <input id="assetSearch" placeholder="Search by Asset Name / URL" style="min-width:260px;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.45rem 0.6rem;border-radius:6px;" />
+  </div>
+  <div class="scans-table-wrapper" style="margin-top:0.75rem;">
+    <table class="scans-table" id="assetTable">
+      <thead>
+        <tr>
+          <th data-key="asset_name">Asset Name</th>
+          <th data-key="url">URL</th>
+          <th data-key="ipv4">IPv4 Address</th>
+          <th data-key="ipv6">IPv6 Address</th>
+          <th data-key="type">Type</th>
+          <th data-key="owner">Owner</th>
+          <th data-key="risk">Risk</th>
+          <th data-key="cert_status">Cert Status</th>
+          <th data-key="key_length">Key Length</th>
+          <th data-key="last_scan">Last Scan</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in vm.assets %}
+        <tr>
+          <td>{{ row.asset_name }}</td><td>{{ row.url }}</td><td>{{ row.ipv4 }}</td><td>{{ row.ipv6 or '-' }}</td>
+          <td>{{ row.type }}</td><td>{{ row.owner }}</td><td>{{ row.risk }}</td><td>{{ row.cert_status }}</td><td>{{ row.key_length }}</td><td>{{ row.last_scan }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:0.6rem;">
+    <button id="prevPage" class="scan-button" style="padding:0.35rem 0.6rem;">Prev</button>
+    <button id="nextPage" class="scan-button" style="padding:0.35rem 0.6rem;">Next</button>
+  </div>
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+  <h3 style="margin-bottom:0.6rem;">Nameserver Records</h3>
+  <table class="scans-table">
+    <thead><tr><th>Hostname</th><th>Type</th><th>IP Address</th><th>IPv6 Address</th><th>TTL</th></tr></thead>
+    <tbody>
+      {% for row in vm.nameserver_records %}
+      <tr><td>{{ row.hostname }}</td><td>{{ row.type }}</td><td>{{ row.ip or '-' }}</td><td>{{ row.ipv6 or '-' }}</td><td>{{ row.ttl }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="glass-card" style="padding:1rem;">
+  <h3 style="margin-bottom:0.6rem;">Crypto and Security Overview</h3>
+  <table class="scans-table">
+    <thead><tr><th>Asset</th><th>Key Length</th><th>Cipher Suite</th><th>TLS Version</th><th>Certificate Authority</th><th>Last Scan</th></tr></thead>
+    <tbody>
+      {% for row in vm.crypto_overview %}
+      <tr><td>{{ row.asset }}</td><td>{{ row.key_length }}</td><td>{{ row.cipher_suite }}</td><td>{{ row.tls_version }}</td><td>{{ row.ca }}</td><td>{{ row.last_scan }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script>
+(function() {
+  const table = document.getElementById('assetTable');
+  const tbody = table.querySelector('tbody');
+  const search = document.getElementById('assetSearch');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  let sortKey = null;
+  let sortDir = 1;
+  let page = 0;
+  const pageSize = 10;
+
+  function filteredRows() {
+    const q = (search.value || '').toLowerCase().trim();
+    const all = rows.filter((r) => !q || r.textContent.toLowerCase().includes(q));
+    if (!sortKey) return all;
+    const idx = Array.from(table.querySelectorAll('th')).findIndex((th) => th.dataset.key === sortKey);
+    return all.sort((a,b) => a.children[idx].textContent.localeCompare(b.children[idx].textContent, undefined, {numeric:true}) * sortDir);
+  }
+
+  function render() {
+    const list = filteredRows();
+    const start = page * pageSize;
+    const end = start + pageSize;
+    rows.forEach((r) => r.style.display = 'none');
+    list.slice(start, end).forEach((r) => r.style.display = 'table-row');
+  }
+
+  search.addEventListener('input', () => { page = 0; render(); });
+  document.getElementById('prevPage').addEventListener('click', () => { page = Math.max(0, page - 1); render(); });
+  document.getElementById('nextPage').addEventListener('click', () => { page += 1; render(); });
+  document.querySelectorAll('.dyn-bar').forEach((bar) => {
+    const w = Number(bar.getAttribute('data-width') || '0');
+    bar.style.width = Math.max(0, Math.min(100, w)) + '%';
+    if (bar.getAttribute('data-color')) {
+      bar.style.background = bar.getAttribute('data-color');
+    }
+  });
+  table.querySelectorAll('th[data-key]').forEach((th) => {
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      const key = th.dataset.key;
+      if (sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = 1; }
+      page = 0;
+      render();
+    });
+  });
+  render();
+})();
+</script>
+{% endblock %}

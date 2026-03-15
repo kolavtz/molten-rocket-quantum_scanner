@@ -1,0 +1,26 @@
+# QuantumShield .gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Environment
+.env
+
+# SSL certs (mkcert)
+certs/
+
+# App logs and results
+app.log
+results/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

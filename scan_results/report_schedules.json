@@ -1,0 +1,42 @@
+[
+  {
+    "id": "2c2ece117906",
+    "created_by": "admin",
+    "created_at": "2026-03-15T16:26:57.084875+00:00",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory",
+      "CBOM"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
+    "id": "93f2a0e1d523",
+    "created_by": "admin",
+    "created_at": "2026-03-15T16:27:03.166054+00:00",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory",
+      "CBOM"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  }
+]

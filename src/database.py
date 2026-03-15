@@ -147,8 +147,6 @@ def _get_connection():
                 password=MYSQL_PASSWORD,
                 database=MYSQL_DATABASE,
                 connect_timeout=5,
-                # Reconnect automatically if connection was dropped
-                reconnect=True,
                 connection_timeout=10,
             )
             # Verify the connection is alive (avoids stale-conn bugs)
@@ -180,7 +178,6 @@ def _get_server_connection():
                 user=MYSQL_USER,
                 password=MYSQL_PASSWORD,
                 connect_timeout=5,
-                reconnect=True,
             )
             conn.ping(reconnect=True, attempts=2, delay=1)
             return conn
@@ -204,6 +201,25 @@ def _create_trigger_if_missing(cur, trigger_name: str, create_sql: str) -> None:
     exists = cur.fetchone()[0] > 0
     if not exists:
         cur.execute(create_sql)
+
+
+def _get_users_id_column_type(cur) -> str:
+    """Return users.id SQL type from information_schema (e.g. varchar(36), int(11))."""
+    cur.execute(
+        """
+        SELECT COLUMN_TYPE
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = %s
+          AND TABLE_NAME = 'users'
+          AND COLUMN_NAME = 'id'
+        LIMIT 1
+        """,
+        (MYSQL_DATABASE,),
+    )
+    row = cur.fetchone()
+    if row and row[0]:
+        return str(row[0])
+    return "varchar(36)"
 
 
 # ---------------------------------------------------------------------------
@@ -287,14 +303,16 @@ def init_db() -> bool:
             ) ENGINE=InnoDB
         """)
 
-        cur.execute("""
+        user_id_column_type = _get_users_id_column_type(cur)
+
+        cur.execute(f"""
             CREATE TABLE IF NOT EXISTS audit_logs (
                 id               BIGINT AUTO_INCREMENT PRIMARY KEY,
-                actor_user_id    VARCHAR(36),
+                actor_user_id    {user_id_column_type},
                 actor_username   VARCHAR(150),
                 event_category   VARCHAR(64) NOT NULL,
                 event_type       VARCHAR(128) NOT NULL,
-                target_user_id   VARCHAR(36),
+                target_user_id   {user_id_column_type},
                 target_scan_id   VARCHAR(36),
                 ip_address       VARCHAR(64),
                 user_agent       VARCHAR(512),
@@ -671,6 +689,28 @@ def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
         conn.close()
 
 
+def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
+    """Look up an active user by email address (case-insensitive)."""
+    conn = _get_connection()
+    if conn is None:
+        return None
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            "SELECT * FROM users WHERE LOWER(email) = LOWER(%s) AND is_active = TRUE",
+            (email,),
+        )
+        user = cur.fetchone()
+        if user:
+            user["role"] = normalize_role(user.get("role", "Viewer"))
+        return user
+    except Exception as exc:
+        logger.error("get_user_by_email failed: %s", exc)
+        return None
+    finally:
+        conn.close()
+
+
 def list_users() -> List[Dict[str, Any]]:
     conn = _get_connection()
     if conn is None:
@@ -680,7 +720,8 @@ def list_users() -> List[Dict[str, Any]]:
         cur.execute(
             """
             SELECT id, employee_id, username, email, role, is_active, created_by,
-                   last_login_at, created_at
+                   last_login_at, created_at,
+                   (api_key_hash IS NOT NULL) AS api_key_hash
             FROM users
             ORDER BY created_at DESC
             """

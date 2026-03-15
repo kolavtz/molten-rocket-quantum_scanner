@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block title %}Reporting | PNB Cyber Observability{% endblock %}
+{% block content %}
+<section class="hero" style="padding-bottom:1rem;">
+  <h2 class="hero-title" style="font-size:2rem;">REPORTING</h2>
+  <p class="hero-subtitle">Executive, scheduled, and on-demand reporting workflows</p>
+</section>
+
+<!-- ── Reporting Landing Cards ─── -->
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+  <h3 style="margin-bottom:0.6rem;">Reporting Options</h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.8rem;">
+    <button onclick="document.getElementById('schedSection').scrollIntoView({behavior:'smooth'})"
+      class="glass-card" style="padding:1rem;cursor:pointer;text-align:left;border-color:var(--accent);">
+      <div style="font-size:1.3rem;margin-bottom:0.3rem;">📅</div>
+      <div style="font-weight:700;font-size:0.9rem;">Scheduled Reporting</div>
+      <div style="font-size:0.75rem;color:var(--text-secondary);">Automate periodic delivery to email or file</div>
+    </button>
+    <button onclick="document.getElementById('ondemandSection').scrollIntoView({behavior:'smooth'})"
+      class="glass-card" style="padding:1rem;cursor:pointer;text-align:left;border-color:var(--safe);">
+      <div style="font-size:1.3rem;margin-bottom:0.3rem;">⚡</div>
+      <div style="font-weight:700;font-size:0.9rem;">On-Demand Reporting</div>
+      <div style="font-size:0.75rem;color:var(--text-secondary);">Generate and download a report right now</div>
+    </button>
+    <button onclick="document.getElementById('summarySection').scrollIntoView({behavior:'smooth'})"
+      class="glass-card" style="padding:1rem;cursor:pointer;text-align:left;border-color:var(--warn);">
+      <div style="font-size:1.3rem;margin-bottom:0.3rem;">📊</div>
+      <div style="font-weight:700;font-size:0.9rem;">Executives Reporting</div>
+      <div style="font-size:0.75rem;color:var(--text-secondary);">Summary metrics for executive stakeholders</div>
+    </button>
+  </div>
+</section>
+
+<div id="reportMsg" style="display:none;padding:0.6rem 1rem;border-radius:8px;margin-bottom:0.8rem;font-size:0.85rem;"></div>
+
+<!-- ── Scheduled + On-Demand Forms ─── -->
+<section id="schedSection" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;" class="reporting-grid">
+  <form id="schedForm" class="glass-card" style="padding:1rem;display:grid;gap:0.6rem;">
+    <h3>Scheduled Reporting</h3>
+    <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;">
+      <input type="checkbox" id="schedEnabled" name="enabled" checked /> Enable schedule
+    </label>
+    <label style="font-size:0.82rem;">Report Type
+      <select name="report_type" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;">
+        <option>Executive Summary Report</option><option>Asset Inventory Report</option><option>PQC Posture Report</option><option>CBOM Report</option><option>Cyber Rating Report</option>
+      </select>
+    </label>
+    <label style="font-size:0.82rem;">Frequency
+      <select name="frequency" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;">
+        <option>Weekly</option><option>Monthly</option><option>Daily</option><option>Quarterly</option>
+      </select>
+    </label>
+    <label style="font-size:0.82rem;">Select Assets
+      <select name="assets" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;">
+        <option>All Assets</option><option>Internet-Facing Only</option><option>Critical Assets</option>
+      </select>
+    </label>
+    <fieldset style="border:1px solid var(--border-subtle);border-radius:6px;padding:0.5rem 0.7rem;">
+      <legend style="font-size:0.78rem;color:var(--text-secondary);padding:0 0.3rem;">Include Sections</legend>
+      <label style="font-size:0.82rem;display:block;"><input type="checkbox" name="sections" value="Asset Discovery" checked /> Discovery</label>
+      <label style="font-size:0.82rem;display:block;"><input type="checkbox" name="sections" value="Asset Inventory" checked /> Inventory</label>
+      <label style="font-size:0.82rem;display:block;"><input type="checkbox" name="sections" value="CBOM" checked /> CBOM</label>
+      <label style="font-size:0.82rem;display:block;"><input type="checkbox" name="sections" value="PQC Posture" checked /> PQC Posture</label>
+      <label style="font-size:0.82rem;display:block;"><input type="checkbox" name="sections" value="Cyber Rating" checked /> Cyber Rating</label>
+    </fieldset>
+    <label style="font-size:0.82rem;">Date <input type="date" name="schedule_date" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
+    <label style="font-size:0.82rem;">Time <input type="time" name="schedule_time" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
+    <label style="font-size:0.82rem;">Time Zone
+      <select name="timezone" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;">
+        <option>UTC</option><option>Asia/Kolkata</option><option>Asia/Kuala_Lumpur</option><option>America/New_York</option><option>Europe/London</option>
+      </select>
+    </label>
+    <label style="font-size:0.82rem;">Email list <input type="text" name="email_list" placeholder="ciso@pnb.example;soc@pnb.example" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
+    <label style="font-size:0.82rem;">Save to location <input type="text" name="save_path" placeholder="/reports/executive" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
+    <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="download_link" /> Include download link</label>
+    <button type="button" id="schedBtn" class="scan-button" style="padding:0.45rem 0.8rem;">📅 Schedule Report</button>
+    <div id="schedStatus" style="font-size:0.78rem;"></div>
+  </form>
+
+  <form id="ondemandSection" class="glass-card" style="padding:1rem;display:grid;gap:0.6rem;">
+    <h3>On-Demand Reporting</h3>
+    <label style="font-size:0.82rem;">Report Type
+      <select id="odReportType" name="report_type" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;">
+        <option>Executive Reporting</option>
+        <option>Assets Discovery</option>
+        <option>Assets Inventory</option>
+        <option>CBOM</option>
+        <option>Posture of PQC</option>
+        <option>Cyber Rating (Tiers 1-4)</option>
+      </select>
+    </label>
+    <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="email_enabled" id="odEmail" /> Send via Email</label>
+    <div id="odEmailFields" style="display:none;">
+      <label style="font-size:0.82rem;">Email list <input type="text" name="email_list" placeholder="risk@pnb.example;cto@pnb.example" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
+    </div>
+    <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="save_enabled" id="odSave" /> Save to Location</label>
+    <div id="odSaveFields" style="display:none;">
+      <label style="font-size:0.82rem;">Folder path <input type="text" name="save_path" placeholder="/reports/ondemand" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
+    </div>
+    <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="download_link" /> Optional Download Link</label>
+    <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="slack" /> Slack Notification</label>
+    <fieldset style="border:1px solid var(--border-subtle);border-radius:6px;padding:0.5rem 0.7rem;">
+      <legend style="font-size:0.78rem;color:var(--text-secondary);padding:0 0.3rem;">Advanced Settings</legend>
+      <label style="font-size:0.82rem;">File Format
+        <select name="format" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.3rem 0.5rem;border-radius:6px;">
+          <option>PDF</option><option>CSV</option>
+        </select>
+      </label>
+      <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;margin-top:0.4rem;"><input type="checkbox" name="include_charts" checked /> Include Charts</label>
+      <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="password_protect" /> Password Protect</label>
+    </fieldset>
+    <button type="button" id="generateBtn" class="scan-button" style="padding:0.45rem 0.8rem;">⚡ Generate Report</button>
+    <div id="generateStatus" style="font-size:0.78rem;"></div>
+  </form>
+</section>
+
+<!-- ── Summary Metrics ─── -->
+<section id="summarySection" class="glass-card" style="padding:1rem;">
+  <h3 style="margin-bottom:0.8rem;">Reporting Summary Metrics</h3>
+  <table class="scans-table">
+    <thead><tr><th>Module</th><th>Summary</th></tr></thead>
+    <tbody>
+      <tr><td>Assets Discovery</td><td>{{ vm.summary.discovery }}</td></tr>
+      <tr><td>Posture of PQC</td><td>{{ vm.summary.pqc }}</td></tr>
+      <tr><td>CBOM</td><td>{{ vm.summary.cbom }}</td></tr>
+      <tr><td>Cyber Rating</td><td>{{ vm.summary.cyber_rating }}</td></tr>
+      <tr><td>Assets Inventory</td><td>{{ vm.summary.inventory }}</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<script>
+(function(){
+  // ── Toggle conditional fields ──────────────────────────────────
+  document.getElementById('odEmail').addEventListener('change', function(){
+    document.getElementById('odEmailFields').style.display = this.checked ? 'block' : 'none';
+  });
+  document.getElementById('odSave').addEventListener('change', function(){
+    document.getElementById('odSaveFields').style.display = this.checked ? 'block' : 'none';
+  });
+
+  // ── Schedule report ────────────────────────────────────────────
+  document.getElementById('schedBtn').addEventListener('click', function(){
+    const form = document.getElementById('schedForm');
+    const status = document.getElementById('schedStatus');
+    const fd = new FormData(form);
+    // Collect checkbox array for sections
+    const sections = Array.from(form.querySelectorAll('input[name="sections"]:checked')).map(c => c.value);
+    const body = {};
+    fd.forEach((v, k) => { if(k !== 'sections') body[k] = v; });
+    body.sections = sections;
+    body.enabled = document.getElementById('schedEnabled').checked;
+
+    status.textContent = 'Saving schedule…';
+    status.style.color = 'var(--text-secondary)';
+
+    fetch('/report/schedule', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrf()},
+      body: JSON.stringify(body)
+    })
+    .then(r => r.json())
+    .then(data => {
+      if(data.status === 'ok'){
+        status.textContent = '✓ ' + data.message + ' (ID: ' + data.id + ')';
+        status.style.color = 'var(--safe)';
+      } else {
+        status.textContent = '✗ ' + (data.error || 'Error saving schedule');
+        status.style.color = 'var(--danger)';
+      }
+    })
+    .catch(() => {
+      status.textContent = '✗ Network error — check console';
+      status.style.color = 'var(--danger)';
+    });
+  });
+
+  // ── Generate on-demand report (PDF download) ──────────────────
+  document.getElementById('generateBtn').addEventListener('click', function(){
+    const reportType = document.getElementById('odReportType').value;
+    const genStatus = document.getElementById('generateStatus');
+
+    genStatus.textContent = '⌛ Generating PDF…';
+    genStatus.style.color = 'var(--text-secondary)';
+
+    fetch('/report/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrf()},
+      body: JSON.stringify({report_type: reportType, sections: []})
+    })
+    .then(resp => {
+      if(!resp.ok) throw new Error('HTTP ' + resp.status);
+      return resp.blob();
+    })
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'PNB_Report.pdf';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+      genStatus.textContent = '✓ Report downloaded successfully.';
+      genStatus.style.color = 'var(--safe)';
+    })
+    .catch(err => {
+      genStatus.textContent = '✗ Generation failed: ' + err.message;
+      genStatus.style.color = 'var(--danger)';
+    });
+  });
+
+  // ── CSRF helper ───────────────────────────────────────────────
+  function getCsrf(){
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    if(meta) return meta.content;
+    const m = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+})();
+</script>
+{% endblock %}
+
