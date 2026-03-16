@@ -154,54 +154,10 @@
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+</section>
+
 <script>
 (function() {
-  const table = document.getElementById('assetTable');
-  const tbody = table.querySelector('tbody');
-  const search = document.getElementById('assetSearch');
-  const rows = Array.from(tbody.querySelectorAll('tr'));
-  let sortKey = null;
-  let sortDir = 1;
-  let page = 0;
-  const pageSize = 10;
-
-  function filteredRows() {
-    const q = (search.value || '').toLowerCase().trim();
-    const all = rows.filter((r) => !q || r.textContent.toLowerCase().includes(q));
-    if (!sortKey) return all;
-    const idx = Array.from(table.querySelectorAll('th')).findIndex((th) => th.dataset.key === sortKey);
-    return all.sort((a,b) => a.children[idx].textContent.localeCompare(b.children[idx].textContent, undefined, {numeric:true}) * sortDir);
-  }
-
-  function render() {
-    const list = filteredRows();
-    const start = page * pageSize;
-    const end = start + pageSize;
-    rows.forEach((r) => r.style.display = 'none');
-    list.slice(start, end).forEach((r) => r.style.display = 'table-row');
-  }
-
-  search.addEventListener('input', () => { page = 0; render(); });
-  document.getElementById('prevPage').addEventListener('click', () => { page = Math.max(0, page - 1); render(); });
-  document.getElementById('nextPage').addEventListener('click', () => { page += 1; render(); });
-  document.querySelectorAll('.dyn-bar').forEach((bar) => {
-    const w = Number(bar.getAttribute('data-width') || '0');
-    bar.style.width = Math.max(0, Math.min(100, w)) + '%';
-    if (bar.getAttribute('data-color')) {
-      bar.style.background = bar.getAttribute('data-color');
-    }
-  });
-  table.querySelectorAll('th[data-key]').forEach((th) => {
-    th.style.cursor = 'pointer';
-    th.addEventListener('click', () => {
-      const key = th.dataset.key;
-      if (sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = 1; }
-      page = 0;
-      render();
-    });
-  });
-  render();
-
   const payloadNode = document.getElementById('assetLocationPayload');
   if (payloadNode && typeof L !== 'undefined') {
     let points = [];
