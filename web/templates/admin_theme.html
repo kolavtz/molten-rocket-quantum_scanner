@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block header_title %}Theme Settings - QuantumShield{% endblock %}
+
+{% block content %}
+<div class="container mt-4 animate-fade-in">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 text-light mb-1"><i class="fa-solid fa-palette me-2 text-info"></i>Theme Configuration</h1>
+            <p class="text-muted small">Customize the application sidebar, navigation, and core template style colors.</p>
+        </div>
+        <a href="{{ url_for('admin_users') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fa-solid fa-arrow-left me-1"></i> Back to Users
+        </a>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category if category != 'danger' else 'danger' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card bg-dark border-secondary shadow-sm mb-4">
+                <div class="card-header bg-transparent border-secondary">
+                    <h5 class="card-title text-light mb-0">Color Management Panel</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin_theme') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <div class="mb-3">
+                            <label class="form-label text-muted small">Navbar / Sidebar Background</label>
+                            <div class="d-flex gap-2 align-items-center">
+                                <input type="color" class="form-control form-control-color bg-transparent border-secondary" 
+                                       id="bg_navbar_picker" value="{{ theme.bg_navbar if theme.bg_navbar.startswith('#') else '#0f1219' }}">
+                                <input type="text" name="bg_navbar" id="bg_navbar_text" class="form-control bg-transparent border-secondary text-light" 
+                                       value="{{ theme.bg_navbar }}" placeholder="e.g. #0f1219 or rgba(...)">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label text-muted small">Accent / Highlight Color</label>
+                            <div class="d-flex gap-2 align-items-center">
+                                <input type="color" class="form-control form-control-color bg-transparent border-secondary" 
+                                       id="accent_picker" value="{{ theme.accent_color if theme.accent_color.startswith('#') else '#4a9ead' }}">
+                                <input type="text" name="accent_color" id="accent_text" class="form-control bg-transparent border-secondary text-light" 
+                                       value="{{ theme.accent_color }}">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label text-muted small">Global Background Color</label>
+                            <div class="d-flex gap-2 align-items-center">
+                                <input type="color" class="form-control form-control-color bg-transparent border-secondary" 
+                                       id="bg_primary_picker" value="{{ theme.bg_primary if theme.bg_primary.startswith('#') else '#0f1219' }}">
+                                <input type="text" name="bg_primary" id="bg_primary_text" class="form-control bg-transparent border-secondary text-light" 
+                                       value="{{ theme.bg_primary }}">
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label text-muted small">Main Text Color</label>
+                            <div class="d-flex gap-2 align-items-center">
+                                <input type="color" class="form-control form-control-color bg-transparent border-secondary" 
+                                       id="text_picker" value="{{ theme.text_primary if theme.text_primary.startswith('#') else '#f3f4f6' }}">
+                                <input type="text" name="text_primary" id="text_text" class="form-control bg-transparent border-secondary text-light" 
+                                       value="{{ theme.text_primary }}">
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-info text-dark fw-semibold">
+                                <i class="fa-solid fa-floppy-disk me-1"></i> Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card bg-dark border-secondary shadow-sm">
+                <div class="card-header bg-transparent border-secondary">
+                    <h5 class="card-title text-light mb-0">Help & Instructions</h5>
+                </div>
+                <div class="card-body text-muted small">
+                    <p>Use hexadecimal (`#1a1e24`) or standard CSS forms like `rgb(10, 20, 30)` or transparent overrides like `rgba(15, 18, 25, 0.95)` to refine transparency blends over high headers overlay drawers setups.</p>
+                    <p>Color codes apply instantly upon saving. Use pickers to find values, inputs are linked dynamically inside live contexts overrides variables blocks headers.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Sync picker and text input
+    function setupSync(pickerId, textId) {
+        const picker = document.getElementById(pickerId);
+        const text = document.getElementById(textId);
+        if(picker && text) {
+            picker.addEventListener('input', (e) => {
+                text.value = e.target.value;
+            });
+            text.addEventListener('input', (e) => {
+                if(e.target.value.startsWith('#') && e.target.value.length === 7) {
+                    picker.value = e.target.value;
+                }
+            });
+        }
+    }
+    setupSync('bg_navbar_picker', 'bg_navbar_text');
+    setupSync('accent_picker', 'accent_text');
+    setupSync('bg_primary_picker', 'bg_primary_text');
+    setupSync('text_picker', 'text_text');
+</script>
+{% endblock %}

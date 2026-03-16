@@ -137,6 +137,29 @@ BULK_SCAN_ROLES = {"Admin", "Manager"}
 ADMIN_PANEL_ROLES = {"Admin"}
 ALL_APP_ROLES = {"Admin", "Manager", "SingleScan", "Viewer"}
 
+# ── Theme Configuration ───────────────────────────────────────────
+THEME_FILE = os.path.join(os.path.dirname(__file__), "theme.json")
+
+def load_theme():
+    default_theme = {
+        "bg_navbar": "rgba(15, 18, 25, 0.92)",
+        "accent_color": "#4a9ead",
+        "bg_primary": "#0f1219",
+        "text_primary": "#f3f4f6"
+    }
+    if os.path.exists(THEME_FILE):
+        try:
+            with open(THEME_FILE, 'r') as f:
+                data = json.load(f)
+                return {**default_theme, **data}
+        except Exception:
+            pass
+    return default_theme
+
+@app.context_processor
+def inject_theme():
+    return dict(theme=load_theme())
+
 # Authentication
 login_manager = LoginManager()
 login_manager.login_view = "login"
@@ -922,6 +945,30 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+
+@app.route("/admin/theme", methods=["GET", "POST"])
+@role_required(list(ADMIN_PANEL_ROLES))
+def admin_theme():
+    """Admin panel to configure dynamic UI theme colors."""
+    current_theme = load_theme()
+    if request.method == "POST":
+        new_theme = {
+            "bg_navbar": request.form.get("bg_navbar", current_theme["bg_navbar"]),
+            "accent_color": request.form.get("accent_color", current_theme["accent_color"]),
+            "bg_primary": request.form.get("bg_primary", current_theme["bg_primary"]),
+            "text_primary": request.form.get("text_primary", current_theme["text_primary"])
+        }
+        try:
+            with open(THEME_FILE, 'w') as f:
+                json.dump(new_theme, f, indent=4)
+            _audit("admin", "update_theme", "success")
+            flash("Theme configurations updated successfully!", "success")
+        except Exception as e:
+            _audit("admin", "update_theme_failed", "failed", details={"error": str(e)})
+            flash(f"Failed to save theme: {e}", "danger")
+        return redirect(url_for('admin_theme'))
+        
+    return render_template("admin_theme.html", theme=current_theme, section_title="Theme configuration")
 
 @app.route("/admin/users", methods=["GET", "POST"])
 @role_required(list(ADMIN_PANEL_ROLES))

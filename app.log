@@ -1661,3 +1661,199 @@
 [2026-03-16 00:31:44,132] WARNING in _internal:  * Debugger is active!
 [2026-03-16 00:31:44,151] INFO in _internal:  * Debugger PIN: 118-432-274
 [2026-03-16 00:31:44,363] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 00:32:39,964] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-16 00:32:40,025] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-16 00:32:40,259] INFO in _internal:  * Restarting with stat
+[2026-03-16 00:32:40,297] INFO in _internal:  * Restarting with stat
+[2026-03-16 00:32:40,439] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-16 00:32:40,809] INFO in _internal:  * Restarting with stat
+[2026-03-16 00:32:41,732] INFO in app: QuantumShield application starting up...
+[2026-03-16 00:32:41,733] INFO in app: QuantumShield application starting up...
+[2026-03-16 00:32:42,106] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 00:32:42,111] INFO in app: QuantumShield application starting up...
+[2026-03-16 00:32:42,122] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 00:32:42,230] WARNING in _internal:  * Debugger is active!
+[2026-03-16 00:32:42,236] WARNING in _internal:  * Debugger is active!
+[2026-03-16 00:32:42,244] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-16 00:32:42,251] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-16 00:32:42,309] INFO in app: QuantumShield application starting up...
+[2026-03-16 00:32:42,432] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 00:32:42,490] WARNING in _internal:  * Debugger is active!
+[2026-03-16 00:32:42,497] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-16 00:32:42,569] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 00:32:51,055] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:32:51] "GET / HTTP/1.1" 200 -
+[2026-03-16 00:32:51,490] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:32:51] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 00:32:51,491] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:32:51] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 00:33:13,648] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:13] "GET / HTTP/1.1" 200 -
+[2026-03-16 00:33:13,761] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:13] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 00:33:13,765] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:13] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 00:33:15,525] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:15] "GET / HTTP/1.1" 200 -
+[2026-03-16 00:33:15,613] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:15] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 00:33:15,629] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:15] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 00:33:16,365] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:16] "GET /scan-center HTTP/1.1" 200 -
+[2026-03-16 00:33:16,496] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:16] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 00:33:16,503] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:16] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 00:33:17,232] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:17] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-16 00:33:17,411] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:17] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 00:33:17,424] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:17] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 00:33:18,588] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:18] "GET /scan-center HTTP/1.1" 200 -
+[2026-03-16 00:33:18,724] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:18] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 00:33:18,732] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:18] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 00:33:33,395] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:33] "GET /asset-discovery HTTP/1.1" 200 -
+[2026-03-16 00:33:33,528] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:33] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 00:33:33,562] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:33] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 00:33:49,406] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:49] "GET /cbom-dashboard HTTP/1.1" 200 -
+[2026-03-16 00:33:49,514] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:49] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 00:33:49,522] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:49] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 00:33:58,104] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:58] "GET /pqc-posture HTTP/1.1" 200 -
+[2026-03-16 00:33:58,244] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:58] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 00:33:58,254] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:33:58] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 00:34:27,442] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:34:27] "GET /profile HTTP/1.1" 200 -
+[2026-03-16 00:34:27,542] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:34:27] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 00:34:27,543] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:34:27] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 00:34:31,155] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 00:34:31] "GET /profile HTTP/1.1" 200 -
+[2026-03-16 07:37:55,470] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 07:37:55] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-16 07:37:55,517] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 07:37:55] "GET /login?next=/ HTTP/1.1" 200 -
+[2026-03-16 07:37:55,639] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 07:37:55] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 07:37:55,669] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 07:37:55] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 07:59:39,335] INFO in app: QuantumShield application starting up...
+[2026-03-16 07:59:39,692] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 07:59:39,863] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-16 07:59:39,863] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-16 07:59:39,866] INFO in _internal:  * Restarting with stat
+[2026-03-16 07:59:40,389] INFO in app: QuantumShield application starting up...
+[2026-03-16 07:59:40,542] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 07:59:40,581] WARNING in _internal:  * Debugger is active!
+[2026-03-16 07:59:40,592] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-16 07:59:46,379] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 07:59:46] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-16 07:59:46,396] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 07:59:46] "GET /login?next=/ HTTP/1.1" 200 -
+[2026-03-16 07:59:46,522] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 07:59:46] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 07:59:46,524] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 07:59:46] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 07:59:59,791] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 07:59:59] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-16 07:59:59,834] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 07:59:59] "GET / HTTP/1.1" 200 -
+[2026-03-16 07:59:59,915] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 07:59:59] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 07:59:59,944] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 07:59:59] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 08:00:25,543] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:00:25] "GET /scan-center HTTP/1.1" 200 -
+[2026-03-16 08:00:25,620] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:00:25] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 08:00:25,621] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:00:25] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 08:00:57,032] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:00:57] "[32mPOST /scan HTTP/1.1[0m" 302 -
+[2026-03-16 08:00:57,125] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:00:57] "GET /results/3d77b124 HTTP/1.1" 200 -
+[2026-03-16 08:00:57,226] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:00:57] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 08:00:57,227] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:00:57] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 08:05:46,352] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:05:46] "GET /pqc-posture HTTP/1.1" 200 -
+[2026-03-16 08:05:46,417] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:05:46] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 08:05:46,419] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:05:46] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 08:06:05,203] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:06:05] "GET /cyber-rating HTTP/1.1" 200 -
+[2026-03-16 08:06:05,270] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:06:05] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 08:06:05,297] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:06:05] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 08:26:24,004] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:26:24] "GET /login HTTP/1.1" 200 -
+[2026-03-16 08:26:24,041] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:26:24] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-16 08:26:24,045] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:26:24] "GET /static/js/app.js HTTP/1.1" 200 -
+[2026-03-16 08:26:24,156] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:26:24] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+[2026-03-16 08:26:37,476] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:26:37] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-16 08:26:37,553] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:26:37] "GET / HTTP/1.1" 200 -
+[2026-03-16 08:26:37,753] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:26:37] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 08:26:37,757] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:26:37] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 08:27:42,512] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:27:42] "GET /profile HTTP/1.1" 200 -
+[2026-03-16 08:27:42,604] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:27:42] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 08:27:42,621] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:27:42] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 08:27:50,480] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:27:50] "GET / HTTP/1.1" 200 -
+[2026-03-16 08:27:50,522] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:27:50] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 08:27:50,539] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:27:50] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 08:31:58,858] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:31:58] "[32mGET /login HTTP/1.1[0m" 302 -
+[2026-03-16 08:31:58,907] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:31:58] "GET / HTTP/1.1" 200 -
+[2026-03-16 08:31:58,960] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:31:58] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-16 08:31:58,984] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:31:58] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 08:32:22,207] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:32:22] "[32mGET /logout HTTP/1.1[0m" 302 -
+[2026-03-16 08:32:22,212] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:32:22] "GET /login HTTP/1.1" 200 -
+[2026-03-16 08:32:22,248] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:32:22] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 08:32:22,254] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:32:22] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 08:32:38,083] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:32:38] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-16 08:32:38,097] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:32:38] "GET / HTTP/1.1" 200 -
+[2026-03-16 08:32:38,189] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:32:38] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 08:32:38,190] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:32:38] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 08:32:40,847] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:32:40] "GET /cbom-dashboard HTTP/1.1" 200 -
+[2026-03-16 08:32:40,955] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:32:40] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 08:32:40,962] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:32:40] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 08:35:33,907] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:35:33] "GET /cbom-dashboard HTTP/1.1" 200 -
+[2026-03-16 08:35:33,941] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:35:33] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 08:35:33,959] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 08:35:33] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 08:40:07,524] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-16 08:40:07,699] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-16 08:40:07,751] INFO in _internal:  * Restarting with stat
+[2026-03-16 08:40:07,916] INFO in _internal:  * Restarting with stat
+[2026-03-16 08:40:08,629] INFO in app: QuantumShield application starting up...
+[2026-03-16 08:40:08,629] INFO in app: QuantumShield application starting up...
+[2026-03-16 08:40:08,885] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 08:40:08,887] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 08:40:08,959] WARNING in _internal:  * Debugger is active!
+[2026-03-16 08:40:08,966] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-16 08:40:08,966] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-16 09:35:41,277] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-16 09:35:41,360] INFO in _internal:  * Restarting with stat
+[2026-03-16 09:35:41,483] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-16 09:35:41,566] INFO in _internal:  * Restarting with stat
+[2026-03-16 09:35:43,010] INFO in app: QuantumShield application starting up...
+[2026-03-16 09:35:43,010] INFO in app: QuantumShield application starting up...
+[2026-03-16 09:35:43,254] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 09:35:43,256] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 09:35:43,371] WARNING in _internal:  * Debugger is active!
+[2026-03-16 09:35:43,371] WARNING in _internal:  * Debugger is active!
+[2026-03-16 09:35:43,378] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-16 09:35:43,378] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-16 09:40:04,954] INFO in app: QuantumShield application starting up...
+[2026-03-16 09:40:05,146] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 09:40:05,226] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-16 09:40:05,226] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-16 09:40:05,228] INFO in _internal:  * Restarting with stat
+[2026-03-16 09:40:05,790] INFO in app: QuantumShield application starting up...
+[2026-03-16 09:40:05,937] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 09:40:05,998] WARNING in _internal:  * Debugger is active!
+[2026-03-16 09:40:06,004] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-16 09:50:37,746] INFO in app: QuantumShield application starting up...
+[2026-03-16 09:50:38,001] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 09:50:38,096] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-16 09:50:38,096] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-16 09:50:38,098] INFO in _internal:  * Restarting with stat
+[2026-03-16 09:50:38,669] INFO in app: QuantumShield application starting up...
+[2026-03-16 09:50:38,857] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-16 09:50:38,914] WARNING in _internal:  * Debugger is active!
+[2026-03-16 09:50:38,920] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-16 09:50:59,902] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 09:50:59] "GET /login HTTP/1.1" 200 -
+[2026-03-16 09:52:24,458] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 09:52:24] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-16 09:52:24,487] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 09:52:24] "GET / HTTP/1.1" 200 -
+[2026-03-16 09:52:24,629] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 09:52:24] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-16 09:52:24,631] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 09:52:24] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 09:59:02,241] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 09:59:02] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-16 09:59:02,252] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 09:59:02] "GET /login?next=/ HTTP/1.1" 200 -
+[2026-03-16 09:59:02,409] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 09:59:02] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-16 09:59:02,417] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 09:59:02] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 10:55:06,211] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 10:55:06] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-16 10:55:06,224] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 10:55:06] "GET /login?next=/ HTTP/1.1" 200 -
+[2026-03-16 10:55:06,382] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 10:55:06] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 10:55:06,386] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 10:55:06] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 20:56:19,606] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:56:19] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-16 20:56:19,880] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:56:19] "GET /login?next=/ HTTP/1.1" 200 -
+[2026-03-16 20:56:20,036] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:56:20] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-16 20:56:20,047] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:56:20] "GET /static/js/scans-table.js HTTP/1.1" 200 -
+[2026-03-16 20:56:20,216] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:56:20] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 20:56:50,422] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:56:50] "GET /login HTTP/1.1" 200 -
+[2026-03-16 20:56:50,568] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:56:50] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 20:56:50,583] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:56:50] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 20:56:50,597] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:56:50] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-16 20:57:25,914] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:57:25] "POST /login HTTP/1.1" 200 -
+[2026-03-16 20:57:25,969] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:57:25] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 20:57:25,974] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:57:25] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 20:57:25,978] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:57:25] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-16 20:57:45,884] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:57:45] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-16 20:57:45,963] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:57:45] "GET / HTTP/1.1" 200 -
+[2026-03-16 20:57:46,045] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:57:46] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 20:57:46,049] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:57:46] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 20:57:46,064] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:57:46] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-16 20:58:00,783] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:58:00] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-16 20:58:00,871] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:58:00] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-16 20:58:00,880] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:58:00] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-16 20:58:00,884] INFO in _internal: 127.0.0.1 - - [16/Mar/2026 20:58:00] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -

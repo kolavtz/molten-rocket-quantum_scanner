@@ -10,8 +10,25 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     {% block head %}{% endblock %}
+    <style>
+        :root {
+            {% if theme.accent_color %}--accent-primary: {{ theme.accent_color }} !important; --accent-hover: {{ theme.accent_color }}ee !important;{% endif %}
+            {% if theme.bg_primary %}--bg-dark: {{ theme.bg_primary }} !important;{% endif %}
+            {% if theme.text_primary %}--text-light: {{ theme.text_primary }} !important;{% endif %}
+        }
+        .navbar {
+            background-color: {{ theme.bg_navbar or 'rgba(15, 18, 25, 0.95)' }} !important;
+        }
+        @media (max-width: 768px) {
+            .nav-links {
+                background-color: {{ theme.bg_navbar or 'rgba(15, 18, 25, 0.98)' }} !important;
+                animation: none !important;
+            }
+        }
+    </style>
 </head>
 <body>
     {% set section_map = {
@@ -38,35 +55,103 @@
             </a>
             <button class="nav-hamburger" id="navHamburger" aria-label="Toggle navigation" aria-expanded="false" aria-controls="navLinks">&#9776;</button>
             <div class="nav-links" id="navLinks" role="navigation" aria-label="Primary">
-                <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}" {% if request.path == '/' %}aria-current="page"{% endif %}>HOME</a>
+                <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}" {% if request.path == '/' %}aria-current="page"{% endif %} title="Home">
+                    <i class="fa-solid fa-house"></i> <span class="nav-text">HOME</span>
+                </a>
+                
                 {% if current_user.is_authenticated %}
                     {% if current_user.role in ['Admin', 'Manager', 'SingleScan'] %}
-                    <a href="/scan-center" class="nav-link {% if request.path == '/scan-center' %}active{% endif %}" {% if request.path == '/scan-center' %}aria-current="page"{% endif %}>SCAN</a>
+                    <a href="/scan-center" class="nav-link {% if request.path == '/scan-center' %}active{% endif %}" title="Scan Center">
+                        <i class="fa-solid fa-shield-halved"></i> <span class="nav-text">SCAN</span>
+                    </a>
                     {% endif %}
-                    <a href="/asset-inventory" class="nav-link {% if request.path == '/asset-inventory' %}active{% endif %}" {% if request.path == '/asset-inventory' %}aria-current="page"{% endif %}>ASSET INVENTORY</a>
-                    <a href="/asset-discovery" class="nav-link {% if request.path == '/asset-discovery' %}active{% endif %}" {% if request.path == '/asset-discovery' %}aria-current="page"{% endif %}>ASSET DISCOVERY</a>
-                    <a href="/cbom-dashboard" class="nav-link {% if request.path == '/cbom-dashboard' %}active{% endif %}" {% if request.path == '/cbom-dashboard' %}aria-current="page"{% endif %}>CBOM</a>
-                    <a href="/pqc-posture" class="nav-link {% if request.path == '/pqc-posture' %}active{% endif %}" {% if request.path == '/pqc-posture' %}aria-current="page"{% endif %}>POSTURE OF PQC</a>
-                    <a href="/cyber-rating" class="nav-link {% if request.path == '/cyber-rating' %}active{% endif %}" {% if request.path == '/cyber-rating' %}aria-current="page"{% endif %}>CYBER RATING</a>
-                    <a href="/reporting" class="nav-link {% if request.path == '/reporting' %}active{% endif %}" {% if request.path == '/reporting' %}aria-current="page"{% endif %}>REPORTING</a>
+
+                    <!-- Assets Dropdown -->
+                    <div class="nav-dropdown">
+                        <button class="nav-dropdown-trigger" title="Assets">
+                            <i class="fa-solid fa-boxes-stacked"></i> <span class="nav-text">ASSETS</span> <span class="arrow">▾</span>
+                        </button>
+                        <div class="nav-dropdown-menu">
+                            <a href="/asset-inventory" class="dropdown-link {% if request.path == '/asset-inventory' %}active{% endif %}">
+                                <i class="fa-solid fa-list-check"></i> Inventory
+                            </a>
+                            <a href="/asset-discovery" class="dropdown-link {% if request.path == '/asset-discovery' %}active{% endif %}">
+                                <i class="fa-solid fa-compass"></i> Discovery
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Posture Dropdown -->
+                    <div class="nav-dropdown">
+                        <button class="nav-dropdown-trigger" title="Posture">
+                            <i class="fa-solid fa-chart-line"></i> <span class="nav-text">POSTURE</span> <span class="arrow">▾</span>
+                        </button>
+                        <div class="nav-dropdown-menu">
+                            <a href="/cbom-dashboard" class="dropdown-link {% if request.path == '/cbom-dashboard' %}active{% endif %}">
+                                <i class="fa-solid fa-cubes"></i> CBOM Dashboard
+                            </a>
+                            <a href="/pqc-posture" class="dropdown-link {% if request.path == '/pqc-posture' %}active{% endif %}">
+                                <i class="fa-solid fa-lock"></i> PQC Posture
+                            </a>
+                            <a href="/cyber-rating" class="dropdown-link {% if request.path == '/cyber-rating' %}active{% endif %}">
+                                <i class="fa-solid fa-star"></i> Cyber Rating
+                            </a>
+                        </div>
+                    </div>
+
+                    <a href="/reporting" class="nav-link {% if request.path == '/reporting' %}active{% endif %}" title="Reporting">
+                        <i class="fa-solid fa-file-invoice-with-dollar"></i> <span class="nav-text">REPORTING</span>
+                    </a>
+                    <a href="/docs" class="nav-link {% if request.path == '/docs' %}active{% endif %}" title="Documentation">
+                        <i class="fa-solid fa-book"></i> <span class="nav-text">DOCS</span>
+                    </a>
+
+                    <!-- Admin Dropdown -->
                     {% if current_user.role == 'Admin' %}
-                    <a href="/admin/users" class="nav-link {% if request.path == '/admin/users' %}active{% endif %}">ADMIN</a>
-                    <a href="/admin/audit" class="nav-link {% if request.path == '/admin/audit' %}active{% endif %}">AUDIT</a>
+                    <div class="nav-dropdown">
+                        <button class="nav-dropdown-trigger" title="Admin">
+                            <i class="fa-solid fa-user-gear"></i> <span class="nav-text">ADMIN</span> <span class="arrow">▾</span>
+                        </button>
+                        <div class="nav-dropdown-menu">
+                            <a href="/admin/users" class="dropdown-link {% if request.path == '/admin/users' %}active{% endif %}">
+                                <i class="fa-solid fa-users"></i> User Management
+                            </a>
+                            <a href="/admin/audit" class="dropdown-link {% if request.path == '/admin/audit' %}active{% endif %}">
+                                <i class="fa-solid fa-clock-rotate-left"></i> Audit Logs
+                            </a>
+                            <a href="/admin/theme" class="dropdown-link {% if request.path == '/admin/theme' %}active{% endif %}">
+                                <i class="fa-solid fa-palette"></i> Theme Settings
+                            </a>
+                        </div>
+                    </div>
                     {% endif %}
-                    <button id="themeToggle" class="nav-link" type="button" aria-label="Toggle light and night mode" style="background:none;border:none;cursor:pointer;">THEME</button>
+
+                    <button id="themeToggle" class="nav-link" type="button" aria-label="Toggle light and night mode" title="Theme">
+                        <i class="fa-solid fa-circle-half-stroke"></i> <span class="nav-text">THEME</span>
+                    </button>
+                    
                     <div class="user-profile">
                         <span class="user-info">
                             <span class="user-name">{{ current_user.username }}</span>
                             <span class="role-badge" style="color:var(--accent);">{{ current_user.role }}</span>
                         </span>
-                        <a href="/profile" class="nav-link {% if request.path == '/profile' %}active{% endif %}" title="View &amp; manage your API key">API KEY</a>
+                        <a href="/profile" class="nav-link {% if request.path == '/profile' %}active{% endif %}" title="View &amp; manage your API key">
+                            <i class="fa-solid fa-key"></i> <span class="nav-text">API KEY</span>
+                        </a>
                         <form action="/logout" method="POST" style="display:inline-flex;align-items:center;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="nav-link logout-link" style="background:none;border:none;cursor:pointer;">LOGOUT</button>
+                            <button type="submit" class="nav-link logout-link" title="Logout">
+                                <i class="fa-solid fa-right-from-bracket"></i> <span class="nav-text">LOGOUT</span>
+                            </button>
                         </form>
                     </div>
                 {% else %}
-                    <a href="/login" class="nav-link">LOGIN</a>
+                    <a href="/docs" class="nav-link" style="margin-right:0.5rem;" title="Documentation">
+                        <i class="fa-solid fa-book"></i> <span class="nav-text">DOCS</span>
+                    </a>
+                    <a href="/login" class="nav-link" title="Login">
+                        <i class="fa-solid fa-right-to-bracket"></i> <span class="nav-text">LOGIN</span>
+                    </a>
                 {% endif %}
             </div>
         </div>
@@ -111,6 +196,7 @@
     </footer>
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/scans-table.js') }}"></script>
     <script>
         (function () {
             const now = new Date();
