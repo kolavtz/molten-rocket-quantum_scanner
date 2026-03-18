@@ -18,12 +18,17 @@ class AssetService:
     def load_combined_assets(self) -> list:
         """Hydrate list of assets from scans with normalized schemas."""
         assets = []
-        # Fallback helper from app.py refactored
+        meta_assets = {a["target"]: a for a in db.list_assets()}
+        visited_targets = set()
+        
         for scan in db.list_scans(limit=100):
             if scan.get("status") != "complete":
                 continue
                 
             target = scan.get("target")
+            visited_targets.add(target)
+            meta = meta_assets.get(target, {})
+            
             overview = scan.get("overview") or {}
             tls_results = scan.get("tls_results") or []
             discovered = scan.get("discovered_services") or []
@@ -41,16 +46,35 @@ class AssetService:
             asset_row = {
                 "asset_name": target,
                 "url": target if str(target).startswith("http") else f"https://{target}",
-                "type": self._guess_type(target, discovered),
+                "type": meta.get("type") or self._guess_type(target, discovered),
                 "asset_class": scan.get("asset_class", "Other"),
-                "risk": risk_level,
+                "risk": meta.get("risk_level") or risk_level,
                 "risk_score": risk_score,
                 "cert_status": cert_status,
                 "key_length": first.get("key_length") or first.get("key_size") or 0,
                 "last_scan": scan.get("generated_at") or scan.get("scanned_at") or "",
+                "owner": meta.get("owner") or "Unassigned",
+                "notes": meta.get("notes") or "",
                 "overview": overview
             }
             assets.append(asset_row)
+
+        for target, meta in meta_assets.items():
+            if target not in visited_targets:
+                assets.append({
+                    "asset_name": target,
+                    "url": target if str(target).startswith("http") else f"https://{target}",
+                    "type": meta.get("type") or "Web App",
+                    "asset_class": "Manual",
+                    "risk": meta.get("risk_level") or "Medium",
+                    "risk_score": 50.0,
+                    "cert_status": "Scanning...",
+                    "key_length": 0,
+                    "last_scan": "Pending",
+                    "owner": meta.get("owner") or "Unassigned",
+                    "notes": meta.get("notes") or "",
+                    "overview": {}
+                })
         return assets
 
     def get_dashboard_summary(self, assets: list) -> dict:

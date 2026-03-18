@@ -379,6 +379,19 @@ def init_db() -> bool:
             ) ENGINE=InnoDB
         """)
 
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS assets (
+                id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+                target      VARCHAR(512) UNIQUE NOT NULL,
+                type        VARCHAR(64),
+                owner       VARCHAR(150),
+                risk_level  VARCHAR(32),
+                notes       TEXT,
+                created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB
+        """)
+
         # Attempt to migrate existing tables gracefully
         for alter_cmd in [
             "ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE",
@@ -505,6 +518,50 @@ def init_db() -> bool:
     finally:
         conn.close()
     return False
+
+
+def save_asset(asset: Dict[str, Any]) -> bool:
+    """Saves or Updates asset metadata in MySQL."""
+    conn = _get_connection()
+    if conn is None: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO assets (target, type, owner, risk_level, notes)
+            VALUES (%s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                type = VALUES(type),
+                owner = VALUES(owner),
+                risk_level = VALUES(risk_level),
+                notes = VALUES(notes)
+        """, (
+            asset.get("target"),
+            asset.get("type"),
+            asset.get("owner"),
+            asset.get("risk_level"),
+            asset.get("notes")
+        ))
+        conn.commit()
+        return True
+    except Exception as e:
+        if logger: logger.error(f"save_asset error: {e}")
+        return False
+    finally: conn.close()
+
+def list_assets() -> List[Dict[str, Any]]:
+    """Lists all stored assets with metadata."""
+    conn = _get_connection()
+    if conn is None: return []
+    try:
+        cur = conn.cursor(dictionary=True)
+        # Using dictionary=True depends on driver support; fallback standard cursor if fails
+        cur.execute("SELECT * FROM assets ORDER BY created_at DESC")
+        columns = [desc[0] for desc in cur.description]
+        return [dict(zip(columns, row)) for row in cur.fetchall()]
+    except Exception as e:
+        if logger: logger.error(f"list_assets error: {e}")
+        return []
+    finally: conn.close()
 
 
 def save_scan(report: Dict[str, Any]) -> bool:
