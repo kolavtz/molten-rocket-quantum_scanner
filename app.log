@@ -2174,3 +2174,54 @@
  * Running on https://127.0.0.1:5000
 [2026-03-18 17:50:08,442] INFO in _internal: [33mPress CTRL+C to quit[0m
 [2026-03-18 17:50:08,444] INFO in _internal:  * Restarting with stat
+[2026-03-18 17:51:27,596] INFO in app: QuantumShield application starting up...
+[2026-03-18 17:51:27,797] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-18 17:51:27,798] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-18 17:51:27,931] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-18 17:51:28,017] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-18 17:51:28,018] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-18 17:51:28,020] INFO in _internal:  * Restarting with stat
+[2026-03-18 17:51:28,873] INFO in app: QuantumShield application starting up...
+[2026-03-18 17:51:29,038] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-18 17:51:29,038] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-18 17:51:29,159] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-18 17:51:29,250] WARNING in _internal:  * Debugger is active!
+[2026-03-18 17:51:29,257] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-18 17:51:30,494] INFO in scheduler: Saved automated scan for google.com
+[2026-03-18 17:51:30,494] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-18 17:51:31,631] INFO in scheduler: Saved automated scan for google.com
+[2026-03-18 17:51:31,632] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-18 17:51:37,229] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-18 17:51:37,229] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-18 17:51:37,646] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-18 17:51:37,647] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-18 18:42:11,451] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-18 18:42:11,711] INFO in _internal:  * Restarting with stat
+[2026-03-18 18:42:12,694] INFO in app: QuantumShield application starting up...
+[2026-03-18 18:42:12,893] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-18 18:42:12,893] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-18 18:42:13,068] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-18 18:42:13,173] WARNING in _internal:  * Debugger is active!
+[2026-03-18 18:42:13,182] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-18 18:42:16,029] INFO in scheduler: Saved automated scan for google.com
+[2026-03-18 18:42:16,029] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-18 18:42:22,889] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-18 18:42:22,889] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-18 19:33:10,613] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 19:33:10] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-18 19:33:10,687] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 19:33:10] "GET /login?next=/ HTTP/1.1" 200 -
+[2026-03-18 19:33:11,099] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 19:33:11] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-18 19:33:11,100] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 19:33:11] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-18 19:33:11,104] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 19:33:11] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-18 19:33:17,544] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 19:33:17] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-18 19:33:17,661] ERROR in database: get_enterprise_metrics SQL error: No module named 'database'
+[2026-03-18 19:33:17,706] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 19:33:17] "GET / HTTP/1.1" 200 -
+[2026-03-18 19:33:17,810] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 19:33:17] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-18 19:33:17,811] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 19:33:17] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-18 19:33:17,825] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 19:33:17] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-18 19:44:43,749] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-18 19:44:44,013] INFO in _internal:  * Restarting with stat
+[2026-03-18 19:44:45,094] INFO in app: QuantumShield application starting up...
+[2026-03-18 19:44:45,314] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-18 19:44:45,315] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-18 19:44:45,497] INFO in database: MySQL database 'quantumshield' initialised.
