@@ -2263,3 +2263,7 @@
 [2026-03-18 22:17:11,993] INFO in scheduler: Scheduler sleeping for 24 hours.
 [2026-03-18 22:17:12,003] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
 [2026-03-18 22:17:12,004] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-18 22:46:21,585] INFO in app: QuantumShield application starting up...
+[2026-03-18 22:46:21,872] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-18 22:46:21,872] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-18 22:46:22,019] INFO in database: MySQL database 'quantumshield' initialised.
