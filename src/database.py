@@ -663,6 +663,173 @@ def list_scans(limit: int = 50) -> List[Dict[str, Any]]:
         conn.close()
 
 
+def get_enterprise_metrics() -> Dict[str, Any]:
+    """Retrieve aggregated enterprise metrics directly via MySQL queries for O(1) dashboard loading."""
+    conn = _get_connection()
+    metrics = {
+        "total_assets": 0,
+        "quantum_safe": 0,
+        "quantum_vulnerable": 0,
+        "total_score": 0,
+        "scan_count": 0,
+        "avg_score": 0,
+        "critical_findings": 0,
+        "api_services": 0,
+        "asset_class_distribution": {},
+        "risk_distribution": {"Critical": 0, "High": 0, "Medium": 0, "Low": 0},
+        "ssl_expiry": {"0-30": 0, "30-60": 0, "60-90": 0, ">90": 0},
+        "ssl_expiry_extended": {"Expired": 0, "0-7": 0, "8-30": 0, "31-90": 0, ">90": 0},
+        "ip_breakdown": {"IPv4": 0, "IPv6": 0},
+        "crypto_overview": [],
+        "certificate_inventory": [],
+        "dns_records_total": 0,
+        "latest_scan": "",
+    }
+    if conn is None:
+        return metrics
+
+    try:
+        cur = conn.cursor(dictionary=True)
+        # 1. Base Aggregates
+        cur.execute("""
+            SELECT 
+                COUNT(*) as scan_count,
+                SUM(total_assets) as total_assets,
+                SUM(quantum_safe) as quantum_safe,
+                SUM(quantum_vuln) as quantum_vulnerable,
+                AVG(compliance_score) as avg_score,
+                MAX(scanned_at) as latest_scan
+            FROM scans 
+            WHERE status = 'complete'
+        """)
+        row = cur.fetchone()
+        if row and row.get("scan_count", 0) > 0:
+            metrics["scan_count"] = row.get("scan_count") or 0
+            metrics["total_assets"] = int(row.get("total_assets") or 0)
+            metrics["quantum_safe"] = int(row.get("quantum_safe") or 0)
+            metrics["quantum_vulnerable"] = int(row.get("quantum_vulnerable") or 0)
+            metrics["avg_score"] = int(row.get("avg_score") or 0)
+            if row.get("latest_scan"):
+                metrics["latest_scan"] = row["latest_scan"].isoformat()
+
+        # 2. Asset Class Distribution
+        cur.execute("""
+            SELECT asset_class, COUNT(*) as cnt 
+            FROM scans 
+            WHERE status = 'complete' 
+            GROUP BY asset_class
+        """)
+        for r in cur.fetchall():
+            cls = r.get("asset_class") or "Other"
+            metrics["asset_class_distribution"][cls] = r.get("cnt", 0)
+
+        # 3. DNS Records Total
+        cur.execute("SELECT COUNT(*) as cnt FROM asset_dns_records")
+        metrics["dns_records_total"] = cur.fetchone().get("cnt", 0)
+
+        # 4. Critical Findings and Complex Metrics via latest scan payloads
+        # Since full report_json traversal is heavy for 1000s records, we aggregate from the top 50 recent complete scans.
+        cur.execute("""
+            SELECT report_json, is_encrypted 
+            FROM scans 
+            WHERE status = 'complete' 
+            ORDER BY scanned_at DESC 
+            LIMIT 20
+        """)
+        scans_data = cur.fetchall()
+        
+        class_counter = {}
+        for r in scans_data:
+            data = r.get("report_json")
+            if r.get("is_encrypted") and isinstance(data, str):
+                data = _decrypt_data(data)
+            try:
+                scan = json.loads(data) if isinstance(data, str) else data
+            except (TypeError, json.JSONDecodeError):
+                continue
+
+            # Count critical findings
+            for finding in scan.get("findings", []):
+                if isinstance(finding, dict) and finding.get("severity", "").upper() == "CRITICAL":
+                    metrics["critical_findings"] += 1
+
+            # Discovered services & IP breakdown
+            for svc in scan.get("discovered_services", []):
+                if "api" in str(svc.get("service") or "").lower():
+                    metrics["api_services"] += 1
+                host = str(svc.get("host") or "")
+                if ":" in host:
+                    metrics["ip_breakdown"]["IPv6"] += 1
+                elif host and host[0].isdigit():
+                    metrics["ip_breakdown"]["IPv4"] += 1
+
+            # Risk Distribution
+            score_val = float(scan.get("overview", {}).get("average_compliance_score") or 0)
+            from database import _score_to_risk_local # fallback loop
+            # Define risk range local to avoid circle
+            if score_val >= 90: risk = "Low"
+            elif score_val >= 70: risk = "Medium"
+            elif score_val >= 50: risk = "High"
+            else: risk = "Critical"
+            
+            if risk in metrics["risk_distribution"]:
+                metrics["risk_distribution"][risk] += 1
+
+            # TLS & Crypto Overview
+            for tr_raw in scan.get("tls_results", []):
+                tr = tr_raw if isinstance(tr_raw, dict) else {}
+                days = tr.get("cert_days_remaining")
+                if isinstance(days, (int, float)):
+                    if days <= 30: metrics["ssl_expiry"]["0-30"] += 1
+                    elif days <= 60: metrics["ssl_expiry"]["30-60"] += 1
+                    elif days <= 90: metrics["ssl_expiry"]["60-90"] += 1
+                    else: metrics["ssl_expiry"][">90"] += 1
+
+                    if days < 0: metrics["ssl_expiry_extended"]["Expired"] += 1
+                    elif days <= 7: metrics["ssl_expiry_extended"]["0-7"] += 1
+                    elif days <= 30: metrics["ssl_expiry_extended"]["8-30"] += 1
+                    elif days <= 90: metrics["ssl_expiry_extended"]["31-90"] += 1
+                    else: metrics["ssl_expiry_extended"][">90"] += 1
+
+                issuer = tr.get("issuer") if isinstance(tr.get("issuer"), dict) else {}
+                subject = tr.get("subject") if isinstance(tr.get("subject"), dict) else {}
+                
+                metrics["crypto_overview"].append({
+                    "asset": scan.get("target", ""),
+                    "key_length": tr.get("key_size") or tr.get("key_length") or 0,
+                    "cipher_suite": (tr.get("cipher_suites") or ["Unknown"])[0],
+                    "tls_version": tr.get("tls_version") or "Unknown",
+                    "ca": issuer.get("O") or issuer.get("CN") or "Unknown",
+                })
+
+                metrics["certificate_inventory"].append({
+                    "asset": scan.get("target", ""),
+                    "common_name": subject.get("CN") or subject.get("commonName") or scan.get("target", ""),
+                    "issuer": issuer.get("O") or issuer.get("CN") or "Unknown",
+                    "signature_algorithm": tr.get("signature_algorithm") or "Unknown",
+                    "key_length": tr.get("key_size") or tr.get("key_length") or 0,
+                    "tls_version": tr.get("tls_version") or "Unknown",
+                    "valid_to": tr.get("valid_to") or "",
+                    "days_remaining": days if isinstance(days, (int, float)) else None,
+                    "status": tr.get("cert_status") or "Unknown",
+                })
+
+        metrics["crypto_overview"] = metrics["crypto_overview"][:20]
+        metrics["certificate_inventory"] = sorted(
+            metrics["certificate_inventory"],
+            key=lambda row: 10**9 if row.get("days_remaining") is None else int(row.get("days_remaining")),
+        )[:30]
+
+        return metrics
+
+    except Exception as exc:
+        logger.error("get_enterprise_metrics SQL error: %s", exc)
+        return metrics
+    finally:
+        conn.close()
+
+
+
 def save_dns_records(scan_id: str, records: List[Dict[str, Any]]) -> bool:
     """Persist DNS records discovered during a scan."""
     conn = _get_connection()

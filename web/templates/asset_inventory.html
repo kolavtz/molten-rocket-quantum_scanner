@@ -77,11 +77,8 @@
 </section>
 
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap;">
-    <h3>Asset Inventory</h3>
-    <input id="assetSearch" placeholder="Search by Asset Name / URL" style="min-width:260px;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.45rem 0.6rem;border-radius:6px;" />
-  </div>
-  <div class="scans-table-wrapper" style="margin-top:0.75rem;">
+  <h3 style="margin-bottom:0.25rem;">Asset Inventory</h3>
+  <div class="scans-table-wrapper">
     <table class="scans-table" id="assetTable">
       <thead>
         <tr>
@@ -108,10 +105,7 @@
       </tbody>
     </table>
   </div>
-  <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:0.6rem;">
-    <button id="prevPage" class="scan-button" style="padding:0.35rem 0.6rem;">Prev</button>
-    <button id="nextPage" class="scan-button" style="padding:0.35rem 0.6rem;">Next</button>
-  </div>
+
 </section>
 
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
@@ -147,6 +141,35 @@
       <tr><td>{{ row.asset }}</td><td>{{ row.key_length }}</td><td>{{ row.cipher_suite }}</td><td>{{ row.tls_version }}</td><td>{{ row.ca }}</td><td>{{ row.last_scan }}</td></tr>
       {% else %}
       <tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">No cryptographic telemetry available from live scans.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-top:1rem;">
+  <h3 style="margin-bottom:0.6rem;">SSL Certificate Intelligence</h3>
+  <table class="scans-table">
+    <thead>
+      <tr>
+        <th>Asset</th><th>Issuer</th><th>Key</th><th>TLS</th><th>Days Left</th><th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cert in vm.certificate_inventory %}
+      <tr>
+        <td>{{ cert.asset }}</td>
+        <td>{{ cert.issuer }}</td>
+        <td>{{ cert.key_length }}</td>
+        <td>{{ cert.tls_version }}</td>
+        <td>{{ cert.days_remaining if cert.days_remaining is not none else '-' }}</td>
+        <td>
+          <span style="color:{% if cert.status == 'Expired' %}var(--danger){% elif cert.status == 'Expiring' %}var(--warn){% else %}var(--safe){% endif %}; font-weight:700;">
+            {{ cert.status }}
+          </span>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">No certificate telemetry available.</td></tr>
       {% endfor %}
     </tbody>
   </table>

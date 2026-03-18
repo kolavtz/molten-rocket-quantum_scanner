@@ -1,162 +1,575 @@
 {% extends "base.html" %}
 
-{% block title %}LOGIN // QUANTUMSHIELD{% endblock %}
+{% block title %}Login // QuantumShield — PNB Cybersecurity Hackathon 2026{% endblock %}
 
 {% block head %}
 <style>
-    .login-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 60vh;
-    }
-    .login-card {
-        width: 100%;
-        max-width: 380px;
-        background: var(--bg-card);
-        border: var(--border-width) solid var(--border-subtle);
-        border-radius: var(--radius-lg);
-        padding: 2.25rem;
-        box-shadow: var(--shadow-md);
-    }
-    .login-header {
-        margin-bottom: 2rem;
-        border-bottom: 1px solid var(--border-subtle);
-        padding-bottom: 1rem;
-    }
-    .login-header h1 {
-        font-size: 1.2rem;
-        font-weight: 800;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        margin: 0;
-    }
-    .login-header p {
-        color: var(--text-secondary);
-        font-size: 0.75rem;
-        margin-top: 0.5rem;
-        text-transform: lowercase;
-    }
-    .form-group {
-        margin-bottom: 1.5rem;
-    }
-    .form-label {
-        display: block;
-        margin-bottom: 0.4rem;
-        font-size: 0.75rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        color: var(--text-muted);
-    }
-    .form-input {
-        width: 100%;
-        background: var(--bg-input);
-        border: 1px solid var(--border-subtle);
-        border-radius: var(--radius-sm);
-        padding: 0.8rem;
-        color: var(--text-primary);
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.9rem;
-        outline: none;
-        transition: border-color 0.25s;
-    }
-    .form-input:focus {
-        border-color: var(--accent);
-    }
-    .btn-login {
-        width: 100%;
-        background: var(--accent);
-        color: var(--bg-primary);
-        border: none;
-        border-radius: var(--radius-md);
-        padding: 0.9rem;
-        font-weight: 700;
-        font-family: 'JetBrains Mono', monospace;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        cursor: pointer;
-        transition: all 0.25s var(--ease-out);
-    }
-    .btn-login:hover {
-        background: var(--accent-hover);
-        box-shadow: 0 0 16px rgba(74, 158, 173, 0.3);
-    }
-    .flash-error {
-        border: 1px solid var(--danger);
-        border-radius: var(--radius-sm);
-        color: var(--danger);
-        padding: 0.75rem;
-        margin-bottom: 1.5rem;
-        font-size: 0.75rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        text-align: center;
-    }
-    .flash-warning {
-        border: 1px solid var(--warn);
-        border-radius: var(--radius-sm);
-        color: var(--warn);
-        padding: 0.75rem;
-        margin-bottom: 1.5rem;
-        font-size: 0.75rem;
-        font-weight: 700;
-        text-align: center;
-    }
-    .flash-success {
-        border: 1px solid var(--safe);
-        border-radius: var(--radius-sm);
-        color: var(--safe);
-        padding: 0.75rem;
-        margin-bottom: 1.5rem;
-        font-size: 0.75rem;
-        font-weight: 700;
-        text-align: center;
-    }
-    .forgot-link {
-        display: block;
-        text-align: center;
-        margin-top: 1.25rem;
-        font-size: 0.78rem;
-        color: var(--text-muted);
-        transition: color 0.2s;
-    }
-    .forgot-link:hover {
-        color: var(--accent);
-    }
+/* ── Page backdrop ──────────────────────────────────────────────── */
+body.login-page {
+    background:
+        radial-gradient(ellipse  60% 50% at 20% 40%, rgba(74,158,173,0.08) 0%, transparent 70%),
+        radial-gradient(ellipse  50% 40% at 80% 70%, rgba(74,158,173,0.06) 0%, transparent 70%),
+        var(--bg-dark, #0f1219);
+    min-height: 100vh;
+}
+
+/* ── Outer wrapper ──────────────────────────────────────────────── */
+.login-page-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    padding: 2rem 1rem;
+    gap: 1.5rem;
+}
+
+/* ── Banner text above card ─────────────────────────────────────── */
+.login-banner {
+    text-align: center;
+    max-width: 560px;
+}
+.login-banner .banner-series {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--text-secondary, #8a9bb0);
+    margin-bottom: 0.4rem;
+    font-family: 'JetBrains Mono', monospace;
+}
+.login-banner .banner-org {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.35rem;
+}
+.login-banner .banner-org-name {
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    color: var(--text-primary, #f3f4f6);
+}
+.login-banner .banner-collab {
+    font-size: 0.65rem;
+    color: var(--text-muted, #5a6a7e);
+    padding: 0.15rem 0.5rem;
+    border: 1px solid rgba(74,158,173,0.25);
+    border-radius: 99px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.login-banner .banner-event {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent, #4a9ead);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 0.2rem;
+}
+.login-banner .banner-tagline {
+    font-size: 0.72rem;
+    color: var(--text-muted, #5a6a7e);
+    font-style: italic;
+}
+.login-banner .banner-divider {
+    width: 48px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent, #4a9ead), transparent);
+    margin: 0.75rem auto;
+    border-radius: 2px;
+}
+
+/* ── Login card ─────────────────────────────────────────────────── */
+.login-card {
+    width: 100%;
+    max-width: 400px;
+    background: rgba(17, 21, 32, 0.82);
+    border: 1px solid rgba(74, 158, 173, 0.18);
+    border-radius: 16px;
+    padding: 2.25rem 2rem;
+    box-shadow:
+        0 8px 32px rgba(0,0,0,0.45),
+        inset 0 1px 0 rgba(255,255,255,0.04);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    position: relative;
+    overflow: hidden;
+}
+.login-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent, #4a9ead), transparent);
+    opacity: 0.6;
+}
+
+/* ── Card header ────────────────────────────────────────────────── */
+.login-card-header {
+    margin-bottom: 1.75rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+.login-card-header .shield-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, rgba(74,158,173,0.2), rgba(74,158,173,0.08));
+    border: 1px solid rgba(74,158,173,0.3);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.95rem;
+    color: var(--accent, #4a9ead);
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+.login-card-header h1 {
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin: 0 0 0.2rem;
+    color: var(--text-primary, #f3f4f6);
+}
+.login-card-header p {
+    color: var(--text-muted, #5a6a7e);
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    margin: 0;
+}
+
+/* ── Flash messages ─────────────────────────────────────────────── */
+.flash-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    border-radius: 8px;
+    padding: 0.7rem 0.85rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.73rem;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.45;
+}
+.flash-box.flash-error {
+    background: rgba(200, 70, 70, 0.10);
+    border: 1px solid rgba(200, 70, 70, 0.35);
+    color: #e07070;
+}
+.flash-box.flash-warning {
+    background: rgba(224, 166, 50, 0.10);
+    border: 1px solid rgba(224, 166, 50, 0.30);
+    color: #e0a632;
+}
+.flash-box.flash-success {
+    background: rgba(72, 187, 120, 0.10);
+    border: 1px solid rgba(72, 187, 120, 0.28);
+    color: #70cc96;
+}
+.flash-box .flash-icon { flex-shrink: 0; margin-top: 0.05rem; }
+
+/* ── Locked visual ──────────────────────────────────────────────── */
+.locked-notice {
+    background: rgba(190, 60, 60, 0.09);
+    border: 1px solid rgba(190, 60, 60, 0.3);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.73rem;
+    color: #e07070;
+    font-family: 'JetBrains Mono', monospace;
+}
+.locked-notice i { font-size: 1rem; flex-shrink: 0; }
+
+/* ── Form fields ────────────────────────────────────────────────── */
+.lf-group {
+    margin-bottom: 1.2rem;
+}
+.lf-label {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-size: 0.67rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-muted, #5a6a7e);
+    font-family: 'JetBrains Mono', monospace;
+}
+.lf-input-wrap {
+    position: relative;
+}
+.lf-input-wrap .lf-icon {
+    position: absolute;
+    left: 0.75rem; top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted, #5a6a7e);
+    font-size: 0.78rem;
+    pointer-events: none;
+    transition: color 0.2s;
+}
+.lf-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(74,158,173,0.15);
+    border-radius: 8px;
+    padding: 0.7rem 0.85rem 0.7rem 2.1rem;
+    color: var(--text-primary, #f3f4f6);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.22s, background 0.22s, box-shadow 0.22s;
+}
+.lf-input::placeholder { color: rgba(142, 165, 184, 0.35); }
+.lf-input:focus {
+    border-color: var(--accent, #4a9ead);
+    background: rgba(74,158,173,0.06);
+    box-shadow: 0 0 0 3px rgba(74,158,173,0.12);
+}
+.lf-input:focus + .lf-icon,
+.lf-input-wrap:focus-within .lf-icon {
+    color: var(--accent, #4a9ead);
+}
+/* Password show/hide toggle */
+.lf-pw-toggle {
+    position: absolute;
+    right: 0.75rem; top: 50%;
+    transform: translateY(-50%);
+    background: none; border: none;
+    color: var(--text-muted, #5a6a7e);
+    cursor: pointer; padding: 0;
+    font-size: 0.78rem;
+    transition: color 0.2s;
+}
+.lf-pw-toggle:hover { color: var(--accent, #4a9ead); }
+/* Password input needs right padding for toggle */
+.lf-input.has-toggle { padding-right: 2.4rem; }
+
+/* ── Remember-me + forgot row ───────────────────────────────────── */
+.lf-bottom-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.lf-remember {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+.lf-remember input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 15px; height: 15px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(74,158,173,0.25);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.18s;
+    position: relative;
+    flex-shrink: 0;
+}
+.lf-remember input[type="checkbox"]:checked {
+    background: var(--accent, #4a9ead);
+    border-color: var(--accent, #4a9ead);
+}
+.lf-remember input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    top: -1px; left: 2px;
+    font-size: 10px;
+    color: #0f1219;
+    font-weight: 700;
+}
+.lf-remember span {
+    font-size: 0.72rem;
+    color: var(--text-muted, #5a6a7e);
+    font-family: 'JetBrains Mono', monospace;
+    user-select: none;
+}
+.lf-forgot {
+    font-size: 0.72rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted, #5a6a7e);
+    text-decoration: none;
+    transition: color 0.2s;
+    white-space: nowrap;
+}
+.lf-forgot:hover { color: var(--accent, #4a9ead); }
+
+/* ── Submit button ──────────────────────────────────────────────── */
+.btn-authorize {
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--accent, #4a9ead), #3a8a9d);
+    color: #0a0f18;
+    border: none;
+    border-radius: 8px;
+    padding: 0.85rem;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
+    box-shadow: 0 4px 16px rgba(74,158,173,0.3);
+}
+.btn-authorize:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 22px rgba(74,158,173,0.4);
+    filter: brightness(1.08);
+}
+.btn-authorize:active { transform: translateY(0); }
+.btn-authorize::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.4s;
+}
+.btn-authorize:hover::after { transform: translateX(100%); }
+
+/* ── Security footer note ───────────────────────────────────────── */
+.login-security-note {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    margin-top: 1.25rem;
+    font-size: 0.62rem;
+    color: var(--text-muted, #5a6a7e);
+    font-family: 'JetBrains Mono', monospace;
+    opacity: 0.7;
+}
+
+/* ── SSO / LDAP placeholder ─────────────────────────────────────── */
+.login-alt-auth {
+    margin-top: 1.35rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(74,158,173,0.1);
+    text-align: center;
+}
+.login-alt-auth p {
+    font-size: 0.67rem;
+    color: var(--text-muted, #5a6a7e);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 0.6rem;
+}
+.btn-sso {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 1rem;
+    border: 1px solid rgba(74,158,173,0.22);
+    border-radius: 6px;
+    font-size: 0.68rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-secondary, #8a9bb0);
+    text-decoration: none;
+    background: rgba(74,158,173,0.05);
+    cursor: not-allowed;
+    opacity: 0.55;
+    transition: opacity 0.2s;
+}
+
+/* ── RBAC role pill legend (dev helper, hidden in prod) ─────────── */
+.role-legend {
+    margin-top: 0.85rem;
+    display: flex;
+    justify-content: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+.role-pill {
+    font-size: 0.58rem;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 0.15rem 0.5rem;
+    border-radius: 99px;
+    font-family: 'JetBrains Mono', monospace;
+    border: 1px solid;
+}
+.role-pill.admin   { color: #e07070; border-color: rgba(200,70,70,0.35); background: rgba(200,70,70,0.07); }
+.role-pill.manager { color: #e0a632; border-color: rgba(224,166,50,0.35); background: rgba(224,166,50,0.07); }
+.role-pill.operator{ color: #4a9ead; border-color: rgba(74,158,173,0.35); background: rgba(74,158,173,0.07); }
+.role-pill.viewer  { color: #70cc96; border-color: rgba(72,187,120,0.3);  background: rgba(72,187,120,0.07); }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="login-container">
-    <div class="login-card">
-        <div class="login-header">
-            <h1>AUTHENTICATION</h1>
-            <p>restricted access // quantum shielding active</p>
+<script>document.body.classList.add('login-page');</script>
+
+<div class="login-page-wrapper">
+
+    {# ── Event banner ─────────────────────────────────────────── #}
+    <div class="login-banner animate-fade-in">
+        <div class="banner-series">PSB Hackathon Series</div>
+        <div class="banner-org">
+            <span class="banner-org-name">PNB Cybersecurity Hackathon 2026</span>
+            <span class="banner-collab">× IIT Kanpur</span>
+        </div>
+        <div class="banner-event">Quantum-Proof Systems Scanner</div>
+        <div class="banner-divider"></div>
+        <div class="banner-tagline">Cyber Innovation Begins Here</div>
+    </div>
+
+    {# ── Login card ───────────────────────────────────────────── #}
+    <div class="login-card animate-fade-in" style="animation-delay:0.08s">
+
+        {# Card header #}
+        <div class="login-card-header">
+            <div class="shield-icon"><i class="fa-solid fa-shield-halved"></i></div>
+            <div>
+                <h1>Authentication</h1>
+                <p>Restricted access // quantum shielding active</p>
+            </div>
         </div>
 
+        {# ── Flash messages ────────────────────────────────────── #}
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="flash-{{ category }}">{{ message }}</div>
+              <div class="flash-box flash-{{ category }}">
+                  <span class="flash-icon">
+                      {% if category == 'error' %}<i class="fa-solid fa-triangle-exclamation"></i>
+                      {% elif category == 'warning' %}<i class="fa-solid fa-circle-exclamation"></i>
+                      {% else %}<i class="fa-solid fa-circle-check"></i>{% endif %}
+                  </span>
+                  <span>{{ message }}</span>
+              </div>
             {% endfor %}
           {% endif %}
         {% endwith %}
 
-        <form method="POST" action="/login">
+        {# ── Locked account notice ─────────────────────────────── #}
+        {% if locked %}
+        <div class="locked-notice">
+            <i class="fa-solid fa-lock"></i>
+            <span>ACCOUNT LOCKED — Use "Forgot Password" to regain access or wait for the lockout to expire.</span>
+        </div>
+        {% endif %}
+
+        {# ── Form ─────────────────────────────────────────────── #}
+        <form method="POST" action="{{ url_for('login') }}" autocomplete="on" novalidate>
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="form-group">
-                <label class="form-label" for="username">USER_ID</label>
-                <input class="form-input" type="text" id="username" name="username" required autocomplete="username" placeholder="admin">
+
+            {# Username / Email #}
+            <div class="lf-group">
+                <label class="lf-label" for="username">User ID / Email</label>
+                <div class="lf-input-wrap">
+                    <input class="lf-input"
+                           type="text"
+                           id="username"
+                           name="username"
+                           required
+                           autocomplete="username"
+                           placeholder="admin or user@pnb.bank.in"
+                           {% if locked %}disabled{% endif %}>
+                    <i class="fa-solid fa-user lf-icon"></i>
+                </div>
             </div>
-            <div class="form-group">
-                <label class="form-label" for="password">PASS_KEY</label>
-                <input class="form-input" type="password" id="password" name="password" required autocomplete="current-password" placeholder="••••••••">
+
+            {# Password #}
+            <div class="lf-group">
+                <label class="lf-label" for="password">Password</label>
+                <div class="lf-input-wrap">
+                    <input class="lf-input has-toggle"
+                           type="password"
+                           id="password"
+                           name="password"
+                           required
+                           autocomplete="current-password"
+                           placeholder="••••••••••••"
+                           {% if locked %}disabled{% endif %}>
+                    <i class="fa-solid fa-key lf-icon"></i>
+                    <button type="button" class="lf-pw-toggle" id="pwToggle" tabindex="-1"
+                            aria-label="Show/hide password" title="Show/hide password">
+                        <i class="fa-regular fa-eye" id="pwToggleIcon"></i>
+                    </button>
+                </div>
             </div>
-            <button type="submit" class="btn-login">AUTHORIZE</button>
+
+            {# Remember-me + Forgot password #}
+            <div class="lf-bottom-row">
+                <label class="lf-remember">
+                    <input type="checkbox" name="remember" id="remember"
+                           {% if locked %}disabled{% endif %}>
+                    <span>Stay signed in</span>
+                </label>
+                <a href="{{ url_for('forgot_password') }}" class="lf-forgot">
+                    Forgot password?
+                </a>
+            </div>
+
+            {# Submit #}
+            <button type="submit" class="btn-authorize"
+                    id="submitBtn"
+                    {% if locked %}disabled style="opacity:0.45;cursor:not-allowed;"{% endif %}>
+                <i class="fa-solid fa-right-to-bracket" style="margin-right:0.4rem;"></i>
+                Authorize Access
+            </button>
         </form>
 
-        <a href="/forgot-password" class="forgot-link">Forgot password? Request reset via email →</a>
-    </div>
-</div>
+        {# Security note #}
+        <div class="login-security-note">
+            <i class="fa-solid fa-lock" style="font-size:0.7rem;"></i>
+            <span>Protected by CSRF · Rate-limited · HTTPS enforced</span>
+        </div>
+
+        {# SSO / LDAP placeholder hook #}
+        <div class="login-alt-auth">
+            <p>Enterprise SSO / LDAP (available in production)</p>
+            <span class="btn-sso">
+                <i class="fa-solid fa-building-columns"></i> Sign in with PNB SSO
+            </span>
+        </div>
+
+        {# RBAC role legend (dev reference) #}
+        <div class="role-legend">
+            <span class="role-pill admin">Admin</span>
+            <span class="role-pill manager">Manager</span>
+            <span class="role-pill operator">Operator</span>
+            <span class="role-pill viewer">Viewer</span>
+        </div>
+
+    </div>{# /login-card #}
+
+</div>{# /login-page-wrapper #}
+
+<script>
+(function () {
+    /* Show/hide password toggle */
+    const pwInput = document.getElementById('password');
+    const toggle  = document.getElementById('pwToggle');
+    const icon    = document.getElementById('pwToggleIcon');
+    if (toggle && pwInput) {
+        toggle.addEventListener('click', function () {
+            const isHidden = pwInput.type === 'password';
+            pwInput.type = isHidden ? 'text' : 'password';
+            icon.className = isHidden ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+        });
+    }
+
+    /* Shine the submit button on first password key-up for micro-delight */
+    if (pwInput) {
+        pwInput.addEventListener('keyup', function onFirstKey() {
+            const btn = document.getElementById('submitBtn');
+            if (btn) btn.style.boxShadow = '0 0 0 1px rgba(74,158,173,0.4), 0 6px 22px rgba(74,158,173,0.35)';
+            pwInput.removeEventListener('keyup', onFirstKey);
+        });
+    }
+})();
+</script>
 {% endblock %}

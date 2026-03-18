@@ -538,3 +538,9 @@ CSP_CONFIG = {
     'img-src': ["'self'", 'data:', 'https://*'],
     'script-src': ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"], # app.js, inline scripts and Chart.js
 }
+
+# ---------------------------------------------------------------------------
+# Automated / Scheduled Scans
+# ---------------------------------------------------------------------------
+AUTOMATED_SCAN_ENABLED = os.environ.get("AUTOMATED_SCAN_ENABLED", "true").lower() == "true"
+AUTOMATED_SCAN_INTERVAL_HOURS = int(os.environ.get("AUTOMATED_SCAN_INTERVAL_HOURS", "24"))
