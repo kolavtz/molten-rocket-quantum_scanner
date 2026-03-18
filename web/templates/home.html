@@ -1,0 +1,717 @@
+{% extends "base.html" %}
+
+{% block title %}Enterprise Dashboard - QuantumShield{% endblock %}
+
+{% block head %}
+<!-- Chart.js and Custom Styles -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    /* Hide Top Nav and Breadcrumb from base.html */
+    .navbar, section[style*="max-width:1100px"] {
+        display: none !important;
+    }
+    
+    /* Global Dashboard Grid Layout */
+    .dashboard-layout {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        min-height: 100vh;
+        background: #090b10;
+        color: #f3f4f6;
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar-nav {
+        background: linear-gradient(180deg, rgba(20, 15, 15, 0.95), rgba(10, 10, 15, 0.98));
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        z-index: 99;
+    }
+
+    .brand-sidebar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding-bottom: 2rem;
+        font-weight: 800;
+        font-size: 1.25rem;
+        letter-spacing: -0.02em;
+        background: linear-gradient(135deg, #ff416c, #ff4b2b);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .sidebar-link {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        padding: 0.85rem 1rem;
+        border-radius: 8px;
+        color: #9ca3af;
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.92rem;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .sidebar-link:hover {
+        background: rgba(255, 255, 255, 0.03);
+        color: #f3f4f6;
+    }
+
+    .sidebar-link.active {
+        background: rgba(220, 38, 38, 0.1);
+        color: #ef4444;
+        border-left: 3px solid #ef4444;
+        border-radius: 4px 8px 8px 4px;
+        margin-left: -3px;
+    }
+
+    .sidebar-link i {
+        font-size: 1.1rem;
+        width: 20px;
+        text-align: center;
+    }
+
+    /* Main Container */
+    .main-wrapper {
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        padding: 2rem;
+        padding-bottom: 4rem; /* Spacer for footer */
+    }
+
+    /* Top Banner Frame */
+    .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        background: linear-gradient(90deg, #b22222, #1a0100);
+        border: 1px solid rgba(255,215,0,0.2);
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 25px rgba(0,0,0,0.4);
+    }
+
+    .header-title-sec h1 {
+        font-size: 1.2rem;
+        font-weight: 800;
+        letter-spacing: 0.05rem;
+        color: #ffd700;
+        text-transform: uppercase;
+        margin-bottom: 0.25rem;
+    }
+
+    .header-title-sec p {
+        font-size: 0.8rem;
+        color: #9ca3af;
+    }
+
+    .header-user-sec {
+        text-align: right;
+        font-size: 0.85rem;
+    }
+
+    .welcome-text {
+        color: #f3f4f6;
+        font-weight: 600;
+    }
+
+    .date-stamp {
+        color: #ef4444;
+        font-weight: 500;
+        margin-top: 0.2rem;
+    }
+
+    /* Metrics Hero Grid */
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2.5rem;
+    }
+
+    .metrics-card {
+        background: rgba(20, 24, 33, 0.6);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-radius: 12px;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.2s ease;
+    }
+
+    .metrics-card:hover {
+        transform: translateY(-3px);
+        border-color: rgba(255,255,255,0.08);
+    }
+
+    .metrics-icon {
+        position: absolute;
+        right: 1.2rem;
+        top: 1.2rem;
+        font-size: 2rem;
+        opacity: 0.05;
+        color: #fff;
+    }
+
+    .metrics-label {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #9ca3af;
+    }
+
+    .metrics-val {
+        font-size: 1.8rem;
+        font-weight: 800;
+        font-family: 'JetBrains Mono', monospace;
+        background: linear-gradient(135deg, #fff, #9ca3af);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .sub-metric {
+        font-size: 0.72rem;
+        color: #6b7280;
+        margin-top: auto;
+    }
+
+    /* Specific Metric Flourishes */
+    .card-vulnerable .metrics-val { background: linear-gradient(135deg, #fca5a5, #ef4444); -webkit-background-clip: text; }
+    .card-safe .metrics-val { background: linear-gradient(135deg, #34d399, #10b981); -webkit-background-clip: text; }
+
+    /* Action center container */
+    .dashboard-content-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 2rem;
+    }
+
+    @media (max-width: 1100px) {
+        .dashboard-content-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Section Cards */
+    .card-panel {
+        background: rgba(15, 18, 25, 0.8);
+        border: 1px solid rgba(255,255,255,0.03);
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .panel-title {
+        font-weight: 700;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /* Buttons / CTAs */
+    .cta-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .cta-button {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem 1.25rem;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 8px;
+        color: #f3f4f6;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+    }
+
+    .cta-button:hover {
+        background: rgba(255,255,255,0.05);
+        border-color: rgba(220,38,38,0.3);
+        transform: translateX(4px);
+    }
+
+    .cta-button i {
+        color: #ef4444;
+    }
+
+    /* Table Styling overrides */
+    .scans-list-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+
+    .scans-list-table th {
+        text-align: left;
+        padding: 0.75rem;
+        color: #6b7280;
+        font-weight: 600;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .scans-list-table td {
+        padding: 0.85rem 0.75rem;
+        border-bottom: 1px solid rgba(255,255,255,0.02);
+        color: #d1d5db;
+    }
+
+    .score-badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-weight: 700;
+        font-family: monospace;
+        background: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+    }
+    .score-badge.low { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+    /* Layout responsive modifier */
+    @media (max-width: 767px) {
+        .dashboard-layout { grid-template-columns: 1fr; }
+        .sidebar-nav { display: none; }
+    }
+    
+    /* Table Sorting Cues */
+    .scans-list-table th { cursor: pointer; position: relative; }
+    .scans-list-table th:hover { background: rgba(255,255,255,0.05); }
+    .scans-list-table th::after { content: ' ↕'; font-size: 0.65rem; opacity: 0.3; margin-left: 4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-layout">
+    
+    <!-- Left Navigation -->
+    <aside class="sidebar-nav">
+        <div class="brand-sidebar">
+            <i class="fa-solid fa-feather-pointed"></i> QuantumShield
+        </div>
+        <a href="/" class="sidebar-link active">
+            <i class="fa-solid fa-house"></i> Home Dashboard
+        </a>
+        <a href="/asset-inventory" class="sidebar-link">
+            <i class="fa-solid fa-boxes-stacked"></i> Asset Inventory
+        </a>
+        <a href="/asset-discovery" class="sidebar-link">
+            <i class="fa-solid fa-compass"></i> Asset Discovery
+        </a>
+        <a href="/cbom-dashboard" class="sidebar-link">
+            <i class="fa-solid fa-cubes"></i> CBOM Report
+        </a>
+        <a href="/pqc-posture" class="sidebar-link">
+            <i class="fa-solid fa-lock"></i> Posture of PQC
+        </a>
+        <a href="/cyber-rating" class="sidebar-link">
+            <i class="fa-solid fa-star"></i> Cyber Rating
+        </a>
+        <a href="/reporting" class="sidebar-link">
+            <i class="fa-solid fa-file-invoice"></i> Reporting
+        </a>
+        <hr style="opacity: 0.05; margin: 1rem 0;">
+        <a href="/" class="sidebar-link" style="margin-top:auto;">
+            <i class="fa-solid fa-circle-left"></i> Security Console
+        </a>
+    </aside>
+
+    <!-- Right Container -->
+    <div class="main-wrapper">
+        
+        <!-- Header Banner Frame -->
+        <div class="dashboard-header">
+            <div class="header-title-sec">
+                <h1>PNB Hackathon Series</h1>
+                <p>IIT Kanpur & PSB Collaboration Series 2026</p>
+            </div>
+            <div class="header-user-sec">
+                <div class="welcome-text">Welcome User: {{ current_user.username }}..!</div>
+                <div class="date-stamp" id="headerDateLabel">--/--/---- | PNB Hackathon 2026</div>
+            </div>
+        </div>
+
+        <!-- Metrics Hero Grid -->
+        <div class="metrics-grid">
+            <div class="metrics-card card-safe">
+                <i class="fa-solid fa-shield-halved metrics-icon"></i>
+                <div class="metrics-label">Quantum Safe %</div>
+                <div class="metrics-val">
+                    {% if enterprise_metrics.total_assets > 0 %}
+                        {{ ((enterprise_metrics.quantum_safe / enterprise_metrics.total_assets) * 100) | round(1) }}%
+                    {% else %}
+                        100%
+                    {% endif %}
+                </div>
+                <div class="sub-metric">{{ enterprise_metrics.quantum_safe }} / {{ enterprise_metrics.total_assets }} Assets</div>
+            </div>
+
+            <div class="metrics-card card-vulnerable">
+                <i class="fa-solid fa-skull-crossbones metrics-icon"></i>
+                <div class="metrics-label">Vulnerable Assets</div>
+                <div class="metrics-val">{{ enterprise_metrics.quantum_vulnerable }}</div>
+                <div class="sub-metric">Require post-quantum keys</div>
+            </div>
+
+            <div class="metrics-card">
+                <i class="fa-solid fa-fire-extinguisher metrics-icon"></i>
+                <div class="metrics-label">Critical Findings</div>
+                <div class="metrics-val" style="color:#ef4444;">{{ enterprise_metrics.critical_findings }}</div>
+                <div class="sub-metric">Open mitigation paths</div>
+            </div>
+
+            <div class="metrics-card">
+                <i class="fa-solid fa-circle-check metrics-icon"></i>
+                <div class="metrics-label">Average PQC Score</div>
+                <div class="metrics-val">{{ enterprise_metrics.avg_score or 0 }}</div>
+                <div class="sub-metric">Target benchmark > 80</div>
+            </div>
+
+            <div class="metrics-card">
+                <i class="fa-solid fa-clock-rotate-left metrics-icon"></i>
+                <div class="metrics-label">Last Scan</div>
+                <div class="metrics-val" style="font-size: 1rem; padding-top: 0.5rem; word-break: break-all;">
+                    {{ (enterprise_metrics.latest_scan or '--') | truncate(16, true, '') }}
+                </div>
+                <div class="sub-metric">Time of latest audit</div>
+            </div>
+        </div>
+
+        <!-- Main Content Core -->
+        <div class="dashboard-content-grid">
+            
+            <!-- Charts and List Panel -->
+            <div style="display: flex; flex-direction: column; gap: 2rem;">
+                
+                <!-- Chart Row -->
+                <div class="card-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i class="fa-solid fa-chart-pie"></i> Asset Class & Risk Distribution</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; height: 260px;">
+                        <canvas id="chartAssetClass"></canvas>
+                        <canvas id="chartRiskDist"></canvas>
+                    </div>
+                </div>
+
+                <!-- Last 10 Scans Table -->
+                <div class="card-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i class="fa-solid fa-list-timeline"></i> Last 10 Scans</div>
+                    </div>
+                    
+                    <div class="scans-table-wrapper">
+                        <table class="scans-list-table scans-table">
+                            <thead>
+                                <tr>
+                                    <th>Target Asset</th>
+                                    <th>Asset Class</th>
+                                    <th>Status</th>
+                                    <th>PQC Score</th>
+                                    <th>Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for scan in recent_scans %}
+                                <tr>
+                                    <td>
+                                        <div style="font-weight: 600;">{{ scan.target }}</div>
+                                        <div style="font-size: 0.72rem; color: #6b7280;">{{ scan.scan_id[:8] if scan.scan_id else 'SCAN' }}</div>
+                                    </td>
+                                    <td>{{ scan.asset_class or 'Unmapped' }}</td>
+                                    <td>
+                                        <span class="score-badge" style="background:rgba(255,255,255,0.02); color:#fbfbfb;">
+                                            {{ scan.status | upper }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% set score = (scan.overview.average_compliance_score if scan.overview else 0) %}
+                                        <span class="score-badge {% if score < 60 %}low{% endif %}">
+                                            {{ score }}
+                                        </span>
+                                    </td>
+                                    <td>{{ scan.generated_at or scan.scanned_at or '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Asset Inventory Snapshot -->
+                <div class="card-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i class="fa-solid fa-boxes-stacked"></i> Asset Inventory Snapshot</div>
+                    </div>
+                    <div class="scans-table-wrapper">
+                        <table class="scans-list-table scans-table">
+                            <thead>
+                                <tr>
+                                    <th>Asset</th><th>URL</th><th>Type</th><th>Class</th><th>Owner</th><th>Risk</th><th>Cert</th><th>Key</th><th>Last Scan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in inventory_vm.assets[:12] %}
+                                <tr>
+                                    <td>{{ row.asset_name }}</td><td>{{ row.url | truncate(35) }}</td><td>{{ row.type }}</td><td>{{ row.asset_class or 'Other' }}</td><td>{{ row.owner }}</td><td>{{ row.risk }}</td><td>{{ row.cert_status }}</td><td>{{ row.key_length }}</td><td>{{ row.last_scan }}</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="9" style="text-align:center;color:#6b7280;">No inventory rows available.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- DNS Records -->
+                <div class="card-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i class="fa-solid fa-network-wired"></i> DNS Records</div>
+                    </div>
+                    <div class="scans-table-wrapper">
+                        <table class="scans-list-table scans-table">
+                            <thead><tr><th>Host</th><th>Type</th><th>Value</th><th>TTL</th></tr></thead>
+                            <tbody>
+                                {% for row in inventory_vm.nameserver_records[:10] %}
+                                <tr><td>{{ row.hostname }}</td><td>{{ row.type }}</td><td>{{ row.ip or row.ipv6 or '-' }}</td><td>{{ row.ttl }}</td></tr>
+                                {% else %}
+                                <tr><td colspan="4" style="text-align:center;color:#6b7280;">No DNS records captured.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Crypto Security Overview -->
+                <div class="card-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i class="fa-solid fa-lock"></i> Crypto Security Overview</div>
+                    </div>
+                    <div class="scans-table-wrapper">
+                        <table class="scans-list-table scans-table">
+                            <thead><tr><th>ASSET</th><th>KEY</th><th>CIPHER</th><th>TLS</th><th>CA</th></tr></thead>
+                            <tbody>
+                                {% for row in enterprise_metrics.crypto_overview[:10] %}
+                                <tr><td>{{ row.asset }}</td><td>{{ row.key_length }}</td><td>{{ row.cipher_suite }}</td><td>{{ row.tls_version }}</td><td>{{ row.ca }}</td></tr>
+                                {% else %}
+                                <tr><td colspan="5" style="text-align:center;color:#6b7280;">No crypto overview rows available.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- SSL Certificate Intelligence -->
+                <div class="card-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i class="fa-solid fa-certificate"></i> SSL Certificate Intelligence</div>
+                    </div>
+                    <div class="scans-table-wrapper">
+                        <table class="scans-list-table scans-table">
+                            <thead>
+                                <tr>
+                                    <th>ASSET</th><th>ISSUER</th><th>KEY</th><th>TLS</th><th>DAYS LEFT</th><th>STATUS</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cert in enterprise_metrics.certificate_inventory[:12] %}
+                                <tr>
+                                    <td>{{ cert.asset }}</td>
+                                    <td>{{ cert.issuer }}</td>
+                                    <td>{{ cert.key_length }}</td>
+                                    <td>{{ cert.tls_version }}</td>
+                                    <td>{{ cert.days_remaining if cert.days_remaining is not none else '-' }}</td>
+                                    <td>
+                                        <span style="color:{% if cert.status == 'Expired' %}#ef4444{% elif cert.status == 'Expiring' %}#f59e0b{% else %}#10b981{% endif %}; font-weight:700;">
+                                            {{ cert.status }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="6" style="text-align:center;color:#6b7280;">No certificate telemetry available.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Action column -->
+            <div style="display: flex; flex-direction: column; gap: 2rem;">
+                
+                <!-- Quick Actions Stack -->
+                <div class="card-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i class="fa-solid fa-bolt"></i> Quantum Actions</div>
+                    </div>
+                    <div class="cta-stack">
+                        <a href="/scan-center" class="cta-button">
+                            <span>Execute Single Scan</span> <i class="fa-solid fa-magnifying-glass-chart"></i>
+                        </a>
+                        <a href="/scan-center" class="cta-button">
+                            <span>Bulk Inventory Audit</span> <i class="fa-solid fa-layer-group"></i>
+                        </a>
+                        <a href="/pqc-posture" class="cta-button">
+                            <span>View Posture Matrix</span> <i class="fa-solid fa-arrow-grid-2"></i>
+                        </a>
+                        <a href="/cbom-dashboard" class="cta-button">
+                            <span>Get Last CBOM Data</span> <i class="fa-solid fa-file-code"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- TLS Insight Panel -->
+                <div class="card-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i class="fa-solid fa-shield"></i> Sub-System Health</div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                            <span style="color:#9ca3af;">SSL Cert Expiry (0-30 Days)</span>
+                            <span style="font-weight:700; color:#ef4444;">{{ enterprise_metrics.ssl_expiry.get('0-30', 0) }}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                            <span style="color:#9ca3af;">API Discovery Total</span>
+                            <span style="font-weight:700;">{{ enterprise_metrics.api_services or 0 }}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                            <span style="color:#9ca3af;">DNS Resource Totals</span>
+                            <span style="font-weight:700;">{{ enterprise_metrics.dns_records_total or 0 }}</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Auto activation script for sorting/drawer if scans-table.js does not find wrapper on standard dom context -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Date Stamp update for header specifically
+        (function () {
+            const now = new Date();
+            const dd = String(now.getDate()).padStart(2, '0');
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const yyyy = now.getFullYear();
+            const el = document.getElementById('headerDateLabel');
+            if (el) {
+                el.textContent = dd + '/' + mm + '/' + yyyy + ' | PNB Hackathon 2026';
+            }
+        })();
+
+        // Chart 1: Asset Class Distributions
+        const classCtx = document.getElementById('chartAssetClass').getContext('2d');
+        const classData = {{ enterprise_metrics.asset_class_distribution | tojson }};
+        new Chart(classCtx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(classData),
+                datasets: [{
+                    data: Object.values(classData),
+                    backgroundColor: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'],
+                    borderWidth: 1,
+                    borderColor: 'rgba(15,18,25,0.8)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { color: '#9ca3af', font: { size: 10 } } }
+                }
+            }
+        });
+
+        // Chart 2: Risk Distribution bar
+        const riskCtx = document.getElementById('chartRiskDist').getContext('2d');
+        const riskData = {{ enterprise_metrics.risk_distribution | tojson }};
+        new Chart(riskCtx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(riskData),
+                datasets: [{
+                    label: 'Sites / Assets',
+                    data: Object.values(riskData),
+                    backgroundColor: 'rgba(239, 68, 68, 0.4)',
+                    borderColor: '#ef4444',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { display: false } },
+                    y: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.03)' }, beginAtZero: true }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // Interactive Table Sorting Logic 
+        document.querySelectorAll('.scans-list-table th').forEach(headerCell => {
+            headerCell.addEventListener('click', () => {
+                const table = headerCell.closest('table');
+                const tBody = table.tBodies[0];
+                const rows = Array.from(tBody.querySelectorAll('tr'));
+                const columnIndex = Array.from(headerCell.parentElement.children).indexOf(headerCell);
+                const isAscending = headerCell.classList.toggle('sorted-asc');
+                const direction = isAscending ? 1 : -1;
+
+                Array.from(headerCell.parentElement.children).forEach(th => {
+                    if (th !== headerCell) th.classList.remove('sorted-asc', 'sorted-desc');
+                });
+
+                const sortedRows = rows.sort((a, b) => {
+                    const aCell = a.children[columnIndex];
+                    const bCell = b.children[columnIndex];
+                    if (!aCell || !bCell || aCell.textContent.includes('No ') || bCell.textContent.includes('No ')) return 0;
+                    
+                    const aText = aCell.textContent.trim();
+                    const bText = bCell.textContent.trim();
+                    const aNum = parseFloat(aText.replace(/[^0-9.-]+/g, ""));
+                    const bNum = parseFloat(bText.replace(/[^0-9.-]+/g, ""));
+
+                    if (!isNaN(aNum) && !isNaN(bNum)) return (aNum - bNum) * direction;
+                    return aText.localeCompare(bText, undefined, {numeric: true, sensitivity: 'base'}) * direction;
+                });
+
+                while (tBody.firstChild) tBody.removeChild(tBody.firstChild);
+                tBody.append(...sortedRows);
+            });
+        });
+    });
+</script>
+{% endblock %}

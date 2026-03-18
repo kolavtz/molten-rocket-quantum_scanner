@@ -37,6 +37,15 @@ class CertificateInfo:
 
     subject: Dict[str, str] = field(default_factory=dict)
     issuer: Dict[str, str] = field(default_factory=dict)
+
+    # Explicit expansions for easier template rendering
+    subject_cn: str = ""
+    subject_o: str = ""
+    subject_ou: str = ""
+    issuer_cn: str = ""
+    issuer_o: str = ""
+    issuer_ou: str = ""
+
     serial_number: str = ""
     not_before: str = ""
     not_after: str = ""
@@ -52,6 +61,12 @@ class CertificateInfo:
         return {
             "subject": self.subject,
             "issuer": self.issuer,
+            "subject_cn": self.subject_cn,
+            "subject_o": self.subject_o,
+            "subject_ou": self.subject_ou,
+            "issuer_cn": self.issuer_cn,
+            "issuer_o": self.issuer_o,
+            "issuer_ou": self.issuer_ou,
             "serial_number": self.serial_number,
             "not_before": self.not_before,
             "not_after": self.not_after,
@@ -234,6 +249,15 @@ class TLSAnalyzer:
         for rdn in issuer_tuples:
             for attr_name, attr_value in rdn:
                 info.issuer[attr_name] = attr_value
+
+        # Explicit component mapping
+        info.subject_cn = info.subject.get("commonName", "")
+        info.subject_o = info.subject.get("organizationName", "")
+        info.subject_ou = info.subject.get("organizationalUnitName", "")
+
+        info.issuer_cn = info.issuer.get("commonName", "")
+        info.issuer_o = info.issuer.get("organizationName", "")
+        info.issuer_ou = info.issuer.get("organizationalUnitName", "")
 
         # Serial
         info.serial_number = cert_dict.get("serialNumber", "")
