@@ -1185,31 +1185,37 @@ def index():
     # Use the Direct MySQL Aggegate Loader for dashboard performance instead of loops
     enterprise_metrics = db.get_enterprise_metrics()
     
-    # Check if empty, populate demo row if no scan exists
-    if enterprise_metrics.get("scan_count", 0) == 0:
-        logger.info("No scans found in database. Preparing synthetic demonstration metrics layout.")
+    # Ensure zero-state consistency using AssetService aggregates if DB totals fail
+    if not enterprise_metrics or enterprise_metrics.get("total_assets", 0) == 0:
+        logger.info("Direct enterprise metrics empty. Utilizing AssetService aggregations.")
+        from src.services.asset_service import AssetService
+        asset_svc = AssetService()
+        assets = asset_svc.load_combined_assets()
+        summary = asset_svc.get_dashboard_summary(assets)
+        
         enterprise_metrics = {
-            "total_assets": 128,
-            "quantum_safe": 112,
-            "quantum_vulnerable": 16,
+            "total_assets": summary.get("total_assets", 0),
+            "quantum_safe": max(0, summary.get("total_assets", 0) - summary.get("expiring_certs", 0)), 
+            "quantum_vulnerable": 0,
             "total_score": 0,
-            "scan_count": 1,
-            "avg_score": 87,
-            "critical_findings": 2,
-            "api_services": 26,
-            "asset_class_distribution": {"Web Applications": 42, "APIs": 26, "Servers": 37, "Load Balancers": 11, "Other": 12},
-            "risk_distribution": {"Critical": 1, "High": 2, "Medium": 4, "Low": 7},
-            "ssl_expiry": {"0-30": 3, "30-60": 4, "60-90": 2, ">90": 84},
-            "ssl_expiry_extended": {"Expired": 0, "0-7": 1, "8-30": 2, "31-90": 6, ">90": 91},
-            "ip_breakdown": {"IPv4": 86, "IPv6": 14},
-            "crypto_overview": [
-                {"asset": "portal.pnb.in", "key_length": "2048-bit", "cipher_suite": "ECDHE-RSA-AES256", "tls_version": "1.2", "ca": "DigiCert"},
-                {"asset": "api.pnb.in", "key_length": "4096-bit", "cipher_suite": "TLS_AES_256_GCM", "tls_version": "1.3", "ca": "Let's Encrypt"},
-                {"asset": "vpn.pnb.in", "key_length": "1024-bit", "cipher_suite": "TLS_RSA_WITH_3DES", "tls_version": "1.0", "ca": "COMODO"},
-            ],
+            "scan_count": len(recent_scans),
+            "avg_score": summary.get("overall_risk_score", 0),
+            "critical_findings": summary.get("risk_distribution", {}).get("Critical", 0),
+            "api_services": summary.get("api_count", 0),
+            "asset_class_distribution": {
+                "APIs": summary.get("api_count", 0),
+                "VPNs": summary.get("vpn_count", 0),
+                "Servers": summary.get("server_count", 0),
+                "Web Apps": max(0, summary.get("total_assets", 0) - summary.get("api_count", 0) - summary.get("vpn_count", 0) - summary.get("server_count", 0))
+            },
+            "risk_distribution": summary.get("risk_distribution", {}),
+            "ssl_expiry": {"0-30": summary.get("expiring_certs", 0)},
+            "ssl_expiry_extended": {},
+            "ip_breakdown": {},
+            "crypto_overview": [],
             "certificate_inventory": [],
-            "dns_records_total": 45,
-            "latest_scan": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "dns_records_total": 0,
+            "latest_scan": recent_scans[0].get("scanned_at") if recent_scans else "Never"
         }
 
     # Verify inventory_vm aggregation
@@ -1223,18 +1229,36 @@ def index():
     )# Register Main Dashboard Blueprint after decorators are applied
 app.register_blueprint(dashboard_bp)
 
-@app.route("/dashboard/assets")
+@app.route("/dashboard/assets", methods=["GET", "POST"])
 def asset_inventory():
+    from flask import request, redirect, url_for
     from src.services.asset_service import AssetService
     from src.services.geo_service import GeoService
+    from src import database as db
     
     asset_svc = AssetService()
     geo_svc = GeoService()
     
+    if request.method == "POST":
+        target = request.form.get("target")
+        if target:
+            # Normalize target to hostname for DB consistency
+            from urllib.parse import urlparse
+            parsed = urlparse(target if "://" in target else f"http://{target}")
+            clean_target = parsed.netloc or parsed.path
+            
+            db.save_asset({
+                "target": clean_target,
+                "type": request.form.get("type", "Web App"),
+                "owner": request.form.get("owner", "Unassigned"),
+                "risk_level": request.form.get("risk", "Medium"),
+                "notes": request.form.get("notes", "")
+            })
+            return redirect(url_for("asset_inventory"))
+
     assets = asset_svc.load_combined_assets()
     summary = asset_svc.get_dashboard_summary(assets)
     
-    # Extract IPs for maps
     ips = [a["asset_name"] for a in assets if not str(a.get("asset_name", "")).startswith("http")]
     clusters = geo_svc.get_geo_clusters(ips)
     
@@ -1647,7 +1671,7 @@ def _build_asset_discovery_view(include_in_progress: bool = False) -> dict:
 
 @app.route("/asset-inventory")
 @login_required
-def asset_inventory():
+def asset_inventory_page():
     return render_template("asset_inventory.html", vm=_build_asset_inventory_view())
 
 

@@ -179,14 +179,14 @@
         <div class="glass-card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                 <div style="font-weight: 700; font-size: 1rem;"><i class="fa-solid fa-list-check"></i> Assets List</div>
-                <button class="btn btn-sm btn-outline-danger" onclick="alert('Add Asset Modal triggers...')">+ Add Asset</button>
+                <button class="btn btn-sm btn-outline-danger" onclick="document.getElementById('addModal').style.display='flex'">+ Add Asset</button>
             </div>
             
             <div class="table-container">
                 <table class="scans-table">
                     <thead>
                         <tr>
-                            <th>Asset Name</th><th>Type</th><th>Risk</th><th>Cert Status</th><th>Key Size</th><th>Last Audit</th>
+                            <th>Asset Name</th><th>Type</th><th>Risk</th><th>Cert Status</th><th>Key Size</th><th>Last Audit</th><th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -198,6 +198,9 @@
                             <td>{{ asset.cert_status }}</td>
                             <td>{{ asset.key_length }}</td>
                             <td>{{ asset.last_scan | truncate(10, True, '') }}</td>
+                            <td>
+                                <button class="btn btn-xs btn-outline-info" onclick="openEditModal('{{ asset.asset_name }}', '{{ asset.type }}', '{{ asset.risk }}', '{{ asset.owner }}')"><i class="fa-solid fa-pen"></i></button>
+                            </td>
                         </tr>
                         {% else %}
                         <tr><td colspan="6" style="text-align:center; color:#6b7280;">No operational assets logged.</td></tr>
@@ -214,6 +217,89 @@
         </div>
     </div>
 </div>
+
+<!-- Modals Container -->
+<div id="addModal" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(8px); z-index:1000; justify-content:center; align-items:center;">
+    <div class="glass-card" style="width: 420px; padding: 2rem; border-radius:12px;">
+        <h3 style="margin-top:0; color:#ffd700; font-size:1.2rem;"><i class="fa-solid fa-circle-plus"></i> Add New Asset</h3>
+        <form method="POST">
+            <input type="hidden" name="action" value="add">
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; font-size:0.75rem; color:#9ca3af; margin-bottom:0.25rem;">Target (Domain or IP)</label>
+                <input type="text" name="target" placeholder="google.com" required style="width:100%; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:0.5rem; color:white;">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:1rem;">
+                <div>
+                   <label style="display:block; font-size:0.75rem; color:#9ca3af; margin-bottom:0.25rem;">Type</label>
+                   <select name="type" style="width:100%; background:rgba(20,24,35,0.9); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:0.5rem; color:white;">
+                       <option value="Web App">Web App</option><option value="API">API</option><option value="VPN/Gateway">VPN/Gateway</option><option value="Server">Server</option>
+                   </select>
+                </div>
+                <div>
+                   <label style="display:block; font-size:0.75rem; color:#9ca3af; margin-bottom:0.25rem;">Risk override</label>
+                   <select name="risk" style="width:100%; background:rgba(20,24,35,0.9); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:0.5rem; color:white;">
+                       <option value="Low">Low</option><option value="Medium" selected>Medium</option><option value="High">High</option><option value="Critical">Critical</option>
+                   </select>
+                </div>
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; font-size:0.75rem; color:#9ca3af; margin-bottom:0.25rem;">Owner</label>
+                <input type="text" name="owner" placeholder="Support Team" style="width:100%; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:0.5rem; color:white;">
+            </div>
+            <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('addModal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn btn-sm btn-danger">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="editModal" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(8px); z-index:1000; justify-content:center; align-items:center;">
+    <div class="glass-card" style="width: 420px; padding: 2rem; border-radius:12px;">
+        <h3 style="margin-top:0; color:#ffd700; font-size:1.2rem;"><i class="fa-solid fa-pen-to-square"></i> Edit Asset</h3>
+        <form method="POST">
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="target" id="editTarget">
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; font-size:0.75rem; color:#9ca3af; margin-bottom:0.25rem;">Target</label>
+                <input type="text" id="editLabel" disabled style="width:100%; background:rgba(0,0,0,0.1); border:1px solid rgba(255,255,255,0.05); border-radius:4px; padding:0.5rem; color:#9ca3af;">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:1rem;">
+                <div>
+                   <label style="display:block; font-size:0.75rem; color:#9ca3af; margin-bottom:0.25rem;">Type</label>
+                   <select name="type" id="editType" style="width:100%; background:rgba(20,24,35,0.9); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:0.5rem; color:white;">
+                       <option value="Web App">Web App</option><option value="API">API</option><option value="VPN/Gateway">VPN/Gateway</option><option value="Server">Server</option>
+                   </select>
+                </div>
+                <div>
+                   <label style="display:block; font-size:0.75rem; color:#9ca3af; margin-bottom:0.25rem;">Risk Override</label>
+                   <select name="risk" id="editRisk" style="width:100%; background:rgba(20,24,35,0.9); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:0.5rem; color:white;">
+                       <option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option><option value="Critical">Critical</option>
+                   </select>
+                </div>
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; font-size:0.75rem; color:#9ca3af; margin-bottom:0.25rem;">Owner</label>
+                <input type="text" name="owner" id="editOwner" style="width:100%; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:0.5rem; color:white;">
+            </div>
+            <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('editModal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn btn-sm btn-danger">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditModal(target, type, risk, owner) {
+    document.getElementById('editTarget').value = target;
+    document.getElementById('editLabel').value = target;
+    document.getElementById('editType').value = type;
+    document.getElementById('editRisk').value = risk;
+    document.getElementById('editOwner').value = (owner && owner !== 'Unassigned') ? owner : '';
+    document.getElementById('editModal').style.display = 'flex';
+}
+</script>
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {

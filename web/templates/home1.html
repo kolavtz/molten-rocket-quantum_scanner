@@ -315,10 +315,10 @@
         <div class="brand-sidebar">
             <i class="fa-solid fa-feather-pointed"></i> QuantumShield
         </div>
-        <a href="/" class="sidebar-link active">
+        <a href="{{ url_for('dashboard.index') }}" class="sidebar-link active">
             <i class="fa-solid fa-house"></i> Home Dashboard
         </a>
-        <a href="/asset-inventory" class="sidebar-link">
+        <a href="{{ url_for('asset_inventory') }}" class="sidebar-link">
             <i class="fa-solid fa-boxes-stacked"></i> Asset Inventory
         </a>
         <a href="/asset-discovery" class="sidebar-link">
@@ -517,7 +517,7 @@
                         <table class="scans-list-table scans-table">
                             <thead><tr><th>ASSET</th><th>KEY</th><th>CIPHER</th><th>TLS</th><th>CA</th></tr></thead>
                             <tbody>
-                                {% for row in enterprise_metrics.crypto_overview[:10] %}
+                                {% for row in inventory_vm.crypto_overview[:10] %}
                                 <tr><td>{{ row.asset }}</td><td>{{ row.key_length }}</td><td>{{ row.cipher_suite }}</td><td>{{ row.tls_version }}</td><td>{{ row.ca }}</td></tr>
                                 {% else %}
                                 <tr><td colspan="5" style="text-align:center;color:#6b7280;">No crypto overview rows available.</td></tr>
@@ -540,7 +540,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for cert in enterprise_metrics.certificate_inventory[:12] %}
+                                {% for cert in inventory_vm.certificate_inventory[:12] %}
                                 <tr>
                                     <td>{{ cert.asset }}</td>
                                     <td>{{ cert.issuer }}</td>
@@ -548,7 +548,7 @@
                                     <td>{{ cert.tls_version }}</td>
                                     <td>{{ cert.days_remaining if cert.days_remaining is not none else '-' }}</td>
                                     <td>
-                                        <span style="color:{% if cert.status == 'Expired' %}#ef4444{% elif cert.status == 'Expiring' %}#f59e0b{% else %}#10b981{% endif %}; font-weight:700;">
+                                        <span style="color: {{ '#ef4444' if cert.status == 'Expired' else '#f59e0b' if cert.status == 'Expiring' else '#10b981' }}; font-weight:700;">
                                             {{ cert.status }}
                                         </span>
                                     </td>
