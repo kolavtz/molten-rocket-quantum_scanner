@@ -1216,12 +1216,34 @@ def index():
     inventory_vm = _build_asset_inventory_view()
 
     return render_template(
-        "home.html",
+        "home1.html",
         recent_scans=recent_scans,
         enterprise_metrics=enterprise_metrics,
         inventory_vm=inventory_vm,
     )# Register Main Dashboard Blueprint after decorators are applied
 app.register_blueprint(dashboard_bp)
+
+@app.route("/dashboard/assets")
+def asset_inventory():
+    from src.services.asset_service import AssetService
+    from src.services.geo_service import GeoService
+    
+    asset_svc = AssetService()
+    geo_svc = GeoService()
+    
+    assets = asset_svc.load_combined_assets()
+    summary = asset_svc.get_dashboard_summary(assets)
+    
+    # Extract IPs for maps
+    ips = [a["asset_name"] for a in assets if not str(a.get("asset_name", "")).startswith("http")]
+    clusters = geo_svc.get_geo_clusters(ips)
+    
+    return render_template(
+        "inventory.html",
+        assets=assets,
+        summary=summary,
+        clusters=clusters
+    )
 
 
 @app.route("/scan-center")

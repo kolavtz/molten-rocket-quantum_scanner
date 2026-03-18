@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}Asset Inventory - QuantumShield{% endblock %}
+
+{% block head %}
+<!-- Chart.js & Map Support -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+    /* Global Dashboard Override Layout */
+    .dashboard-layout {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        min-height: 100vh;
+        background: radial-gradient(circle at 50% 50%, #111421, #07090e);
+        color: #f3f4f6;
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* Sidebar Navigation (Match home1.html) */
+    .sidebar-nav {
+        background: linear-gradient(180deg, rgba(15, 20, 30, 0.95), rgba(7, 9, 14, 0.98));
+        border-right: 1px solid rgba(255, 255, 255, 0.04);
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        z-index: 100;
+    }
+
+    .brand-sidebar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding-bottom: 2rem;
+        font-weight: 800;
+        font-size: 1.25rem;
+        background: linear-gradient(135deg, #ff416c, #ff4b2b);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .sidebar-link {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        padding: 0.85rem 1rem;
+        border-radius: 8px;
+        color: #9ca3af;
+        text-decoration: none;
+        font-size: 0.92rem;
+        transition: all 0.2s ease;
+    }
+
+    .sidebar-link:hover { background: rgba(255, 255, 255, 0.02); color: #f3f4f6; }
+    .sidebar-link.active {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        border-left: 3px solid #ef4444;
+        border-radius: 4px 8px 8px 4px;
+        margin-left: -3px;
+    }
+
+    /* Main Container Section */
+    .main-wrapper {
+        display: flex;
+        flex-direction: column;
+        padding: 2rem;
+        gap: 2rem;
+        overflow-y: auto;
+    }
+
+    /* Glass Panels Design */
+    .glass-card {
+        background: rgba(20, 24, 35, 0.6);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Top Stats row Grid */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .stat-card {
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af; }
+    .stat-val { font-size: 2rem; font-weight: 800; margin-top: 0.25rem; font-family: monospace; }
+    .stat-badge { font-size: 0.7rem; color: #10b981; margin-top: auto; }
+
+    /* Charts Row panel setup */
+    .charts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+    }
+    .chart-container { height: 220px; }
+
+    /* Table styles with Glass transparency anchors */
+    .table-container { overflow-x: auto; }
+    .scans-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
+    .scans-table th { padding: 0.75rem; color: #6b7280; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .scans-table td { padding: 0.85rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.02); color: #d1d5db; }
+
+    .risk-badge { padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 0.72rem; }
+    .risk-badges.critical { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+    .risk-badges.high { background: rgba(249, 115, 22, 0.15); color: #f97316; }
+
+    /* Bottom Map Pane */
+    #geoMap { height: 350px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.04); margin-top: 1rem; }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-layout">
+    <aside class="sidebar-nav">
+        <div class="brand-sidebar"><i class="fa-solid fa-feather-pointed"></i> QuantumShield</div>
+        <a href="/" class="sidebar-link"><i class="fa-solid fa-house"></i> Dashboard</a>
+        <a href="/dashboard/assets" class="sidebar-link active"><i class="fa-solid fa-boxes-stacked"></i> Inventory</a>
+        <a href="/scan-center" class="sidebar-link"><i class="fa-solid fa-magnifying-glass-chart"></i> Scan center</a>
+    </aside>
+
+    <div class="main-wrapper">
+        <!-- Header -->
+        <div>
+            <h1 style="font-size: 1.5rem; font-weight: 800; color:#ffd700;">Asset Inventory Dashboard</h1>
+            <p style="font-size: 0.82rem; color: #9ca3af;">Operational environment overview | Last updated: {{ summary.latest_timestamp or '--' }}</p>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="stats-grid">
+            <div class="glass-card stat-card">
+                <div class="stat-label">Total Assets</div>
+                <div class="stat-val">{{ summary.total_assets }}</div>
+            </div>
+            <div class="glass-card stat-card">
+                <div class="stat-label">Public APIs</div>
+                <div class="stat-val">{{ summary.api_count }}</div>
+            </div>
+            <div class="glass-card stat-card">
+                <div class="stat-label">VPNs / Gateways</div>
+                <div class="stat-val">{{ summary.vpn_count }}</div>
+            </div>
+            <div class="glass-card stat-card">
+                <div class="stat-label">Overall Risk Score</div>
+                <div class="stat-val" style="color: #ef4444;">{{ summary.overall_risk_score }}%</div>
+            </div>
+        </div>
+
+        <!-- Charts row -->
+        <div class="charts-grid">
+            <div class="glass-card">
+                <div style="font-weight: 700; margin-bottom: 1rem; font-size: 0.9rem;">Asset Type Distribution</div>
+                <div class="chart-container"><canvas id="chartType"></canvas></div>
+            </div>
+            <div class="glass-card">
+                <div style="font-weight: 700; margin-bottom: 1rem; font-size: 0.9rem;">Risk Distribution</div>
+                <div class="chart-container"><canvas id="chartRisk"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Central Table -->
+        <div class="glass-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div style="font-weight: 700; font-size: 1rem;"><i class="fa-solid fa-list-check"></i> Assets List</div>
+                <button class="btn btn-sm btn-outline-danger" onclick="alert('Add Asset Modal triggers...')">+ Add Asset</button>
+            </div>
+            
+            <div class="table-container">
+                <table class="scans-table">
+                    <thead>
+                        <tr>
+                            <th>Asset Name</th><th>Type</th><th>Risk</th><th>Cert Status</th><th>Key Size</th><th>Last Audit</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for asset in assets %}
+                        <tr>
+                            <td style="font-weight: 600;">{{ asset.asset_name }}</td>
+                            <td>{{ asset.type }}</td>
+                            <td><span class="risk-badge">{{ asset.risk }}</span></td>
+                            <td>{{ asset.cert_status }}</td>
+                            <td>{{ asset.key_length }}</td>
+                            <td>{{ asset.last_scan | truncate(10, True, '') }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="6" style="text-align:center; color:#6b7280;">No operational assets logged.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Geo map pane -->
+        <div class="glass-card">
+            <div style="font-weight: 700; font-size: 1rem;"><i class="fa-solid fa-earth-americas"></i> Geolocation Node Network</div>
+            <div id="geoMap"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Chart.js 1: Asset Type
+        const ctxType = document.getElementById('chartType').getContext('2d');
+        const typeData = JSON.parse('{{ summary.type_distribution | tojson | safe }}');
+        
+        new Chart(ctxType, {
+            type: 'doughnut',
+            data: {
+                labels: ['API', 'VPN/Gateway', 'Server', 'Web App'],
+                datasets: [{
+                    data: typeData,
+                    backgroundColor: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6'],
+                    borderWidth: 0
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', font: { size: 10 } } } } }
+        });
+
+        // Chart.js 2: Risk
+        const ctxRisk = document.getElementById('chartRisk').getContext('2d');
+        const riskDist = JSON.parse('{{ summary.risk_distribution | tojson | safe }}');
+        
+        new Chart(ctxRisk, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(riskDist),
+                datasets: [{
+                    label: 'Assets',
+                    data: Object.values(riskDist),
+                    backgroundColor: 'rgba(239, 68, 68, 0.4)',
+                    borderColor: '#ef4444',
+                    borderWidth: 1
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#9ca3af' } }, y: { ticks: { color: '#9ca3af' } } } }
+        });
+
+        // Leaflet Map Initialization
+        const map = L.map('geoMap').setView([20.5937, 78.9629], 4);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
+        
+        const clusters = JSON.parse('{{ clusters | tojson | safe }}');
+        clusters.forEach(c => {
+            if(c.lat && c.lon) {
+                const marker = L.circleMarker([c.lat, c.lon], {
+                    color: '#ef4444', radius: 8 + (c.ip_count * 2), fillOpacity: 0.6
+                }).addTo(map);
+                marker.bindPopup(`<b>${c.city}, ${c.country}</b><br/>IP count: ${c.ip_count}`);
+            }
+        });
+    });
+</script>
+{% endblock %}
