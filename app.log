@@ -2241,3 +2241,25 @@
 [2026-03-18 21:40:09,543] INFO in scheduler: Auto-scanning 2 unique targets...
 [2026-03-18 21:40:09,544] INFO in scheduler: Auto-scanning target: google.com
 [2026-03-18 21:40:09,708] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-18 22:17:01,487] INFO in app: QuantumShield application starting up...
+[2026-03-18 22:17:02,081] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-18 22:17:02,081] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-18 22:17:02,366] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-18 22:17:02,835] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-18 22:17:02,836] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-18 22:17:02,841] INFO in _internal:  * Restarting with stat
+[2026-03-18 22:17:03,799] INFO in app: QuantumShield application starting up...
+[2026-03-18 22:17:03,977] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-18 22:17:03,977] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-18 22:17:04,183] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-18 22:17:04,266] WARNING in _internal:  * Debugger is active!
+[2026-03-18 22:17:04,281] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-18 22:17:05,522] INFO in scheduler: Saved automated scan for google.com
+[2026-03-18 22:17:05,522] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-18 22:17:06,674] INFO in scheduler: Saved automated scan for google.com
+[2026-03-18 22:17:06,674] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-18 22:17:11,992] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-18 22:17:11,993] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-18 22:17:12,003] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-18 22:17:12,004] INFO in scheduler: Scheduler sleeping for 24 hours.
