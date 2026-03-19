@@ -26,6 +26,9 @@ class AssetService:
                 continue
                 
             target = scan.get("target")
+            if target not in meta_assets:
+                continue
+
             visited_targets.add(target)
             meta = meta_assets.get(target, {})
             
@@ -43,9 +46,21 @@ class AssetService:
             risk_score = float(overview.get("average_compliance_score") or 0)
             risk_level = self._score_to_risk(risk_score)
             
+            ipv4, ipv6 = "", ""
+            for svc in discovered:
+                cand = str(svc.get("host", "")).strip()
+                if cand:
+                    try:
+                        parsed = ipaddress.ip_address(cand)
+                        if parsed.version == 4 and not ipv4: ipv4 = cand
+                        if parsed.version == 6 and not ipv6: ipv6 = cand
+                    except ValueError: pass
+
             asset_row = {
                 "asset_name": target,
                 "url": target if str(target).startswith("http") else f"https://{target}",
+                "ipv4": ipv4,
+                "ipv6": ipv6,
                 "type": meta.get("type") or self._guess_type(target, discovered),
                 "asset_class": scan.get("asset_class", "Other"),
                 "risk": meta.get("risk_level") or risk_level,

@@ -39,6 +39,8 @@
         /* ── 2. Build Toolbar (Search + Per-Page) ─────────────────── */
         const toolbar = document.createElement('div');
         toolbar.className = 'pnb-toolbar';
+        toolbar.style.position = 'relative';
+        toolbar.style.zIndex = '50';
         toolbar.innerHTML = `
             <div class="pnb-toolbar-left">
                 <span class="pnb-toolbar-label">View</span>

@@ -47,7 +47,7 @@
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
   <h3 style="margin-bottom:0.6rem;">PQC Support</h3>
   <table class="scans-table" id="supportTable">
-    <thead><tr><th>Asset Name (Host + IP)</th><th>PQC Support</th><th>Status</th></tr></thead>
+    <thead><tr><th data-key="asset_name">Asset Name (Host + IP)</th><th data-key="pqc_support">PQC Support</th><th data-key="status">Status</th></tr></thead>
     <tbody>
       {% for row in vm.support_rows %}
       <tr data-owner="{{ row.owner }}" data-exposure="{{ row.exposure }}" data-tls="{{ row.tls }}" data-score="{{ row.score }}" data-status="{{ row.status }}">

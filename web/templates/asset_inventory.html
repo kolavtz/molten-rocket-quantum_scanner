@@ -77,7 +77,47 @@
 </section>
 
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <h3 style="margin-bottom:0.25rem;">Asset Inventory</h3>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;">
+    <h3 style="margin-bottom:0;">Asset Inventory</h3>
+    <button onclick="document.getElementById('addAssetForm').style.display=(document.getElementById('addAssetForm').style.display==='none'?'block':'none')" class="scan-button" style="padding:0.4rem 0.8rem;font-size:0.75rem;">
+      <i class="fa-solid fa-plus"></i> Add Asset
+    </button>
+  </div>
+
+  <!-- Inline Add Asset Form -->
+  <div id="addAssetForm" class="glass-card" style="display:none;padding:0.9rem;margin-bottom:1rem;background:rgba(0,0,0,0.15);border-color:var(--accent);">
+    <form action="/dashboard/assets" method="POST" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:0.6rem;align-items:end;">
+         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+         <div>
+             <label style="font-size:0.68rem;color:var(--text-secondary);display:block;margin-bottom:0.2rem;">TARGET (HOST/IP)</label>
+             <input type="text" name="target" class="scan-input" style="padding:0.4rem;font-size:0.8rem;" placeholder="e.g. domain.com" required>
+         </div>
+         <div>
+             <label style="font-size:0.68rem;color:var(--text-secondary);display:block;margin-bottom:0.2rem;">TYPE</label>
+             <select name="type" class="scan-input" style="padding:0.4rem;font-size:0.8rem;">
+                 <option value="Web App">Web App</option>
+                 <option value="API">API</option>
+                 <option value="Server">Server</option>
+                 <option value="Load Balancer">Load Balancer</option>
+                 <option value="Other">Other</option>
+             </select>
+         </div>
+         <div>
+             <label style="font-size:0.68rem;color:var(--text-secondary);display:block;margin-bottom:0.2rem;">OWNER</label>
+             <input type="text" name="owner" class="scan-input" style="padding:0.4rem;font-size:0.8rem;" placeholder="Infra">
+         </div>
+         <div>
+             <label style="font-size:0.68rem;color:var(--text-secondary);display:block;margin-bottom:0.2rem;">RISK</label>
+             <select name="risk_level" class="scan-input" style="padding:0.4rem;font-size:0.8rem;">
+                 <option value="Low">Low</option>
+                 <option value="Medium" selected>Medium</option>
+                 <option value="High">High</option>
+                 <option value="Critical">Critical</option>
+             </select>
+         </div>
+         <button type="submit" class="scan-button" style="padding:0.42rem;font-size:0.8rem;width:100%;">Create</button>
+    </form>
+  </div>
   <div class="scans-table-wrapper">
     <table class="scans-table" id="assetTable">
       <thead>
@@ -93,6 +133,7 @@
           <th data-key="cert_status">Cert Status</th>
           <th data-key="key_length">Key Length</th>
           <th data-key="last_scan">Last Scan</th>
+          <th>Action</th>
         </tr>
       </thead>
       <tbody>
@@ -100,6 +141,13 @@
         <tr>
           <td>{{ row.asset_name }}</td><td>{{ row.url }}</td><td>{{ row.ipv4 }}</td><td>{{ row.ipv6 or '-' }}</td>
           <td>{{ row.type }}</td><td>{{ row.asset_class or 'Other' }}</td><td>{{ row.owner }}</td><td>{{ row.risk }}</td><td>{{ row.cert_status }}</td><td>{{ row.key_length }}</td><td>{{ row.last_scan }}</td>
+          <td>
+            <form action="/dashboard/assets/delete" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete {{ row.asset_name }}?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+              <input type="hidden" name="target" value="{{ row.asset_name }}">
+              <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.65rem;background:var(--danger);">Delete</button>
+            </form>
+          </td>
         </tr>
         {% endfor %}
       </tbody>

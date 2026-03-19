@@ -72,4 +72,13 @@ def add_asset():
             "risk_level": risk,
             "notes": notes
         })
-    return redirect(url_for('quantumshield_dashboard.dashboard_home'))
+    return redirect(request.referrer or url_for('quantumshield_dashboard.dashboard_home'))
+
+@dashboard_bp.route('/assets/delete', methods=['POST'])
+@login_required
+def delete_asset():
+    """CRUD: Delete Asset from persistent storage."""
+    target = request.form.get("target")
+    if target:
+        db.delete_asset(target)
+    return redirect(request.referrer or url_for('quantumshield_dashboard.dashboard_home'))

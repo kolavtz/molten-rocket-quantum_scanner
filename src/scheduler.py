@@ -30,7 +30,19 @@ def run_scheduler():
             try:
                 # 1. Fetch targets from prior scans
                 scans = db.list_scans(limit=100)
-                targets = sorted(list(set(s.get("target") for s in scans if s.get("target"))))
+                targets = set(s.get("target") for s in scans if s.get("target"))
+                
+                # 2. Include targets from manually added Inventory Assets
+                if hasattr(db, 'list_assets'):
+                    try:
+                        for asset in db.list_assets():
+                            tgt = asset.get("target")
+                            if tgt:
+                                targets.add(tgt)
+                    except Exception:
+                        pass
+
+                targets = sorted(list(targets))
                 
                 if not targets:
                     logger.info("No targets found in Database. Skipping sweep.")

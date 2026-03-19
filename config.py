@@ -451,6 +451,10 @@ MYSQL_USER     = os.environ.get("MYSQL_USER", os.environ.get("sql_user", "root")
 MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD", os.environ.get("sql_password", ""))
 MYSQL_DATABASE = os.environ.get("MYSQL_DATABASE", "quantumshield")
 
+from urllib.parse import quote_plus
+# Derived ORM Configuration Pattern
+SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{MYSQL_USER}:{quote_plus(MYSQL_PASSWORD)}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+
 # ---------------------------------------------------------------------------
 # Web / Flask / Security
 # ---------------------------------------------------------------------------
