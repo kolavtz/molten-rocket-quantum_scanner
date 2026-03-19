@@ -1,0 +1,238 @@
+=== STDOUT ===
+============================= test session starts =============================
+platform win32 -- Python 3.13.4, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner
+plugins: cov-7.0.0
+collecting ... collected 123 items
+
+tests/test_cbom_builder.py::TestCryptoAsset::test_auto_id PASSED         [  0%]
+tests/test_cbom_builder.py::TestCryptoAsset::test_to_dict PASSED         [  1%]
+tests/test_cbom_builder.py::TestCBOM::test_auto_serial PASSED            [  2%]
+tests/test_cbom_builder.py::TestCBOM::test_counts PASSED                 [  3%]
+tests/test_cbom_builder.py::TestCBOMBuilder::test_build_creates_cbom PASSED [  4%]
+tests/test_cbom_builder.py::TestCBOMBuilder::test_to_dict_structure PASSED [  4%]
+tests/test_cbom_builder.py::TestCycloneDXGenerator::test_manual_generation PASSED [  5%]
+tests/test_cbom_builder.py::TestCycloneDXGenerator::test_component_properties PASSED [  6%]
+tests/test_cbom_builder.py::TestCycloneDXGenerator::test_export_json PASSED [  7%]
+tests/test_database.py::TestInitDb::test_init_db_creates_tables PASSED   [  8%]
+tests/test_database.py::TestInitDb::test_init_db_unavailable PASSED      [  8%]
+tests/test_database.py::TestInitDb::test_init_db_handles_sql_error PASSED [  9%]
+tests/test_database.py::TestSaveScan::test_save_scan_success PASSED      [ 10%]
+tests/test_database.py::TestSaveScan::test_save_scan_unavailable PASSED  [ 11%]
+tests/test_database.py::TestSaveScan::test_save_scan_handles_error PASSED [ 12%]
+tests/test_database.py::TestSaveCbom::test_save_cbom_success PASSED      [ 13%]
+tests/test_database.py::TestSaveCbom::test_save_cbom_unavailable PASSED  [ 13%]
+tests/test_database.py::TestGetScan::test_get_scan_found PASSED          [ 14%]
+tests/test_database.py::TestGetScan::test_get_scan_not_found PASSED      [ 15%]
+tests/test_database.py::TestGetScan::test_get_scan_unavailable PASSED    [ 16%]
+tests/test_database.py::TestListScans::test_list_scans_returns_reports PASSED [ 17%]
+tests/test_database.py::TestListScans::test_list_scans_empty PASSED      [ 17%]
+tests/test_database.py::TestListScans::test_list_scans_unavailable PASSED [ 18%]
+tests/test_database.py::TestGetCbom::test_get_cbom_found PASSED          [ 19%]
+tests/test_database.py::TestGetCbom::test_get_cbom_not_found PASSED      [ 20%]
+tests/test_database.py::TestGetCbom::test_get_cbom_unavailable PASSED    [ 21%]
+tests/test_database.py::TestDnsRecords::test_save_dns_records_success PASSED [ 21%]
+tests/test_database.py::TestDnsRecords::test_list_dns_records PASSED     [ 22%]
+tests/test_network_discovery.py::TestSanitizeTarget::test_https_url PASSED [ 23%]
+tests/test_network_discovery.py::TestSanitizeTarget::test_https_url_with_path PASSED [ 24%]
+tests/test_network_discovery.py::TestSanitizeTarget::test_http_url PASSED [ 25%]
+tests/test_network_discovery.py::TestSanitizeTarget::test_url_with_port PASSED [ 26%]
+tests/test_network_discovery.py::TestSanitizeTarget::test_url_with_standard_port PASSED [ 26%]
+tests/test_network_discovery.py::TestSanitizeTarget::test_plain_hostname PASSED [ 27%]
+tests/test_network_discovery.py::TestSanitizeTarget::test_hostname_with_trailing_slash PASSED [ 28%]
+tests/test_network_discovery.py::TestSanitizeTarget::test_host_colon_port PASSED [ 29%]
+tests/test_network_discovery.py::TestSanitizeTarget::test_ip_address PASSED [ 30%]
+tests/test_network_discovery.py::TestSanitizeTarget::test_cidr PASSED    [ 30%]
+tests/test_network_discovery.py::TestSanitizeTarget::test_whitespace_stripped PASSED [ 31%]
+tests/test_network_discovery.py::TestSanitizeTarget::test_empty_raises PASSED [ 32%]
+tests/test_network_discovery.py::TestSanitizeTarget::test_dangerous_semicolon PASSED [ 33%]
+tests/test_network_discovery.py::TestSanitizeTarget::test_dangerous_pipe PASSED [ 34%]
+tests/test_network_discovery.py::TestIsPublicFacing::test_private_ipv4_class_a PASSED [ 34%]
+tests/test_network_discovery.py::TestIsPublicFacing::test_private_ipv4_class_b PASSED [ 35%]
+tests/test_network_discovery.py::TestIsPublicFacing::test_private_ipv4_class_c PASSED [ 36%]
+tests/test_network_discovery.py::TestIsPublicFacing::test_loopback PASSED [ 37%]
+tests/test_network_discovery.py::TestIsPublicFacing::test_link_local PASSED [ 38%]
+tests/test_network_discovery.py::TestIsPublicFacing::test_public_ipv4 PASSED [ 39%]
+tests/test_network_discovery.py::TestIsPublicFacing::test_public_ipv4_cloudflare PASSED [ 39%]
+tests/test_network_discovery.py::TestIsPublicFacing::test_hostname_returns_true PASSED [ 40%]
+tests/test_network_discovery.py::TestResolveTarget::test_single_ip PASSED [ 41%]
+tests/test_network_discovery.py::TestResolveTarget::test_cidr_small PASSED [ 42%]
+tests/test_network_discovery.py::TestResolveTarget::test_cidr_too_large PASSED [ 43%]
+tests/test_network_discovery.py::TestDiscoveredEndpoint::test_str_tls PASSED [ 43%]
+tests/test_network_discovery.py::TestDiscoveredEndpoint::test_str_no_tls PASSED [ 44%]
+tests/test_network_discovery.py::TestDiscoverTargets::test_successful_probe PASSED [ 45%]
+tests/test_network_discovery.py::TestDiscoverTargets::test_closed_port PASSED [ 46%]
+tests/test_pqc_detector.py::TestClassifyAlgorithm::test_ml_kem_768 PASSED [ 47%]
+tests/test_pqc_detector.py::TestClassifyAlgorithm::test_kyber1024 PASSED [ 47%]
+tests/test_pqc_detector.py::TestClassifyAlgorithm::test_ml_dsa_65 PASSED [ 48%]
+tests/test_pqc_detector.py::TestClassifyAlgorithm::test_slh_dsa PASSED   [ 49%]
+tests/test_pqc_detector.py::TestClassifyAlgorithm::test_dilithium3 PASSED [ 50%]
+tests/test_pqc_detector.py::TestClassifyAlgorithm::test_falcon512 PASSED [ 51%]
+tests/test_pqc_detector.py::TestClassifyAlgorithm::test_hqc_256 PASSED   [ 52%]
+tests/test_pqc_detector.py::TestClassifyAlgorithm::test_ecdhe_vulnerable PASSED [ 52%]
+tests/test_pqc_detector.py::TestClassifyAlgorithm::test_rsa_vulnerable PASSED [ 53%]
+tests/test_pqc_detector.py::TestClassifyAlgorithm::test_ecdsa_signature PASSED [ 54%]
+tests/test_pqc_detector.py::TestClassifyAlgorithm::test_dsa_signature PASSED [ 55%]
+tests/test_pqc_detector.py::TestClassifyAlgorithm::test_ed25519_signature PASSED [ 56%]
+tests/test_pqc_detector.py::TestClassifyAlgorithm::test_aes_256 PASSED   [ 56%]
+tests/test_pqc_detector.py::TestClassifyAlgorithm::test_chacha20 PASSED  [ 57%]
+tests/test_pqc_detector.py::TestClassifyAlgorithm::test_unknown_algorithm PASSED [ 58%]
+tests/test_pqc_detector.py::TestAssessEndpoint::test_quantum_vulnerable_endpoint PASSED [ 59%]
+tests/test_pqc_detector.py::TestAssessEndpoint::test_quantum_safe_endpoint PASSED [ 60%]
+tests/test_pqc_detector.py::TestAssessEndpoint::test_to_dict PASSED      [ 60%]
+tests/test_tls_analyzer.py::TestExtractKeyExchange::test_ecdhe_rsa_cipher PASSED [ 61%]
+tests/test_tls_analyzer.py::TestExtractKeyExchange::test_dhe_cipher PASSED [ 62%]
+tests/test_tls_analyzer.py::TestExtractKeyExchange::test_rsa_static_cipher PASSED [ 63%]
+tests/test_tls_analyzer.py::TestExtractKeyExchange::test_tls13_cipher PASSED [ 64%]
+tests/test_tls_analyzer.py::TestExtractKeyExchange::test_tls13_chacha PASSED [ 65%]
+tests/test_tls_analyzer.py::TestExtractKeyExchange::test_kyber_cipher PASSED [ 65%]
+tests/test_tls_analyzer.py::TestExtractKeyExchange::test_hybrid_x25519mlkem768 PASSED [ 66%]
+tests/test_tls_analyzer.py::TestCertificateInfo::test_to_dict PASSED     [ 67%]
+tests/test_tls_analyzer.py::TestTLSEndpointResult::test_is_successful_true PASSED [ 68%]
+tests/test_tls_analyzer.py::TestTLSEndpointResult::test_is_successful_false_with_error PASSED [ 69%]
+tests/test_tls_analyzer.py::TestTLSEndpointResult::test_is_successful_false_no_cipher PASSED [ 69%]
+tests/test_tls_analyzer.py::TestTLSEndpointResult::test_to_dict PASSED   [ 70%]
+tests/test_validator.py::TestQuantumSafeChecker::test_vulnerable_endpoint_non_compliant PASSED [ 71%]
+tests/test_validator.py::TestQuantumSafeChecker::test_vulnerable_has_critical_findings PASSED [ 72%]
+tests/test_validator.py::TestQuantumSafeChecker::test_safe_endpoint_pqc_ready PASSED [ 73%]
+tests/test_validator.py::TestQuantumSafeChecker::test_recommendations_generated PASSED [ 73%]
+tests/test_validator.py::TestQuantumSafeChecker::test_hndl_risk_banking_keyword PASSED [ 74%]
+tests/test_validator.py::TestQuantumSafeChecker::test_to_dict_structure PASSED [ 75%]
+tests/test_validator.py::TestQuantumSafeChecker::test_weak_rsa_finding PASSED [ 76%]
+tests/test_validator.py::TestQuantumSafeChecker::test_tls12_medium_finding PASSED [ 77%]
+tests/test_validator.py::TestCertificateIssuer::test_fully_quantum_safe_label PASSED [ 78%]
+tests/test_validator.py::TestCertificateIssuer::test_non_compliant_label PASSED [ 78%]
+tests/test_validator.py::TestCertificateIssuer::test_label_has_checksum PASSED [ 79%]
+tests/test_validator.py::TestCertificateIssuer::test_label_validity_period PASSED [ 80%]
+tests/test_validator.py::TestCertificateIssuer::test_issue_labels_batch PASSED [ 81%]
+tests/test_validator.py::TestCertificateIssuer::test_to_dict PASSED      [ 82%]
+tests/test_web_app.py::TestRoutes::test_index_get FAILED                 [ 82%]
+tests/test_web_app.py::TestRoutes::test_scan_center_get PASSED           [ 83%]
+tests/test_web_app.py::TestRoutes::test_scan_post_empty_target PASSED    [ 84%]
+tests/test_web_app.py::TestRoutes::test_scan_manual_asset_class_forwarded PASSED [ 85%]
+tests/test_web_app.py::TestRoutes::test_results_not_found PASSED         [ 86%]
+tests/test_web_app.py::TestRoutes::test_cbom_not_found PASSED            [ 86%]
+tests/test_web_app.py::TestRoutes::test_api_scan_missing_target PASSED   [ 87%]
+tests/test_web_app.py::TestRoutes::test_api_scans_list PASSED            [ 88%]
+tests/test_web_app.py::TestModulePages::test_asset_inventory_page PASSED [ 89%]
+tests/test_web_app.py::TestModulePages::test_asset_discovery_page PASSED [ 90%]
+tests/test_web_app.py::TestModulePages::test_cbom_dashboard_page PASSED  [ 91%]
+tests/test_web_app.py::TestModulePages::test_pqc_posture_page PASSED     [ 91%]
+tests/test_web_app.py::TestModulePages::test_cyber_rating_page PASSED    [ 92%]
+tests/test_web_app.py::TestModulePages::test_reporting_page PASSED       [ 93%]
+tests/test_web_app.py::TestReportEndpoints::test_generate_report_returns_pdf PASSED [ 94%]
+tests/test_web_app.py::TestReportEndpoints::test_generate_report_with_sections PASSED [ 95%]
+tests/test_web_app.py::TestReportEndpoints::test_schedule_report_returns_ok PASSED [ 95%]
+tests/test_web_app.py::TestReportEndpoints::test_list_schedules_returns_list PASSED [ 96%]
+tests/test_web_app.py::TestDiscoveryGraph::test_discovery_graph_empty_payload FAILED [ 97%]
+tests/test_web_app.py::TestDiscoveryGraph::test_discovery_graph_live_payload FAILED [ 98%]
+tests/test_web_app_mock_fix.py::test_index_get PASSED                    [ 99%]
+tests/test_web_app_mock_fix.py::test_discovery_graph_empty_mock FAILED   [100%]
+
+================================== FAILURES ===================================
+__________________________ TestRoutes.test_index_get __________________________
+
+self = <tests.test_web_app.TestRoutes object at 0x0000022B4143E0D0>
+client = <FlaskClient <Flask 'web.app'>>
+mock_admin = <AsyncMock name='current_user' id='2384827408336'>
+
+    def test_index_get(self, client, mock_admin):
+        resp = client.get('/')
+>       assert resp.status_code == 200
+E       assert 302 == 200
+E        +  where 302 = <WrapperTestResponse streamed [302 FOUND]>.status_code
+
+tests\test_web_app.py:38: AssertionError
+____________ TestDiscoveryGraph.test_discovery_graph_empty_payload ____________
+
+self = <tests.test_web_app.TestDiscoveryGraph object at 0x0000022B4143E850>
+client = <FlaskClient <Flask 'web.app'>>
+mock_admin = <AsyncMock name='current_user' id='2384831334448'>
+
+    def test_discovery_graph_empty_payload(self, client, mock_admin):
+        with patch.dict(web_app_module.scan_store, {}, clear=True):
+            resp = client.get('/api/discovery-graph')
+            assert resp.status_code == 200
+            data = json.loads(resp.data)
+            assert isinstance(data.get('nodes'), list)
+            assert isinstance(data.get('edges'), list)
+>           assert data['nodes'] == []
+E           AssertionError: assert [{'group': 'd...PS:443'}, ...] == []
+E             
+E             Left contains 12 more items, first extra item: {'group': 'domain', 'id': 'domain:pnbnet.pnb.bank.in', 'label': 'pnbnet.pnb.bank.in', 'title': 'Domain · pnbnet.pnb.bank.in'}
+E             
+E             Full diff:
+E             - []
+E             + [
+E             +     {...
+E             
+E             ...Full output truncated (72 lines hidden), use '-vv' to show
+
+tests\test_web_app.py:197: AssertionError
+____________ TestDiscoveryGraph.test_discovery_graph_live_payload _____________
+
+self = <tests.test_web_app.TestDiscoveryGraph object at 0x0000022B4143E990>
+client = <FlaskClient <Flask 'web.app'>>
+mock_admin = <AsyncMock name='current_user' id='2384828369280'>
+
+    def test_discovery_graph_live_payload(self, client, mock_admin):
+        sample_scan = {
+            'scan_id': 'abc12345',
+            'target': 'example.org',
+            'status': 'complete',
+            'generated_at': '2026-03-15T10:00:00Z',
+            'discovered_services': [
+                {'host': '203.0.113.10', 'port': 443, 'service': 'https', 'banner': 'nginx/1.25.5', 'is_tls': True}
+            ],
+            'tls_results': [
+                {
+                    'tls_version': 'TLS 1.3',
+                    'cipher_suites': ['TLS_AES_256_GCM_SHA384'],
+                    'issuer': {'O': 'Test CA', 'CN': 'Test CA Root'}
+                }
+            ],
+        }
+        with patch.dict(web_app_module.scan_store, {'abc12345': sample_scan}, clear=True):
+            resp = client.get('/api/discovery-graph')
+            assert resp.status_code == 200
+            data = json.loads(resp.data)
+            node_ids = {n['id'] for n in data.get('nodes', [])}
+>           assert 'domain:example.org' in node_ids
+E           AssertionError: assert 'domain:example.org' in {'domain:google.com', 'domain:pnbnet.pnb.bank.in', 'ip:103.109.224.142', 'ip:103.109.225.142', 'ip:142.250.192.206', 'ip:142.250.193.110', ...}
+
+tests\test_web_app.py:222: AssertionError
+_______________________ test_discovery_graph_empty_mock _______________________
+
+client = <FlaskClient <Flask 'web.app'>>
+
+    def test_discovery_graph_empty_mock(client):
+        """Test graph empty payload with correctly mock scan_store."""
+        # If using dictionary mock:
+        with patch.dict('web.app.scan_store', {}, clear=True):
+            resp = client.get('/api/discovery-graph')
+            assert resp.status_code == 200
+            data = json.loads(resp.data)
+>           assert data['nodes'] == []
+E           AssertionError: assert [{'group': 'd...PS:443'}, ...] == []
+E             
+E             Left contains 12 more items, first extra item: {'group': 'domain', 'id': 'domain:pnbnet.pnb.bank.in', 'label': 'pnbnet.pnb.bank.in', 'title': 'Domain · pnbnet.pnb.bank.in'}
+E             
+E             Full diff:
+E             - []
+E             + [
+E             +     {...
+E             
+E             ...Full output truncated (72 lines hidden), use '-vv' to show
+
+tests\test_web_app_mock_fix.py:35: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_web_app.py::TestRoutes::test_index_get - assert 302 == 200
+FAILED tests/test_web_app.py::TestDiscoveryGraph::test_discovery_graph_empty_payload
+FAILED tests/test_web_app.py::TestDiscoveryGraph::test_discovery_graph_live_payload
+FAILED tests/test_web_app_mock_fix.py::test_discovery_graph_empty_mock - Asse...
+======================= 4 failed, 119 passed in 14.75s ========================
+
+=== STDERR ===
+
+EXIT CODE: 1

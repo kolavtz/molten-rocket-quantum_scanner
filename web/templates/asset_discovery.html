@@ -44,26 +44,66 @@
   </div>
 
   <div id="tab-domains" class="tabPane">
-    <table class="scans-table dataTable"><thead><tr><th>Detection Date</th><th>Domain Name</th><th>Registration Date</th><th>Registrar</th><th>Company Name</th><th>Status</th></tr></thead><tbody>
-      {% for r in vm.domains %}<tr><td>{{ r.detection_date }}</td><td>{{ r.domain_name }}</td><td>{{ r.registration_date }}</td><td>{{ r.registrar }}</td><td>{{ r.company }}</td><td>{{ r.status }}</td></tr>{% endfor %}
+    <table class="scans-table dataTable"><thead><tr><th>Detection Date</th><th>Domain Name</th><th>Registration Date</th><th>Registrar</th><th>Company Name</th><th>Status</th><th>Action</th></tr></thead><tbody>
+      {% for r in vm.domains %}<tr><td>{{ r.detection_date }}</td><td>{{ r.domain_name }}</td><td>{{ r.registration_date }}</td><td>{{ r.registrar }}</td><td>{{ r.company }}</td><td>{{ r.status }}</td><td>
+        {% if r.is_inventoried %}
+          <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
+        {% else %}
+          <form action="/dashboard/assets" method="POST" style="display:inline;">
+            <input type="hidden" name="target" value="{{ r.domain_name }}">
+            <input type="hidden" name="type" value="Web App">
+            <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);">+ Add</button>
+          </form>
+        {% endif %}
+      </td></tr>{% endfor %}
     </tbody></table>
   </div>
 
   <div id="tab-ssl" class="tabPane" style="display:none;">
-    <table class="scans-table dataTable"><thead><tr><th>Detection Date</th><th>SSL SHA Fingerprint</th><th>Valid From</th><th>Common Name</th><th>Company Name</th><th>Certificate Authority</th><th>Status</th></tr></thead><tbody>
-      {% for r in vm.ssl %}<tr><td>{{ r.detection_date }}</td><td>{{ r.fingerprint }}</td><td>{{ r.valid_from }}</td><td>{{ r.common_name }}</td><td>{{ r.company }}</td><td>{{ r.ca }}</td><td>{{ r.status }}</td></tr>{% endfor %}
+    <table class="scans-table dataTable"><thead><tr><th>Detection Date</th><th>SSL SHA Fingerprint</th><th>Valid From</th><th>Common Name</th><th>Company Name</th><th>Certificate Authority</th><th>Status</th><th>Action</th></tr></thead><tbody>
+      {% for r in vm.ssl %}<tr><td>{{ r.detection_date }}</td><td>{{ r.fingerprint[:16] }}...</td><td>{{ r.valid_from }}</td><td>{{ r.common_name }}</td><td>{{ r.company }}</td><td>{{ r.ca }}</td><td>{{ r.status }}</td><td>
+        {% if r.is_inventoried %}
+          <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
+        {% else %}
+          <form action="/dashboard/assets" method="POST" style="display:inline;">
+            <input type="hidden" name="target" value="{{ r.common_name }}">
+            <input type="hidden" name="type" value="Web App">
+            <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);">+ Add</button>
+          </form>
+        {% endif %}
+      </td></tr>{% endfor %}
     </tbody></table>
   </div>
 
   <div id="tab-ip" class="tabPane" style="display:none;">
-    <table class="scans-table dataTable"><thead><tr><th>Detection Date</th><th>IP Address</th><th>Ports</th><th>Subnet</th><th>ASN</th><th>Netname</th><th>Location</th><th>Company</th><th>Status</th></tr></thead><tbody>
-      {% for r in vm.ip_subnets %}<tr><td>{{ r.detection_date }}</td><td>{{ r.ip }}</td><td>{{ r.ports }}</td><td>{{ r.subnet }}</td><td>{{ r.asn }}</td><td>{{ r.netname }}</td><td>{{ r.location }}</td><td>{{ r.company }}</td><td>{{ r.status }}</td></tr>{% endfor %}
+    <table class="scans-table dataTable"><thead><tr><th>Detection Date</th><th>IP Address</th><th>Ports</th><th>Subnet</th><th>ASN</th><th>Netname</th><th>Location</th><th>Company</th><th>Status</th><th>Action</th></tr></thead><tbody>
+      {% for r in vm.ip_subnets %}<tr><td>{{ r.detection_date }}</td><td>{{ r.ip }}</td><td>{{ r.ports }}</td><td>{{ r.subnet }}</td><td>{{ r.asn }}</td><td>{{ r.netname }}</td><td>{{ r.location }}</td><td>{{ r.company }}</td><td>{{ r.status }}</td><td>
+        {% if r.is_inventoried %}
+          <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
+        {% else %}
+          <form action="/dashboard/assets" method="POST" style="display:inline;">
+            <input type="hidden" name="target" value="{{ r.ip }}">
+            <input type="hidden" name="type" value="Server">
+            <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);">+ Add</button>
+          </form>
+        {% endif %}
+      </td></tr>{% endfor %}
     </tbody></table>
   </div>
 
   <div id="tab-software" class="tabPane" style="display:none;">
-    <table class="scans-table dataTable"><thead><tr><th>Detection Date</th><th>Product</th><th>Version</th><th>Type</th><th>Port</th><th>Host</th><th>Company Name</th><th>Status</th></tr></thead><tbody>
-      {% for r in vm.software %}<tr><td>{{ r.detection_date }}</td><td>{{ r.product }}</td><td>{{ r.version }}</td><td>{{ r.type }}</td><td>{{ r.port }}</td><td>{{ r.host }}</td><td>{{ r.company }}</td><td>{{ r.status }}</td></tr>{% endfor %}
+    <table class="scans-table dataTable"><thead><tr><th>Detection Date</th><th>Product</th><th>Version</th><th>Type</th><th>Port</th><th>Host</th><th>Company Name</th><th>Status</th><th>Action</th></tr></thead><tbody>
+      {% for r in vm.software %}<tr><td>{{ r.detection_date }}</td><td>{{ r.product }}</td><td>{{ r.version }}</td><td>{{ r.type }}</td><td>{{ r.port }}</td><td>{{ r.host }}</td><td>{{ r.company }}</td><td>{{ r.status }}</td><td>
+        {% if r.is_inventoried %}
+          <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
+        {% else %}
+          <form action="/dashboard/assets" method="POST" style="display:inline;">
+            <input type="hidden" name="target" value="{{ r.host }}">
+            <input type="hidden" name="type" value="Web App">
+            <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);">+ Add</button>
+          </form>
+        {% endif %}
+      </td></tr>{% endfor %}
     </tbody></table>
   </div>
 </section>

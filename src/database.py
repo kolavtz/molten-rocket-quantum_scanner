@@ -547,6 +547,22 @@ def save_asset(asset: Dict[str, Any]) -> bool:
         if logger: logger.error(f"save_asset error: {e}")
         return False
     finally: conn.close()
+    return False
+
+def delete_asset(target: str) -> bool:
+    """Deletes an asset from MySQL by target hostname or IP."""
+    conn = _get_connection()
+    if conn is None: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM assets WHERE target = %s", (target,))
+        conn.commit()
+        return True
+    except Exception as e:
+        if logger: logger.error(f"delete_asset error: {e}")
+        return False
+    finally: conn.close()
+    return False
 
 def list_assets() -> List[Dict[str, Any]]:
     """Lists all stored assets with metadata."""

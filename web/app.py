@@ -1284,12 +1284,14 @@ def _build_asset_inventory_view() -> dict:
     asset_locations: list[dict] = []
     certificate_inventory: list[dict] = []
     cert_bucket = Counter({"0-30": 0, "30-60": 0, "60-90": 0, ">90": 0})
+    visited_targets = set()
 
     for scan in db.list_scans(limit=100):
         if scan.get("status") != "complete":
             continue
 
         target = str(scan.get("target", "")).strip()
+        visited_targets.add(target)
         host = _host_from_target(target)
         if not host:
             continue
@@ -1416,6 +1418,24 @@ def _build_asset_inventory_view() -> dict:
                 }
             )
 
+    # Inject manually added assets that haven't been scanned from discovery promote
+    known_assets = {a["target"]: a for a in db.list_assets()}
+    for tgt, meta in known_assets.items():
+        if tgt not in visited_targets:
+            assets.append({
+                "asset_name": tgt,
+                "url": tgt if str(tgt).startswith("http") else f"https://{tgt}",
+                "ipv4": "",
+                "ipv6": "",
+                "type": meta.get("type") or "Web App",
+                "asset_class": "Manual",
+                "owner": meta.get("owner") or "Unassigned",
+                "risk": meta.get("risk_level") or "Medium",
+                "cert_status": "Scanning...",
+                "key_length": 0,
+                "last_scan": "Pending",
+            })
+
     kpis = {
         "total_assets": len(assets),
         "public_web_apps": sum(1 for a in assets if a["type"] == "Web App"),
@@ -1484,6 +1504,9 @@ def _build_asset_discovery_view(include_in_progress: bool = False) -> dict:
     node_ids: set[str] = set()
     edge_ids: set[str] = set()
 
+    # Pre-load known assets for cross-correlation
+    known_assets = {a["target"] for a in db.list_assets()}
+
     def add_node(node_id: str, label: str, group: str, title: str) -> None:
         if node_id in node_ids:
             return
@@ -1495,7 +1518,7 @@ def _build_asset_discovery_view(include_in_progress: bool = False) -> dict:
         if key in edge_ids:
             return
         edge_ids.add(key)
-        edges.append({"from": src, "to": dst})
+        edges.append({"id": key, "from": src, "to": dst})
 
     for scan in db.list_scans(limit=100):
         if scan.get("status") != "complete" and not include_in_progress:
@@ -1509,6 +1532,8 @@ def _build_asset_discovery_view(include_in_progress: bool = False) -> dict:
         detection_date = _iso_date(str(scan.get("generated_at", "")))
         add_node(f"domain:{host}", host, "domain", f"Domain · {host}")
 
+        is_inventoried = (host in known_assets) or (target in known_assets)
+
         domains.append(
             {
                 "status": "Confirmed" if scan.get("status") == "complete" else "New",
@@ -1516,7 +1541,8 @@ def _build_asset_discovery_view(include_in_progress: bool = False) -> dict:
                 "domain_name": host,
                 "registration_date": "",
                 "registrar": "",
-                "company": "PNB",
+                "company": "Internal" if is_inventoried else "External",
+                "is_inventoried": is_inventoried,
             }
         )
 
@@ -1543,7 +1569,8 @@ def _build_asset_discovery_view(include_in_progress: bool = False) -> dict:
                             "asn": "",
                             "netname": "",
                             "location": "",
-                            "company": "PNB",
+                            "company": "Internal" if is_inventoried else "External",
+                            "is_inventoried": is_inventoried,
                         }
                     )
                     add_node(f"ip:{svc_host}", svc_host, "ip", f"IP · {svc_host}")
@@ -1574,7 +1601,8 @@ def _build_asset_discovery_view(include_in_progress: bool = False) -> dict:
                         "type": "Service",
                         "port": port or "",
                         "host": host,
-                        "company": "PNB",
+                        "company": "Internal" if is_inventoried else "External",
+                        "is_inventoried": is_inventoried,
                     }
                 )
 
@@ -1588,8 +1616,9 @@ def _build_asset_discovery_view(include_in_progress: bool = False) -> dict:
                     "fingerprint": fingerprint,
                     "valid_from": str(tr.get("valid_from", ""))[:10],
                     "common_name": str(tr.get("server_name") or host),
-                    "company": "PNB",
+                    "company": "Internal" if is_inventoried else "External",
                     "ca": issuer.get("O") or issuer.get("CN") or "Unknown",
+                    "is_inventoried": is_inventoried,
                 }
             )
 
@@ -2484,6 +2513,12 @@ def _save_schedules(schedules: list[dict]) -> None:
         return
     with open(_SCHEDULES_PATH, "w", encoding="utf-8") as f:
         json.dump(schedules, f, indent=2, default=str)
+
+
+@app.route("/favicon.ico")
+def favicon():
+    """Silence browser 404s on favicon."""
+    return "", 204
 
 
 @app.route("/report/generate", methods=["POST"])
