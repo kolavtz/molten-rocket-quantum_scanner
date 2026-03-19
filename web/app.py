@@ -213,7 +213,7 @@ def role_required(roles):
             if current_user.role not in roles:
                 _audit("auth", "authorization_denied", "denied", details={"required_roles": roles, "actual_role": current_user.role})
                 flash("You do not have permission to access this resource.", "error")
-                return redirect(url_for('main.index'))
+                return redirect(url_for('quantumshield_dashboard.dashboard_home'))
             return f(*args, **kwargs)
         return decorated_function
     return decorator
@@ -827,13 +827,19 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None, asset_class_h
 
 # ── Routes ───────────────────────────────────────────────────────────
 
+@app.route("/")
+def root_index():
+    """Redirects absolute root to the Main Dashboard."""
+    return redirect(url_for('quantumshield_dashboard.dashboard_home'))
+
+
 
 @app.route("/login", methods=["GET", "POST"])
 @limiter.limit("5 per minute")
 def login():
     """Secure login page — CSRF protected, rate-limited, lockout-aware."""
     if current_user.is_authenticated:
-        return redirect(url_for('main.index'))
+        return redirect(url_for('quantumshield_dashboard.dashboard_home'))
 
     locked = False
 
@@ -881,7 +887,7 @@ def login():
                     flash("Please set a new password before continuing.", "warning")
                     return redirect(url_for("setup_password", token=token))
 
-            return redirect(url_for('main.index'))
+            return redirect(url_for('quantumshield_dashboard.dashboard_home'))
         else:
             if user_data:
                 db.mark_login_failure(user_data["id"], MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_MINUTES)
@@ -907,7 +913,7 @@ def login():
 def forgot_password():
     """Email-based password reset flow."""
     if current_user.is_authenticated:
-        return redirect(url_for('main.index'))
+        return redirect(url_for('quantumshield_dashboard.dashboard_home'))
 
     if request.method == "POST":
         email = (request.form.get("email") or "").strip().lower()
@@ -1226,48 +1232,13 @@ def index():
         recent_scans=recent_scans,
         enterprise_metrics=enterprise_metrics,
         inventory_vm=inventory_vm,
-    )# Register Main Dashboard Blueprint after decorators are applied
+    )
+
+# Register Main Dashboard Blueprint
+from web.blueprints.dashboard import dashboard_bp
 app.register_blueprint(dashboard_bp)
 
-@app.route("/dashboard/assets", methods=["GET", "POST"])
-def asset_inventory():
-    from flask import request, redirect, url_for
-    from src.services.asset_service import AssetService
-    from src.services.geo_service import GeoService
-    from src import database as db
-    
-    asset_svc = AssetService()
-    geo_svc = GeoService()
-    
-    if request.method == "POST":
-        target = request.form.get("target")
-        if target:
-            # Normalize target to hostname for DB consistency
-            from urllib.parse import urlparse
-            parsed = urlparse(target if "://" in target else f"http://{target}")
-            clean_target = parsed.netloc or parsed.path
-            
-            db.save_asset({
-                "target": clean_target,
-                "type": request.form.get("type", "Web App"),
-                "owner": request.form.get("owner", "Unassigned"),
-                "risk_level": request.form.get("risk", "Medium"),
-                "notes": request.form.get("notes", "")
-            })
-            return redirect(url_for("asset_inventory"))
 
-    assets = asset_svc.load_combined_assets()
-    summary = asset_svc.get_dashboard_summary(assets)
-    
-    ips = [a["asset_name"] for a in assets if not str(a.get("asset_name", "")).startswith("http")]
-    clusters = geo_svc.get_geo_clusters(ips)
-    
-    return render_template(
-        "inventory.html",
-        assets=assets,
-        summary=summary,
-        clusters=clusters
-    )
 
 
 @app.route("/scan-center")
@@ -2014,14 +1985,14 @@ def scan():
 
     if not targets:
         _audit("scan", "scan_requested", "failed", details={"reason": "no_targets"})
-        return redirect(url_for("main.index"))
+        return redirect(url_for("quantumshield_dashboard.dashboard_home"))
         
     # Enforce advanced RBAC
     is_bulk = (csv_file and csv_file.filename) or len(targets) > 1
     if is_bulk and current_user.role not in BULK_SCAN_ROLES:
         _audit("scan", "bulk_scan_denied", "denied", details={"role": current_user.role, "target_count": len(targets)})
         flash("Your role allows single-target scans only.", "error")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("quantumshield_dashboard.dashboard_home"))
 
     try:
         if len(targets) == 1:
@@ -2042,7 +2013,7 @@ def scan():
                     continue  # skip invalid targets in bulk mode
 
             _audit("scan", "bulk_scan", "success", details={"target_count": len(targets)})
-            return redirect(url_for("main.index"))
+            return redirect(url_for("quantumshield_dashboard.dashboard_home"))
 
     except Exception as exc:
         _audit("scan", "scan_error", "failed", details={"error": str(exc), "target_count": len(targets)})

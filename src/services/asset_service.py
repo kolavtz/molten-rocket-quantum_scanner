@@ -51,6 +51,7 @@ class AssetService:
                 "risk": meta.get("risk_level") or risk_level,
                 "risk_score": risk_score,
                 "cert_status": cert_status,
+                "cert_days": cert_days,  # Added for charting
                 "key_length": first.get("key_length") or first.get("key_size") or 0,
                 "last_scan": scan.get("generated_at") or scan.get("scanned_at") or "",
                 "owner": meta.get("owner") or "Unassigned",
@@ -68,7 +69,8 @@ class AssetService:
                     "asset_class": "Manual",
                     "risk": meta.get("risk_level") or "Medium",
                     "risk_score": 50.0,
-                    "cert_status": "Scanning...",
+                     "cert_status": "Scanning...",
+                    "cert_days": None,
                     "key_length": 0,
                     "last_scan": "Pending",
                     "owner": meta.get("owner") or "Unassigned",
@@ -88,14 +90,31 @@ class AssetService:
         
         # Risk Distribution formula
         dist = Counter(a["risk"] for a in assets)
-        # Weighted aggregate: Critical=1.0, High=0.7, Medium=0.4, Low=0.1
-        # Max score is 100% assuming 0 critical, or inverted
         total_weight = (dist["Critical"] * 1.0) + (dist["High"] * 0.7) + (dist["Medium"] * 0.4) + (dist["Low"] * 0.1)
         risk_percent = min(100, int((total_weight / max(total, 1)) * 100))
 
-        # Type Distribution array for charts: [API, VPN, Server, Web App]
+        # Type Distribution array for charts
         web_app_count = total - (api_count + vpn_count + server_count)
         type_array = [api_count, vpn_count, server_count, max(0, web_app_count)]
+
+        # 3. Certificate Expiry Timeline Bucketization
+        ssl_expiry = {"0-30": 0, "30-60": 0, "60-90": 0, ">90": 0}
+        for a in assets:
+            days = a.get("cert_days")
+            if isinstance(days, (int, float)):
+                if days <= 30: ssl_expiry["0-30"] += 1
+                elif days <= 60: ssl_expiry["30-60"] += 1
+                elif days <= 90: ssl_expiry["60-90"] += 1
+                else: ssl_expiry[">90"] += 1
+
+        # 4. IP Version Breakdown (Heuristic based on target if not pure hostname)
+        ipv4_cnt = 0
+        ipv6_cnt = 0
+        for a in assets:
+            t = str(a.get("asset_name", ""))
+            if ":" in t: ipv6_cnt += 1
+            elif t.replace(".", "").isdigit(): ipv4_cnt += 1  # basic IP check
+            else: ipv4_cnt += 1 # fallback WebApp generally runs on IPv4 stacks.
 
         return {
             "total_assets": total,
@@ -105,8 +124,11 @@ class AssetService:
             "expiring_certs": expiring,
             "overall_risk_score": risk_percent,
             "risk_distribution": dict(dist),
-            "type_distribution": type_array
+            "type_distribution": type_array,
+            "ssl_expiry": [ssl_expiry["0-30"], ssl_expiry["30-60"], ssl_expiry["60-90"], ssl_expiry[">90"]],
+            "ip_breakdown": [ipv4_cnt, ipv6_cnt]
         }
+
 
     def _score_to_risk(self, score: float) -> str:
         if score >= 80: return "Low"

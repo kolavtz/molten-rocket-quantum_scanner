@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard // QuantumShield{% endblock %}
+
+{% block head %}
+<!-- Leaflet Maps -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .metric-card {
+        padding: 1.25rem;
+        text-align: center;
+        border-top: 3px solid var(--accent-primary);
+    }
+    .metric-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+        margin-bottom: 0.25rem;
+    }
+    .metric-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+    
+    .charts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .chart-box {
+        padding: 1rem;
+        height: 300px;
+    }
+    .chart-title {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-bottom: 1rem;
+        text-transform: uppercase;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        padding-bottom: 0.5rem;
+    }
+    
+    #map {
+        height: 400px;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(255,255,255,0.1);
+        z-index: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section style="max-width:1200px; margin: 0 auto; padding: 1rem 1.5rem;">
+
+    <!-- 1. Header -->
+    <div class="glass-card" style="padding: 1rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h1 style="font-size: 1.25rem; text-transform: uppercase; letter-spacing: 0.05em;">Quantumshield Main Dashboard</h1>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                Environment: <span style="color:white;">Production</span> | Last updated: <span id="lastUpdated">--:--:--</span>
+            </div>
+        </div>
+        <button class="glass-card" style="padding: 0.5rem 1rem; background: var(--accent-primary); border: none; cursor: pointer; font-size: 0.8rem; font-weight: 600;" onclick="openAddModal()">
+            + Add Asset
+        </button>
+    </div>
+
+    <!-- 2. Top Metrics -->
+    <div class="metrics-grid">
+        <div class="metric-card glass-card">
+            <div class="metric-value">{{ summary.total_assets }}</div>
+            <div class="metric-label">Total Assets</div>
+        </div>
+        <div class="metric-card glass-card">
+            <div class="metric-value">{{ summary.api_count }}</div>
+            <div class="metric-label">Public APIs</div>
+        </div>
+        <div class="metric-card glass-card">
+            <div class="metric-value">{{ summary.vpn_count }}</div>
+            <div class="metric-label">VPNs / Gateways</div>
+        </div>
+        <div class="metric-card glass-card">
+            <div class="metric-value">{{ summary.server_count }}</div>
+            <div class="metric-label">Standalone Servers</div>
+        </div>
+        <div class="metric-card glass-card" style="border-top-color: #f59e0b;">
+            <div class="metric-value" style="color:#f59e0b;">{{ summary.expiring_certs }}</div>
+            <div class="metric-label">Expiring Certs</div>
+        </div>
+        <div class="metric-card glass-card" style="border-top-color: {% if summary.overall_risk_score > 70 %}#ef4444{% else %}#10b981{% endif %};">
+            <div class="metric-value" style="color: {% if summary.overall_risk_score > 70 %}#ef4444{% else %}#10b981{% endif %};">
+                {{ summary.overall_risk_score }}%
+            </div>
+            <div class="metric-label">Risk Weight</div>
+        </div>
+    </div>
+
+    <!-- 3. Charts Grid -->
+    <div class="charts-grid">
+        <div class="chart-box glass-card">
+            <div class="chart-title">Asset Type Distribution</div>
+            <div style="height: calc(100% - 2rem);"><canvas id="chartType"></canvas></div>
+        </div>
+        <div class="chart-box glass-card">
+            <div class="chart-title">Risk Distribution</div>
+            <div style="height: calc(100% - 2rem);"><canvas id="chartRisk"></canvas></div>
+        </div>
+        <div class="chart-box glass-card">
+            <div class="chart-title">Certificate Expiry Timeline</div>
+            <div style="height: calc(100% - 2rem);"><canvas id="chartExpiry"></canvas></div>
+        </div>
+        <div class="chart-box glass-card">
+            <div class="chart-title">IP Version Breakdown</div>
+            <div style="height: calc(100% - 2rem);"><canvas id="chartIP"></canvas></div>
+        </div>
+    </div>
+
+
+    <!-- 6. Geolocation Overview -->
+    <div style="margin-bottom: 0.5rem; font-size: 0.85rem; text-transform: uppercase; color: var(--text-secondary);">Asset Geolocation Clusters</div>
+    <div id="map"></div>
+
+    <!-- 4. Asset Table -->
+    <div class="glass-card" style="padding: 1rem;">
+        <div style="font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.75rem; color: var(--text-secondary);">Asset Inventory Table</div>
+        
+        <table class="scans-table" id="assetTable">
+            <thead>
+                <tr>
+                    <th>Asset Name</th>
+                    <th>Type</th>
+                    <th>Owner</th>
+                    <th>Risk</th>
+                    <th>Cert Status</th>
+                    <th>Key Length</th>
+                    <th>Last Scan</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in assets %}
+                <tr data-target="{{ a.asset_name }}">
+                    <td>
+                        <div style="font-weight: 600;">{{ a.asset_name }}</div>
+                        <div style="font-size: 0.65rem; color: var(--text-secondary);">{{ a.url }}</div>
+                    </td>
+                    <td>{{ a.type }}</td>
+                    <td>{{ a.owner }}</td>
+                    <td>
+                        <span class="badge {% if a.risk == 'Critical' %}badge-danger{% elif a.risk == 'High' %}badge-warning{% elif a.risk == 'Medium' %}badge-info{% else %}badge-success{% endif %}">
+                            {{ a.risk }}
+                        </span>
+                    </td>
+                    <td>
+                        <span style="color: {% if a.cert_status == 'Expired' %}#ef4444{% elif a.cert_status == 'Expiring' %}#f59e0b{% else %}#10b981{% endif %};">
+                            {{ a.cert_status }}
+                        </span>
+                    </td>
+                    <td>{{ a.key_length }} bits</td>
+                    <td style="font-size: 0.7rem; color: var(--text-secondary);">{{ a.last_scan[:16] }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" style="text-align:center;">No assets populated.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</section>
+
+<!-- Add Asset Modal -->
+<div id="addAssetModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:999; background:rgba(0,0,0,0.6); align-items:center; justify-content:center;">
+    <div class="glass-card" style="width:400px; padding:1.5rem; border-top:3px solid var(--accent-primary);">
+        <h3 style="margin-bottom:1rem; text-transform:uppercase;">Add New Asset</h3>
+        <form action="{{ url_for('quantumshield_dashboard.add_asset') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="margin-bottom:0.75rem;">
+                <label style="font-size:0.75rem; color:#9ca3af; display:block; margin-bottom:0.25rem;">Target/Hostname:</label>
+                <input type="text" name="target" placeholder="example.com" required style="width:100%; padding:0.4rem; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:white; border-radius:4px;">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:0.75rem;">
+                <div>
+                     <label style="font-size:0.75rem; color:#9ca3af; display:block; margin-bottom:0.25rem;">Type:</label>
+                     <select name="type" style="width:100%; padding:0.4rem; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.1); color:white;">
+                        <option>Web App</option><option>API</option><option>VPN/Gateway</option><option>Server</option>
+                     </select>
+                </div>
+                <div>
+                    <label style="font-size:0.75rem; color:#9ca3af; display:block; margin-bottom:0.25rem;">Risk Override:</label>
+                     <select name="risk_level" style="width:100%; padding:0.4rem; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.1); color:white;">
+                        <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+                     </select>
+                </div>
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label style="font-size:0.75rem; color:#9ca3af; display:block; margin-bottom:0.25rem;">Owner:</label>
+                <input type="text" name="owner" placeholder="IT Ops" style="width:100%; padding:0.4rem; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:white; border-radius:4px;">
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                <button type="button" class="glass-card" style="padding:0.4rem 0.8rem; background:transparent; border:1px solid rgba(255,255,255,0.2); cursor:pointer;" onclick="closeAddModal()">Cancel</button>
+                <button type="submit" class="glass-card" style="padding:0.4rem 0.8rem; background:var(--accent-primary); border:none; cursor:pointer; font-weight:600;">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Timestamp
+    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+
+    // Modals
+    function openAddModal() { document.getElementById('addAssetModal').style.display = 'flex'; }
+    function closeAddModal() { document.getElementById('addAssetModal').style.display = 'none'; }
+
+    // Constants setup for Charts from view model JSON aggregates
+    const typeLabels = ['API', 'VPN/Gateway', 'Server', 'Web App'];
+    const typeData   = {{ (summary.type_distribution or []) | tojson }};
+    
+    // 1. Type Doughnut
+    const typeCtx = document.getElementById('chartType').getContext('2d');
+    new Chart(typeCtx, {
+        type: 'doughnut',
+        data: {
+            labels: typeLabels,
+            datasets: [{
+                data: typeData,
+                backgroundColor: ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981'],
+                borderWidth: 0
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#9ca3af', font: { size: 10 } } } } }
+    });
+
+    const riskObj = {{ (summary.risk_distribution or {}) | tojson }};
+    const riskLabels = ['Critical', 'High', 'Medium', 'Low'];
+    const riskData   = [riskObj.Critical||0, riskObj.High||0, riskObj.Medium||0, riskObj.Low||0];
+
+    // 2. Risk Bar
+    const riskCtx = document.getElementById('chartRisk').getContext('2d');
+    new Chart(riskCtx, {
+        type: 'bar',
+        data: {
+            labels: riskLabels,
+            datasets: [{
+                label: 'Asset Count',
+                data: riskData,
+                backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#10b981'],
+                borderRadius: 4
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af' } }, x: { grid: { display: false }, ticks: { color: '#9ca3af' } } }, plugins: { legend: { display: false } } }
+    });
+
+    // 3. Expiry Timeline Line
+
+    const expiryCtx = document.getElementById('chartExpiry').getContext('2d');
+    new Chart(expiryCtx, {
+        type: 'line',
+        data: {
+            labels: ['0-30 Days', '30-60 Days', '60-90 Days', '>90 Days'],
+            datasets: [{
+                label: 'Certs',
+                data: {{ (summary.ssl_expiry or [0,0,0,0]) | tojson }},
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', stepSize: 1 } }, x: { grid: { display: false }, ticks: { color: '#9ca3af' } } }, plugins: { legend: { display: false } } }
+    });
+
+    // 4. IP Breakdown Pie
+    const ipCtx = document.getElementById('chartIP').getContext('2d');
+    new Chart(ipCtx, {
+        type: 'pie',
+        data: {
+            labels: ['IPv4', 'IPv6'],
+            datasets: [{
+                data: {{ (summary.ip_breakdown or [0,0]) | tojson }},
+                backgroundColor: ['#10b981', '#3b82f6'],
+                borderWidth: 0
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#9ca3af', font: { size: 10 } } } } }
+    });
+
+
+    /* ── Geolocation Map Implementation ──────────────────────── */
+    var map = L.map('map').setView([20, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        className: 'dark-tiles' 
+    }).addTo(map);
+
+    fetch("{{ url_for('quantumshield_dashboard.dashboard_geojson') }}")
+        .then(response => response.json())
+        .then(data => {
+            L.geoJSON(data, {
+                onEachFeature: function(feature, layer) {
+                    if (feature.properties) {
+                        layer.bindPopup(`<strong>${feature.properties.title}</strong><br>Type: ${feature.properties.type}<br>Location: ${feature.properties.location}`);
+                    }
+                }
+            }).addTo(map);
+        })
+        .catch(err => console.error("GeoJSON load failed:", err));
+
+</script>
+{% endblock %}
