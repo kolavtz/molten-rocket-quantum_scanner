@@ -8,6 +8,10 @@ dist/
 build/
 .venv/
 venv/
+<<<<<<< HEAD
+=======
+*.pyc
+>>>>>>> origin/main
 
 # Environment
 .env

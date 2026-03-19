@@ -214,41 +214,6 @@
             }
         })();
 
-        // Global Interactive Table Sorting Logic 
-        document.addEventListener('DOMContentLoaded', function () {
-            document.querySelectorAll('.scans-table th').forEach(headerCell => {
-                headerCell.addEventListener('click', () => {
-                    const table = headerCell.closest('table');
-                    const tBody = table.tBodies[0];
-                    if (!tBody) return;
-                    const rows = Array.from(tBody.querySelectorAll('tr'));
-                    const columnIndex = Array.from(headerCell.parentElement.children).indexOf(headerCell);
-                    const isAscending = headerCell.classList.toggle('sorted-asc');
-                    const direction = isAscending ? 1 : -1;
-
-                    Array.from(headerCell.parentElement.children).forEach(th => {
-                        if (th !== headerCell) th.classList.remove('sorted-asc', 'sorted-desc');
-                    });
-
-                    const sortedRows = rows.sort((a, b) => {
-                        const aCell = a.children[columnIndex];
-                        const bCell = b.children[columnIndex];
-                        if (!aCell || !bCell || aCell.textContent.includes('No ') || bCell.textContent.includes('No ')) return 0;
-                        
-                        const aText = aCell.textContent.trim();
-                        const bText = bCell.textContent.trim();
-                        const aNum = parseFloat(aText.replace(/[^0-9.-]+/g, ""));
-                        const bNum = parseFloat(bText.replace(/[^0-9.-]+/g, ""));
-
-                        if (!isNaN(aNum) && !isNaN(bNum)) return (aNum - bNum) * direction;
-                        return aText.localeCompare(bText, undefined, {numeric: true, sensitivity: 'base'}) * direction;
-                    });
-
-                    while (tBody.firstChild) tBody.removeChild(tBody.firstChild);
-                    tBody.append(...sortedRows);
-                });
-            });
-        });
     </script>
     {% block scripts %}{% endblock %}
 </body>

@@ -533,10 +533,10 @@ RATELIMIT_DEFAULT_LIMITS = ["200 per day", "50 per hour"]
 # Allows self, Google Fonts, and inline styles for the glassmorphism effects
 CSP_CONFIG = {
     'default-src': ["'self'"],
-    'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-    'font-src': ["'self'", 'https://fonts.gstatic.com'],
+    'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com', 'https://unpkg.com'],
+    'font-src': ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'],
     'img-src': ["'self'", 'data:', 'https://*'],
-    'script-src': ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"], # app.js, inline scripts and Chart.js
+    'script-src': ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", 'https://unpkg.com'], # app.js, inline scripts and Chart.js
 }
 
 # ---------------------------------------------------------------------------

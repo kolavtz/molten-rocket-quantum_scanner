@@ -145,6 +145,12 @@
 [2026-03-14 16:41:04,431] INFO in database: MySQL database 'quantumshield' initialised.
 [2026-03-14 16:41:04,513] WARNING in _internal:  * Debugger is active!
 [2026-03-14 16:41:04,521] INFO in _internal:  * Debugger PIN: 118-432-274
+<<<<<<< HEAD
+=======
+<<<<<<< Updated upstream
+=======
+<<<<<<< Updated upstream
+>>>>>>> origin/main
 [2026-03-14 22:01:31,654] INFO in app: QuantumShield application starting up...
 [2026-03-14 22:01:31,790] ERROR in database: MySQL init_db error: 3780 (HY000): Referencing column 'actor_user_id' and referenced column 'id' in foreign key constraint 'audit_logs_ibfk_1' are incompatible.
 [2026-03-14 22:01:32,034] INFO in app: QuantumShield application starting up...
@@ -2263,7 +2269,318 @@
 [2026-03-18 22:17:11,993] INFO in scheduler: Scheduler sleeping for 24 hours.
 [2026-03-18 22:17:12,003] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
 [2026-03-18 22:17:12,004] INFO in scheduler: Scheduler sleeping for 24 hours.
+<<<<<<< HEAD
 [2026-03-18 22:46:21,585] INFO in app: QuantumShield application starting up...
 [2026-03-18 22:46:21,872] INFO in scheduler: Auto-scanning 2 unique targets...
 [2026-03-18 22:46:21,872] INFO in scheduler: Auto-scanning target: google.com
 [2026-03-18 22:46:22,019] INFO in database: MySQL database 'quantumshield' initialised.
+=======
+=======
+[2026-03-18 22:27:19,184] INFO in app: QuantumShield application starting up...
+[2026-03-18 22:27:19,549] INFO in database: MySQL database 'quantumshield' initialised.
+>>>>>>> Stashed changes
+[2026-03-18 22:28:52,541] INFO in app: QuantumShield application starting up...
+[2026-03-18 22:28:52,718] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-18 22:28:52,718] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-18 22:28:52,893] INFO in database: MySQL database 'quantumshield' initialised.
+>>>>>>> Stashed changes
+>>>>>>> origin/main
+[2026-03-18 23:02:21,470] INFO in app: QuantumShield application starting up...
+[2026-03-18 23:02:21,664] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-18 23:02:21,665] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-18 23:02:21,803] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-18 23:02:21,936] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-18 23:02:21,936] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-18 23:02:21,939] INFO in _internal:  * Restarting with stat
+[2026-03-18 23:02:22,618] INFO in app: QuantumShield application starting up...
+[2026-03-18 23:02:22,797] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-18 23:02:22,798] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-18 23:02:22,933] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-18 23:02:23,002] WARNING in _internal:  * Debugger is active!
+[2026-03-18 23:02:23,014] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-18 23:02:25,770] INFO in scheduler: Saved automated scan for google.com
+[2026-03-18 23:02:25,770] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-18 23:02:25,770] INFO in scheduler: Saved automated scan for google.com
+[2026-03-18 23:02:25,771] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-18 23:02:33,741] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-18 23:02:33,741] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-18 23:02:33,741] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-18 23:02:33,742] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-18 23:07:30,519] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:07:30] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-18 23:07:30,742] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:07:30] "GET /login?next=/ HTTP/1.1" 200 -
+[2026-03-18 23:07:31,088] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:07:31] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-18 23:07:31,094] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:07:31] "GET /static/js/app.js HTTP/1.1" 200 -
+[2026-03-18 23:07:31,124] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:07:31] "GET /static/js/scans-table.js HTTP/1.1" 200 -
+[2026-03-18 23:07:37,290] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:07:37] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-18 23:07:37,344] ERROR in database: get_enterprise_metrics SQL error: No module named 'database'
+[2026-03-18 23:07:37,618] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:07:37] "[35m[1mGET / HTTP/1.1[0m" 500 -
+[2026-03-18 23:07:37,706] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:07:37] "GET /?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1" 200 -
+[2026-03-18 23:07:37,723] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:07:37] "GET /?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1" 200 -
+[2026-03-18 23:07:37,781] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:07:37] "GET /?__debugger__=yes&cmd=resource&f=console.png&s=5jBq2vbeNyG1wnUptf3L HTTP/1.1" 200 -
+[2026-03-18 23:07:37,825] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:07:37] "GET /?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1" 200 -
+[2026-03-18 23:08:12,794] ERROR in database: get_enterprise_metrics SQL error: No module named 'database'
+[2026-03-18 23:08:12,838] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:08:12] "[35m[1mGET / HTTP/1.1[0m" 500 -
+[2026-03-18 23:08:12,886] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:08:12] "[36mGET /?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
+[2026-03-18 23:08:12,892] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:08:12] "[36mGET /?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1[0m" 304 -
+[2026-03-18 23:08:12,911] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:08:12] "[36mGET /?__debugger__=yes&cmd=resource&f=console.png&s=5jBq2vbeNyG1wnUptf3L HTTP/1.1[0m" 304 -
+[2026-03-18 23:10:22,186] INFO in app: QuantumShield application starting up...
+[2026-03-18 23:10:22,566] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-18 23:10:22,566] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-18 23:10:22,781] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-18 23:11:58,817] INFO in app: QuantumShield application starting up...
+[2026-03-18 23:11:58,980] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-18 23:11:58,981] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-18 23:11:59,124] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-18 23:11:59,422] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-18 23:11:59,423] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-18 23:11:59,426] INFO in _internal:  * Restarting with stat
+[2026-03-18 23:12:00,242] INFO in app: QuantumShield application starting up...
+[2026-03-18 23:12:00,414] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-18 23:12:00,415] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-18 23:12:00,514] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-18 23:12:00,617] WARNING in _internal:  * Debugger is active!
+[2026-03-18 23:12:00,628] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-18 23:12:01,838] INFO in scheduler: Saved automated scan for google.com
+[2026-03-18 23:12:01,839] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-18 23:12:03,329] INFO in scheduler: Saved automated scan for google.com
+[2026-03-18 23:12:03,329] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-18 23:12:07,023] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:12:07] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-18 23:12:07,098] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:12:07] "GET /login?next=/ HTTP/1.1" 200 -
+[2026-03-18 23:12:07,593] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:12:07] "GET /static/js/app.js HTTP/1.1" 200 -
+[2026-03-18 23:12:07,595] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:12:07] "GET /static/js/scans-table.js HTTP/1.1" 200 -
+[2026-03-18 23:12:07,595] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:12:07] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-18 23:12:09,705] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-18 23:12:09,706] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-18 23:12:10,237] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-18 23:12:10,238] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-18 23:12:14,418] ERROR in database: get_enterprise_metrics SQL error: No module named 'database'
+[2026-03-18 23:12:14,478] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:12:14] "GET / HTTP/1.1" 200 -
+[2026-03-18 23:12:14,554] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:12:14] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-18 23:12:14,586] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:12:14] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-18 23:12:14,589] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:12:14] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-18 23:12:17,974] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:12:17] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-18 23:12:18,046] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:12:18] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-18 23:12:18,064] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:12:18] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-18 23:12:18,080] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:12:18] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-18 23:12:49,308] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:12:49] "GET /cbom-dashboard HTTP/1.1" 200 -
+[2026-03-18 23:12:49,385] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:12:49] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-18 23:12:49,393] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:12:49] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-18 23:12:49,407] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:12:49] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-18 23:13:02,797] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:13:02] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-18 23:13:02,879] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:13:02] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-18 23:13:02,890] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:13:02] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-18 23:13:02,909] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:13:02] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-18 23:13:18,621] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:13:18] "GET /asset-discovery HTTP/1.1" 200 -
+[2026-03-18 23:13:18,700] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:13:18] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-18 23:13:18,710] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:13:18] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-18 23:13:18,733] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:13:18] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-18 23:15:42,564] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:15:42] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-18 23:15:42,617] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:15:42] "GET /login?next=/ HTTP/1.1" 200 -
+[2026-03-18 23:15:42,758] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:15:42] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-18 23:15:42,790] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:15:42] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-18 23:15:42,806] INFO in _internal: 127.0.0.1 - - [18/Mar/2026 23:15:42] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:09:43,138] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\services\\geo_service.py', reloading
+[2026-03-19 07:09:43,491] INFO in _internal:  * Restarting with stat
+[2026-03-19 07:09:44,788] INFO in app: QuantumShield application starting up...
+[2026-03-19 07:09:45,090] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-19 07:09:45,090] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-19 07:09:45,280] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-19 07:09:45,470] WARNING in _internal:  * Debugger is active!
+[2026-03-19 07:09:45,479] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-19 07:09:45,787] INFO in scheduler: Saved automated scan for google.com
+[2026-03-19 07:09:45,787] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-19 07:09:47,343] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-19 07:09:47,343] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-19 07:19:52,174] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-19 07:19:52,260] INFO in _internal:  * Restarting with stat
+[2026-03-19 07:24:52,513] INFO in app: QuantumShield application starting up...
+[2026-03-19 07:24:52,764] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-19 07:24:52,764] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-19 07:24:52,890] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-19 07:24:53,006] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-19 07:24:53,006] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-19 07:24:53,009] INFO in _internal:  * Restarting with stat
+[2026-03-19 07:24:53,354] INFO in scheduler: Saved automated scan for google.com
+[2026-03-19 07:24:53,355] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-19 07:24:53,755] INFO in app: QuantumShield application starting up...
+[2026-03-19 07:24:53,878] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-19 07:24:53,878] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-19 07:24:53,994] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-19 07:24:54,101] WARNING in _internal:  * Debugger is active!
+[2026-03-19 07:24:54,112] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-19 07:24:54,244] INFO in scheduler: Saved automated scan for google.com
+[2026-03-19 07:24:54,245] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-19 07:24:54,257] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-19 07:24:54,257] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-19 07:24:55,145] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-19 07:24:55,145] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-19 07:26:39,231] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:26:39] "[32mGET /dashboard/assets HTTP/1.1[0m" 302 -
+[2026-03-19 07:26:39,284] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:26:39] "GET /login?next=/dashboard/assets HTTP/1.1" 200 -
+[2026-03-19 07:26:39,474] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:26:39] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:26:39,477] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:26:39] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-19 07:26:39,479] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:26:39] "GET /static/js/scans-table.js HTTP/1.1" 200 -
+[2026-03-19 07:26:39,684] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:26:39] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+[2026-03-19 07:26:44,187] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:26:44] "[35m[1mPOST /login HTTP/1.1[0m" 500 -
+[2026-03-19 07:26:44,251] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:26:44] "[36mGET /login?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
+[2026-03-19 07:26:44,292] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:26:44] "[36mGET /login?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:26:44,348] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:26:44] "GET /login?__debugger__=yes&cmd=resource&f=console.png&s=feBmrPYs6kIPYbXpt8mR HTTP/1.1" 200 -
+[2026-03-19 07:29:38,385] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-19 07:29:38,498] INFO in _internal:  * Restarting with stat
+[2026-03-19 07:29:39,275] INFO in app: QuantumShield application starting up...
+[2026-03-19 07:29:39,465] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-19 07:29:39,466] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-19 07:29:39,603] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-19 07:29:39,695] WARNING in _internal:  * Debugger is active!
+[2026-03-19 07:29:39,699] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-19 07:29:39,966] INFO in scheduler: Saved automated scan for google.com
+[2026-03-19 07:29:39,966] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-19 07:29:40,899] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-19 07:29:40,899] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-19 07:30:04,764] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:04] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-19 07:30:04,776] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:04] "[32mGET /dashboard/assets HTTP/1.1[0m" 302 -
+[2026-03-19 07:30:04,810] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:04] "GET /login?next=/dashboard/assets HTTP/1.1" 200 -
+[2026-03-19 07:30:04,980] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:04] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-19 07:30:04,982] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:04] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:30:04,982] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:04] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:30:09,760] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:09] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-19 07:30:09,835] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:09] "[32mGET /dashboard/assets HTTP/1.1[0m" 302 -
+[2026-03-19 07:30:09,862] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:09] "GET /login?next=/dashboard/assets HTTP/1.1" 200 -
+[2026-03-19 07:30:10,094] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:10] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-19 07:30:10,105] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:10] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:30:10,126] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:10] "GET /static/js/scans-table.js HTTP/1.1" 200 -
+[2026-03-19 07:30:10,434] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:10] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+[2026-03-19 07:30:39,646] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:39] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-19 07:30:39,932] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:39] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-19 07:30:40,185] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:40] "GET /dashboard/assets HTTP/1.1" 200 -
+[2026-03-19 07:30:40,366] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:40] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:30:40,386] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:40] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:30:40,419] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:30:40] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-19 07:32:43,681] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:32:43] "GET /scan-center HTTP/1.1" 200 -
+[2026-03-19 07:32:43,816] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:32:43] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-19 07:32:43,823] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:32:43] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:32:43,828] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:32:43] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:32:58,596] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:32:58] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-19 07:32:58,720] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:32:58] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-19 07:32:58,726] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:32:58] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:32:58,742] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:32:58] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:35:10,997] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\config.py', reloading
+[2026-03-19 07:35:11,103] INFO in _internal:  * Restarting with stat
+[2026-03-19 07:35:12,056] INFO in app: QuantumShield application starting up...
+[2026-03-19 07:35:12,229] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-19 07:35:12,230] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-19 07:35:12,371] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-19 07:35:12,472] WARNING in _internal:  * Debugger is active!
+[2026-03-19 07:35:12,479] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-19 07:35:12,872] INFO in scheduler: Saved automated scan for google.com
+[2026-03-19 07:35:12,872] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-19 07:35:13,764] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-19 07:35:13,764] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-19 07:35:23,785] INFO in app: QuantumShield application starting up...
+[2026-03-19 07:35:23,939] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-19 07:35:23,940] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-19 07:35:24,072] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-19 07:35:24,163] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-19 07:35:24,163] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-19 07:35:24,165] INFO in _internal:  * Restarting with stat
+[2026-03-19 07:35:24,483] INFO in scheduler: Saved automated scan for google.com
+[2026-03-19 07:35:24,484] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-19 07:35:24,965] INFO in app: QuantumShield application starting up...
+[2026-03-19 07:35:25,128] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-19 07:35:25,129] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-19 07:35:25,239] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-19 07:35:25,338] WARNING in _internal:  * Debugger is active!
+[2026-03-19 07:35:25,345] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-19 07:35:25,385] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-19 07:35:25,386] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-19 07:35:25,597] INFO in scheduler: Saved automated scan for google.com
+[2026-03-19 07:35:25,598] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-19 07:35:26,487] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-19 07:35:26,488] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-19 07:35:43,483] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:35:43] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-19 07:35:43,578] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:35:43] "GET /dashboard/assets HTTP/1.1" 200 -
+[2026-03-19 07:35:43,840] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:35:43] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:35:43,846] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:35:43] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-19 07:35:43,849] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:35:43] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:35:46,078] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:35:46] "GET /dashboard/geojson HTTP/1.1" 200 -
+[2026-03-19 07:36:39,967] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\config.py', reloading
+[2026-03-19 07:36:40,070] INFO in _internal:  * Restarting with stat
+[2026-03-19 07:36:40,970] INFO in app: QuantumShield application starting up...
+[2026-03-19 07:36:41,133] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-19 07:36:41,134] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-19 07:36:41,243] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-19 07:36:41,350] WARNING in _internal:  * Debugger is active!
+[2026-03-19 07:36:41,362] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-19 07:36:41,513] INFO in scheduler: Saved automated scan for google.com
+[2026-03-19 07:36:41,513] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-19 07:36:42,478] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-19 07:36:42,479] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-19 07:36:51,760] INFO in app: QuantumShield application starting up...
+[2026-03-19 07:36:51,938] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-19 07:36:51,939] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-19 07:36:52,011] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-19 07:36:52,131] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-19 07:36:52,132] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-19 07:36:52,136] INFO in _internal:  * Restarting with stat
+[2026-03-19 07:36:52,392] INFO in scheduler: Saved automated scan for google.com
+[2026-03-19 07:36:52,393] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-19 07:36:52,988] INFO in app: QuantumShield application starting up...
+[2026-03-19 07:36:53,177] INFO in scheduler: Auto-scanning 2 unique targets...
+[2026-03-19 07:36:53,178] INFO in scheduler: Auto-scanning target: google.com
+[2026-03-19 07:36:53,225] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-19 07:36:53,225] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-19 07:36:53,284] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-19 07:36:53,391] WARNING in _internal:  * Debugger is active!
+[2026-03-19 07:36:53,398] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-19 07:36:53,567] INFO in scheduler: Saved automated scan for google.com
+[2026-03-19 07:36:53,567] INFO in scheduler: Auto-scanning target: pnbnet.pnb.bank.in
+[2026-03-19 07:36:54,516] INFO in scheduler: Saved automated scan for pnbnet.pnb.bank.in
+[2026-03-19 07:36:54,517] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-19 07:37:44,630] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:37:44] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-19 07:37:44,833] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:37:44] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-19 07:37:44,866] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:37:44] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:37:44,876] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:37:44] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:38:27,598] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:38:27] "GET /asset-discovery HTTP/1.1" 200 -
+[2026-03-19 07:38:27,681] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:38:27] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-19 07:38:27,685] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:38:27] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:38:27,687] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:38:27] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:38:34,977] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:38:34] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:38:41,982] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:38:41] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:38:48,975] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:38:48] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:38:55,963] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:38:55] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:39:02,975] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:39:02] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:39:09,997] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:39:09] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:39:16,993] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:39:16] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:39:23,974] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:39:23] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:39:30,996] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:39:30] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:39:37,986] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:39:37] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:39:44,955] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:39:44] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:39:51,984] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:39:51] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:39:58,993] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:39:58] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:40:05,979] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:40:05] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:40:12,989] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:40:12] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:40:19,957] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:40:19] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:40:26,998] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:40:26] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:40:33,955] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:40:33] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:40:40,991] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:40:40] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:40:47,971] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:40:47] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:40:54,986] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:40:54] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:41:01,989] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:41:01] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:41:08,986] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:41:08] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:41:15,987] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:41:15] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:41:22,986] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:41:22] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:41:29,939] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:41:29] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:41:36,975] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:41:36] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:41:43,979] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:41:43] "GET /api/discovery-graph HTTP/1.1" 200 -
+[2026-03-19 07:41:49,015] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:41:49] "GET /asset-discovery HTTP/1.1" 200 -
+[2026-03-19 07:41:49,107] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:41:49] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:41:49,121] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:41:49] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-19 07:41:49,121] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:41:49] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:41:53,175] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:41:53] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-19 07:41:53,224] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:41:53] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-19 07:41:53,228] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:41:53] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-19 07:41:53,232] INFO in _internal: 127.0.0.1 - - [19/Mar/2026 07:41:53] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -

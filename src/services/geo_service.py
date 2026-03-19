@@ -1,76 +1,74 @@
 """
-GeoService layer for cluster mappings in QuantumShield.
-Resolves IPs to physical locations for landing grid plots.
+Geolocation Service for QuantumShield.
+Resolves IP addresses to coordinates (Lat / Lon) using live providers layout node securely.
 """
 
 import urllib.request
-import urllib.parse
 import json
+import socket
+import ipaddress
 import logging
-from typing import Dict, List, Any
 
 logger = logging.getLogger(__name__)
 
 class GeoService:
-    def __init__(self):
-        self._geo_cache: Dict[str, Dict[str, Any]] = {}
+    def __init__(self, provider_url: str = "http://ip-api.com/json/"):
+        self.provider_url = provider_url
 
-    def geolocate_ip(self, ip_addr: str) -> Dict[str, Any]:
-        """Resolve individual IP to coordinates & metadata from pluggable API lookup."""
-        if not ip_addr:
-            return {}
-        if ip_addr in self._geo_cache:
-            return self._geo_cache[ip_addr]
+    def get_location(self, target: str) -> dict:
+        """Resolve target hostname/IP to City, Country, Lat, Lon securely.
 
-        result: Dict[str, Any] = {}
+        Returns:
+            dict: {lat: float, lon: float, city: str, country: str, asn: str, status: str}
+        """
         try:
-            # Using ipapi.co (pluggable setup node)
-            url = f"https://ipapi.co/{urllib.parse.quote(ip_addr)}/json/"
-            req = urllib.request.Request(url, headers={"User-Agent": "QuantumShield/1.0"})
-            with urllib.request.urlopen(req, timeout=3.0) as resp:
-                payload = json.loads(resp.read().decode("utf-8"))
+            # 1. Resolve hostname to IP if needed
+            ip = target
+            if not self._is_valid_ip(target):
+                ip = socket.gethostbyname(target)
             
-            lat = payload.get("latitude")
-            lon = payload.get("longitude")
-            
-            if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
-                result = {
-                    "ip": ip_addr,
-                    "lat": float(lat),
-                    "lon": float(lon),
-                    "city": str(payload.get("city") or ""),
-                    "region": str(payload.get("region") or ""),
-                    "country": str(payload.get("country_name") or payload.get("country") or ""),
-                    "asn": str(payload.get("asn") or "")
+            # 2. Check for private IPs (no geo lookup)
+            if self._is_private_ip(ip):
+                return {
+                    "ip": ip,
+                    "status": "Private",
+                    "lat": 28.6139,  # Default to New Delhi or target aggregate
+                    "lon": 77.2090, 
+                    "city": "Intranet",
+                    "country": "Private Network",
+                    "asn": "N/A"
                 }
+
+            # 3. Live REST fetch
+            url = f"{self.provider_url}{ip}"
+            with urllib.request.urlopen(url, timeout=5) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode('utf-8'))
+                    if data.get("status") == "success":
+                        return {
+                            "ip": ip,
+                            "status": "success",
+                            "lat": data.get("lat", 0.0),
+                            "lon": data.get("lon", 0.0),
+                            "city": data.get("city", "Unknown"),
+                            "country": data.get("country", "Unknown"),
+                            "asn": data.get("as", "Unknown")
+                        }
         except Exception as e:
-            logger.warning(f"Geolocation failed for {ip_addr}: {e}")
-            result = {}
-
-        self._geo_cache[ip_addr] = result
-        return result
-
-    def get_geo_clusters(self, ip_list: List[str]) -> List[Dict[str, Any]]:
-        """Groups addresses by coordinates to form clustered map plotted responses."""
-        clusters: Dict[tuple, Dict[str, Any]] = {}
+            if logger: logger.error(f"Geolocation lookup failed for {target}: {e}")
         
-        for ip in ip_list:
-            geo = self.geolocate_ip(ip)
-            if not geo or "lat" not in geo:
-                continue
-            
-            key = (geo["lat"], geo["lon"])
-            if key not in clusters:
-                clusters[key] = {
-                    "lat": geo["lat"],
-                    "lon": geo["lon"],
-                    "city": geo.get("city"),
-                    "country": geo.get("country"),
-                    "service_count": 0,
-                    "ip_count": 0,
-                    "ips": []
-                }
-            clusters[key]["ip_count"] += 1
-            clusters[key]["ips"].append(ip)
+        return {"ip": target, "status": "fail", "lat": 0.0, "lon": 0.0}
 
-        return list(clusters.values())
+    def _is_valid_ip(self, ip: str) -> bool:
+        try:
+            ipaddress.ip_address(ip)
+            return True
+        except ValueError:
+            return False
+
+    def _is_private_ip(self, ip: str) -> bool:
+        try:
+            addr = ipaddress.ip_address(ip)
+            return addr.is_private or addr.is_loopback
+        except ValueError:
+            return False
