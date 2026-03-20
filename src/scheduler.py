@@ -34,11 +34,23 @@ def run_scheduler():
                 scan_service = InventoryScanService()
                 result = scan_service.scan_all_assets(background=False)
                 
-                if result.get("status") == "complete":
+                status = str(result.get("status") or "").lower()
+                if status == "complete":
                     summary = result.get("summary", {})
-                    logger.info(f"✓ Automated inventory scan complete: {summary.get('successful')} successful, {summary.get('failed')} failed")
+                    logger.info(
+                        "Automated inventory scan complete: %s successful, %s failed",
+                        summary.get("successful"),
+                        summary.get("failed"),
+                    )
+                elif status == "in_progress":
+                    logger.info(
+                        "Automated inventory scan skipped: another scan is already in progress"
+                    )
                 else:
-                    logger.error(f"✗ Automated inventory scan failed: {result.get('error', 'Unknown error')}")
+                    logger.error(
+                        "Automated inventory scan failed: %s",
+                        result.get("error") or result.get("message") or "Unknown error",
+                    )
                     
             except Exception as e:
                 logger.error(f"Scheduler sweep failed: {e}")

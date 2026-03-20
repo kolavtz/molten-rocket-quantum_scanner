@@ -10,3 +10,5 @@ Use 2–5 lines per session.
 - [2026-03-20] Added regressions in `tests/test_database.py` and `tests/test_asset_service.py`; full targeted suite now passes.
 - [2026-03-20] Unified table UX to client-side interactions: removed server-sort/pagination controls from table templates and switched table headers to JS-driven sorting.
 - [2026-03-20] Updated table-backed routes to return full record sets for UI sorting/search across all rows (not only server-paginated slices).
+- [2026-03-20] Fixed inventory scheduler overlap handling: automated sweep now treats in-progress scans as a skip, not a failure.
+- [2026-03-20] Removed non-ASCII status glyphs from scheduler logs to prevent Windows cp1252 UnicodeEncodeError crashes.
