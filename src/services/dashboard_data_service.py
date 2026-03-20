@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 from collections import Counter
 
+from src import database as db
 from src.db import db_session
 from src.models import Asset, Scan, Certificate, PQCClassification
 
@@ -94,126 +95,31 @@ class DashboardDataService:
     def get_all_scans_aggregated() -> Dict[str, Any]:
         """
         Get all scans from MySQL with full aggregation.
-        This is the master data source for all dashboards.
+        Data is returned from the DB layer directly for high performance.
         """
         try:
-            scans = db_session.query(Scan).filter(Scan.status == "complete").all()
-            
-            if not scans:
-                return {
-                    "status": "success",
-                    "total_scans": 0,
-                    "scans": [],
-                    "aggregated_kpis": {
-                        "total_assets": 0,
-                        "quantum_safe": 0,
-                        "quantum_vulnerable": 0,
-                        "average_compliance_score": 0,
-                        "expiring_certificates": 0,
-                        "high_risk_assets": 0,
-                    },
-                    "distributions": {
-                        "risk": {},
-                        "tls_versions": {},
-                        "key_lengths": {},
-                        "cas": {},
-                    }
-                }
-            
-            # Aggregate all scans
-            risk_dist = Counter()
-            tls_dist = Counter()
-            key_dist = Counter()
-            ca_dist = Counter()
-            
-            total_score = 0
-            high_risk_count = 0
-            expiring_cert_count = 0
-            quantum_safe_count = 0
-            quantum_vulnerable_count = 0
-            
-            scan_list = []
-            
-            for scan in scans:
-                target = str(getattr(scan, "target", "Unknown"))
-                overall_score = float(getattr(scan, "overall_pqc_score", 0) or 0)
-                total_score += overall_score
-                
-                risk_level = DashboardDataService._score_to_risk(overall_score * 10)  # Scale 0-1000
-                risk_dist[risk_level] += 1
-                
-                if risk_level in {"High", "Critical"}:
-                    high_risk_count += 1
-                
-                if risk_level == "Low":
-                    quantum_safe_count += 1
-                else:
-                    quantum_vulnerable_count += 1
-                
-                # Get certificates for this scan
-                scan_id = getattr(scan, "scan_id", None) or getattr(scan, "id", None)
-                if scan_id:
-                    certs = db_session.query(Certificate).filter(
-                        Certificate.scan_id == scan_id
-                    ).all()
-                else:
-                    certs = []
-                
-                for cert in certs:
-                    tls = str(getattr(cert, "tls_version", "") or "Unknown")
-                    key_len = int(getattr(cert, "key_length", 0) or 0)
-                    ca = str(getattr(cert, "ca", "") or "Unknown")
-                    
-                    tls_dist[tls] += 1
-                    if key_len >= 4096:
-                        key_dist["4096+"] += 1
-                    elif key_len >= 2048:
-                        key_dist["2048-4095"] += 1
-                    elif key_len > 0:
-                        key_dist["<2048"] += 1
-                    
-                    ca_dist[ca[:20]] += 1  # Truncate long CA names
-                    
-                    # Count expiring certs
-                    if tls in WEAK_TLS_VERSIONS or key_len < WEAK_KEY_LENGTH_BITS:
-                        expiring_cert_count += 1
-                
-                started = getattr(scan, "started_at", None)
-                completed = getattr(scan, "completed_at", None)
-                
-                scan_list.append({
-                    "scan_id": scan_id,
-                    "target": target,
-                    "status": "complete",
-                    "started_at": started.isoformat() if started else "",
-                    "completed_at": completed.isoformat() if completed else "",
-                    "overall_pqc_score": overall_score,
-                    "risk_level": risk_level,
-                })
-            
-            avg_score = total_score / max(len(scans), 1)
-            
+            metrics = db.get_enterprise_metrics()
             return {
                 "status": "success",
-                "total_scans": len(scans),
-                "scans": scan_list,
+                "total_scans": metrics.get("scan_count", 0),
+                "scans": [],  # For paginated scan list, use API or separate endpoint
                 "aggregated_kpis": {
-                    "total_assets": len(scans),
-                    "quantum_safe": quantum_safe_count,
-                    "quantum_vulnerable": quantum_vulnerable_count,
-                    "average_compliance_score": round(avg_score, 2),
-                    "expiring_certificates": expiring_cert_count,
-                    "high_risk_assets": high_risk_count,
+                    "total_assets": metrics.get("total_assets", 0),
+                    "quantum_safe": metrics.get("quantum_safe", 0),
+                    "quantum_vulnerable": metrics.get("quantum_vulnerable", 0),
+                    "average_compliance_score": metrics.get("avg_score", 0),
+                    "expiring_certificates": metrics.get("ssl_expiry", {}).get("0-30", 0),
+                    "high_risk_assets": metrics.get("risk_distribution", {}).get("Critical", 0) + metrics.get("risk_distribution", {}).get("High", 0),
                 },
                 "distributions": {
-                    "risk": dict(risk_dist),
-                    "tls_versions": dict(tls_dist),
-                    "key_lengths": dict(key_dist),
-                    "cas": dict(ca_dist.most_common(5)),
+                    "risk": metrics.get("risk_distribution", {}),
+                    "tls_versions": {},  # populate from a dedicated query if desired
+                    "key_lengths": {},  # populate from dedicated query if desired
+                    "cas": {},  # populate from dedicated query if desired
                 }
             }
         except Exception as e:
-            logger.exception(f"Error aggregating scans: {e}")
+            logger.exception("Error aggregating scans from DB: %s", e)
             return {
                 "status": "error",
                 "message": str(e),
