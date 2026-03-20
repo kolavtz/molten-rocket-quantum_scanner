@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "macros/table_macros.html" as tb %}
 {% block title %}CBOM | PNB Cyber Observability{% endblock %}
 {% block content %}
 <section class="hero" style="padding-bottom:1rem;">
@@ -59,17 +60,41 @@
     {% endfor %}
   </div>
 
-  <h3 style="margin-bottom:0.7rem;">Applications Crypto Table</h3>
-  <table class="scans-table">
-    <thead><tr><th>Application</th><th>Key Length</th><th>Cipher</th><th>Certificate Authority</th></tr></thead>
-    <tbody>
-      {% for row in vm.rows %}
-      <tr><td>{{ row.application }}</td><td>{{ row.key_length }}</td><td>{{ row.cipher }}</td><td>{{ row.ca }}</td></tr>
-      {% else %}
-      <tr><td colspan="4" style="text-align:center;color:var(--text-secondary);">No CBOM rows from live scans.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin-bottom:0;">Applications Crypto Table</h3>
+  </div>
+  
+  {{ tb.search_form('cbom_dashboard', request.args.get('q', ''), request.args.get('page_size', 25)) }}
+
+  <div class="scans-table-wrapper" style="margin-top: 0.8rem;">
+    <table class="scans-table">
+      <thead>
+        <tr>
+          {{ tb.sortable_th('Application', 'asset_id', 'cbom_dashboard', request.args.get('sort'), request.args.get('order')) }}
+          {{ tb.sortable_th('Key Length', 'key_length', 'cbom_dashboard', request.args.get('sort'), request.args.get('order')) }}
+          {{ tb.sortable_th('Cipher', 'cipher_suite', 'cbom_dashboard', request.args.get('sort'), request.args.get('order')) }}
+          {{ tb.sortable_th('Certificate Authority', 'ca', 'cbom_dashboard', request.args.get('sort'), request.args.get('order')) }}
+        </tr>
+      </thead>
+      <tbody>
+        {% if page_data.get('items') %}
+          {% for row in page_data.get('items') %}
+          <tr>
+            <td>{{ row.asset.name if row.asset else 'Unknown Asset' }}</td>
+            <td>{{ row.key_length }}</td>
+            <td>{{ row.cipher_suite }}</td>
+            <td>{{ row.ca }}</td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="4" style="padding:2rem;">{{ tb.empty_state("No CBOM rows matched criteria.") }}</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+    {% if page_data and page_data.get('items') %}
+      {{ tb.pagination_controls('cbom_dashboard', page_data) }}
+    {% endif %}
+  </div>
 </section>
 
 <script>

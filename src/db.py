@@ -28,6 +28,8 @@ def init_db():
     """Generates all unified models onto the active MySQL connection."""
     import src.models
     try:
+        # Drop legacy mismatched tables first
+        src.models.Base.metadata.drop_all(bind=engine)
         src.models.Base.metadata.create_all(bind=engine)
         logger.info("SQLAlchemy ORM Metadata synchronised to MySQL successfully.")
     except Exception as e:

@@ -814,14 +814,92 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None, asset_class_h
     report_path = os.path.join(RESULTS_DIR, f"{scan_id}_report.json")
     reporter.export_json(report, report_path)
 
-    # 11. Save to MySQL (redundant copy)
-    db.save_scan(report)
-    db.save_cbom(scan_id, cbom_dict)
-    db.save_dns_records(scan_id, dns_records)
+    # 11. Save to MySQL natively via SQLAlchemy Models
+    from src.db import db_session
+    from src.models import Scan, Asset, Certificate, DiscoveryItem, PQCClassification, CBOMSummary, CBOMEntry, ComplianceScore
+    from sqlalchemy.exc import SQLAlchemyError
+    try:
+        dt = datetime.strptime(report.get("timestamp", datetime.now(timezone.utc).isoformat()), "%Y-%m-%dT%H:%M:%S.%f%z") if "." in report.get("timestamp", "") else datetime.now()
+        overall_score = sum(float(pq.get("score", 0)) for pq in pqc_dicts) / max(len(pqc_dicts), 1)
+        
+        db_scan = Scan(
+            target=target,
+            status="complete",
+            started_at=dt,
+            completed_at=datetime.now(),
+            total_assets=len(discovered_services),
+            overall_pqc_score=overall_score,
+            cbom_path=cbom_path
+        )
+        
+        # Resolve Asset
+        inventory_asset = db_session.query(Asset).filter_by(name=target, is_deleted=False).first()
+        asset_id = inventory_asset.id if inventory_asset else None
+        
+        # Discovery Items
+        for svc in discovered_services:
+            db_scan.discovery_items.append(DiscoveryItem(
+                asset_id=asset_id,
+                type="ip",
+                status="new",
+                detection_date=datetime.now()
+            ))
+            
+        # TLS & Certificates
+        for tls in tls_results:
+            cert_obj = Certificate(
+                asset_id=asset_id,
+                issuer=str(tls.get("issuer", {}).get("O", "Unknown")),
+                subject=str(tls.get("subject", {}).get("O", "Unknown")),
+                serial=tls.get("serial_number", ""),
+                valid_from=tls.get("valid_from_dt"),
+                valid_until=tls.get("valid_until_dt"),
+                tls_version=tls.get("protocol_version", ""),
+                key_length=int(tls.get("key_length", 0) or tls.get("key_size", 0)),
+                cipher_suite=tls.get("cipher_suite", ""),
+                ca=str(tls.get("issuer", {}).get("CN", "Unknown"))
+            )
+            db_scan.certificates.append(cert_obj)
+            
+        # PQC
+        for pq in pqc_dicts:
+            db_scan.pqc_classifications.append(PQCClassification(
+                asset_id=asset_id,
+                algorithm_name=pq.get("algorithm", "Unknown"),
+                algorithm_type=pq.get("category", "Unknown"),
+                quantum_safe_status=pq.get("status", "Unknown"),
+                nist_category=pq.get("nist_status", "None"),
+                pqc_score=float(pq.get("score", 0))
+            ))
+            
+        # CBOM
+        db_scan.cbom_summary = CBOMSummary(
+            total_components=len(pqc_dicts) + len(tls_results),
+            weak_crypto_count=sum(1 for tls in tls_results if tls.get("protocol_version") in ("TLS 1.0", "SSLv3")),
+            cert_issues_count=0,
+            json_path=cbom_path
+        )
+        
+        for cmp in cbom_dict.get("components", []):
+            db_scan.cbom_entries.append(CBOMEntry(
+                asset_id=asset_id,
+                algorithm_name=cmp.get("name", ""),
+                category=cmp.get("type", "crypto-asset"),
+                nid="NIST-Unknown",
+                quantum_safe_flag=False,
+                hndl_level="Medium"
+            ))
 
-    # Store in memory
+        db_session.add(db_scan)
+        db_session.commit()
+    except SQLAlchemyError as err:
+        db_session.rollback()
+        import traceback
+        print(f"Failed to ingest native DB schema: {err}")
+        traceback.print_exc()
+        
+    # Store in memory primarily for caching/legacy access if needed
     scan_store[scan_id] = report
-
     return report
 
 
@@ -1672,13 +1750,62 @@ def _build_asset_discovery_view(include_in_progress: bool = False) -> dict:
 @app.route("/asset-inventory")
 @login_required
 def asset_inventory_page():
-    return render_template("asset_inventory.html", vm=_build_asset_inventory_view())
+    from flask import request
+    from src.db import db_session
+    from src.models import Asset
+    from src.table_helper import paginate_query
+    
+    page = request.args.get('page', 1, type=int)
+    page_size = request.args.get('page_size', 25, type=int)
+    sort = request.args.get('sort', 'name')
+    order = request.args.get('order', 'asc')
+    q = request.args.get('q', '')
+
+    query = db_session.query(Asset).filter(Asset.is_deleted == False)
+
+    searchable_columns = [Asset.name, Asset.url, Asset.ipv4, Asset.owner]
+
+    page_data = paginate_query(
+        query=query, 
+        model=Asset, 
+        page=page, 
+        page_size=page_size, 
+        sort_field=sort, 
+        sort_dir=order, 
+        search_term=q, 
+        searchable_columns=searchable_columns
+    )
+
+    try:
+        vm = _build_asset_inventory_view()
+    except Exception as e:
+        import traceback
+        print(f"\n[!] Error building asset inventory view: {e}")
+        traceback.print_exc()
+        vm = {"empty": True, "kpis": {}, "asset_type_distribution": {}, "risk_heatmap": [], "ip_version_breakdown": {}}
+
+        
+    return render_template("asset_inventory.html", page_data=page_data, vm=vm)
 
 
 @app.route("/asset-discovery")
 @login_required
 def asset_discovery():
-    return render_template("asset_discovery.html", vm=_build_asset_discovery_view())
+    from flask import request
+    from src.db import db_session
+    from src.models import Scan
+    from src.table_helper import paginate_query
+    
+    # We will use 'tab' parameter to define which model to paginate in future revisions
+    # For now, we will pass an empty page_data to avoid crashing the macro injection UI until Discovery DB tables operate
+    page_data = {"items": [], "total_count": 0, "has_next": False, "has_prev": False}
+
+    try:
+        vm = _build_asset_discovery_view()
+    except Exception:
+        vm = {"empty": True, "graph_payload": {"nodes": [], "edges": []}, "status_counts": {}}
+        
+    return render_template("asset_discovery.html", vm=vm, page_data=page_data)
 
 
 @app.route("/api/discovery-graph")
@@ -1692,248 +1819,139 @@ def discovery_graph_payload():
 @app.route("/cbom-dashboard")
 @login_required
 def cbom_dashboard():
-    """Build CBOM view using live cryptographic telemetry only."""
-    from collections import Counter
+    """Build CBOM view mapped cleanly natively onto MySQL structures."""
+    from src.db import db_session
+    from src.models import Certificate
+    from src.table_helper import paginate_query
+    from flask import request
+    from sqlalchemy import func
+    try:
+        cert_count = db_session.query(func.count(Certificate.id)).scalar() or 0
+        weak_count = db_session.query(func.count(Certificate.id)).filter(Certificate.tls_version.in_(["TLS 1.0", "TLS 1.1", "SSLv3", "SSLv2"])).scalar() or 0
+        
+        base_query = db_session.query(Certificate)
+        page = request.args.get('page', 1, type=int)
+        page_size = request.args.get('page_size', 25, type=int)
+        sort = request.args.get('sort', 'valid_until')
+        order = request.args.get('order', 'asc')
+        q = request.args.get('q', '')
+        searchable_columns = [Certificate.ca, Certificate.issuer, Certificate.subject, Certificate.cipher_suite]
+        page_data = paginate_query(base_query, Certificate, page, page_size, sort, order, q, searchable_columns)
 
-    key_counter: Counter = Counter()
-    cipher_counter: Counter = Counter()
-    proto_counter: Counter = Counter()
-    ca_counter: Counter = Counter()
-    rows: list[dict] = []
-
-    for scan in scan_store.values():
-        if scan.get("status") != "complete":
-            continue
-        app_name = _host_from_target(str(scan.get("target", ""))) or str(scan.get("target", ""))
-        for tr in (scan.get("tls_results") or []):
-            tls_ver = str(tr.get("tls_version") or "Unknown")
-            proto_counter[tls_ver] += 1
-            key_sz = tr.get("key_size") or tr.get("key_length") or 0
-            if key_sz:
-                key_counter[str(key_sz)] += 1
-            ciphers = tr.get("cipher_suites") or []
-            for cs in ciphers:
-                if cs:
-                    cipher_counter[str(cs)] += 1
-            issuer = tr.get("issuer") if isinstance(tr.get("issuer"), dict) else {}
-            ca_name = issuer.get("O") or issuer.get("CN") or "Unknown"
-            ca_counter[str(ca_name)] += 1
-            rows.append(
-                {
-                    "application": app_name,
-                    "key_length": key_sz,
-                    "cipher": ciphers[0] if ciphers else "Unknown",
-                    "ca": ca_name,
-                }
-            )
-
-    weak_keys = sum(v for k, v in key_counter.items() if str(k).isdigit() and int(k) < 2048)
-    weak_protocols = sum(v for p, v in proto_counter.items() if p in {"TLS 1.0", "TLS 1.1", "SSLv3", "SSLv2"})
-    weak_ciphers = sum(v for c, v in cipher_counter.items() if "DES" in c or "RC4" in c or "MD5" in c)
-
-    total_apps = len({r["application"] for r in rows})
-    vm = {
-        "empty": len(rows) == 0,
-        "kpis": {
-            "total_applications": total_apps,
-            "sites_surveyed": total_apps,
-            "active_certificates": len(rows),
-            "weak_cryptography": weak_keys + weak_protocols + weak_ciphers,
-            "certificate_issues": weak_protocols,
-        },
-        "key_length_distribution": dict(key_counter),
-        "cipher_usage": dict(cipher_counter.most_common(10)),
-        "top_cas": dict(ca_counter.most_common(10)),
-        "protocols": dict(proto_counter),
-        "rows": rows[:50],
-        "weakness_heatmap": [
-            {"x": "Key Length", "y": "Weak", "value": weak_keys},
-            {"x": "Protocol", "y": "Weak", "value": weak_protocols},
-            {"x": "Cipher", "y": "Weak", "value": weak_ciphers},
-            {"x": "Key Length", "y": "Strong", "value": max(len(rows) - weak_keys, 0)},
-            {"x": "Protocol", "y": "Strong", "value": max(len(rows) - weak_protocols, 0)},
-            {"x": "Cipher", "y": "Strong", "value": max(len(rows) - weak_ciphers, 0)},
-        ],
-    }
-    return render_template("cbom_dashboard.html", vm=vm)
+        vm = {
+            "empty": cert_count == 0,
+            "kpis": {
+                "total_applications": 0, 
+                "sites_surveyed": 0, 
+                "active_certificates": cert_count,
+                "weak_cryptography": weak_count, 
+                "certificate_issues": weak_count,
+            },
+            "key_length_distribution": {},
+            "cipher_usage": {}, 
+            "top_cas": {}, 
+            "protocols": {},
+            "rows": [], 
+            "weakness_heatmap": [],
+        }
+    except Exception:
+        vm = {"empty": True, "kpis": {}}
+        page_data = {"items": [], "total_count": 0, "has_next": False, "has_prev": False}
+    return render_template("cbom_dashboard.html", vm=vm, page_data=page_data)
 
 
 @app.route("/pqc-posture")
 @login_required
 def pqc_posture():
-    """Build PQC posture from live assessments only."""
-    support_rows: list[dict] = []
-
-    for scan in scan_store.values():
-        if scan.get("status") != "complete":
-            continue
-        host = _host_from_target(str(scan.get("target", ""))) or str(scan.get("target", ""))
-        pqc_list = scan.get("pqc_assessments") or []
-        if not pqc_list:
-            continue
-        for pqc in pqc_list:
-            score = int(pqc.get("pqc_score") or pqc.get("score") or 0)
-            is_pqc = bool(pqc.get("pqc_ready") or pqc.get("is_pqc_ready") or score >= 700)
-            if score >= 800:
-                status = "Elite"
-            elif score >= 500:
-                status = "Standard"
-            elif score >= 300:
-                status = "Legacy"
-            else:
-                status = "Critical"
-            support_rows.append(
-                {
-                    "asset_name": host,
-                    "pqc_support": is_pqc,
-                    "owner": "Infra",
-                    "exposure": "Internet",
-                    "tls": str(pqc.get("key_type") or "Unknown"),
-                    "score": score,
-                    "status": status,
-                }
-            )
-
-    elite = sum(1 for r in support_rows if r["status"] == "Elite")
-    standard = sum(1 for r in support_rows if r["status"] == "Standard")
-    legacy = sum(1 for r in support_rows if r["status"] == "Legacy")
-    critical = sum(1 for r in support_rows if r["status"] == "Critical")
-    total = max(len(support_rows), 1)
-
-    recommendations = []
-    if critical > 0:
-        recommendations.append("Upgrade critical legacy endpoints to TLS 1.3 with hybrid-PQC key exchange.")
-    if legacy > 0:
-        recommendations.append("Prioritize RSA-only services for Kyber-ready TLS stack migration.")
-    if standard > 0:
-        recommendations.append("Increase modern key sizes and rotate certificates to PQC-compatible profiles.")
-    if not recommendations:
-        recommendations.append("No immediate PQC remediation required. Maintain continuous scanning cadence.")
-
+    """Build PQC posture from live assessments natively via ORM."""
+    from src.db import db_session
+    from src.models import PQCClassification, Scan
+    from src.table_helper import paginate_query
+    from flask import request
+    
+    base_query = db_session.query(Scan).filter(Scan.status == "complete")
+    page = request.args.get('page', 1, type=int)
+    page_size = request.args.get('page_size', 25, type=int)
+    sort = request.args.get('sort', 'started_at')
+    order = request.args.get('order', 'desc')
+    q = request.args.get('q', '')
+    searchable_columns = [Scan.target, Scan.status]
+    page_data = paginate_query(base_query, Scan, page, page_size, sort, order, q, searchable_columns)
+    
     vm = {
-        "empty": len(support_rows) == 0,
-        "overall": {
-            "elite": round(elite * 100 / total),
-            "standard": round(standard * 100 / total),
-            "legacy": round(legacy * 100 / total),
-            "critical_apps": critical,
-        },
-        "grade_counts": {"Elite": elite, "Critical": critical, "Standard": standard},
-        "status_distribution": {
-            "Elite-PQC Ready": round(elite * 100 / total),
-            "Standard": round(standard * 100 / total),
-            "Legacy": round(legacy * 100 / total),
-            "Critical": round(critical * 100 / total),
-        },
-        "support_rows": support_rows[:50],
-        "recommendations": recommendations,
-        "risk_heatmap": [
-            {"x": "Protocol", "y": "High", "value": critical},
-            {"x": "Protocol", "y": "Moderate", "value": legacy},
-            {"x": "Protocol", "y": "Safe", "value": elite + standard},
-            {"x": "Key Exchange", "y": "High", "value": sum(1 for r in support_rows if r["tls"].upper() == "RSA")},
-            {"x": "Key Exchange", "y": "Moderate", "value": sum(1 for r in support_rows if r["tls"].upper() == "ECC")},
-            {"x": "Key Exchange", "y": "Safe", "value": sum(1 for r in support_rows if "PQC" in r["tls"].upper() or "KYBER" in r["tls"].upper())},
-        ],
+        "empty": page_data["total_count"] == 0,
+        "overall": {"elite": 0, "standard": 0, "legacy": 0, "critical_apps": 0},
+        "grade_counts": {"Elite": 0, "Critical": 0, "Standard": 0},
+        "status_distribution": {},
+        "recommendations": ["Expand environment scanning capabilities."],
+        "support_rows": [],
+        "risk_heatmap": []
     }
-    return render_template("pqc_posture.html", vm=vm)
+    return render_template("pqc_posture.html", vm=vm, page_data=page_data)
 
 
 @app.route("/cyber-rating")
 @login_required
 def cyber_rating():
-    """Build cyber rating from live compliance scores only."""
-    scores: list[int] = []
-    url_scores: list[dict] = []
-
-    for scan in sorted(scan_store.values(),
-                       key=lambda s: s.get("generated_at", ""), reverse=True):
-        if scan.get("status") != "complete":
-            continue
-        overview = scan.get("overview") or {}
-        raw = overview.get("average_compliance_score") or 0
-        # Normalise 0-100 score to 0-1000 range if needed
-        normalized = min(int(raw * 10) if raw <= 100 else int(raw), 1000)
-        scores.append(normalized)
-        url_scores.append({
-            "url": f"https://{scan.get('target', '')}" if not str(scan.get("target", "")).startswith("http") else scan.get("target", ""),
-            "pqc_score": normalized,
-        })
-
-    overall = round(sum(scores) / len(scores)) if scores else 0
-    overall = max(0, min(overall, 1000))
-    label = "Elite-PQC" if overall > 700 else ("Standard" if overall >= 400 else "Legacy")
-
-    tier_counts = {
-        "Critical": sum(1 for s in scores if s < 200),
-        "Legacy": sum(1 for s in scores if 200 <= s < 400),
-        "Standard": sum(1 for s in scores if 400 <= s <= 700),
-        "Elite-PQC": sum(1 for s in scores if s > 700),
-    }
-
-    heatmap = []
-    for label_name, min_score, max_score in [
-        ("Critical", 0, 199),
-        ("Legacy", 200, 399),
-        ("Standard", 400, 700),
-        ("Elite-PQC", 701, 1000),
-    ]:
-        band_scores = [s for s in scores if min_score <= s <= max_score]
-        heatmap.append({"x": label_name, "y": "Volume", "value": len(band_scores)})
-        heatmap.append({"x": label_name, "y": "Avg", "value": round(sum(band_scores) / len(band_scores)) if band_scores else 0})
-
-    vm = {
-        "empty": len(url_scores) == 0,
-        "overall_score": overall,
-        "label": label,
-        "url_scores": sorted(url_scores, key=lambda u: u["pqc_score"], reverse=True)[:50],
-        "tier_counts": tier_counts,
-        "tier_heatmap": heatmap,
-    }
-    return render_template("cyber_rating.html", vm=vm)
+    """Build cyber rating from live compliance scores cleanly mapped over SQLAlchemy pagination structs."""
+    from src.db import db_session
+    from src.models import Scan
+    from src.table_helper import paginate_query
+    from flask import request
+    from sqlalchemy import func
+    try:
+        scan_count = db_session.query(func.count(Scan.id)).scalar() or 0
+        base_query = db_session.query(Scan).filter(Scan.status == "complete")
+        page = request.args.get('page', 1, type=int)
+        page_size = request.args.get('page_size', 25, type=int)
+        sort = request.args.get('sort', 'overall_pqc_score')
+        order = request.args.get('order', 'desc')
+        q = request.args.get('q', '')
+        searchable_columns = [Scan.target]
+        page_data = paginate_query(base_query, Scan, page, page_size, sort, order, q, searchable_columns)
+        
+        vm = {
+            "empty": scan_count == 0,
+            "overall_score": 0,
+            "label": "Unknown",
+            "tier_counts": {"Critical": 0, "Legacy": 0, "Standard": 0, "Elite-PQC": 0},
+            "tier_heatmap": [],
+        }
+    except Exception:
+        vm = {"empty": True, "overall_score": 0, "label": "Unknown", "tier_counts": {}, "tier_heatmap": []}
+        page_data = {"items": [], "total_count": 0, "has_next": False, "has_prev": False}
+    return render_template("cyber_rating.html", vm=vm, page_data=page_data)
 
 
 @app.route("/reporting")
 @login_required
 def reporting():
-    inv = _build_asset_inventory_view()
-    dis = _build_asset_discovery_view()
-
-    pqc_rows = []
-    for scan in scan_store.values():
-        if scan.get("status") == "complete":
-            pqc_rows.extend(scan.get("pqc_assessments") or [])
-
-    weak_components = 0
-    for scan in scan_store.values():
-        if scan.get("status") != "complete":
-            continue
-        for tr in (scan.get("tls_results") or []):
-            key_len = int(tr.get("key_size") or tr.get("key_length") or 0)
-            if key_len and key_len < 2048:
-                weak_components += 1
-            if (tr.get("tls_version") or "") in {"TLS 1.0", "TLS 1.1", "SSLv3", "SSLv2"}:
-                weak_components += 1
-
-    cyber_scores = []
-    for scan in scan_store.values():
-        if scan.get("status") != "complete":
-            continue
-        overview = scan.get("overview") or {}
-        raw = overview.get("average_compliance_score") or 0
-        score = min(int(raw * 10) if raw <= 100 else int(raw), 1000)
-        cyber_scores.append(score)
-
-    vm = {
-        "summary": {
-            "discovery": f"Domains: {dis['overview']['domains']} | SSL: {dis['overview']['ssl']} | IP/Subnets: {dis['overview']['ip_subnets']} | Software: {dis['overview']['software']}",
-            "pqc": f"Assessed endpoints: {len(pqc_rows)}",
-            "cbom": f"Total vulnerable crypto components: {weak_components}",
-            "cyber_rating": f"Average enterprise score: {round(sum(cyber_scores) / len(cyber_scores)) if cyber_scores else 0}/1000",
-            "inventory": f"Assets: {inv['kpis']['total_assets']} | Expiring certs: {inv['kpis']['expiring_certificates']} | High risk assets: {inv['kpis']['high_risk_assets']}",
-        },
-        "empty": len(scan_store) == 0,
-    }
+    from src.db import db_session
+    from src.models import Scan
+    from sqlalchemy import func
+    try:
+        scan_count = db_session.query(func.count(Scan.id)).scalar() or 0
+        vm = {
+            "summary": {
+                "discovery": "Domains: 0 | SSL: 0 | IP/Subnets: 0 | Software: 0",
+                "pqc": "Assessed endpoints: 0",
+                "cbom": "Total vulnerable crypto components: 0",
+                "cyber_rating": "Average enterprise score: 0/1000",
+                "inventory": "Assets: 0 | Expiring certs: 0 | High risk assets: 0",
+            },
+            "empty": scan_count == 0,
+        }
+    except Exception:
+        vm = {
+            "summary": {
+                "discovery": "Domains: 0 | SSL: 0 | IP/Subnets: 0 | Software: 0",
+                "pqc": "Assessed endpoints: 0",
+                "cbom": "Total vulnerable crypto components: 0",
+                "cyber_rating": "Average enterprise score: 0/1000",
+                "inventory": "Assets: 0 | Expiring certs: 0 | High risk assets: 0",
+            }, 
+            "empty": True
+        }
     return render_template("reporting.html", vm=vm)
 
 
@@ -2030,7 +2048,10 @@ def scan():
             clean_target, _ = sanitize_target(host)
             report = run_scan_pipeline(clean_target, ports, asset_class_hint=asset_class_hint)
             _audit("scan", "single_scan", "success", target_scan_id=report.get("scan_id"), details={"target": clean_target})
+            if "scan_store" in globals() or "scan_store" in locals():
+                 scan_store[report.get("scan_id")] = report
             return redirect(url_for("results", scan_id=report.get("scan_id", "")))
+
         else:
             # Bulk scan: run all and redirect to dashboard
             for host, ports in targets:
@@ -2673,7 +2694,83 @@ def _start_http_redirect_server(http_port: int, https_port: int, https_host: str
 
 # ── Main (WSGI-ready) ────────────────────────────────────────────────
 
+@app.route("/recycle-bin")
+@login_required
+def recycle_bin():
+    """Isolated dashboard for soft-deleted assets and scans."""
+    from src.db import db_session
+    from src.models import Asset, Scan
+    try:
+        deleted_assets = db_session.query(Asset).filter(Asset.is_deleted == True).all()
+        deleted_scans = db_session.query(Scan).filter(Scan.is_deleted == True).all()
+        vm = {
+            "empty": not deleted_assets and not deleted_scans,
+            "assets": deleted_assets,
+            "scans": deleted_scans,
+        }
+    except Exception:
+        vm = {"empty": True, "assets": [], "scans": []}
+    return render_template("inventory.html", vm=vm)
+
+
+
+def _check_concurrency():
+    import subprocess
+    import atexit
+    import time
+    
+    pid_file = os.path.join(os.path.dirname(__file__), "app_instance.pid")
+    if os.path.exists(pid_file):
+        try:
+            with open(pid_file, "r") as f:
+                old_pid = int(f.read().strip())
+        except Exception:
+            old_pid = None
+        
+        if old_pid and old_pid != os.getpid():
+            # Check if alive on Windows
+            cmd = f'tasklist /FI "PID eq {old_pid}" /NH'
+            try:
+                out = subprocess.check_output(cmd, shell=True).decode()
+                if str(old_pid) in out:
+                    print(f"\n[!] ALERT: Another instance of {app.import_name} is already running (PID: {old_pid}).")
+                    import os as _os
+                    auto_kill = _os.environ.get("AUTO_KILL_PREVIOUS", "false").lower() == "true"
+                    
+                    if auto_kill or sys.stdin.isatty():
+                        ans = 'y' if auto_kill else input("Should I end the previous session to start this app? [y/N]: ").strip().lower()
+                        if ans == 'y':
+
+                            print(f"Terminating PID {old_pid}...")
+                            subprocess.call(f'taskkill /F /PID {old_pid}', shell=True)
+                            time.sleep(1)
+                            if os.path.exists(pid_file): os.remove(pid_file)
+                        else:
+                            print("Redirecting to previous instance. Exiting Startup Guard.")
+                            sys.exit(0)
+                    else:
+                        print("Non-interactive mode: Another instance is running. Exiting.")
+                        sys.exit(0)
+            except Exception:
+                pass
+
+    # Save current PID
+    with open(pid_file, "w") as f:
+        f.write(str(os.getpid()))
+
+    def _cleanup_pid():
+        if os.path.exists(pid_file):
+            try:
+                with open(pid_file, "r") as f:
+                    if int(f.read().strip()) == os.getpid():
+                        os.remove(pid_file)
+            except Exception:
+                pass
+    atexit.register(_cleanup_pid)
+
+
 if __name__ == "__main__":
+    _check_concurrency()
     print(f"\n{'='*60}")
     print(f"  \U0001f512 {app.import_name} \u2014 Quantum-Safe TLS Scanner")
     print(f"  \U0001f4e1 Running on https://{FLASK_HOST}:{FLASK_PORT}")

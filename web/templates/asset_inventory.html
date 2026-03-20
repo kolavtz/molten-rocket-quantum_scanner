@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "macros/table_macros.html" as tb %}
 {% block title %}Asset Inventory | PNB Cyber Observability{% endblock %}
 {% block content %}
 <section class="hero" style="padding-bottom:1rem;">
@@ -83,6 +84,8 @@
       <i class="fa-solid fa-plus"></i> Add Asset
     </button>
   </div>
+  
+  {{ tb.search_form('asset_inventory_page', request.args.get('q', ''), request.args.get('page_size', 25)) }}
 
   <!-- Inline Add Asset Form -->
   <div id="addAssetForm" class="glass-card" style="display:none;padding:0.9rem;margin-bottom:1rem;background:rgba(0,0,0,0.15);border-color:var(--accent);">
@@ -122,36 +125,50 @@
     <table class="scans-table" id="assetTable">
       <thead>
         <tr>
-          <th data-key="asset_name">Asset Name</th>
-          <th data-key="url">URL</th>
-          <th data-key="ipv4">IPv4 Address</th>
-          <th data-key="ipv6">IPv6 Address</th>
-          <th data-key="type">Type</th>
-          <th data-key="asset_class">Asset Class</th>
-          <th data-key="owner">Owner</th>
-          <th data-key="risk">Risk</th>
-          <th data-key="cert_status">Cert Status</th>
-          <th data-key="key_length">Key Length</th>
-          <th data-key="last_scan">Last Scan</th>
+          {{ tb.sortable_th('Asset Name', 'name', 'asset_inventory_page', request.args.get('sort'), request.args.get('order')) }}
+          {{ tb.sortable_th('URL', 'url', 'asset_inventory_page', request.args.get('sort'), request.args.get('order')) }}
+          {{ tb.sortable_th('IPv4 Address', 'ipv4', 'asset_inventory_page', request.args.get('sort'), request.args.get('order')) }}
+          {{ tb.sortable_th('IPv6 Address', 'ipv6', 'asset_inventory_page', request.args.get('sort'), request.args.get('order')) }}
+          {{ tb.sortable_th('Type', 'asset_type', 'asset_inventory_page', request.args.get('sort'), request.args.get('order')) }}
+          {{ tb.sortable_th('Owner', 'owner', 'asset_inventory_page', request.args.get('sort'), request.args.get('order')) }}
+          {{ tb.sortable_th('Risk', 'risk_level', 'asset_inventory_page', request.args.get('sort'), request.args.get('order')) }}
+          {{ tb.sortable_th('Last Scan ID', 'last_scan_id', 'asset_inventory_page', request.args.get('sort'), request.args.get('order')) }}
           <th>Action</th>
         </tr>
       </thead>
       <tbody>
-        {% for row in vm.assets %}
-        <tr>
-          <td>{{ row.asset_name }}</td><td>{{ row.url }}</td><td>{{ row.ipv4 }}</td><td>{{ row.ipv6 or '-' }}</td>
-          <td>{{ row.type }}</td><td>{{ row.asset_class or 'Other' }}</td><td>{{ row.owner }}</td><td>{{ row.risk }}</td><td>{{ row.cert_status }}</td><td>{{ row.key_length }}</td><td>{{ row.last_scan }}</td>
-          <td>
-            <form action="/dashboard/assets/delete" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete {{ row.asset_name }}?');">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-              <input type="hidden" name="target" value="{{ row.asset_name }}">
-              <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.65rem;background:var(--danger);">Delete</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
+        {% if page_data.get('items') %}
+          {% for row in page_data.get('items') %}
+          <tr>
+            <td>{{ row.name }}</td>
+            <td>{{ row.url }}</td>
+            <td>{{ row.ipv4 }}</td>
+            <td>{{ row.ipv6 or '-' }}</td>
+            <td>{{ row.asset_type }}</td>
+            <td>{{ row.owner }}</td>
+            <td>{{ row.risk_level }}</td>
+            <td>{{ row.last_scan_id or 'Never' }}</td>
+            <td>
+              <form action="/dashboard/assets/{{ row.id }}/delete" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete {{ row.name }}?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.65rem;background:var(--danger);">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="9" style="padding: 2rem;">
+              {{ tb.empty_state("No assets found matching your criteria.") }}
+            </td>
+          </tr>
+        {% endif %}
       </tbody>
     </table>
+    
+    {% if page_data and page_data.get('items') %}
+      {{ tb.pagination_controls('asset_inventory_page', page_data) }}
+    {% endif %}
   </div>
 
 </section>

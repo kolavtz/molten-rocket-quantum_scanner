@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "macros/table_macros.html" as tb %}
 {% block title %}Cyber Rating | PNB Cyber Observability{% endblock %}
 {% block content %}
 <section class="hero" style="padding-bottom:1rem;">
@@ -32,17 +33,37 @@
 </section>
 
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <h3 style="margin-bottom:0.6rem;">URL-level PQC Scores</h3>
-  <table class="scans-table">
-    <thead><tr><th data-key="url">URL</th><th data-key="pqc_score">PQC Score</th></tr></thead>
-    <tbody>
-      {% for row in vm.url_scores %}
-      <tr><td>{{ row.url }}</td><td>{{ row.pqc_score }}</td></tr>
-      {% else %}
-      <tr><td colspan="2" style="text-align:center;color:var(--text-secondary);">No URL-level scores from live scans.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin-bottom:0;">URL-level PQC Scores</h3>
+  </div>
+  
+  {{ tb.search_form('cyber_rating', request.args.get('q', ''), request.args.get('page_size', 25)) }}
+
+  <div class="scans-table-wrapper" style="margin-top: 0.8rem;">
+    <table class="scans-table">
+      <thead>
+        <tr>
+          {{ tb.sortable_th('URL / Target', 'target', 'cyber_rating', request.args.get('sort'), request.args.get('order')) }}
+          {{ tb.sortable_th('PQC Score', 'overall_pqc_score', 'cyber_rating', request.args.get('sort'), request.args.get('order')) }}
+        </tr>
+      </thead>
+      <tbody>
+        {% if page_data.get('items') %}
+          {% for row in page_data.get('items') %}
+          <tr>
+            <td>{{ row.target }}</td>
+            <td>{{ row.overall_pqc_score|round|int }}</td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="2" style="padding: 2rem;">{{ tb.empty_state("No scan ratings available.") }}</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+    {% if page_data and page_data.get('items') %}
+      {{ tb.pagination_controls('cyber_rating', page_data) }}
+    {% endif %}
+  </div>
 </section>
 
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;">

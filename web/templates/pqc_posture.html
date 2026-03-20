@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "macros/table_macros.html" as tb %}
 {% block title %}Posture of PQC | PNB Cyber Observability{% endblock %}
 {% block content %}
 <section class="hero" style="padding-bottom:1rem;">
@@ -45,21 +46,46 @@
 </section>
 
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <h3 style="margin-bottom:0.6rem;">PQC Support</h3>
-  <table class="scans-table" id="supportTable">
-    <thead><tr><th data-key="asset_name">Asset Name (Host + IP)</th><th data-key="pqc_support">PQC Support</th><th data-key="status">Status</th></tr></thead>
-    <tbody>
-      {% for row in vm.support_rows %}
-      <tr data-owner="{{ row.owner }}" data-exposure="{{ row.exposure }}" data-tls="{{ row.tls }}" data-score="{{ row.score }}" data-status="{{ row.status }}">
-        <td>{{ row.asset_name }}</td>
-        <td>{% if row.pqc_support %}YES{% else %}NO{% endif %}</td>
-        <td>{{ row.status }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="3" style="text-align:center;color:var(--text-secondary);">No PQC support records from live scans.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;">
+    <h3 style="margin-bottom:0;">PQC Support telemetry</h3>
+  </div>
+  
+  {{ tb.search_form('pqc_posture', request.args.get('q', ''), request.args.get('page_size', 25)) }}
+
+  <div class="scans-table-wrapper">
+    <table class="scans-table" id="supportTable">
+      <thead>
+        <tr>
+          {{ tb.sortable_th('Asset Name', 'target', 'pqc_posture', request.args.get('sort'), request.args.get('order')) }}
+          {{ tb.sortable_th('Status', 'status', 'pqc_posture', request.args.get('sort'), request.args.get('order')) }}
+          {{ tb.sortable_th('PQC Readiness Score', 'overall_pqc_score', 'pqc_posture', request.args.get('sort'), request.args.get('order')) }}
+          {{ tb.sortable_th('Started', 'started_at', 'pqc_posture', request.args.get('sort'), request.args.get('order')) }}
+        </tr>
+      </thead>
+      <tbody>
+        {% if page_data.get('items') %}
+          {% for row in page_data.get('items') %}
+          <tr data-owner="{{ row.target }}" data-exposure="Public" data-tls="Unknown" data-score="{{ row.overall_pqc_score|round|int }}" data-status="{{ row.status }}">
+            <td>{{ row.target }}</td>
+            <td>{{ row.status }}</td>
+            <td>{% if (row.overall_pqc_score|int) >= 700 %}YES{% else %}NO{% endif %}</td>
+            <td>{{ row.started_at }}</td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="4" style="padding: 2rem;">
+              {{ tb.empty_state("No PQC records matched your criteria.") }}
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+    
+    {% if page_data and page_data.get('items') %}
+      {{ tb.pagination_controls('pqc_posture', page_data) }}
+    {% endif %}
+  </div>
 </section>
 
 <section style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">

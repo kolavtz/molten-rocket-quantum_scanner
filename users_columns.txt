@@ -1,0 +1,4 @@
+COLUMNS IN USERS TABLE:
+{'Field': 'id', 'Type': 'int', 'Null': 'NO', 'Key': 'PRI', 'Default': None, 'Extra': 'auto_increment'}
+{'Field': 'username', 'Type': 'varchar(50)', 'Null': 'NO', 'Key': 'UNI', 'Default': None, 'Extra': ''}
+{'Field': 'role', 'Type': 'varchar(50)', 'Null': 'YES', 'Key': '', 'Default': None, 'Extra': ''}

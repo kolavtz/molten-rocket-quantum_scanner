@@ -1,8 +1,7 @@
-from flask import Blueprint, render_template, jsonify, request, redirect, url_for
+from flask import Blueprint, render_template, jsonify, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from src.services.asset_service import AssetService
 from src.services.geo_service import GeoService
-from src import database as db
 
 dashboard_bp = Blueprint('quantumshield_dashboard', __name__, url_prefix='/dashboard')
 
@@ -15,13 +14,11 @@ def dashboard_home():
     """Renders primary Quantumshield Dashboard with charts and maps."""
     assets = asset_service.load_combined_assets()
     summary = asset_service.get_dashboard_summary(assets)
-    
-    # Render specification template
     return render_template(
         'home.html', 
         assets=assets, 
         summary=summary,
-        enterprise_metrics=summary # fallback for backward-compatible lookups if any
+        enterprise_metrics=summary
     )
 
 @dashboard_bp.route('/geojson')
@@ -57,28 +54,43 @@ def dashboard_geojson():
 @dashboard_bp.route('/assets', methods=['POST'])
 @login_required
 def add_asset():
-    """CRUD: Add/Insert Asset details into persistent storage."""
+    """CRUD: Add/Insert Asset details into persistent storage natively."""
+    from src.db import db_session
+    from src.models import Asset
     target = request.form.get("target")
     a_type = request.form.get("type", "Web App")
     owner  = request.form.get("owner", "Unassigned")
     risk   = request.form.get("risk_level", "Medium")
-    notes  = request.form.get("notes", "")
 
     if target:
-        db.save_asset({
-            "target": target,
-            "type": a_type,
-            "owner": owner,
-            "risk_level": risk,
-            "notes": notes
-        })
-    return redirect(request.referrer or url_for('quantumshield_dashboard.dashboard_home'))
+        existing = db_session.query(Asset).filter_by(name=target, is_deleted=False).first()
+        if not existing:
+            new_asset = Asset(
+                name=target,
+                url=f"https://{target}",
+                asset_type=a_type,
+                owner=owner,
+                risk_level=risk
+            )
+            db_session.add(new_asset)
+            db_session.commit()
+            flash(f"Asset {target} added successfully.", "success")
+        else:
+            flash(f"Asset {target} already exists.", "warning")
+            
+    return redirect(request.referrer or url_for('asset_inventory_page'))
 
-@dashboard_bp.route('/assets/delete', methods=['POST'])
+@dashboard_bp.route('/assets/<asset_id>/delete', methods=['POST'])
 @login_required
-def delete_asset():
-    """CRUD: Delete Asset from persistent storage."""
-    target = request.form.get("target")
-    if target:
-        db.delete_asset(target)
-    return redirect(request.referrer or url_for('quantumshield_dashboard.dashboard_home'))
+def delete_asset(asset_id):
+    """CRUD: Soft delete Asset from persistent storage."""
+    from src.db import db_session
+    from src.models import Asset
+    asset = db_session.query(Asset).filter_by(id=asset_id, is_deleted=False).first()
+    if asset:
+        asset.is_deleted = True
+        db_session.commit()
+        flash(f"Asset deleted.", "success")
+    else:
+        flash(f"Asset not found.", "error")
+    return redirect(request.referrer or url_for('asset_inventory_page'))
