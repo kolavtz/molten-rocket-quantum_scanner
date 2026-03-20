@@ -156,7 +156,11 @@ class InventoryScanService:
         """Scan all inventory assets, optionally in a background thread."""
         with self._state_lock:
             if self._scan_in_progress:
-                return {"status": "in_progress", "message": "A scan is already in progress"}
+                return {
+                    "status": "in_progress",
+                    "message": "A scan is already in progress",
+                    "error": "scan_already_in_progress",
+                }
             self.__class__._scan_in_progress = True
 
         if background:
