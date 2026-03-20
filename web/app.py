@@ -55,7 +55,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
-from functools import wraps
+from functools import wraps, lru_cache
 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -70,7 +70,9 @@ from src.validator.quantum_safe_checker import QuantumSafeChecker
 from src.validator.certificate_issuer import CertificateIssuer
 from src.reporting.report_generator import ReportGenerator
 from src.reporting.recommendation_engine import RecommendationEngine
+from src.services.dashboard_data_service import DashboardDataService
 from src import database as db
+from src.db import db_session
 
 # ── Flask App ────────────────────────────────────────────────────────
 
@@ -128,6 +130,13 @@ app.config.update(
 if TRUST_PROXY_SSL_HEADER:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
+# Cache and throttling helpers for large datasets
+_dashboard_cache = {
+    "data": None,
+    "updated_at": 0,
+}
+_dashboard_ttl_seconds = 30
+
 from flask import Blueprint
 dashboard_bp = Blueprint('main', __name__)
 
@@ -140,6 +149,20 @@ limiter = Limiter(
     default_limits=RATELIMIT_DEFAULT_LIMITS,  # type: ignore[arg-type]
     storage_uri=RATELIMIT_STORAGE_URI,
 )
+
+def get_dashboard_data() -> dict:
+    """Return cached dashboard aggregation; refresh TTL for real-time updates."""
+    import time
+
+    now = time.time()
+    if _dashboard_cache["data"] is not None and now - _dashboard_cache["updated_at"] < _dashboard_ttl_seconds:
+        return _dashboard_cache["data"]
+
+    data = DashboardDataService.get_all_scans_aggregated()
+    _dashboard_cache["data"] = data
+    _dashboard_cache["updated_at"] = now
+    return data
+
 
 def _start_scheduler_if_enabled() -> None:
     """Start background scheduler once in runtime context.
@@ -670,10 +693,22 @@ logger.info("Initializing database connectivity...")
 _db_available = db.init_db()
 logger.info("Database initialization complete. Available=%s", _db_available)
 if _db_available:
-    for _report in db.list_scans(limit=100):
-        _sid = _report.get("scan_id")
-        if _sid:
-            scan_store[_sid] = _report
+    # Load ALL scans from MySQL (removed limit=100 to prevent data loss in large deployments)
+    from src.db import db_session
+    from src.models import Scan as ScanModel
+    for _scan in db_session.query(ScanModel).filter(ScanModel.status == "complete").order_by(ScanModel.started_at.desc()).all():
+        try:
+            _report = {
+                "scan_id": str(getattr(_scan, "id", "")),
+                "target": str(getattr(_scan, "target", "")),
+                "status": "complete",
+                "generated_at": getattr(_scan, "started_at", "").isoformat() if getattr(_scan, "started_at", None) else "",
+            }
+            _sid = _report.get("scan_id")
+            if _sid:
+                scan_store[_sid] = _report
+        except Exception:
+            pass
     print(f"  💾 MySQL connected — loaded {len(scan_store)} scans from database")
 else:
     # Fallback: load from JSON files on disk
@@ -855,13 +890,21 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None, asset_class_h
         overall_score = sum(float(pq.get("score", 0)) for pq in pqc_dicts) / max(len(pqc_dicts), 1)
         
         db_scan = Scan(
+            scan_id=scan_id,
             target=target,
             status="complete",
+            asset_class=asset_class,
             started_at=dt,
             completed_at=datetime.now(),
+            scanned_at=datetime.now(),
             total_assets=len(discovered_services),
+            compliance_score=int(overall_score),
             overall_pqc_score=overall_score,
-            cbom_path=cbom_path
+            quantum_safe=sum(1 for x in pqc_dicts if float(x.get("score", 0) or 0) >= 80),
+            quantum_vuln=sum(1 for x in pqc_dicts if float(x.get("score", 0) or 0) < 80),
+            cbom_path=cbom_path,
+            report_json=json.dumps(report),
+            is_encrypted=False,
         )
         db_session.add(db_scan)
         db_session.flush()
@@ -1671,7 +1714,7 @@ def _build_asset_inventory_view() -> dict:
     }
 
 
-def _build_asset_discovery_view(include_in_progress: bool = False) -> dict:
+def _build_asset_discovery_view(include_in_progress: bool = False, page: int = 1, page_size: int = 100) -> dict:
     """Build discovery view from live scan artifacts only."""
     from collections import Counter
     import ipaddress
@@ -1713,13 +1756,26 @@ def _build_asset_discovery_view(include_in_progress: bool = False) -> dict:
             sid = str(scan.get("scan_id") or "")
             seen_scan_ids.add(sid)
             scans_feed.append(scan)
-    for scan in db.list_scans(limit=100):
-        if not isinstance(scan, dict):
-            continue
-        sid = str(scan.get("scan_id") or "")
-        if sid and sid in seen_scan_ids:
-            continue
-        scans_feed.append(scan)
+    # Paginate MySQL scans (avoid full table scan on each request)
+    from src.db import db_session
+    from src.models import Scan as ScanModel
+    offset = max(page - 1, 0) * page_size
+    for _scan in db_session.query(ScanModel).filter(ScanModel.status == "complete").order_by(ScanModel.started_at.desc()).offset(offset).limit(page_size).all():
+        try:
+            db_scan_id = getattr(_scan, "scan_id", None) or getattr(_scan, "id", None)
+            _report = {
+                "scan_id": str(db_scan_id or ""),
+                "target": str(getattr(_scan, "target", "")),
+                "status": "complete",
+                "generated_at": getattr(_scan, "started_at", "").isoformat() if getattr(_scan, "started_at", None) else "",
+                "discovered_services": [],
+                "tls_results": [],
+            }
+            sid = _report.get("scan_id")
+            if sid and sid not in seen_scan_ids:
+                scans_feed.append(_report)
+        except Exception:
+            pass
 
     for scan in scans_feed:
         if scan.get("status") != "complete" and not include_in_progress:
@@ -1911,12 +1967,15 @@ def asset_discovery():
     from src.models import Scan
     from src.table_helper import paginate_query
     
+    page = int(request.args.get("page", 1) or 1)
+    page_size = min(int(request.args.get("page_size", 100) or 100), 250)
+
     # We will use 'tab' parameter to define which model to paginate in future revisions
     # For now, we will pass an empty page_data to avoid crashing the macro injection UI until Discovery DB tables operate
     page_data = {"items": [], "total_count": 0, "has_next": False, "has_prev": False}
 
     try:
-        vm = _build_asset_discovery_view()
+        vm = _build_asset_discovery_view(page=page, page_size=page_size)
     except Exception:
         vm = {"empty": True, "graph_payload": {"nodes": [], "edges": []}, "status_counts": {}}
         
@@ -2051,18 +2110,21 @@ def api_inventory_schedule():
 @app.route("/cbom-dashboard")
 @login_required
 def cbom_dashboard():
-    """Build CBOM view with real cryptographic metrics."""
+    """Build CBOM view with aggregated cryptographic metrics from unified data service."""
     from src.db import db_session
     from src.models import Certificate, Scan
     from sqlalchemy import func
     from collections import Counter
     try:
+        # Load aggregated data from unified service
+        agg_data = DashboardDataService.get_all_scans_aggregated()
+        
         cert_count = db_session.query(func.count(Certificate.id)).scalar() or 0
         weak_tls = db_session.query(func.count(Certificate.id)).filter(Certificate.tls_version.in_(["TLS 1.0", "TLS 1.1", "SSLv3", "SSLv2"])).scalar() or 0
         weak_keys = db_session.query(func.count(Certificate.id)).filter(Certificate.key_length < 2048).scalar() or 0
         
-        # Real scan count (unique targets scanned)
-        scan_count = db_session.query(func.count(func.distinct(Scan.target))).filter(Scan.status == "complete").scalar() or 0
+        # Use aggregated scan count from service (ensures consistency across all dashboards)
+        scan_count = agg_data.get("total_scans", 0)
         
         items = db_session.query(Certificate).order_by(Certificate.id.desc()).all()
         page_data = {
@@ -2127,13 +2189,18 @@ def cbom_dashboard():
 @app.route("/pqc-posture")
 @login_required
 def pqc_posture():
-    """Build PQC posture with real quantum-safe readiness metrics."""
+    """Build PQC posture with aggregated quantum-safe readiness metrics from unified service."""
     from src.db import db_session
     from src.models import PQCClassification, Scan
     from sqlalchemy import func
     from collections import Counter
     
     try:
+        # Load aggregated data from unified service
+        agg_data = DashboardDataService.get_all_scans_aggregated()
+        scans_list = agg_data.get("scans", [])
+        distributions = agg_data.get("distributions", {})
+        
         items = (
             db_session.query(Scan)
             .filter(Scan.status == "complete")
@@ -2150,12 +2217,11 @@ def pqc_posture():
             "has_prev": False,
         }
         
-        # Calculate PQC posture from scans
-        scans = items
+        # Use aggregated PQC posture data from service
         pqc_counts = Counter()
         pqc_scores = []
         
-        for scan in scans:
+        for scan in items:
             raw_score = getattr(scan, "overall_pqc_score", 0)
             try:
                 score = float(raw_score or 0)
@@ -2163,14 +2229,9 @@ def pqc_posture():
                 score = 0.0
             pqc_scores.append(score)
             
-            if score >= 80:
-                pqc_counts["Elite"] += 1
-            elif score >= 60:
-                pqc_counts["Standard"] += 1
-            elif score >= 40:
-                pqc_counts["Legacy"] += 1
-            else:
-                pqc_counts["Critical"] += 1
+            # Use consistent PQC tier mapping from DashboardDataService
+            tier = DashboardDataService._score_to_pqc_tier(score)
+            pqc_counts[tier] += 1
         
         avg_pqc_score = sum(pqc_scores) / len(pqc_scores) if pqc_scores else 0
         elite_count = pqc_counts.get("Elite", 0)
@@ -2185,7 +2246,7 @@ def pqc_posture():
             "average_pqc_score": round(avg_pqc_score, 1),
             "status_distribution": dict(pqc_counts),
             "recommendations": [
-                f"Total scanned targets: {len(scans)}",
+                f"Total scanned targets: {len(items)}",
                 f"Average PQC readiness: {round(avg_pqc_score, 1)}%",
                 f"Critical applications requiring remediation: {critical_count}",
             ],
@@ -2209,12 +2270,15 @@ def pqc_posture():
 @app.route("/cyber-rating")
 @login_required
 def cyber_rating():
-    """Build cyber rating with real enterprise compliance metrics."""
+    """Build cyber rating with aggregated enterprise compliance metrics from unified service."""
     from src.db import db_session
     from src.models import Scan
     from sqlalchemy import func
     from collections import Counter
     try:
+        # Load aggregated data from unified service
+        agg_data = DashboardDataService.get_all_scans_aggregated()
+        
         scan_pk = getattr(Scan, "id", None) or getattr(Scan, "scan_id")
         scan_count = db_session.query(func.count(scan_pk)).scalar() or 0
         items = (
@@ -2233,7 +2297,7 @@ def cyber_rating():
             "has_prev": False,
         }
         
-        # Calculate enterprise-wide cyber rating
+        # Calculate enterprise-wide cyber rating using consistent scoring
         scans = items
         scores = []
         tier_dist = Counter()
@@ -2253,33 +2317,21 @@ def cyber_rating():
             
             scores.append(score)
             
-            # Classify into tier
-            if score >= 850:
-                tier_dist["Elite-PQC"] += 1
-            elif score >= 600:
-                tier_dist["Standard"] += 1
-            elif score >= 350:
-                tier_dist["Legacy"] += 1
-            else:
-                tier_dist["Critical"] += 1
+            # Use consistent cyber grade mapping from DashboardDataService
+            grade = DashboardDataService._score_to_cyber_grade(score)
+            tier_dist[grade] += 1
         
         overall_score = int(sum(scores) / len(scores)) if scores else 0
-        tier_labels = {0: "Critical", 1: "Legacy", 2: "Standard", 3: "Elite"}
-        if overall_score >= 850:
-            label = "Elite"
-        elif overall_score >= 600:
-            label = "Standard"
-        elif overall_score >= 350:
-            label = "Legacy"
-        else:
-            label = "Critical"
+        
+        # Use consistent grading from service
+        label = DashboardDataService._score_to_cyber_grade(overall_score)
         
         vm = {
             "empty": scan_count == 0,
             "overall_score": overall_score,
             "label": label,
-            "tier_counts": {"Critical": tier_dist.get("Critical", 0), "Legacy": tier_dist.get("Legacy", 0), "Standard": tier_dist.get("Standard", 0), "Elite-PQC": tier_dist.get("Elite-PQC", 0)},
-            "tier_heatmap": [{"x": "Cyber Rating", "y": tier, "value": tier_dist.get(tier, 0)} for tier in ["Critical", "Legacy", "Standard", "Elite-PQC"]],
+            "tier_counts": {"Critical": tier_dist.get("F", 0), "Legacy": tier_dist.get("D", 0), "Standard": tier_dist.get("B", 0), "Elite-PQC": tier_dist.get("A", 0)},
+            "tier_heatmap": [{"x": "Cyber Rating", "y": grade, "value": tier_dist.get(grade, 0)} for grade in ["F", "D", "B", "A"]],
         }
     except Exception as e:
         vm = {"empty": True, "overall_score": 0, "label": "Unknown", "tier_counts": {"Critical": 0, "Legacy": 0, "Standard": 0, "Elite-PQC": 0}, "tier_heatmap": []}

@@ -2,11 +2,31 @@ from flask import Blueprint, render_template, jsonify, request, redirect, url_fo
 from flask_login import login_required, current_user
 from src.services.asset_service import AssetService
 from src.services.geo_service import GeoService
+from src.services.dashboard_data_service import DashboardDataService
 
 dashboard_bp = Blueprint('quantumshield_dashboard', __name__, url_prefix='/dashboard')
 
 asset_service = AssetService()
 geo_service = GeoService()
+
+_dashboard_data_cache = {
+    "data": None,
+    "updated_at": 0,
+}
+_dashboard_data_ttl = 30
+
+
+def get_dashboard_data_cached():
+    import time
+
+    now = time.time()
+    if _dashboard_data_cache["data"] is not None and now - _dashboard_data_cache["updated_at"] < _dashboard_data_ttl:
+        return _dashboard_data_cache["data"]
+
+    data = DashboardDataService.get_all_scans_aggregated()
+    _dashboard_data_cache["data"] = data
+    _dashboard_data_cache["updated_at"] = now
+    return data
 
 
 def _inventory_scan_service():
@@ -19,15 +39,36 @@ def _inventory_scan_service():
 @dashboard_bp.route('/assets')
 @login_required
 def dashboard_home():
-    """Renders primary Quantumshield Dashboard with charts and maps."""
-    assets = asset_service.load_combined_assets()
-    summary = asset_service.get_dashboard_summary(assets)
-    return render_template(
-        'home.html', 
-        assets=assets, 
-        summary=summary,
-        enterprise_metrics=summary
-    )
+    """Renders primary Quantumshield Dashboard with charts and maps using unified data service."""
+    try:
+        # Get comprehensive aggregated data from single source of truth (cached for 30s)
+        data = get_dashboard_data_cached()
+        
+        # Build summary from aggregated KPIs
+        summary = {
+            "total_scans": data.get("total_scans", 0),
+            "assets": data.get("scans", []),
+            "aggregated_kpis": data.get("aggregated_kpis", {}),
+            "distributions": data.get("distributions", {}),
+        }
+        
+        return render_template(
+            'home.html', 
+            assets=summary.get("assets", []), 
+            summary=summary,
+            enterprise_metrics=summary
+        )
+    except Exception as e:
+        current_app.logger.error(f"Error loading dashboard data: {e}")
+        # Fallback to asset service for backward compatibility
+        assets = asset_service.load_combined_assets()
+        summary = asset_service.get_dashboard_summary(assets)
+        return render_template(
+            'home.html', 
+            assets=assets, 
+            summary=summary,
+            enterprise_metrics=summary
+        )
 
 @dashboard_bp.route('/geojson')
 @login_required
