@@ -31,6 +31,21 @@ class InventoryScanService:
     _last_scan_time: datetime.datetime | None = None
     _last_scan_summary: Dict = {}
     _last_scan_results: Dict = {}
+    _progress: Dict = {
+        "current": 0,
+        "total": 0,
+        "current_target": "",
+        "successful": 0,
+        "failed": 0,
+        "started_at": None,
+    }
+
+    def __init__(self, scan_runner=None) -> None:
+        """Create service instance.
+
+        scan_runner should be a callable compatible with run_scan_pipeline(target).
+        """
+        self.scan_runner = scan_runner
 
     def get_all_assets(self) -> List[Asset]:
         """Retrieve all non-deleted assets from inventory."""
@@ -108,9 +123,6 @@ class InventoryScanService:
 
     def scan_asset(self, asset: Asset) -> Dict:
         """Scan a single asset and sync key fields into inventory."""
-        # Lazy import prevents import-cycle issues during app startup.
-        from web.app import run_scan_pipeline
-
         target = self._canonical_target(asset)
         if not target:
             return {
@@ -122,7 +134,10 @@ class InventoryScanService:
             }
 
         try:
-            report = run_scan_pipeline(target)
+            if not callable(self.scan_runner):
+                raise RuntimeError("scan_runner_not_configured")
+
+            report = self.scan_runner(target)
             status = "complete" if report.get("status") == "complete" else "failed"
             if status == "complete":
                 self._sync_asset_from_report(asset, report)
@@ -203,9 +218,19 @@ class InventoryScanService:
 
             summary["unique_targets"] = len(unique_assets)
 
+            self.__class__._progress = {
+                "current": 0,
+                "total": len(unique_assets),
+                "current_target": "",
+                "successful": 0,
+                "failed": 0,
+                "started_at": started_at.isoformat(),
+            }
+
             for idx, asset in enumerate(unique_assets, start=1):
                 target = self._canonical_target(asset)
                 logger.info("[INVENTORY SCAN] %s/%s %s", idx, len(unique_assets), target)
+                self.__class__._progress["current_target"] = target
                 result = self.scan_asset(asset)
                 asset_id = int(getattr(asset, "id", 0) or 0)
                 detailed_results[asset_id] = result
@@ -217,8 +242,12 @@ class InventoryScanService:
 
                 if result.get("status") == "complete":
                     summary["successful"] += 1
+                    self.__class__._progress["successful"] = int(self.__class__._progress.get("successful", 0)) + 1
                 else:
                     summary["failed"] += 1
+                    self.__class__._progress["failed"] = int(self.__class__._progress.get("failed", 0)) + 1
+
+                self.__class__._progress["current"] = idx
 
             db_session.commit()
             summary["completed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -237,14 +266,25 @@ class InventoryScanService:
         finally:
             with self._state_lock:
                 self.__class__._scan_in_progress = False
+            self.__class__._progress["current_target"] = ""
 
     def get_scan_status(self) -> Dict:
         """Get current inventory scan status."""
+        progress_total = int(self._progress.get("total") or 0)
+        progress_current = int(self._progress.get("current") or 0)
+        percent_complete = 0
+        if progress_total > 0:
+            percent_complete = int((progress_current * 100) / progress_total)
+
         return {
             "in_progress": self._scan_in_progress,
             "last_scan_time": self._last_scan_time.isoformat() if self._last_scan_time else None,
             "last_summary": self._last_scan_summary,
             "last_results_count": len(self._last_scan_results),
+            "progress": {
+                **self._progress,
+                "percent_complete": percent_complete,
+            },
         }
 
     def get_asset_scan_history(self, asset_id: int) -> List[Dict]:

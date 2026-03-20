@@ -9,9 +9,15 @@ Routes:
     GET  /api/scan    → REST API endpoint
 """
 
-from __future__ import annotations
+import sys
+try:
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
+except Exception:
+    pass
 
 import json
+
 import os
 import uuid
 import traceback
@@ -135,12 +141,27 @@ limiter = Limiter(
     storage_uri=RATELIMIT_STORAGE_URI,
 )
 
-# --- Start Automated Scan Background Scheduler ---
-try:
-    from src.scheduler import start_scheduler
-    start_scheduler()
-except Exception as e:
-    app.logger.error(f"Failed to start automated scan scheduler: {e}")
+def _start_scheduler_if_enabled() -> None:
+    """Start background scheduler once in runtime context.
+
+    Avoid starting scheduler at import-time (tests/reloader parent process),
+    which can make startup appear stuck and create duplicate background work.
+    """
+    from config import AUTOMATED_SCAN_ENABLED
+
+    if not AUTOMATED_SCAN_ENABLED:
+        logger.info("Automated scheduler disabled.")
+        return
+
+    # In Flask debug reloader, parent process should not start background threads.
+    if DEBUG and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+        return
+
+    try:
+        from src.scheduler import start_scheduler
+        start_scheduler()
+    except Exception as e:
+        app.logger.error("Failed to start automated scan scheduler: %s", e)
 
 
 SCAN_ROLES = {"Admin", "Manager", "SingleScan"}
@@ -645,7 +666,9 @@ def _autodetect_asset_class(target: str, discovered_services: list[dict], manual
     return "Other"
 
 # Initialise MySQL (if available) and hydrate scan_store
+logger.info("Initializing database connectivity...")
 _db_available = db.init_db()
+logger.info("Database initialization complete. Available=%s", _db_available)
 if _db_available:
     for _report in db.list_scans(limit=100):
         _sid = _report.get("scan_id")
@@ -939,6 +962,10 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None, asset_class_h
     return report
 
 
+# Expose scan runner for other modules (e.g., inventory background scans)
+app.config["RUN_SCAN_PIPELINE_FUNC"] = run_scan_pipeline
+
+
 # ── Routes ───────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -949,7 +976,7 @@ def root_index():
 
 
 @app.route("/login", methods=["GET", "POST"])
-@limiter.limit("5 per minute")
+@limiter.limit("100 per minute")
 def login():
     """Secure login page — CSRF protected, rate-limited, lockout-aware."""
     if current_user.is_authenticated:
@@ -1352,6 +1379,10 @@ def index():
 from web.blueprints.dashboard import dashboard_bp
 app.register_blueprint(dashboard_bp)
 
+# Inventory status polling runs frequently from UI; keep it outside tight default limits.
+if "quantumshield_dashboard.inventory_scan_status" in app.view_functions:
+    limiter.limit("2000 per hour")(app.view_functions["quantumshield_dashboard.inventory_scan_status"])
+
 
 
 
@@ -1406,21 +1437,23 @@ def _build_asset_inventory_view() -> dict:
     db_assets = db_session.query(Asset).filter(Asset.is_deleted == False).all()
     
     for db_asset in db_assets:
+        updated_at = getattr(db_asset, "updated_at", None)
+        asset_name = str(getattr(db_asset, "name", "") or "")
         asset_dict = {
-            "asset_name": db_asset.name,
-            "url": db_asset.url or f"https://{db_asset.name}",
-            "ipv4": db_asset.ipv4 or "",
-            "ipv6": db_asset.ipv6 or "",
-            "type": db_asset.asset_type or "Web App",
+            "asset_name": asset_name,
+            "url": str(getattr(db_asset, "url", "") or f"https://{asset_name}"),
+            "ipv4": str(getattr(db_asset, "ipv4", "") or ""),
+            "ipv6": str(getattr(db_asset, "ipv6", "") or ""),
+            "type": str(getattr(db_asset, "asset_type", "") or "Web App"),
             "asset_class": "Database",
-            "owner": db_asset.owner or "Unassigned",
-            "risk": db_asset.risk_level or "Medium",
+            "owner": str(getattr(db_asset, "owner", "") or "Unassigned"),
+            "risk": str(getattr(db_asset, "risk_level", "") or "Medium"),
             "cert_status": "Not Scanned",
             "key_length": 0,
-            "last_scan": _iso_date(str(db_asset.updated_at)) if db_asset.updated_at else "Pending",
+            "last_scan": _iso_date(str(updated_at)) if updated_at else "Pending",
         }
         assets.append(asset_dict)
-        visited_targets.add(db_asset.name)
+        visited_targets.add(asset_name)
 
     # Then augment with scan data for scanned assets
     scans_feed = []
@@ -1891,11 +1924,128 @@ def asset_discovery():
 
 
 @app.route("/api/discovery-graph")
+@csrf.exempt
 @login_required
 def discovery_graph_payload():
     """Realtime discovery graph payload for incremental frontend updates."""
-    vm = _build_asset_discovery_view(include_in_progress=True)
-    return jsonify(vm.get("graph_payload", {"nodes": [], "edges": [], "updated_at": ""}))
+    _audit("scan", "discovery_graph_requested", "success")
+    try:
+        vm = _build_asset_discovery_view(include_in_progress=True)
+        return jsonify({"status": "success", "data": vm.get("graph_payload", {"nodes": [], "edges": [], "updated_at": ""})}, ), 200
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
+
+
+def _inventory_scan_service_for_api():
+    """Create inventory scan service bound to the app's scan pipeline."""
+    from src.services.inventory_scan_service import InventoryScanService
+
+    scan_runner = app.config.get("RUN_SCAN_PIPELINE_FUNC")
+    return InventoryScanService(scan_runner=scan_runner)
+
+
+@app.route("/api/inventory/scan", methods=["POST"])
+@role_required(list(SCAN_ROLES))
+def api_inventory_scan_all():
+    """Start or run inventory-wide scan and return JSON status."""
+    try:
+        payload = request.get_json(silent=True) or {}
+        background_raw = payload.get("background", request.form.get("background", "true"))
+        background = str(background_raw).strip().lower() != "false"
+
+        scan_service = _inventory_scan_service_for_api()
+        result = scan_service.scan_all_assets(background=background)
+        _audit("scan", "inventory_scan_all", "success", details={"background": background, "status": result.get("status")})
+        code = 200 if result.get("status") in {"started", "complete", "in_progress"} else 500
+        return jsonify(result), code
+    except Exception as exc:
+        _audit("scan", "inventory_scan_all", "failed", details={"error": str(exc)})
+        return jsonify({"status": "error", "message": str(exc)}), 500
+
+
+@app.route("/api/inventory/scan-status", methods=["GET"])
+@role_required(list(SCAN_ROLES))
+def api_inventory_scan_status():
+    """Return inventory scan progress/status payload."""
+    try:
+        scan_service = _inventory_scan_service_for_api()
+        status_data = scan_service.get_scan_status()
+        _audit("scan", "inventory_scan_status_requested", "success", details={"status": status_data.get("status")})
+        return jsonify({"status": "success", "data": status_data}), 200
+    except Exception as exc:
+        _audit("scan", "inventory_scan_status_requested", "failed", details={"error": str(exc)})
+        return jsonify({"status": "error", "message": str(exc)}), 500
+
+
+@app.route("/api/inventory/asset/<int:asset_id>/scan", methods=["POST"])
+@role_required(list(SCAN_ROLES))
+def api_inventory_scan_asset(asset_id: int):
+    """Run a single inventory asset scan and return JSON result."""
+    from src.db import db_session
+    from src.models import Asset
+
+    try:
+        asset = db_session.query(Asset).filter_by(id=asset_id, is_deleted=False).first()
+        if not asset:
+            _audit("scan", "inventory_scan_asset", "failed", details={"asset_id": asset_id, "error": "asset_not_found"})
+            return jsonify({"status": "error", "message": "Asset not found"}), 404
+
+        scan_service = _inventory_scan_service_for_api()
+        result = scan_service.scan_asset(asset)
+        db_session.commit()
+        code = 200 if result.get("status") == "complete" else 202
+        _audit("scan", "inventory_scan_asset", "success", details={"asset_id": asset_id, "status": result.get("status")})
+        return jsonify({"status": result.get("status"), "data": result}), code
+    except Exception as exc:
+        db_session.rollback()
+        _audit("scan", "inventory_scan_asset", "failed", details={"asset_id": asset_id, "error": str(exc)})
+        return jsonify({"status": "error", "message": str(exc)}), 500
+
+
+@app.route("/api/inventory/asset/<int:asset_id>/history", methods=["GET"])
+@role_required(list(SCAN_ROLES))
+def api_inventory_asset_history(asset_id: int):
+    """Return scan history for a single inventory asset."""
+    try:
+        scan_service = _inventory_scan_service_for_api()
+        history = scan_service.get_asset_scan_history(asset_id)
+        _audit("scan", "inventory_asset_history_requested", "success", details={"asset_id": asset_id})
+        return jsonify({"status": "success", "data": history}), 200
+    except Exception as exc:
+        _audit("scan", "inventory_asset_history_requested", "failed", details={"asset_id": asset_id, "error": str(exc)})
+        return jsonify({"status": "error", "message": str(exc)}), 500
+
+
+@app.route("/api/inventory/schedule", methods=["GET", "POST"])
+@role_required(list(BULK_SCAN_ROLES))
+def api_inventory_schedule():
+    """Get or update inventory schedule settings using JSON API semantics."""
+    try:
+        if request.method == "POST":
+            payload = request.get_json(silent=True) or {}
+            enabled_raw = payload.get("enabled", request.form.get("enabled", "false"))
+            interval_raw = payload.get("interval_hours", request.form.get("interval_hours", 24))
+            enabled = str(enabled_raw).strip().lower() == "true"
+            interval_hours = int(interval_raw)
+
+            if interval_hours < 1 or interval_hours > 168:
+                return jsonify({"status": "error", "message": "Interval must be between 1 and 168 hours"}), 400
+
+            os.environ["INVENTORY_SCAN_ENABLED"] = str(enabled)
+            os.environ["INVENTORY_SCAN_INTERVAL_HOURS"] = str(interval_hours)
+            return jsonify({
+                "status": "success",
+                "message": "Schedule updated",
+                "settings": {"enabled": enabled, "interval_hours": interval_hours},
+            })
+
+        from config import AUTOMATED_SCAN_ENABLED, AUTOMATED_SCAN_INTERVAL_HOURS
+        return jsonify({
+            "status": "success",
+            "data": {"enabled": AUTOMATED_SCAN_ENABLED, "interval_hours": AUTOMATED_SCAN_INTERVAL_HOURS},
+        })
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
 
 
 @app.route("/cbom-dashboard")
@@ -1933,7 +2083,8 @@ def cbom_dashboard():
         tls_dist = Counter()
         
         for cert in certs:
-            kl = int(cert.key_length) if cert.key_length else 0
+            key_length_value = getattr(cert, "key_length", None)
+            kl = int(key_length_value) if key_length_value is not None else 0
             if kl >= 4096:
                 key_dist["4096+"] += 1
             elif kl >= 2048:
@@ -1941,12 +2092,15 @@ def cbom_dashboard():
             elif kl > 0:
                 key_dist[f"<2048"] += 1
             
-            if cert.cipher_suite:
-                cipher_dist[cert.cipher_suite[:30]] += 1
-            if cert.ca:
-                ca_dist[cert.ca[:25]] += 1
-            if cert.tls_version:
-                tls_dist[cert.tls_version] += 1
+            cipher_suite = str(getattr(cert, "cipher_suite", "") or "")
+            ca_name = str(getattr(cert, "ca", "") or "")
+            tls_version = str(getattr(cert, "tls_version", "") or "")
+            if cipher_suite:
+                cipher_dist[cipher_suite[:30]] += 1
+            if ca_name:
+                ca_dist[ca_name[:25]] += 1
+            if tls_version:
+                tls_dist[tls_version] += 1
 
         vm = {
             "empty": cert_count == 0,
@@ -2002,7 +2156,11 @@ def pqc_posture():
         pqc_scores = []
         
         for scan in scans:
-            score = float(scan.overall_pqc_score or 0) if hasattr(scan, 'overall_pqc_score') else 0
+            raw_score = getattr(scan, "overall_pqc_score", 0)
+            try:
+                score = float(raw_score or 0)
+            except (TypeError, ValueError):
+                score = 0.0
             pqc_scores.append(score)
             
             if score >= 80:
@@ -2082,13 +2240,16 @@ def cyber_rating():
         
         for scan in scans:
             # Get available score field (multiple naming conventions)
-            score = None
-            if hasattr(scan, 'overall_pqc_score') and scan.overall_pqc_score:
-                score = float(scan.overall_pqc_score)
-            elif hasattr(scan, 'average_compliance_score') and scan.average_compliance_score:
-                score = float(scan.average_compliance_score)
-            else:
-                score = 50  # Default neutral
+            score = 50.0
+            overall_pqc_score = getattr(scan, "overall_pqc_score", None)
+            avg_compliance_score = getattr(scan, "average_compliance_score", None)
+            try:
+                if overall_pqc_score is not None:
+                    score = float(overall_pqc_score)
+                elif avg_compliance_score is not None:
+                    score = float(avg_compliance_score)
+            except (TypeError, ValueError):
+                score = 50.0
             
             scores.append(score)
             
@@ -2272,22 +2433,43 @@ def scan():
             host, ports = targets[0]
             clean_target, _ = sanitize_target(host)
             report = run_scan_pipeline(clean_target, ports, asset_class_hint=asset_class_hint)
+            
+            # Ensure persistence to both JSON and MySQL
+            try:
+                if db._db_available:
+                    db.save_scan(report)
+            except Exception as db_err:
+                logger.warning(f"Failed to save scan to MySQL: {db_err}")
+            
+            scan_store[report.get("scan_id")] = report
             _audit("scan", "single_scan", "success", target_scan_id=report.get("scan_id"), details={"target": clean_target})
-            if "scan_store" in globals() or "scan_store" in locals():
-                 scan_store[report.get("scan_id")] = report
             return redirect(url_for("results", scan_id=report.get("scan_id", "")))
 
         else:
             # Bulk scan: run all and redirect to dashboard
+            successful_scans = []
+            failed_scans = []
             for host, ports in targets:
                 try:
                     clean_target, _ = sanitize_target(host)
                     report = run_scan_pipeline(clean_target, ports, asset_class_hint=asset_class_hint)
+                    
+                    # Persist to both JSON and MySQL
+                    try:
+                        if db._db_available:
+                            db.save_scan(report)
+                    except Exception as db_err:
+                        logger.warning(f"Failed to save scan to MySQL for {clean_target}: {db_err}")
+                    
+                    scan_store[report.get("scan_id")] = report
+                    successful_scans.append(clean_target)
                     _audit("scan", "bulk_scan_item", "success", target_scan_id=report.get("scan_id"), details={"target": clean_target})
-                except Exception:
-                    continue  # skip invalid targets in bulk mode
+                except Exception as item_err:
+                    failed_scans.append({"target": host, "error": str(item_err)})
+                    logger.warning(f"Failed to scan {host}: {item_err}")
+                    continue
 
-            _audit("scan", "bulk_scan", "success", details={"target_count": len(targets)})
+            _audit("scan", "bulk_scan", "success", details={"target_count": len(targets), "successful": len(successful_scans), "failed": len(failed_scans)})
             return redirect(url_for("quantumshield_dashboard.dashboard_home"))
 
     except Exception as exc:
@@ -2338,18 +2520,27 @@ def download_cbom(scan_id: str):
         return jsonify({"error": "Invalid scan ID."}), 404
     cbom_path = os.path.join(RESULTS_DIR, f"{scan_id}_cbom.json")
     if os.path.exists(cbom_path):
-        _audit("scan", "download_cbom", "success", target_scan_id=scan_id, details={"source": "disk"})
-        return send_file(
-            cbom_path,
-            mimetype="application/json",
-            as_attachment=True,
-            download_name=f"cbom_{scan_id}.json",
-        )
+        try:
+            _audit("scan", "download_cbom", "success", target_scan_id=scan_id, details={"source": "disk"})
+            return send_file(
+                cbom_path,
+                mimetype="application/json",
+                as_attachment=True,
+                download_name=f"cbom_{scan_id}.json",
+            )
+        except Exception as err:
+            logger.error(f"Error serving CBOM from disk: {err}")
+            return jsonify({"error": "Could not serve CBOM file"}), 500
+    
     # Fallback: try MySQL
-    cbom_data = db.get_cbom(scan_id)
-    if cbom_data:
-        _audit("scan", "download_cbom", "success", target_scan_id=scan_id, details={"source": "database"})
-        return jsonify(cbom_data)
+    try:
+        cbom_data = db.get_cbom(scan_id)
+        if cbom_data:
+            _audit("scan", "download_cbom", "success", target_scan_id=scan_id, details={"source": "database"})
+            return jsonify({"status": "success", "data": cbom_data}), 200
+    except Exception as db_err:
+        logger.warning(f"Failed to retrieve CBOM from database: {db_err}")
+    
     _audit("scan", "download_cbom", "failed", target_scan_id=scan_id, details={"reason": "not_found"})
     return jsonify({"error": "CBOM not found"}), 404
 
@@ -2445,6 +2636,14 @@ def api_scan():
     try:
         clean_target, _ = sanitize_target(target)
         report = run_scan_pipeline(clean_target)
+        
+        # Ensure persistence: save to both JSON and MySQL
+        try:
+            if db._db_available:
+                db.save_scan(report)
+        except Exception as db_err:
+            logger.warning(f"Failed to save scan to MySQL: {db_err}")
+        
         db.append_audit_log(
             event_category="api",
             event_type="api_scan",
@@ -2457,9 +2656,11 @@ def api_scan():
             request_path=request.path,
             details={"target": clean_target},
         )
-        return jsonify(report)
+        return jsonify({"status": "success", "data": report}), 200
     except Exception as exc:
-        return jsonify({"error": str(exc)}), 500
+        _audit("scan", "api_scan", "failed", details={"target": target, "error": str(exc)})
+        logger.exception(f"API scan failed for target {target}: {exc}")
+        return jsonify({"status": "error", "message": str(exc)}), 500
 
 
 
@@ -2470,17 +2671,22 @@ def api_list_scans():
     """List all stored scan results. Requires X-API-Key header."""
     from flask import g as _g
     api_user = _g.api_user
-    scans = [
-        {
-            "scan_id": r.get("scan_id"),
-            "target": r.get("target"),
-            "status": r.get("status"),
-            "generated_at": r.get("generated_at"),
-            "overview": r.get("overview"),
-        }
-        for r in scan_store.values()
-    ]
-    return jsonify(scans)
+    try:
+        scans = [
+            {
+                "scan_id": r.get("scan_id"),
+                "target": r.get("target"),
+                "status": r.get("status"),
+                "generated_at": r.get("generated_at"),
+                "overview": r.get("overview"),
+            }
+            for r in scan_store.values()
+        ]
+        _audit("api", "api_list_scans", "success", details={"scan_count": len(scans)})
+        return jsonify({"status": "success", "data": scans}), 200
+    except Exception as exc:
+        _audit("api", "api_list_scans", "failed", details={"error": str(exc)})
+        return jsonify({"status": "error", "message": str(exc)}), 500
 
 
 @app.route("/docs")
@@ -2956,9 +3162,10 @@ def _check_concurrency():
             # Check if alive on Windows
             cmd = f'tasklist /FI "PID eq {old_pid}" /NH'
             try:
-                out = subprocess.check_output(cmd, shell=True).decode()
+                out = subprocess.check_output(cmd, shell=True).decode(errors='replace')
                 if str(old_pid) in out:
                     print(f"\n[!] ALERT: Another instance of {app.import_name} is already running (PID: {old_pid}).")
+
                     import os as _os
                     auto_kill = _os.environ.get("AUTO_KILL_PREVIOUS", "false").lower() == "true"
                     
@@ -2995,9 +3202,11 @@ def _check_concurrency():
 
 
 if __name__ == "__main__":
+    _start_scheduler_if_enabled()
+
     print(f"\n{'='*60}")
-    print(f"  \U0001f512 {app.import_name} \u2014 Quantum-Safe TLS Scanner")
-    print(f"  \U0001f4e1 Running on https://{FLASK_HOST}:{FLASK_PORT}")
+    print(f"  [QuantumShield] {app.import_name} - Quantum-Safe TLS Scanner")
+    print(f"  Running on https://{FLASK_HOST}:{FLASK_PORT}")
     print(f"{'='*60}\n")
 
     # ── HTTP → HTTPS redirect server (background daemon) ─────────────
@@ -3017,10 +3226,10 @@ if __name__ == "__main__":
         # Dev mode: use Flask built-in server with hot-reload
         if _has_certs:
             _ssl_ctx = (_cert_file, _key_file)
-            print("  \u2705 Using mkcert trusted SSL certificate (no browser warnings)")
+            print("  [OK] Using mkcert trusted SSL certificate (no browser warnings)")
         else:
             _ssl_ctx = "adhoc"
-            print("  \u26a0  No certs/ dir found - using adhoc self-signed cert (browser will warn)")
+            print("  [WARN] No certs/ dir found - using adhoc self-signed cert (browser will warn)")
             print("     To fix, run:  mkcert -install && mkcert -key-file certs/key.pem -cert-file certs/cert.pem localhost 127.0.0.1")
 
         app.run(host=FLASK_HOST, port=FLASK_PORT, debug=True, ssl_context=_ssl_ctx)
@@ -3028,11 +3237,11 @@ if __name__ == "__main__":
         # Production mode: use Waitress (Windows-compatible WSGI server)
         try:
             from waitress import serve as waitress_serve  # type: ignore
-            print("  \u2705 Production mode — Waitress WSGI server")
+            print("  [OK] Production mode - Waitress WSGI server")
             if _has_certs:
-                print(f"  \u2705 TLS certs loaded from certs/")
+                print("  [OK] TLS certs loaded from certs/")
             else:
-                print("  \u26a0  No certs/ dir — running plain HTTP on Waitress")
+                print("  [WARN] No certs/ dir - running plain HTTP on Waitress")
                 print("     Tip: put a reverse proxy (nginx/caddy) in front for HTTPS in production")
             # Waitress does not natively handle SSL — use a reverse proxy for HTTPS.
             # For dev convenience with certs, fall back to Flask's ssl_context.
@@ -3042,6 +3251,6 @@ if __name__ == "__main__":
             else:
                 waitress_serve(app, host=FLASK_HOST, port=int(FLASK_PORT), threads=8)
         except ImportError:
-            print("  \u26a0  Waitress not installed — falling back to Flask dev server")
+            print("  [WARN] Waitress not installed - falling back to Flask dev server")
             print("     Install with: pip install waitress")
             app.run(host=FLASK_HOST, port=FLASK_PORT, debug=False, ssl_context="adhoc")
