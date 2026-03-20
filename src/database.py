@@ -29,6 +29,7 @@ import os
 import secrets
 import hashlib
 import sys
+import pymysql.cursors
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Tuple
@@ -120,8 +121,9 @@ def _decrypt_data(encrypted_data: str) -> str:
 # Internal helpers — connection with retry + pool
 # ---------------------------------------------------------------------------
 
-_CONNECT_RETRIES = 3
-_CONNECT_RETRY_DELAY = 0.4  # seconds between retries
+_CONNECT_RETRIES = int(os.environ.get("QSS_DB_CONNECT_RETRIES", "1"))
+_CONNECT_RETRY_DELAY = float(os.environ.get("QSS_DB_CONNECT_RETRY_DELAY_SECONDS", "0.25"))
+_CONNECT_TIMEOUT = int(float(os.environ.get("QSS_DB_CONNECT_TIMEOUT_SECONDS", "2")))
 
 def _get_connection():
     """Return a MySQL connection with retry logic, or *None* on failure.
@@ -131,26 +133,24 @@ def _get_connection():
     """
     import time as _time
     try:
-        import mysql.connector
-        from mysql.connector import pooling as _pooling  # noqa – checked below
+        import pymysql
     except ImportError:
-        logger.error("mysql-connector-python not installed.")
+        logger.error("pymysql not installed.")
         return None
 
     last_exc: Optional[Exception] = None
     for attempt in range(1, _CONNECT_RETRIES + 1):
         try:
-            conn = mysql.connector.connect(
+            conn = pymysql.connect(
                 host=MYSQL_HOST,
                 port=MYSQL_PORT,
                 user=MYSQL_USER,
                 password=MYSQL_PASSWORD,
                 database=MYSQL_DATABASE,
-                connect_timeout=5,
-                connection_timeout=10,
+                connect_timeout=_CONNECT_TIMEOUT,
             )
             # Verify the connection is alive (avoids stale-conn bugs)
-            conn.ping(reconnect=True, attempts=2, delay=1)
+            conn.ping(reconnect=True)
             return conn
         except Exception as exc:
             last_exc = exc
@@ -160,26 +160,27 @@ def _get_connection():
     return None
 
 
+
 def _get_server_connection():
     """Connect to the MySQL *server* (no database selected) with retry."""
     import time as _time
     try:
-        import mysql.connector
+        import pymysql
     except ImportError:
-        logger.error("mysql-connector-python not installed.")
+        logger.error("pymysql not installed.")
         return None
 
     last_exc: Optional[Exception] = None
     for attempt in range(1, _CONNECT_RETRIES + 1):
         try:
-            conn = mysql.connector.connect(
+            conn = pymysql.connect(
                 host=MYSQL_HOST,
                 port=MYSQL_PORT,
                 user=MYSQL_USER,
                 password=MYSQL_PASSWORD,
-                connect_timeout=5,
+                connect_timeout=_CONNECT_TIMEOUT,
             )
-            conn.ping(reconnect=True, attempts=2, delay=1)
+            conn.ping(reconnect=True)
             return conn
         except Exception as exc:
             last_exc = exc
@@ -187,6 +188,7 @@ def _get_server_connection():
                 _time.sleep(_CONNECT_RETRY_DELAY * attempt)
     logger.warning("MySQL server connection failed after %d attempts: %s", _CONNECT_RETRIES, last_exc)
     return None
+
 
 
 def _create_trigger_if_missing(cur, trigger_name: str, create_sql: str) -> None:
@@ -621,7 +623,7 @@ def list_assets() -> List[Dict[str, Any]]:
     conn = _get_connection()
     if conn is None: return []
     try:
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         # Using dictionary=True depends on driver support; fallback standard cursor if fails
         cur.execute("SELECT * FROM assets ORDER BY created_at DESC")
         columns = [desc[0] for desc in cur.description]
@@ -814,7 +816,7 @@ def get_enterprise_metrics() -> Dict[str, Any]:
         return metrics
 
     try:
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         # 1. Base Aggregates
         cur.execute("""
             SELECT 
@@ -1001,7 +1003,7 @@ def list_dns_records(scan_id: Optional[str] = None, limit: int = 500) -> List[Di
     if conn is None:
         return []
     try:
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         if scan_id:
             cur.execute(
                 """
@@ -1114,7 +1116,7 @@ def list_report_schedules(limit: int = 500) -> List[Dict[str, Any]]:
     if conn is None:
         return []
     try:
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         cur.execute(
             """
             SELECT schedule_id, created_by_id, created_by_name, created_at, enabled,
@@ -1227,7 +1229,7 @@ def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
     if conn is None:
         return None
     try:
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         cur.execute("SELECT * FROM users WHERE id = %s AND is_active = TRUE", (str(user_id),))
         user = cur.fetchone()
         if user:
@@ -1243,7 +1245,7 @@ def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
     if conn is None:
         return None
     try:
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         cur.execute("SELECT * FROM users WHERE username = %s AND is_active = TRUE", (username,))
         user = cur.fetchone()
         if user:
@@ -1259,7 +1261,7 @@ def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
     if conn is None:
         return None
     try:
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         cur.execute(
             "SELECT * FROM users WHERE LOWER(email) = LOWER(%s) AND is_active = TRUE",
             (email,),
@@ -1280,7 +1282,7 @@ def list_users() -> List[Dict[str, Any]]:
     if conn is None:
         return []
     try:
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         cur.execute(
             """
             SELECT id, employee_id, username, email, role, is_active, created_by,
@@ -1395,7 +1397,7 @@ def mark_login_failure(user_id: str, max_attempts: int, lock_minutes: int) -> No
     if conn is None:
         return
     try:
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         cur.execute("SELECT failed_login_attempts FROM users WHERE id = %s", (str(user_id),))
         row = cur.fetchone() or {"failed_login_attempts": 0}
         attempts = int(row.get("failed_login_attempts", 0)) + 1
@@ -1456,7 +1458,7 @@ def get_user_by_setup_token(raw_token: str) -> Optional[Dict[str, Any]]:
     token_hash = _hash_token(raw_token)
     now_ts = _utcnow()
     try:
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         cur.execute(
             """
             SELECT *
@@ -1575,7 +1577,7 @@ def get_user_by_api_key(raw_key: str) -> Optional[Dict[str, Any]]:
         return None
     key_hash = _hash_token(raw_key)
     try:
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         cur.execute(
             "SELECT * FROM users WHERE api_key_hash = %s AND is_active = TRUE",
             (key_hash,),
@@ -1651,7 +1653,7 @@ def append_audit_log(
         return False
     details = details or {}
     try:
-        chain_cur = conn.cursor(dictionary=True)
+        chain_cur = conn.cursor(pymysql.cursors.DictCursor)
         chain_cur.execute("SELECT last_entry_id, last_hash FROM audit_log_chain WHERE id = 1 FOR UPDATE")
         chain_state = chain_cur.fetchone() or {"last_entry_id": None, "last_hash": "0" * 64}
         prev_hash = chain_state.get("last_hash") or "0" * 64
@@ -1722,7 +1724,7 @@ def list_audit_logs(limit: int = 100) -> List[Dict[str, Any]]:
     if conn is None:
         return []
     try:
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         cur.execute(
             """
             SELECT id, actor_user_id, actor_username, event_category, event_type,
@@ -1754,7 +1756,7 @@ def verify_audit_log_chain(limit: int = 500) -> Tuple[bool, List[str]]:
     if conn is None:
         return False, ["Database unavailable"]
     try:
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         cur.execute(
             """
             SELECT id, actor_user_id, actor_username, event_category, event_type,

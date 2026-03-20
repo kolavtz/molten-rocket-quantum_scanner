@@ -47,7 +47,7 @@
     {% set _ = next_args.update(request.args.to_dict()) %}
     {% set _ = next_args.update({'page': page_data.page + 1}) %}
 
-    <a href="{{ url_for(endpoint, **prev_args) }}" class="scan-button" style="text-decoration:none;{% if page_data.page <= 1 %}pointer-events:none;opacity:0.5;{% endif %}">Previous</a>
+    <a href="{{ url_for(endpoint, **prev_args) }}" class="scan-button{% if page_data.page <= 1 %} disabled-link{% endif %}" style="text-decoration:none;">Previous</a>
     
     <form action="{{ url_for(endpoint, **base_params) }}" method="GET" style="display:flex;align-items:center;gap:0.3rem;">
       <input type="hidden" name="q" value="{{ request.args.get('q', '') }}">
@@ -58,7 +58,7 @@
       <button type="submit" class="scan-button" style="padding:0.2rem 0.5rem;">Go</button>
     </form>
 
-    <a href="{{ url_for(endpoint, **next_args) }}" class="scan-button" style="text-decoration:none;{% if page_data.page >= page_data.total_pages %}pointer-events:none;opacity:0.5;{% endif %}">Next</a>
+    <a href="{{ url_for(endpoint, **next_args) }}" class="scan-button{% if page_data.page >= page_data.total_pages %} disabled-link{% endif %}" style="text-decoration:none;">Next</a>
   </div>
 </div>
 {% endmacro %}

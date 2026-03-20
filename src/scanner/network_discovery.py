@@ -30,6 +30,7 @@ from config import (
     EXTENDED_DISCOVERY_PORTS,
     PORT_SERVICE_MAP,
     SCAN_TIMEOUT_SECONDS,
+    ALLOW_LOCAL_SCANS,
 )
 
 
@@ -258,8 +259,7 @@ class NetworkScanner:
         * Single IPv4/IPv6 address
         * CIDR notation (e.g. ``10.0.0.0/28``)
         """
-        import os
-        allow_local = os.environ.get('ALLOW_LOCAL_SCANS', 'false').lower() == 'true'
+        allow_local = ALLOW_LOCAL_SCANS
 
         def check_ssrf(ip_obj):
             if not allow_local and (ip_obj.is_private or ip_obj.is_loopback):

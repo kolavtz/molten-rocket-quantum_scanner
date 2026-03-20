@@ -441,6 +441,7 @@ body.login-page {
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
+              {% if not message.startswith("Asset") and not message.startswith("Inventory") %}
               <div class="flash-box flash-{{ category }}">
                   <span class="flash-icon">
                       {% if category == 'error' %}<i class="fa-solid fa-triangle-exclamation"></i>
@@ -449,9 +450,11 @@ body.login-page {
                   </span>
                   <span>{{ message }}</span>
               </div>
+              {% endif %}
             {% endfor %}
           {% endif %}
         {% endwith %}
+
 
         {# ── Locked account notice ─────────────────────────────── #}
         {% if locked %}

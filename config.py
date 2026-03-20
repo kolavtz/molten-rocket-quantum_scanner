@@ -21,6 +21,13 @@ DEBUG = os.environ.get("QSS_DEBUG", "true").lower() == "true"
 SESSION_COOKIE_NAME = os.environ.get("QSS_SESSION_COOKIE_NAME", "quantumshield_session")
 
 # ---------------------------------------------------------------------------
+# Network Scanning — Security & Scope
+# ---------------------------------------------------------------------------
+# Allow scanning of private/local networks (RFC 1918, loopback)
+# Set to 'false' only if you want to restrict scanning to public IPs
+ALLOW_LOCAL_SCANS = os.environ.get("ALLOW_LOCAL_SCANS", "true").lower() == "true"
+
+# ---------------------------------------------------------------------------
 # Network Discovery — Default Ports
 # ---------------------------------------------------------------------------
 DEFAULT_TLS_PORTS = [
@@ -453,7 +460,14 @@ MYSQL_DATABASE = os.environ.get("MYSQL_DATABASE", "quantumshield")
 
 from urllib.parse import quote_plus
 # Derived ORM Configuration Pattern
-SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{MYSQL_USER}:{quote_plus(MYSQL_PASSWORD)}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+_orm_host = str(MYSQL_HOST or "localhost").strip()
+if ":" in _orm_host and not _orm_host.startswith("["):
+    _orm_host = f"[{_orm_host}]"
+
+SQLALCHEMY_DATABASE_URI = (
+    f"mysql+pymysql://{quote_plus(MYSQL_USER)}:{quote_plus(MYSQL_PASSWORD)}"
+    f"@{_orm_host}:{MYSQL_PORT}/{quote_plus(MYSQL_DATABASE)}"
+)
 
 # ---------------------------------------------------------------------------
 # Web / Flask / Security
@@ -546,5 +560,5 @@ CSP_CONFIG = {
 # ---------------------------------------------------------------------------
 # Automated / Scheduled Scans
 # ---------------------------------------------------------------------------
-AUTOMATED_SCAN_ENABLED = os.environ.get("AUTOMATED_SCAN_ENABLED", "true").lower() == "true"
+AUTOMATED_SCAN_ENABLED = os.environ.get("AUTOMATED_SCAN_ENABLED", "false").lower() == "true"
 AUTOMATED_SCAN_INTERVAL_HOURS = int(os.environ.get("AUTOMATED_SCAN_INTERVAL_HOURS", "24"))

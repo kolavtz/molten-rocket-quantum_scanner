@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, jsonify, request, redirect, url_for, flash
+from flask import Blueprint, render_template, jsonify, request, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
 from src.services.asset_service import AssetService
 from src.services.geo_service import GeoService
@@ -7,6 +7,14 @@ dashboard_bp = Blueprint('quantumshield_dashboard', __name__, url_prefix='/dashb
 
 asset_service = AssetService()
 geo_service = GeoService()
+
+
+def _inventory_scan_service():
+    """Create scan service bound to app-configured pipeline callable."""
+    from src.services.inventory_scan_service import InventoryScanService
+
+    scan_runner = current_app.config.get("RUN_SCAN_PIPELINE_FUNC")
+    return InventoryScanService(scan_runner=scan_runner)
 
 @dashboard_bp.route('/assets')
 @login_required
@@ -164,13 +172,17 @@ def scan_all_inventory():
     Manually trigger comprehensive scan of all assets in inventory.
     Captures: TLS/Certs, DNS, CBOM, PQC Posture, KPIs, and all details.
     """
-    from src.services.inventory_scan_service import InventoryScanService
-    
+    wants_json = "application/json" in (request.headers.get("Accept", "") or "")
+
     try:
-        scan_service = InventoryScanService()
+        scan_service = _inventory_scan_service()
         background = request.form.get('background', 'true').lower() == 'true'
         
         result = scan_service.scan_all_assets(background=background)
+
+        if wants_json:
+            code = 200 if result.get("status") in {"started", "complete", "in_progress"} else 500
+            return jsonify(result), code
         
         if background:
             flash("Inventory scan started in background. Check status to monitor progress.", "info")
@@ -184,6 +196,8 @@ def scan_all_inventory():
             else:
                 flash("Inventory scan failed. Check logs for details.", "error")
     except Exception as e:
+        if wants_json:
+            return jsonify({"status": "error", "message": str(e)}), 500
         flash(f"Error starting inventory scan: {str(e)}", "error")
     
     return redirect(request.referrer or url_for('quantumshield_dashboard.dashboard_home'))
@@ -193,10 +207,9 @@ def scan_all_inventory():
 @login_required
 def inventory_scan_status():
     """Get current status of inventory scan operation."""
-    from src.services.inventory_scan_service import InventoryScanService
-    
+
     try:
-        scan_service = InventoryScanService()
+        scan_service = _inventory_scan_service()
         status = scan_service.get_scan_status()
         
         return jsonify({
@@ -217,7 +230,6 @@ def scan_single_asset(asset_id):
     Manually trigger comprehensive scan of a single asset.
     Captures all details: certificates, DNS, CBOM, PQC, KPIs.
     """
-    from src.services.inventory_scan_service import InventoryScanService
     from src.db import db_session
     from src.models import Asset
     
@@ -227,7 +239,7 @@ def scan_single_asset(asset_id):
             flash("Asset not found.", "error")
             return redirect(request.referrer or url_for('quantumshield_dashboard.dashboard_home'))
         
-        scan_service = InventoryScanService()
+        scan_service = _inventory_scan_service()
         result = scan_service.scan_asset(asset)
         
         db_session.commit()
@@ -247,10 +259,9 @@ def scan_single_asset(asset_id):
 @login_required
 def asset_scan_history(asset_id):
     """Get scan history for a specific asset."""
-    from src.services.inventory_scan_service import InventoryScanService
-    
+
     try:
-        scan_service = InventoryScanService()
+        scan_service = _inventory_scan_service()
         history = scan_service.get_asset_scan_history(asset_id)
         
         return jsonify({
