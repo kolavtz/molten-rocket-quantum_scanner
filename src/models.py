@@ -52,13 +52,21 @@ class Asset(Base, SoftDeleteMixin):
 class Scan(Base, SoftDeleteMixin):
     __tablename__ = 'scans'
     id = Column(Integer, primary_key=True)
+    scan_id = Column(String(36), unique=True, nullable=False, index=True)
     target = Column(String(255), nullable=False, index=True)
+    asset_class = Column(String(64), nullable=True)
     status = Column(String(50), nullable=False)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
+    scanned_at = Column(DateTime, nullable=True)
     total_assets = Column(Integer, default=0)
+    compliance_score = Column(Integer, default=0)
     overall_pqc_score = Column(Float, nullable=True)
+    quantum_safe = Column(Integer, default=0)
+    quantum_vuln = Column(Integer, default=0)
     cbom_path = Column(String(500), nullable=True)
+    report_json = Column(Text, nullable=False)
+    is_encrypted = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
     
     # Relationships
