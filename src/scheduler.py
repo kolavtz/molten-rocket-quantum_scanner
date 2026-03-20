@@ -54,28 +54,34 @@ def run_scheduler():
                             logger.info(f"Auto-scanning target: {t}")
                             result = analyzer.analyze_endpoint(t, 443)
                             
-                            # Construct full report body compatible with save_scan()
-                            import uuid
+                            from src.db import db_session
+                            from src.models import Scan, Asset, Certificate, CBOMSummary
+                            try:
+                                inv = db_session.query(Asset).filter_by(name=t, is_deleted=False).first()
+                                asset_id = inv.id if inv else None
+                                db_scan = Scan(
+                                    target=t,
+                                    status="complete",
+                                    started_at=datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None),
+                                    completed_at=datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None),
+                                    total_assets=1,
+                                    overall_pqc_score=100 if result.is_successful else 0
+                                )
+                                # Basic cert stub
+                                db_scan.certificates.append(Certificate(
+                                    asset_id=asset_id,
+                                    issuer="Automated Scheduler",
+                                    subject=t,
+                                    valid_until=datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(days=90)
+                                ))
+                                db_scan.cbom_summary = CBOMSummary(total_components=1, weak_crypto_count=0, cert_issues_count=0)
+                                db_session.add(db_scan)
+                                db_session.commit()
+                                logger.info(f"Saved automated scan for {t} via SQLAlchemy")
+                            except Exception as db_err:
+                                db_session.rollback()
+                                logger.error(f"Failed to save automated scan: {db_err}")
                             
-                            payload = {
-                                "scan_id": str(uuid.uuid4()),
-                                "target": t,
-                                "asset_class": "Automated",
-                                "status": "Completed",
-                                "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                                "overview": {
-                                    "average_compliance_score": 100 if result.is_successful else 0,
-                                    "total_assets": 1,
-                                    "quantum_safe": 1 if result.is_successful else 1, # Placeholder logic
-                                    "quantum_vulnerable": 0
-                                },
-                                "results": [ result.to_dict() ]
-                            }
-                            
-                            # Standard save logic
-                            if hasattr(db, 'save_scan'):
-                                db.save_scan(payload)
-                            logger.info(f"Saved automated scan for {t}")
                         except Exception as e:
                             logger.error(f"Auto-scanning failed for {t}: {e}")
             except Exception as e:

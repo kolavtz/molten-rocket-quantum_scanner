@@ -33,6 +33,24 @@
         .scans-table th { cursor: pointer; position: relative; }
         .scans-table th:hover { background: rgba(255,255,255,0.05); }
         .scans-table th::after { content: ' ↕'; font-size: 0.65rem; opacity: 0.3; margin-left: 4px; }
+        
+        /* Navbar Button Overrides */
+        button.nav-link, button.nav-dropdown-trigger {
+            color: var(--text-secondary, #b3b9c5);
+            background: none;
+            border: none;
+            font-family: inherit;
+            cursor: pointer;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+        }
+        button.nav-link:hover, button.nav-dropdown-trigger:hover {
+            color: var(--accent-primary, #00ffcc) !important;
+        }
+        button.nav-link .nav-text, button.nav-dropdown-trigger .nav-text {
+            color: inherit;
+        }
     </style>
 </head>
 <body>

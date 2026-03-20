@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float, Text
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
 import datetime
@@ -36,6 +36,8 @@ class Asset(Base, SoftDeleteMixin):
     asset_type = Column(String(50), nullable=False)
     owner = Column(String(100), nullable=True)
     risk_level = Column(String(50), nullable=True)
+    notes = Column(Text, nullable=True)
+
     last_scan_id = Column(Integer, ForeignKey('scans.id', ondelete='SET NULL'), nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
@@ -63,6 +65,9 @@ class Scan(Base, SoftDeleteMixin):
     cbom_summary = relationship("CBOMSummary", back_populates="scan", uselist=False, cascade="all, delete-orphan", passive_deletes=True)
     discovery_items = relationship("DiscoveryItem", back_populates="scan", cascade="all, delete-orphan", passive_deletes=True)
     cbom_entries = relationship("CBOMEntry", back_populates="scan", cascade="all, delete-orphan", passive_deletes=True)
+    certificates = relationship("Certificate", back_populates="scan", cascade="all, delete-orphan", passive_deletes=True)
+    pqc_classifications = relationship("PQCClassification", back_populates="scan", cascade="all, delete-orphan", passive_deletes=True)
+
 
 class DiscoveryItem(Base, SoftDeleteMixin):
     __tablename__ = 'discovery_items'
@@ -92,6 +97,8 @@ class Certificate(Base, SoftDeleteMixin):
     cipher_suite = Column(String(255))
     ca = Column(String(255))
     asset = relationship("Asset", back_populates="certificates")
+    scan = relationship("Scan", back_populates="certificates")
+
 
 class PQCClassification(Base, SoftDeleteMixin):
     __tablename__ = 'pqc_classification'
@@ -105,6 +112,8 @@ class PQCClassification(Base, SoftDeleteMixin):
     nist_category = Column(String(50))
     pqc_score = Column(Float)
     asset = relationship("Asset", back_populates="pqc_classifications")
+    scan = relationship("Scan", back_populates="pqc_classifications")
+
 
 class CBOMSummary(Base, SoftDeleteMixin):
     __tablename__ = 'cbom_summary'

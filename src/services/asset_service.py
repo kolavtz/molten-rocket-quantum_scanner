@@ -16,83 +16,74 @@ class AssetService:
          pass
 
     def load_combined_assets(self) -> list:
-        """Hydrate list of assets from scans with normalized schemas."""
-        assets = []
-        meta_assets = {a["target"]: a for a in db.list_assets()}
-        visited_targets = set()
+        """Hydrate list of assets from native SQL store ensuring metrics map exclusively to inventory assets."""
+        from src.db import db_session
+        from src.models import Asset, Scan
         
-        for scan in db.list_scans(limit=100):
-            if scan.get("status") != "complete":
-                continue
+        assets_out = []
+        db_assets = db_session.query(Asset).filter_by(is_deleted=False).all()
+        
+        for meta in db_assets:
+            # Fetch latest complete scan for this asset
+            latest_scan = db_session.query(Scan).filter_by(target=meta.name, status="complete").order_by(Scan.started_at.desc()).first()
+            
+            if latest_scan:
+                overview = latest_scan.overview or {}
+                # Handle possible nulls natively from scan models if stored there, else fallback to JSON blob overview
+                # Because we migrated to ORM, many metrics are native columns.
+                risk_score = float(latest_scan.overall_pqc_score or overview.get("average_compliance_score") or 0)
+                risk_level = self._score_to_risk(risk_score)
                 
-            target = scan.get("target")
-            if target not in meta_assets:
-                continue
-
-            visited_targets.add(target)
-            meta = meta_assets.get(target, {})
-            
-            overview = scan.get("overview") or {}
-            tls_results = scan.get("tls_results") or []
-            discovered = scan.get("discovered_services") or []
-            
-            first = tls_results[0] if tls_results else {}
-            cert_days = first.get("cert_days_remaining")
-            
-            cert_status = "Unknown"
-            if isinstance(cert_days, (int, float)):
-                cert_status = "Expired" if cert_days < 0 else ("Expiring" if cert_days <= 30 else "Valid")
-
-            risk_score = float(overview.get("average_compliance_score") or 0)
-            risk_level = self._score_to_risk(risk_score)
-            
-            ipv4, ipv6 = "", ""
-            for svc in discovered:
-                cand = str(svc.get("host", "")).strip()
-                if cand:
-                    try:
-                        parsed = ipaddress.ip_address(cand)
-                        if parsed.version == 4 and not ipv4: ipv4 = cand
-                        if parsed.version == 6 and not ipv6: ipv6 = cand
-                    except ValueError: pass
-
-            asset_row = {
-                "asset_name": target,
-                "url": target if str(target).startswith("http") else f"https://{target}",
-                "ipv4": ipv4,
-                "ipv6": ipv6,
-                "type": meta.get("type") or self._guess_type(target, discovered),
-                "asset_class": scan.get("asset_class", "Other"),
-                "risk": meta.get("risk_level") or risk_level,
-                "risk_score": risk_score,
-                "cert_status": cert_status,
-                "cert_days": cert_days,  # Added for charting
-                "key_length": first.get("key_length") or first.get("key_size") or 0,
-                "last_scan": scan.get("generated_at") or scan.get("scanned_at") or "",
-                "owner": meta.get("owner") or "Unassigned",
-                "notes": meta.get("notes") or "",
-                "overview": overview
-            }
-            assets.append(asset_row)
-
-        for target, meta in meta_assets.items():
-            if target not in visited_targets:
-                assets.append({
-                    "asset_name": target,
-                    "url": target if str(target).startswith("http") else f"https://{target}",
-                    "type": meta.get("type") or "Web App",
+                # Fetch First Certificate safely if mapped, else default
+                cert_days = None
+                key_length = 0
+                cert_status = "Unknown"
+                if latest_scan.certificates:
+                    first_cert = latest_scan.certificates[0]
+                    key_length = first_cert.key_length or 0
+                    if first_cert.valid_until:
+                        delta = (first_cert.valid_until - datetime.now(timezone.utc).replace(tzinfo=None)).days
+                        cert_days = delta
+                        cert_status = "Expired" if delta < 0 else ("Expiring" if delta <= 30 else "Valid")
+                
+                assets_out.append({
+                    "id": meta.id,  # Useful for UI deletions/edits internally
+                    "asset_name": meta.name,
+                    "url": meta.url or (f"https://{meta.name}" if not str(meta.name).startswith("http") else meta.name),
+                    "ipv4": "", # Placeholder mapped historically from discovered services
+                    "ipv6": "",
+                    "type": meta.asset_type or "Web App",
+                    "asset_class": "Automated",
+                    "risk": meta.risk_level or risk_level,
+                    "risk_score": risk_score,
+                    "cert_status": cert_status,
+                    "cert_days": cert_days,
+                    "key_length": key_length,
+                    "last_scan": latest_scan.completed_at.strftime('%Y-%m-%d %H:%M:%S') if latest_scan.completed_at else "",
+                    "owner": meta.owner or "Unassigned",
+                    "notes": meta.notes or "",
+                    "overview": overview
+                })
+            else:
+                # No scans yet for this inventory item
+                assets_out.append({
+                    "id": meta.id,
+                    "asset_name": meta.name,
+                    "url": meta.url or (f"https://{meta.name}" if not str(meta.name).startswith("http") else meta.name),
+                    "type": meta.asset_type or "Web App",
                     "asset_class": "Manual",
-                    "risk": meta.get("risk_level") or "Medium",
+                    "risk": meta.risk_level or "Medium",
                     "risk_score": 50.0,
-                     "cert_status": "Scanning...",
+                    "cert_status": "Scanning...",
                     "cert_days": None,
                     "key_length": 0,
                     "last_scan": "Pending",
-                    "owner": meta.get("owner") or "Unassigned",
-                    "notes": meta.get("notes") or "",
+                    "owner": meta.owner or "Unassigned",
+                    "notes": meta.notes or "",
                     "overview": {}
                 })
-        return assets
+                
+        return assets_out
 
     def get_dashboard_summary(self, assets: list) -> dict:
         """Compute top-level statistics dynamically."""
