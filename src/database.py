@@ -377,10 +377,10 @@ def init_db() -> bool:
             logger.warning("Table 'audit_logs' setup warning: %s", e)
 
         try:
-            cur.execute("""
+            cur.execute(f"""
                 CREATE TABLE IF NOT EXISTS report_schedules (
                     schedule_id     VARCHAR(36) PRIMARY KEY,
-                    created_by_id   VARCHAR(36),
+                    created_by_id   {user_id_column_type},
                     created_by_name VARCHAR(150),
                     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     enabled         BOOLEAN DEFAULT TRUE,
@@ -439,8 +439,12 @@ def init_db() -> bool:
             "ALTER TABLE users ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
             "ALTER TABLE users ADD CONSTRAINT fk_users_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL",
             "ALTER TABLE scans ADD COLUMN asset_class VARCHAR(64)",
+            "ALTER TABLE scans ADD COLUMN scan_id VARCHAR(36)",
             "ALTER TABLE scans ADD COLUMN is_encrypted BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE scans ADD COLUMN report_json LONGTEXT NOT NULL",
+            "ALTER TABLE scans ADD COLUMN scanned_at DATETIME",
             "ALTER TABLE cbom_reports ADD COLUMN is_encrypted BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE scans MODIFY COLUMN scan_id VARCHAR(36)",
             "ALTER TABLE scans MODIFY COLUMN report_json LONGTEXT NOT NULL",
             "ALTER TABLE cbom_reports MODIFY COLUMN cbom_json LONGTEXT NOT NULL",
             # API key column — graceful; ignored if already present
@@ -468,6 +472,26 @@ def init_db() -> bool:
                 cur.execute(alter_cmd)
             except Exception:
                 pass # Column likely already exists
+
+        # Normalize legacy scans tables that were created by older ORM metadata.
+        try:
+            cur.execute("UPDATE scans SET scan_id = UUID() WHERE scan_id IS NULL OR scan_id = ''")
+        except Exception:
+            pass
+        try:
+            cur.execute("ALTER TABLE scans MODIFY COLUMN scan_id VARCHAR(36) NOT NULL")
+        except Exception:
+            pass
+        try:
+            cur.execute("CREATE UNIQUE INDEX uq_scans_scan_id ON scans(scan_id)")
+        except Exception:
+            pass
+
+        # Align report_schedules FK type with users.id type for mixed legacy installs.
+        try:
+            cur.execute(f"ALTER TABLE report_schedules MODIFY COLUMN created_by_id {user_id_column_type}")
+        except Exception:
+            pass
 
         cur.execute(
             "INSERT IGNORE INTO audit_log_chain (id, last_entry_id, last_hash) VALUES (1, NULL, %s)",

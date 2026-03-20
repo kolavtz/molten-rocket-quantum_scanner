@@ -26,66 +26,24 @@ def run_scheduler():
     logger.info("Background Automated Scan Scheduler Started.")
     while True:
         if AUTOMATED_SCAN_ENABLED:
-            logger.info("Automatic Scan sweep initiated.")
+            logger.info("=== Automatic Inventory Scan Sweep Initiated ===")
             try:
-                # 1. Fetch targets from prior scans
-                scans = db.list_scans(limit=100)
-                targets = set(s.get("target") for s in scans if s.get("target"))
+                # Use the new comprehensive inventory scan service
+                from src.services.inventory_scan_service import InventoryScanService
                 
-                # 2. Include targets from manually added Inventory Assets
-                if hasattr(db, 'list_assets'):
-                    try:
-                        for asset in db.list_assets():
-                            tgt = asset.get("target")
-                            if tgt:
-                                targets.add(tgt)
-                    except Exception:
-                        pass
-
-                targets = sorted(list(targets))
+                scan_service = InventoryScanService()
+                result = scan_service.scan_all_assets(background=False)
                 
-                if not targets:
-                    logger.info("No targets found in Database. Skipping sweep.")
+                if result.get("status") == "complete":
+                    summary = result.get("summary", {})
+                    logger.info(f"✓ Automated inventory scan complete: {summary.get('successful')} successful, {summary.get('failed')} failed")
                 else:
-                    logger.info(f"Auto-scanning {len(targets)} unique targets...")
-                    analyzer = TLSAnalyzer()
-                    for t in targets:
-                        try:
-                            logger.info(f"Auto-scanning target: {t}")
-                            result = analyzer.analyze_endpoint(t, 443)
-                            
-                            from src.db import db_session
-                            from src.models import Scan, Asset, Certificate, CBOMSummary
-                            try:
-                                inv = db_session.query(Asset).filter_by(name=t, is_deleted=False).first()
-                                asset_id = inv.id if inv else None
-                                db_scan = Scan(
-                                    target=t,
-                                    status="complete",
-                                    started_at=datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None),
-                                    completed_at=datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None),
-                                    total_assets=1,
-                                    overall_pqc_score=100 if result.is_successful else 0
-                                )
-                                # Basic cert stub
-                                db_scan.certificates.append(Certificate(
-                                    asset_id=asset_id,
-                                    issuer="Automated Scheduler",
-                                    subject=t,
-                                    valid_until=datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(days=90)
-                                ))
-                                db_scan.cbom_summary = CBOMSummary(total_components=1, weak_crypto_count=0, cert_issues_count=0)
-                                db_session.add(db_scan)
-                                db_session.commit()
-                                logger.info(f"Saved automated scan for {t} via SQLAlchemy")
-                            except Exception as db_err:
-                                db_session.rollback()
-                                logger.error(f"Failed to save automated scan: {db_err}")
-                            
-                        except Exception as e:
-                            logger.error(f"Auto-scanning failed for {t}: {e}")
+                    logger.error(f"✗ Automated inventory scan failed: {result.get('error', 'Unknown error')}")
+                    
             except Exception as e:
                 logger.error(f"Scheduler sweep failed: {e}")
+                import traceback
+                traceback.print_exc()
                 
         # Wait for the interval in hours
         logger.info(f"Scheduler sleeping for {AUTOMATED_SCAN_INTERVAL_HOURS} hours.")
@@ -96,3 +54,4 @@ def start_scheduler():
     t = threading.Thread(target=run_scheduler, name="AutoScannerThread", daemon=True)
     t.start()
     logger.info("Scheduler thread dispatched successfully.")
+

@@ -50,8 +50,6 @@
     <h3 style="margin-bottom:0;">PQC Support telemetry</h3>
   </div>
   
-  {{ tb.search_form('pqc_posture', request.args.get('q', ''), request.args.get('page_size', 25)) }}
-
   <div class="scans-table-wrapper">
     <table class="scans-table" id="supportTable">
       <thead>
@@ -82,9 +80,6 @@
       </tbody>
     </table>
     
-    {% if page_data and page_data.get('items') %}
-      {{ tb.pagination_controls('pqc_posture', page_data) }}
-    {% endif %}
   </div>
 </section>
 

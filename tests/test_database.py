@@ -105,6 +105,20 @@ class TestInitDb:
         assert result is False
         mock_conn.close.assert_called_once()
 
+    @patch("src.database._get_server_connection")
+    def test_init_db_runs_legacy_scans_compatibility_migrations(self, mock_get_conn, mock_conn, mock_cursor):
+        """init_db should execute scan schema compatibility SQL for legacy DBs."""
+        mock_get_conn.return_value = mock_conn
+        from src.database import init_db
+
+        result = init_db()
+
+        assert result is True
+        executed_sql = "\n".join(call_args[0][0] for call_args in mock_cursor.execute.call_args_list)
+        assert "ALTER TABLE scans ADD COLUMN scan_id VARCHAR(36)" in executed_sql
+        assert "ALTER TABLE scans ADD COLUMN report_json LONGTEXT NOT NULL" in executed_sql
+        assert "UPDATE scans SET scan_id = UUID()" in executed_sql
+
 
 # ── save_scan ────────────────────────────────────────────────────────
 

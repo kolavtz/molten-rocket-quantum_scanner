@@ -7,10 +7,67 @@
   <p class="hero-subtitle">Unified asset, certificate, and cryptography posture</p>
 </section>
 
+<!-- ═════════════════════════════════════════════════════════════ -->
+<!-- BULK SCANNING SECTION: Manual + Scheduled Scanning Control -->
+<!-- ═════════════════════════════════════════════════════════════ -->
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;border-left:4px solid var(--accent);">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+    <div>
+      <h3 style="margin-bottom:0.3rem;">🔍 Inventory Scanning Control</h3>
+      <p style="font-size:0.8rem;color:var(--text-secondary);margin:0;">Comprehensive asset scanning: TLS/Certificates • DNS Records • CBOM • PQC Posture • KPIs</p>
+    </div>
+  </div>
+  
+  <div style="display:grid;grid-template-columns:auto 1fr;gap:1rem;margin-bottom:1rem;">
+    <!-- Manual Scan Buttons -->
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+      <form action="/dashboard/inventory/scan" method="POST" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="background" value="true">
+        <button type="submit" class="scan-button" style="padding:0.5rem 1rem;background:var(--accent);font-weight:700;">
+          ▶ Scan All Assets (Background)
+        </button>
+      </form>
+      <button onclick="toggleScheduleSettings()" class="scan-button" style="padding:0.5rem 1rem;">
+        ⚙ Schedule Settings
+      </button>
+    </div>
+    
+    <!-- Scan Status Display -->
+    <div id="scanStatus" style="display:flex;gap:0.75rem;align-items:center;font-size:0.85rem;">
+      <span 
+        id="scanIndicator" 
+        style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981;"
+      ></span>
+      <span id="scanStatusText">Idle (Ready)</span>
+    </div>
+  </div>
+  
+  <!-- Schedule Settings Panel -->
+  <div id="schedulePanel" style="display:none;background:rgba(0,0,0,0.3);padding:1rem;border-radius:6px;border:1px solid rgba(255,255,255,0.1);">
+    <h4 style="margin-bottom:0.75rem;">Automatic Scan Schedule</h4>
+    <form id="scheduleForm" style="display:grid;grid-template-columns:auto auto auto;gap:0.75rem;align-items:end;">
+      <div>
+        <label style="font-size:0.75rem;color:var(--text-secondary);display:block;margin-bottom:0.3rem;">Enable Auto-Scan</label>
+        <input type="checkbox" id="scheduleEnabled" name="enabled" style="width:20px;height:20px;">
+      </div>
+      <div>
+        <label style="font-size:0.75rem;color:var(--text-secondary);display:block;margin-bottom:0.3rem;">Interval (hours)</label>
+        <input type="number" id="scheduleInterval" name="interval_hours" value="24" min="1" max="168" style="width:80px;padding:0.4rem;">
+      </div>
+      <button type="button" onclick="saveScheduleSettings()" class="scan-button" style="padding:0.4rem 0.8rem;">Save</button>
+      <button type="button" onclick="toggleScheduleSettings()" class="scan-button" style="padding:0.4rem 0.8rem;background:transparent;border-color:rgba(255,255,255,0.2);">Cancel</button>
+    </form>
+    <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:0.5rem;">
+      ℹ Scans will run automatically at the specified interval, capturing all asset details.
+    </div>
+  </div>
+</section>
+
 {% if vm.empty %}
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
   <strong>No asset inventory data yet.</strong>
-  <p style="margin-top:0.4rem;color:var(--text-secondary);">Run a scan to populate assets, certificates, and cryptography posture.</p>
+  <p style="margin-top:0.4rem;color:var(--text-secondary);">Add assets above, then click "Scan All Assets" to populate certificates, DNS, CBOM, and PQC data.</p>
 </section>
 {% endif %}
 
@@ -85,8 +142,6 @@
     </button>
   </div>
   
-  {{ tb.search_form('asset_inventory_page', request.args.get('q', ''), request.args.get('page_size', 25)) }}
-
   <!-- Inline Add Asset Form -->
   <div id="addAssetForm" class="glass-card" style="display:none;padding:0.9rem;margin-bottom:1rem;background:rgba(0,0,0,0.15);border-color:var(--accent);">
     <form action="/dashboard/assets" method="POST" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:0.6rem;align-items:end;">
@@ -149,6 +204,10 @@
             <td>{{ row.risk_level }}</td>
             <td>{{ row.last_scan_id or 'Never' }}</td>
             <td>
+              <form action="/dashboard/inventory/asset/{{ row.id }}/scan" method="POST" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.65rem;background:var(--accent);margin-right:0.2rem;">Scan</button>
+              </form>
               <form action="/dashboard/assets/{{ row.id }}/delete" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete {{ row.name }}?');">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.65rem;background:var(--danger);">Delete</button>
@@ -166,9 +225,6 @@
       </tbody>
     </table>
     
-    {% if page_data and page_data.get('items') %}
-      {{ tb.pagination_controls('asset_inventory_page', page_data) }}
-    {% endif %}
   </div>
 
 </section>
@@ -282,5 +338,78 @@
     }
   }
 })();
+
+// ══════════════════════════════════════════════════════════════
+// INVENTORY SCANNING CONTROL FUNCTIONS
+// ══════════════════════════════════════════════════════════════
+
+function toggleScheduleSettings() {
+  const panel = document.getElementById('schedulePanel');
+  panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+  
+  // Load current settings
+  if (panel.style.display !== 'none') {
+    fetch('/dashboard/inventory/schedule')
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'success') {
+          document.getElementById('scheduleEnabled').checked = data.data.enabled;
+          document.getElementById('scheduleInterval').value = data.data.interval_hours;
+        }
+      })
+      .catch(e => console.error('Failed to load schedule settings:', e));
+  }
+}
+
+function saveScheduleSettings() {
+  const formData = new FormData();
+  formData.append('enabled', document.getElementById('scheduleEnabled').checked ? 'true' : 'false');
+  formData.append('interval_hours', document.getElementById('scheduleInterval').value);
+  
+  fetch('/dashboard/inventory/schedule', {
+    method: 'POST',
+    body: formData
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.status === 'success') {
+      alert('Schedule settings saved successfully!');
+      toggleScheduleSettings();
+    } else {
+      alert('Error: ' + data.message);
+    }
+  })
+  .catch(e => {
+    alert('Failed to save settings: ' + e.message);
+  });
+}
+
+function pollScanStatus() {
+  fetch('/dashboard/inventory/scan-status')
+    .then(r => r.json())
+    .then(data => {
+      if (data.status === 'success') {
+        const indicator = document.getElementById('scanIndicator');
+        const statusText = document.getElementById('scanStatusText');
+        
+        if (data.data.in_progress) {
+          indicator.style.background = '#f59e0b';
+          statusText.textContent = 'Scanning... (' + data.data.last_results_count + ' assets)';
+        } else {
+          indicator.style.background = '#10b981';
+          if (data.data.last_scan_time) {
+            statusText.textContent = 'Last scan: ' + new Date(data.data.last_scan_time).toLocaleString();
+          } else {
+            statusText.textContent = 'Idle (Ready)';
+          }
+        }
+      }
+    })
+    .catch(e => console.error('Failed to poll scan status:', e));
+}
+
+// Poll scan status every 3 seconds
+setInterval(pollScanStatus, 3000);
+pollScanStatus(); // Initial poll
 </script>
 {% endblock %}

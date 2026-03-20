@@ -64,8 +64,6 @@
     <h3 style="margin-bottom:0;">Applications Crypto Table</h3>
   </div>
   
-  {{ tb.search_form('cbom_dashboard', request.args.get('q', ''), request.args.get('page_size', 25)) }}
-
   <div class="scans-table-wrapper" style="margin-top: 0.8rem;">
     <table class="scans-table">
       <thead>
@@ -91,9 +89,6 @@
         {% endif %}
       </tbody>
     </table>
-    {% if page_data and page_data.get('items') %}
-      {{ tb.pagination_controls('cbom_dashboard', page_data) }}
-    {% endif %}
   </div>
 </section>
 

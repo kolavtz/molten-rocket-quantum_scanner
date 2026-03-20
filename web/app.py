@@ -171,6 +171,15 @@ def load_theme():
 def inject_theme():
     return dict(theme=load_theme())
 
+@app.context_processor
+def inject_csrf_token():
+    """Ensure CSRF token is always available in templates."""
+    try:
+        from flask_wtf.csrf import generate_csrf
+        return dict(csrf_token=generate_csrf)
+    except Exception:
+        return dict(csrf_token=lambda: "")
+
 # Authentication
 login_manager = LoginManager()
 login_manager.login_view = "login"
@@ -831,6 +840,10 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None, asset_class_h
             overall_pqc_score=overall_score,
             cbom_path=cbom_path
         )
+        db_session.add(db_scan)
+        db_session.flush()
+
+        scan_pk = getattr(db_scan, "id", None) or getattr(db_scan, "scan_id", None)
         
         # Resolve Asset
         inventory_asset = db_session.query(Asset).filter_by(name=target, is_deleted=False).first()
@@ -838,12 +851,17 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None, asset_class_h
         
         # Discovery Items
         for svc in discovered_services:
-            db_scan.discovery_items.append(DiscoveryItem(
+            discovery_item = DiscoveryItem(
                 asset_id=asset_id,
                 type="ip",
                 status="new",
                 detection_date=datetime.now()
-            ))
+            )
+            if hasattr(db_scan, "discovery_items"):
+                db_scan.discovery_items.append(discovery_item)
+            elif hasattr(discovery_item, "scan_id") and scan_pk is not None:
+                discovery_item.scan_id = scan_pk
+                db_session.add(discovery_item)
             
         # TLS & Certificates
         for tls in tls_results:
@@ -859,38 +877,56 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None, asset_class_h
                 cipher_suite=tls.get("cipher_suite", ""),
                 ca=str(tls.get("issuer", {}).get("CN", "Unknown"))
             )
-            db_scan.certificates.append(cert_obj)
+            if hasattr(db_scan, "certificates"):
+                db_scan.certificates.append(cert_obj)
+            elif hasattr(cert_obj, "scan_id") and scan_pk is not None:
+                cert_obj.scan_id = scan_pk
+                db_session.add(cert_obj)
             
         # PQC
         for pq in pqc_dicts:
-            db_scan.pqc_classifications.append(PQCClassification(
+            pqc_obj = PQCClassification(
                 asset_id=asset_id,
                 algorithm_name=pq.get("algorithm", "Unknown"),
                 algorithm_type=pq.get("category", "Unknown"),
                 quantum_safe_status=pq.get("status", "Unknown"),
                 nist_category=pq.get("nist_status", "None"),
                 pqc_score=float(pq.get("score", 0))
-            ))
+            )
+            if hasattr(db_scan, "pqc_classifications"):
+                db_scan.pqc_classifications.append(pqc_obj)
+            elif hasattr(pqc_obj, "scan_id") and scan_pk is not None:
+                pqc_obj.scan_id = scan_pk
+                db_session.add(pqc_obj)
             
         # CBOM
-        db_scan.cbom_summary = CBOMSummary(
+        cbom_summary = CBOMSummary(
             total_components=len(pqc_dicts) + len(tls_results),
             weak_crypto_count=sum(1 for tls in tls_results if tls.get("protocol_version") in ("TLS 1.0", "SSLv3")),
             cert_issues_count=0,
             json_path=cbom_path
         )
+        if hasattr(db_scan, "cbom_summary"):
+            db_scan.cbom_summary = cbom_summary
+        elif hasattr(cbom_summary, "scan_id") and scan_pk is not None:
+            cbom_summary.scan_id = scan_pk
+            db_session.add(cbom_summary)
         
         for cmp in cbom_dict.get("components", []):
-            db_scan.cbom_entries.append(CBOMEntry(
+            cbom_entry = CBOMEntry(
                 asset_id=asset_id,
                 algorithm_name=cmp.get("name", ""),
                 category=cmp.get("type", "crypto-asset"),
-                nid="NIST-Unknown",
+                nist_status="Unknown",
                 quantum_safe_flag=False,
                 hndl_level="Medium"
-            ))
+            )
+            if hasattr(db_scan, "cbom_entries"):
+                db_scan.cbom_entries.append(cbom_entry)
+            elif hasattr(cbom_entry, "scan_id") and scan_pk is not None:
+                cbom_entry.scan_id = scan_pk
+                db_session.add(cbom_entry)
 
-        db_session.add(db_scan)
         db_session.commit()
     except SQLAlchemyError as err:
         db_session.rollback()
@@ -1352,9 +1388,11 @@ def _host_from_target(target: str) -> str:
 
 
 def _build_asset_inventory_view() -> dict:
-    """Build inventory view-model from live scans only (no seed fallback)."""
+    """Build inventory view-model from both database assets AND live scans."""
     from collections import Counter
     import ipaddress
+    from src.db import db_session
+    from src.models import Asset
 
     assets: list[dict] = []
     nameserver_records: list[dict] = []
@@ -1364,12 +1402,47 @@ def _build_asset_inventory_view() -> dict:
     cert_bucket = Counter({"0-30": 0, "30-60": 0, "60-90": 0, ">90": 0})
     visited_targets = set()
 
+    # First, load all assets from the Asset table (database)
+    db_assets = db_session.query(Asset).filter(Asset.is_deleted == False).all()
+    
+    for db_asset in db_assets:
+        asset_dict = {
+            "asset_name": db_asset.name,
+            "url": db_asset.url or f"https://{db_asset.name}",
+            "ipv4": db_asset.ipv4 or "",
+            "ipv6": db_asset.ipv6 or "",
+            "type": db_asset.asset_type or "Web App",
+            "asset_class": "Database",
+            "owner": db_asset.owner or "Unassigned",
+            "risk": db_asset.risk_level or "Medium",
+            "cert_status": "Not Scanned",
+            "key_length": 0,
+            "last_scan": _iso_date(str(db_asset.updated_at)) if db_asset.updated_at else "Pending",
+        }
+        assets.append(asset_dict)
+        visited_targets.add(db_asset.name)
+
+    # Then augment with scan data for scanned assets
+    scans_feed = []
+    seen_scan_ids = set()
+    for scan in scan_store.values():
+        if isinstance(scan, dict):
+            sid = str(scan.get("scan_id") or "")
+            seen_scan_ids.add(sid)
+            scans_feed.append(scan)
     for scan in db.list_scans(limit=100):
+        if not isinstance(scan, dict):
+            continue
+        sid = str(scan.get("scan_id") or "")
+        if sid and sid in seen_scan_ids:
+            continue
+        scans_feed.append(scan)
+
+    for scan in scans_feed:
         if scan.get("status") != "complete":
             continue
 
         target = str(scan.get("target", "")).strip()
-        visited_targets.add(target)
         host = _host_from_target(target)
         if not host:
             continue
@@ -1440,20 +1513,35 @@ def _build_asset_inventory_view() -> dict:
         elif discovered:
             kind = "Server"
 
-        row = {
-            "asset_name": host,
-            "url": target if str(target).startswith("http") else f"https://{host}",
-            "ipv4": ipv4,
-            "ipv6": ipv6,
-            "type": kind,
-            "asset_class": str(scan.get("asset_class") or "Other"),
-            "owner": "Infra",
-            "risk": risk,
-            "cert_status": cert_status,
-            "key_length": key_length,
-            "last_scan": _iso_date(str(scan.get("generated_at", ""))),
-        }
-        assets.append(row)
+        # Update existing asset with scan data if it exists
+        existing_asset = next((a for a in assets if a["asset_name"].lower() == host.lower()), None)
+        if existing_asset:
+            existing_asset.update({
+                "ipv4": ipv4 or existing_asset.get("ipv4"),
+                "ipv6": ipv6 or existing_asset.get("ipv6"),
+                "type": kind,
+                "risk": risk,
+                "cert_status": cert_status,
+                "key_length": key_length,
+                "last_scan": _iso_date(str(scan.get("generated_at", ""))),
+                "asset_class": "Scanned",
+            })
+        else:
+            # New asset from scan not in database yet
+            row = {
+                "asset_name": host,
+                "url": target if str(target).startswith("http") else f"https://{host}",
+                "ipv4": ipv4,
+                "ipv6": ipv6,
+                "type": kind,
+                "asset_class": "Scanned",
+                "owner": "Infra",
+                "risk": risk,
+                "cert_status": cert_status,
+                "key_length": key_length,
+                "last_scan": _iso_date(str(scan.get("generated_at", ""))),
+            }
+            assets.append(row)
 
         crypto_overview.append({
             "asset": host,
@@ -1461,7 +1549,7 @@ def _build_asset_inventory_view() -> dict:
             "cipher_suite": cipher_suite,
             "tls_version": tls_version,
             "ca": issuer_name,
-            "last_scan": row["last_scan"],
+            "last_scan": _iso_date(str(scan.get("generated_at", ""))),
         })
 
         for dns_row in (scan.get("dns_records") or []):
@@ -1496,24 +1584,7 @@ def _build_asset_inventory_view() -> dict:
                 }
             )
 
-    # Inject manually added assets that haven't been scanned from discovery promote
-    known_assets = {a["target"]: a for a in db.list_assets()}
-    for tgt, meta in known_assets.items():
-        if tgt not in visited_targets:
-            assets.append({
-                "asset_name": tgt,
-                "url": tgt if str(tgt).startswith("http") else f"https://{tgt}",
-                "ipv4": "",
-                "ipv6": "",
-                "type": meta.get("type") or "Web App",
-                "asset_class": "Manual",
-                "owner": meta.get("owner") or "Unassigned",
-                "risk": meta.get("risk_level") or "Medium",
-                "cert_status": "Scanning...",
-                "key_length": 0,
-                "last_scan": "Pending",
-            })
-
+    # Calculate KPIs from the complete asset list
     kpis = {
         "total_assets": len(assets),
         "public_web_apps": sum(1 for a in assets if a["type"] == "Web App"),
@@ -1583,7 +1654,11 @@ def _build_asset_discovery_view(include_in_progress: bool = False) -> dict:
     edge_ids: set[str] = set()
 
     # Pre-load known assets for cross-correlation
-    known_assets = {a["target"] for a in db.list_assets()}
+    known_assets = {
+        str(a.get("target") or a.get("name") or a.get("asset_name") or "").strip()
+        for a in db.list_assets()
+        if str(a.get("target") or a.get("name") or a.get("asset_name") or "").strip()
+    }
 
     def add_node(node_id: str, label: str, group: str, title: str) -> None:
         if node_id in node_ids:
@@ -1598,7 +1673,22 @@ def _build_asset_discovery_view(include_in_progress: bool = False) -> dict:
         edge_ids.add(key)
         edges.append({"id": key, "from": src, "to": dst})
 
+    scans_feed = []
+    seen_scan_ids = set()
+    for scan in scan_store.values():
+        if isinstance(scan, dict):
+            sid = str(scan.get("scan_id") or "")
+            seen_scan_ids.add(sid)
+            scans_feed.append(scan)
     for scan in db.list_scans(limit=100):
+        if not isinstance(scan, dict):
+            continue
+        sid = str(scan.get("scan_id") or "")
+        if sid and sid in seen_scan_ids:
+            continue
+        scans_feed.append(scan)
+
+    for scan in scans_feed:
         if scan.get("status") != "complete" and not include_in_progress:
             continue
 
@@ -1750,31 +1840,23 @@ def _build_asset_discovery_view(include_in_progress: bool = False) -> dict:
 @app.route("/asset-inventory")
 @login_required
 def asset_inventory_page():
-    from flask import request
     from src.db import db_session
     from src.models import Asset
-    from src.table_helper import paginate_query
-    
-    page = request.args.get('page', 1, type=int)
-    page_size = request.args.get('page_size', 25, type=int)
-    sort = request.args.get('sort', 'name')
-    order = request.args.get('order', 'asc')
-    q = request.args.get('q', '')
-
-    query = db_session.query(Asset).filter(Asset.is_deleted == False)
-
-    searchable_columns = [Asset.name, Asset.url, Asset.ipv4, Asset.owner]
-
-    page_data = paginate_query(
-        query=query, 
-        model=Asset, 
-        page=page, 
-        page_size=page_size, 
-        sort_field=sort, 
-        sort_dir=order, 
-        search_term=q, 
-        searchable_columns=searchable_columns
+    items = (
+        db_session.query(Asset)
+        .filter(Asset.is_deleted == False)
+        .order_by(Asset.name.asc())
+        .all()
     )
+    page_data = {
+        "items": items,
+        "total_count": len(items),
+        "page": 1,
+        "page_size": len(items),
+        "total_pages": 1,
+        "has_next": False,
+        "has_prev": False,
+    }
 
     try:
         vm = _build_asset_inventory_view()
@@ -1819,43 +1901,71 @@ def discovery_graph_payload():
 @app.route("/cbom-dashboard")
 @login_required
 def cbom_dashboard():
-    """Build CBOM view mapped cleanly natively onto MySQL structures."""
+    """Build CBOM view with real cryptographic metrics."""
     from src.db import db_session
-    from src.models import Certificate
-    from src.table_helper import paginate_query
-    from flask import request
+    from src.models import Certificate, Scan
     from sqlalchemy import func
+    from collections import Counter
     try:
         cert_count = db_session.query(func.count(Certificate.id)).scalar() or 0
-        weak_count = db_session.query(func.count(Certificate.id)).filter(Certificate.tls_version.in_(["TLS 1.0", "TLS 1.1", "SSLv3", "SSLv2"])).scalar() or 0
+        weak_tls = db_session.query(func.count(Certificate.id)).filter(Certificate.tls_version.in_(["TLS 1.0", "TLS 1.1", "SSLv3", "SSLv2"])).scalar() or 0
+        weak_keys = db_session.query(func.count(Certificate.id)).filter(Certificate.key_length < 2048).scalar() or 0
         
-        base_query = db_session.query(Certificate)
-        page = request.args.get('page', 1, type=int)
-        page_size = request.args.get('page_size', 25, type=int)
-        sort = request.args.get('sort', 'valid_until')
-        order = request.args.get('order', 'asc')
-        q = request.args.get('q', '')
-        searchable_columns = [Certificate.ca, Certificate.issuer, Certificate.subject, Certificate.cipher_suite]
-        page_data = paginate_query(base_query, Certificate, page, page_size, sort, order, q, searchable_columns)
+        # Real scan count (unique targets scanned)
+        scan_count = db_session.query(func.count(func.distinct(Scan.target))).filter(Scan.status == "complete").scalar() or 0
+        
+        items = db_session.query(Certificate).order_by(Certificate.id.desc()).all()
+        page_data = {
+            "items": items,
+            "total_count": len(items),
+            "page": 1,
+            "page_size": len(items),
+            "total_pages": 1,
+            "has_next": False,
+            "has_prev": False,
+        }
+
+        # Calculate key length distribution
+        certs = db_session.query(Certificate).all()
+        key_dist = Counter()
+        cipher_dist = Counter()
+        ca_dist = Counter()
+        tls_dist = Counter()
+        
+        for cert in certs:
+            kl = int(cert.key_length) if cert.key_length else 0
+            if kl >= 4096:
+                key_dist["4096+"] += 1
+            elif kl >= 2048:
+                key_dist["2048-4095"] += 1
+            elif kl > 0:
+                key_dist[f"<2048"] += 1
+            
+            if cert.cipher_suite:
+                cipher_dist[cert.cipher_suite[:30]] += 1
+            if cert.ca:
+                ca_dist[cert.ca[:25]] += 1
+            if cert.tls_version:
+                tls_dist[cert.tls_version] += 1
 
         vm = {
             "empty": cert_count == 0,
             "kpis": {
-                "total_applications": 0, 
-                "sites_surveyed": 0, 
+                "total_applications": scan_count, 
+                "sites_surveyed": scan_count, 
                 "active_certificates": cert_count,
-                "weak_cryptography": weak_count, 
-                "certificate_issues": weak_count,
+                "weak_cryptography": weak_tls + weak_keys, 
+                "certificate_issues": weak_tls + weak_keys,
             },
-            "key_length_distribution": {},
-            "cipher_usage": {}, 
-            "top_cas": {}, 
-            "protocols": {},
+            "key_length_distribution": dict(key_dist) or {"No Data": 0},
+            "cipher_usage": dict(cipher_dist.most_common(5)) or {"No Data": 0}, 
+            "top_cas": dict(ca_dist.most_common(5)) or {"No Data": 0}, 
+            "protocols": dict(tls_dist) or {"No Data": 0},
             "rows": [], 
-            "weakness_heatmap": [],
+            "weakness_heatmap": [{"x": "Weak TLS", "y": "Risk", "value": weak_tls}, {"x": "Weak Keys", "y": "Risk", "value": weak_keys}],
         }
-    except Exception:
-        vm = {"empty": True, "kpis": {}}
+    except Exception as e:
+        vm = {"empty": True, "kpis": {"total_applications": 0, "sites_surveyed": 0, "active_certificates": 0, "weak_cryptography": 0, "certificate_issues": 0}}
         page_data = {"items": [], "total_count": 0, "has_next": False, "has_prev": False}
     return render_template("cbom_dashboard.html", vm=vm, page_data=page_data)
 
@@ -1863,62 +1973,155 @@ def cbom_dashboard():
 @app.route("/pqc-posture")
 @login_required
 def pqc_posture():
-    """Build PQC posture from live assessments natively via ORM."""
+    """Build PQC posture with real quantum-safe readiness metrics."""
     from src.db import db_session
     from src.models import PQCClassification, Scan
-    from src.table_helper import paginate_query
-    from flask import request
+    from sqlalchemy import func
+    from collections import Counter
     
-    base_query = db_session.query(Scan).filter(Scan.status == "complete")
-    page = request.args.get('page', 1, type=int)
-    page_size = request.args.get('page_size', 25, type=int)
-    sort = request.args.get('sort', 'started_at')
-    order = request.args.get('order', 'desc')
-    q = request.args.get('q', '')
-    searchable_columns = [Scan.target, Scan.status]
-    page_data = paginate_query(base_query, Scan, page, page_size, sort, order, q, searchable_columns)
-    
-    vm = {
-        "empty": page_data["total_count"] == 0,
-        "overall": {"elite": 0, "standard": 0, "legacy": 0, "critical_apps": 0},
-        "grade_counts": {"Elite": 0, "Critical": 0, "Standard": 0},
-        "status_distribution": {},
-        "recommendations": ["Expand environment scanning capabilities."],
-        "support_rows": [],
-        "risk_heatmap": []
-    }
+    try:
+        items = (
+            db_session.query(Scan)
+            .filter(Scan.status == "complete")
+            .order_by(Scan.started_at.desc())
+            .all()
+        )
+        page_data = {
+            "items": items,
+            "total_count": len(items),
+            "page": 1,
+            "page_size": len(items),
+            "total_pages": 1,
+            "has_next": False,
+            "has_prev": False,
+        }
+        
+        # Calculate PQC posture from scans
+        scans = items
+        pqc_counts = Counter()
+        pqc_scores = []
+        
+        for scan in scans:
+            score = float(scan.overall_pqc_score or 0) if hasattr(scan, 'overall_pqc_score') else 0
+            pqc_scores.append(score)
+            
+            if score >= 80:
+                pqc_counts["Elite"] += 1
+            elif score >= 60:
+                pqc_counts["Standard"] += 1
+            elif score >= 40:
+                pqc_counts["Legacy"] += 1
+            else:
+                pqc_counts["Critical"] += 1
+        
+        avg_pqc_score = sum(pqc_scores) / len(pqc_scores) if pqc_scores else 0
+        elite_count = pqc_counts.get("Elite", 0)
+        standard_count = pqc_counts.get("Standard", 0)
+        legacy_count = pqc_counts.get("Legacy", 0)
+        critical_count = pqc_counts.get("Critical", 0)
+        
+        vm = {
+            "empty": page_data["total_count"] == 0,
+            "overall": {"elite": elite_count, "standard": standard_count, "legacy": legacy_count, "critical_apps": critical_count},
+            "grade_counts": {"Elite": elite_count, "Standard": standard_count, "Legacy": legacy_count, "Critical": critical_count},
+            "average_pqc_score": round(avg_pqc_score, 1),
+            "status_distribution": dict(pqc_counts),
+            "recommendations": [
+                f"Total scanned targets: {len(scans)}",
+                f"Average PQC readiness: {round(avg_pqc_score, 1)}%",
+                f"Critical applications requiring remediation: {critical_count}",
+            ],
+            "support_rows": [],
+            "risk_heatmap": [{"x": "PQC Grade", "y": grade, "value": pqc_counts.get(grade, 0)} for grade in ["Critical", "Legacy", "Standard", "Elite"]]
+        }
+    except Exception as e:
+        vm = {
+            "empty": True,
+            "overall": {"elite": 0, "standard": 0, "legacy": 0, "critical_apps": 0},
+            "grade_counts": {"Elite": 0, "Critical": 0, "Standard": 0},
+            "status_distribution": {},
+            "recommendations": ["Run scans to populate PQC posture."],
+            "support_rows": [],
+            "risk_heatmap": []
+        }
+        page_data = {"items": [], "total_count": 0, "has_next": False, "has_prev": False}
     return render_template("pqc_posture.html", vm=vm, page_data=page_data)
 
 
 @app.route("/cyber-rating")
 @login_required
 def cyber_rating():
-    """Build cyber rating from live compliance scores cleanly mapped over SQLAlchemy pagination structs."""
+    """Build cyber rating with real enterprise compliance metrics."""
     from src.db import db_session
     from src.models import Scan
-    from src.table_helper import paginate_query
-    from flask import request
     from sqlalchemy import func
+    from collections import Counter
     try:
-        scan_count = db_session.query(func.count(Scan.id)).scalar() or 0
-        base_query = db_session.query(Scan).filter(Scan.status == "complete")
-        page = request.args.get('page', 1, type=int)
-        page_size = request.args.get('page_size', 25, type=int)
-        sort = request.args.get('sort', 'overall_pqc_score')
-        order = request.args.get('order', 'desc')
-        q = request.args.get('q', '')
-        searchable_columns = [Scan.target]
-        page_data = paginate_query(base_query, Scan, page, page_size, sort, order, q, searchable_columns)
+        scan_pk = getattr(Scan, "id", None) or getattr(Scan, "scan_id")
+        scan_count = db_session.query(func.count(scan_pk)).scalar() or 0
+        items = (
+            db_session.query(Scan)
+            .filter(Scan.status == "complete")
+            .order_by(Scan.started_at.desc())
+            .all()
+        )
+        page_data = {
+            "items": items,
+            "total_count": len(items),
+            "page": 1,
+            "page_size": len(items),
+            "total_pages": 1,
+            "has_next": False,
+            "has_prev": False,
+        }
+        
+        # Calculate enterprise-wide cyber rating
+        scans = items
+        scores = []
+        tier_dist = Counter()
+        
+        for scan in scans:
+            # Get available score field (multiple naming conventions)
+            score = None
+            if hasattr(scan, 'overall_pqc_score') and scan.overall_pqc_score:
+                score = float(scan.overall_pqc_score)
+            elif hasattr(scan, 'average_compliance_score') and scan.average_compliance_score:
+                score = float(scan.average_compliance_score)
+            else:
+                score = 50  # Default neutral
+            
+            scores.append(score)
+            
+            # Classify into tier
+            if score >= 850:
+                tier_dist["Elite-PQC"] += 1
+            elif score >= 600:
+                tier_dist["Standard"] += 1
+            elif score >= 350:
+                tier_dist["Legacy"] += 1
+            else:
+                tier_dist["Critical"] += 1
+        
+        overall_score = int(sum(scores) / len(scores)) if scores else 0
+        tier_labels = {0: "Critical", 1: "Legacy", 2: "Standard", 3: "Elite"}
+        if overall_score >= 850:
+            label = "Elite"
+        elif overall_score >= 600:
+            label = "Standard"
+        elif overall_score >= 350:
+            label = "Legacy"
+        else:
+            label = "Critical"
         
         vm = {
             "empty": scan_count == 0,
-            "overall_score": 0,
-            "label": "Unknown",
-            "tier_counts": {"Critical": 0, "Legacy": 0, "Standard": 0, "Elite-PQC": 0},
-            "tier_heatmap": [],
+            "overall_score": overall_score,
+            "label": label,
+            "tier_counts": {"Critical": tier_dist.get("Critical", 0), "Legacy": tier_dist.get("Legacy", 0), "Standard": tier_dist.get("Standard", 0), "Elite-PQC": tier_dist.get("Elite-PQC", 0)},
+            "tier_heatmap": [{"x": "Cyber Rating", "y": tier, "value": tier_dist.get(tier, 0)} for tier in ["Critical", "Legacy", "Standard", "Elite-PQC"]],
         }
-    except Exception:
-        vm = {"empty": True, "overall_score": 0, "label": "Unknown", "tier_counts": {}, "tier_heatmap": []}
+    except Exception as e:
+        vm = {"empty": True, "overall_score": 0, "label": "Unknown", "tier_counts": {"Critical": 0, "Legacy": 0, "Standard": 0, "Elite-PQC": 0}, "tier_heatmap": []}
         page_data = {"items": [], "total_count": 0, "has_next": False, "has_prev": False}
     return render_template("cyber_rating.html", vm=vm, page_data=page_data)
 
@@ -1930,25 +2133,47 @@ def reporting():
     from src.models import Scan
     from sqlalchemy import func
     try:
-        scan_count = db_session.query(func.count(Scan.id)).scalar() or 0
+        scan_pk = getattr(Scan, "id", None) or getattr(Scan, "scan_id")
+        scan_count = db_session.query(func.count(scan_pk)).scalar() or 0
+        
+        # Build real reporting metrics
+        inv = _build_asset_inventory_view()
+        
+        from src.models import Certificate
+        cert_count = db_session.query(func.count(Certificate.id)).scalar() or 0
+        weak_certs = db_session.query(func.count(Certificate.id)).filter(
+            Certificate.tls_version.in_(["TLS 1.0", "TLS 1.1", "SSLv3", "SSLv2"])
+        ).scalar() or 0
+        
+        scans = db_session.query(Scan).filter(Scan.status == "complete").all()
+        pqc_scores = [float(getattr(s, 'overall_pqc_score', 0) or 50) for s in scans]
+        avg_pqc_score = int(sum(pqc_scores) / len(pqc_scores)) if pqc_scores else 0
+        
+        unique_targets = db_session.query(func.count(func.distinct(Scan.target))).filter(Scan.status == "complete").scalar() or 0
+        
         vm = {
             "summary": {
-                "discovery": "Domains: 0 | SSL: 0 | IP/Subnets: 0 | Software: 0",
-                "pqc": "Assessed endpoints: 0",
-                "cbom": "Total vulnerable crypto components: 0",
-                "cyber_rating": "Average enterprise score: 0/1000",
-                "inventory": "Assets: 0 | Expiring certs: 0 | High risk assets: 0",
+                "discovery": f"Targets: {unique_targets} | Complete Scans: {scan_count} | Assessed Endpoints: {len(scans)}",
+                "pqc": f"Assessed endpoints: {len(scans)} | Average PQC Score: {avg_pqc_score}%",
+                "cbom": f"Total certificates: {cert_count} | Weak cryptography: {weak_certs}",
+                "cyber_rating": f"Average enterprise score: {avg_pqc_score}/100",
+                "inventory": f"Assets: {inv.get('kpis', {}).get('total_assets', 0)} | Expiring: {inv.get('kpis', {}).get('expiring_certificates', 0)} | High Risk: {inv.get('kpis', {}).get('high_risk_assets', 0)}",
             },
             "empty": scan_count == 0,
         }
-    except Exception:
+    except Exception as e:
+        try:
+            inv = _build_asset_inventory_view()
+        except:
+            inv = {"kpis": {"total_assets": 0, "expiring_certificates": 0, "high_risk_assets": 0}}
+        
         vm = {
             "summary": {
-                "discovery": "Domains: 0 | SSL: 0 | IP/Subnets: 0 | Software: 0",
-                "pqc": "Assessed endpoints: 0",
-                "cbom": "Total vulnerable crypto components: 0",
-                "cyber_rating": "Average enterprise score: 0/1000",
-                "inventory": "Assets: 0 | Expiring certs: 0 | High risk assets: 0",
+                "discovery": "Targets: 0 | Complete Scans: 0 | Assessed Endpoints: 0",
+                "pqc": "Assessed endpoints: 0 | Average PQC Score: 0%",
+                "cbom": "Total certificates: 0 | Weak cryptography: 0",
+                "cyber_rating": "Average enterprise score: 0/100",
+                "inventory": f"Assets: {inv.get('kpis', {}).get('total_assets', 0)} | Expiring: {inv.get('kpis', {}).get('expiring_certificates', 0)} | High Risk: {inv.get('kpis', {}).get('high_risk_assets', 0)}",
             }, 
             "empty": True
         }
@@ -2770,7 +2995,6 @@ def _check_concurrency():
 
 
 if __name__ == "__main__":
-    _check_concurrency()
     print(f"\n{'='*60}")
     print(f"  \U0001f512 {app.import_name} \u2014 Quantum-Safe TLS Scanner")
     print(f"  \U0001f4e1 Running on https://{FLASK_HOST}:{FLASK_PORT}")

@@ -25,13 +25,10 @@ session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 db_session = scoped_session(session_factory)
 
 def init_db():
-    """Generates all unified models onto the active MySQL connection."""
-    import src.models
-    try:
-        # Drop legacy mismatched tables first
-        src.models.Base.metadata.drop_all(bind=engine)
-        src.models.Base.metadata.create_all(bind=engine)
-        logger.info("SQLAlchemy ORM Metadata synchronised to MySQL successfully.")
-    except Exception as e:
-        logger.error(f"Failed to synchronize ORM metadata: {e}")
-        raise
+    """Initialize schema via the canonical MySQL bootstrap without destructive ORM resets."""
+    from src import database as _database
+
+    ok = _database.init_db()
+    if not ok:
+        logger.warning("MySQL init_db returned False; app may run in JSON-only mode.")
+    return ok
