@@ -50,6 +50,7 @@
           <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
         {% else %}
           <form action="/dashboard/assets" method="POST" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="target" value="{{ r.domain_name }}">
             <input type="hidden" name="type" value="Web App">
             <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);">+ Add</button>
@@ -66,6 +67,7 @@
           <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
         {% else %}
           <form action="/dashboard/assets" method="POST" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="target" value="{{ r.common_name }}">
             <input type="hidden" name="type" value="Web App">
             <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);">+ Add</button>
@@ -82,6 +84,7 @@
           <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
         {% else %}
           <form action="/dashboard/assets" method="POST" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="target" value="{{ r.ip }}">
             <input type="hidden" name="type" value="Server">
             <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);">+ Add</button>
@@ -98,6 +101,7 @@
           <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
         {% else %}
           <form action="/dashboard/assets" method="POST" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="target" value="{{ r.host }}">
             <input type="hidden" name="type" value="Web App">
             <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);">+ Add</button>

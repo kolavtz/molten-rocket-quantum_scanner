@@ -11,173 +11,390 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-    .metrics-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        gap: 1rem;
+    /* ── INVERTED PYRAMID VISUAL HIERARCHY + Z-PATTERN ── */
+    
+    .dashboard-hero {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
+        border: 1px solid rgba(139, 92, 246, 0.2);
+        border-radius: 12px;
+        padding: 1.5rem;
         margin-bottom: 2rem;
     }
-    .metric-card {
-        padding: 1.25rem;
-        text-align: center;
-        border-top: 3px solid var(--accent-primary);
+    
+    .kpi-critical {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
     }
-    .metric-value {
-        font-size: 1.75rem;
-        font-weight: 700;
+    
+    .kpi-card {
+        padding: 1.5rem;
+        border-left: 4px solid var(--accent-primary);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .kpi-value {
+        font-size: 2.5rem;
+        font-weight: 800;
         font-family: 'JetBrains Mono', monospace;
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
     }
-    .metric-label {
+    
+    .kpi-label {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+    
+    .kpi-detail {
         font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid rgba(255,255,255,0.05);
+    }
+    
+    .kpi-icon {
+        font-size: 1.2rem;
+        opacity: 0.6;
+    }
+    
+    /* Critical/High Risk styling */
+    .kpi-danger { border-left-color: #ef4444; }
+    .kpi-danger .kpi-value { color: #fca5a5; }
+    
+    .kpi-warning { border-left-color: #f59e0b; }
+    .kpi-warning .kpi-value { color: #fde047; }
+    
+    .kpi-success { border-left-color: #10b981; }
+    .kpi-success .kpi-value { color: #86efac; }
+    
+    /* ── CHARTS GRID (Z-pattern middle) ── */
+    .insight-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .insight-card {
+        padding: 1.25rem;
+        height: 320px;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .insight-title {
+        font-size: 0.8rem;
+        font-weight: 700;
         color: var(--text-secondary);
         letter-spacing: 0.05em;
         text-transform: uppercase;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
     }
     
-    .charts-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
+    .chart-container {
+        flex: 1;
+        position: relative;
+        min-height: 200px;
     }
-    .chart-box {
-        padding: 1rem;
-        height: 300px;
+    
+    /* ── TABLE SECTION (Z-pattern bottom) ── */
+    .asset-table-card {
+        padding: 1.5rem;
     }
-    .chart-title {
-        font-size: 0.8rem;
-        color: var(--text-secondary);
+    
+    .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         margin-bottom: 1rem;
+    }
+    
+    .table-title {
+        font-size: 0.85rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
         text-transform: uppercase;
+        color: var(--text-secondary);
+    }
+    
+    .asset-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .btn-small {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.75rem;
+        border: 1px solid rgba(255,255,255,0.1);
+        background: transparent;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: all 0.25s ease;
+    }
+    
+    .btn-small:hover {
+        background: rgba(255,255,255,0.05);
+        border-color: var(--accent-primary);
+    }
+    
+    .scans-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+    
+    .scans-table th {
+        text-align: left;
+        padding: 0.75rem;
+        border-bottom: 2px solid rgba(255,255,255,0.1);
+        color: var(--text-secondary);
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    
+    .scans-table td {
+        padding: 0.75rem;
         border-bottom: 1px solid rgba(255,255,255,0.05);
-        padding-bottom: 0.5rem;
+    }
+    
+    .scans-table tbody tr {
+        transition: background 0.2s ease;
+    }
+    
+    .scans-table tbody tr:hover {
+        background: rgba(255,255,255,0.02);
+    }
+    
+    /* Empty state */
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: var(--text-secondary);
+    }
+    
+    .empty-state-icon {
+        font-size: 3rem;
+        opacity: 0.3;
+        margin-bottom: 1rem;
     }
     
     #map {
-        height: 400px;
+        height: 350px;
         border-radius: 8px;
-        margin-bottom: 2rem;
         border: 1px solid rgba(255,255,255,0.1);
         z-index: 1;
+        margin-top: 1rem;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<section style="max-width:1200px; margin: 0 auto; padding: 1rem 1.5rem;">
+<section style="max-width:1400px; margin: 0 auto; padding: 1rem 1.5rem;">
 
-    <!-- 1. Header -->
-    <div class="glass-card" style="padding: 1rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
-        <div>
-            <h1 style="font-size: 1.25rem; text-transform: uppercase; letter-spacing: 0.05em;">Quantumshield Main Dashboard</h1>
-            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">
-                Environment: <span style="color:white;">Production</span> | Last updated: <span id="lastUpdated">--:--:--</span>
+    <!-- HERO SECTION: Main title + Action button (Z-pattern start: top-left) -->
+    <div class="dashboard-hero">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem;">
+            <div>
+                <h1 style="font-size: 1.5rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
+                    <i class="fa-solid fa-radar" style="margin-right: 0.5rem;"></i>Enterprise Security Posture
+                </h1>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0;">
+                    Real-time quantum-safe cryptography & asset inventory dashboard
+                </p>
+            </div>
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: flex-end;">
+                <button onclick="location.href='{{ url_for('asset_inventory_page') }}'" class="btn-small" style="background: rgba(139,92,246,0.1); border-color: var(--accent-primary);">
+                    📊 Full Inventory
+                </button>
+                <button onclick="openAddModal()" class="btn-small" style="background: var(--accent-primary); border-color: var(--accent-primary); font-weight: 700;">
+                    ⊕ Add Asset
+                </button>
             </div>
         </div>
-        <button class="glass-card" style="padding: 0.5rem 1rem; background: var(--accent-primary); border: none; cursor: pointer; font-size: 0.8rem; font-weight: 600;" onclick="openAddModal()">
-            + Add Asset
-        </button>
+        <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.75rem; display: flex; gap: 2rem;">
+            <span>🕐 Last sync: <span id="lastUpdated">--:--:--</span></span>
+            <span>✓ Status: <span style="color: #10b981;">Operational</span></span>
+        </div>
     </div>
 
-    <!-- 2. Top Metrics -->
-    <div class="metrics-grid">
-        <div class="metric-card glass-card">
-            <div class="metric-value">{{ summary.total_assets }}</div>
-            <div class="metric-label">Total Assets</div>
-        </div>
-        <div class="metric-card glass-card">
-            <div class="metric-value">{{ summary.api_count }}</div>
-            <div class="metric-label">Public APIs</div>
-        </div>
-        <div class="metric-card glass-card">
-            <div class="metric-value">{{ summary.vpn_count }}</div>
-            <div class="metric-label">VPNs / Gateways</div>
-        </div>
-        <div class="metric-card glass-card">
-            <div class="metric-value">{{ summary.server_count }}</div>
-            <div class="metric-label">Standalone Servers</div>
-        </div>
-        <div class="metric-card glass-card" style="border-top-color: #f59e0b;">
-            <div class="metric-value" style="color:#f59e0b;">{{ summary.expiring_certs }}</div>
-            <div class="metric-label">Expiring Certs</div>
-        </div>
-        <div class="metric-card glass-card" style="border-top-color: {% if summary.overall_risk_score > 70 %}#ef4444{% else %}#10b981{% endif %};">
-            <div class="metric-value" style="color: {% if summary.overall_risk_score > 70 %}#ef4444{% else %}#10b981{% endif %};">
-                {{ summary.overall_risk_score }}%
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- TOP: CRITICAL KPIs (Inverted Pyramid Top - Most Important) -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <div class="kpi-critical">
+        <!-- Total Assets: Entry point, most visually prominent -->
+        <div class="glass-card kpi-card">
+            <div class="kpi-label">🔍 Total Scanned Assets</div>
+            <div class="kpi-value">
+                <span>{{ summary.total_assets or 0 }}</span>
             </div>
-            <div class="metric-label">Risk Weight</div>
+            <div class="kpi-detail">
+                <strong>Types:</strong> {{ summary.server_count or 0 }} Servers · {{ summary.api_count or 0 }} APIs · {{ summary.vpn_count or 0 }} Gateways
+            </div>
         </div>
-    </div>
-
-    <!-- 3. Charts Grid -->
-    <div class="charts-grid">
-        <div class="chart-box glass-card">
-            <div class="chart-title">Asset Type Distribution</div>
-            <div style="height: calc(100% - 2rem);"><canvas id="chartType"></canvas></div>
-        </div>
-        <div class="chart-box glass-card">
-            <div class="chart-title">Risk Distribution</div>
-            <div style="height: calc(100% - 2rem);"><canvas id="chartRisk"></canvas></div>
-        </div>
-        <div class="chart-box glass-card">
-            <div class="chart-title">Certificate Expiry Timeline</div>
-            <div style="height: calc(100% - 2rem);"><canvas id="chartExpiry"></canvas></div>
-        </div>
-        <div class="chart-box glass-card">
-            <div class="chart-title">IP Version Breakdown</div>
-            <div style="height: calc(100% - 2rem);"><canvas id="chartIP"></canvas></div>
-        </div>
-    </div>
-
-
-    <!-- 6. Geolocation Overview -->
-    <div style="margin-bottom: 0.5rem; font-size: 0.85rem; text-transform: uppercase; color: var(--text-secondary);">Asset Geolocation Clusters</div>
-    <div id="map"></div>
-
-    <!-- 4. Asset Table -->
-    <div class="glass-card" style="padding: 1rem;">
-        <div style="font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.75rem; color: var(--text-secondary);">Asset Inventory Table</div>
         
-        <table class="scans-table" id="assetTable">
-            <thead>
-                <tr>
-                    <th>Asset Name</th>
-                    <th>Type</th>
-                    <th>Owner</th>
-                    <th>Risk</th>
-                    <th>Cert Status</th>
-                    <th>Key Length</th>
-                    <th>Last Scan</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for a in assets %}
-                <tr data-target="{{ a.asset_name }}">
-                    <td>
-                        <div style="font-weight: 600;">{{ a.asset_name }}</div>
-                        <div style="font-size: 0.65rem; color: var(--text-secondary);">{{ a.url }}</div>
-                    </td>
-                    <td>{{ a.type }}</td>
-                    <td>{{ a.owner }}</td>
-                    <td>
-                        <span class="badge {% if a.risk == 'Critical' %}badge-danger{% elif a.risk == 'High' %}badge-warning{% elif a.risk == 'Medium' %}badge-info{% else %}badge-success{% endif %}">
-                            {{ a.risk }}
-                        </span>
-                    </td>
-                    <td>
-                        <span style="color: {% if a.cert_status == 'Expired' %}#ef4444{% elif a.cert_status == 'Expiring' %}#f59e0b{% else %}#10b981{% endif %};">
-                            {{ a.cert_status }}
-                        </span>
-                    </td>
-                    <td>{{ a.key_length }} bits</td>
-                    <td style="font-size: 0.7rem; color: var(--text-secondary);">{{ a.last_scan[:16] }}</td>
-                </tr>
+        <!-- Expiring Certificates: Critical security issue -->
+        <div class="glass-card kpi-card kpi-warning">
+            <div class="kpi-label">⚠️  Expiring Certificates (≤30 days)</div>
+            <div class="kpi-value">
+                <span>{{ summary.expiring_certs or 0 }}</span>
+            </div>
+            <div class="kpi-detail">
+                Immediate action required to prevent outages
+            </div>
+        </div>
+        
+        <!-- Overall Risk Score: Enterprise health indicator -->
+        <div class="glass-card kpi-card {% if (summary.overall_risk_score or 0) > 50 %}kpi-danger{% elif (summary.overall_risk_score or 0) > 25 %}kpi-warning{% else %}kpi-success{% endif %}">
+            <div class="kpi-label">📈 Enterprise Risk Weight</div>
+            <div class="kpi-value">
+                <span>{{ summary.overall_risk_score or 0 }}%</span>
+            </div>
+            <div class="kpi-detail">
+                {% if (summary.overall_risk_score or 0) > 70 %}
+                    <strong style="color: #fca5a5;">Critical: Immediate remediation needed</strong>
+                {% elif (summary.overall_risk_score or 0) > 50 %}
+                    <strong style="color: #fbbf24;">High: Plan remediation actions</strong>
                 {% else %}
-                <tr><td colspan="7" style="text-align:center;">No assets populated.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                    <strong style="color: #86efac;">Acceptable: Continue monitoring</strong>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- MIDDLE: INSIGHTS & CHARTS (Z-pattern middle: left-to-right) -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <div class="insight-grid">
+        <!-- Chart 1: Asset Type Distribution (left)  -->
+        <div class="glass-card insight-card">
+            <div class="insight-title">
+                <i class="fa-solid fa-chart-pie" style="opacity: 0.7;"></i>
+                Asset Composition by Type
+            </div>
+            <div class="chart-container">
+                <canvas id="chartType"></canvas>
+            </div>
+        </div>
+        
+        <!-- Chart 2: Risk Distribution (middle) -->
+        <div class="glass-card insight-card">
+            <div class="insight-title">
+                <i class="fa-solid fa-shield-halved" style="opacity: 0.7;"></i>
+                Risk Tier Distribution
+            </div>
+            <div class="chart-container">
+                <canvas id="chartRisk"></canvas>
+            </div>
+        </div>
+        
+        <!-- Chart 3: Certificate Expiry (right) -->
+        <div class="glass-card insight-card">
+            <div class="insight-title">
+                <i class="fa-solid fa-certificate" style="opacity: 0.7;"></i>
+                TLS Certificate Timeline
+            </div>
+            <div class="chart-container">
+                <canvas id="chartExpiry"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- BOTTOM: DETAILED DATA TABLES (Z-pattern bottom) -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    
+    <!-- Asset Inventory Table -->
+    <div class="glass-card asset-table-card">
+        <div class="table-header">
+            <h3 class="table-title">
+                <i class="fa-solid fa-list-check"></i> Complete Asset Roster
+            </h3>
+            <div class="asset-actions">
+                <button onclick="document.getElementById('tableSearchInput').focus()" class="btn-small">
+                    🔍 Search
+                </button>
+                <button onclick="location.href='{{ url_for('asset_discovery') }}'" class="btn-small">
+                    → Discover
+                </button>
+            </div>
+        </div>
+        
+        {% if assets %}
+        <div style="overflow-x: auto;">
+            <table class="scans-table">
+                <thead>
+                    <tr>
+                        <th>Asset Name</th>
+                        <th>Type</th>
+                        <th>Owner</th>
+                        <th>Risk Tier</th>
+                        <th>TLS Status</th>
+                        <th>Key Strength</th>
+                        <th>Last Audit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in assets %}
+                    <tr>
+                        <td>
+                            <div style="font-weight: 600; white-space: nowrap;">{{ a.asset_name | escape }}</div>
+                            <div style="font-size: 0.65rem; color: var(--text-secondary); word-break: break-all;">{{ a.url | escape }}</div>
+                        </td>
+                        <td>
+                            <span style="font-size: 0.75rem; background: rgba(255,255,255,0.05); padding: 0.25rem 0.5rem; border-radius: 3px;">
+                                {{ a.type | escape }}
+                            </span>
+                        </td>
+                        <td style="color: var(--text-secondary); font-size: 0.9rem;">{{ a.owner | escape }}</td>
+                        <td>
+                            <span style="padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.75rem; font-weight: 700;
+                                {% if a.risk == 'Critical' %}background: rgba(239,68,68,0.2); color: #fca5a5;
+                                {% elif a.risk == 'High' %}background: rgba(249,115,22,0.2); color: #fed7aa;
+                                {% elif a.risk == 'Medium' %}background: rgba(59,130,246,0.2); color: #93c5fd;
+                                {% else %}background: rgba(16,185,129,0.2); color: #86efac;
+                                {% endif %}">
+                                {{ a.risk | escape }}
+                            </span>
+                        </td>
+                        <td>
+                            <span style="font-size: 0.75rem; font-weight: 600;
+                                {% if a.cert_status == 'Expired' %}color: #fca5a5;
+                                {% elif a.cert_status == 'Expiring' %}color: #fde047;
+                                {% else %}color: #86efac;
+                                {% endif %}">
+                                {{ a.cert_status | escape }}
+                            </span>
+                        </td>
+                        <td style="font-family: 'JetBrains Mono'; font-size: 0.85rem;">{{ a.key_length or 0 }} bits</td>
+                        <td style="font-size: 0.75rem; color: var(--text-secondary);">{{ a.last_scan[0:10] | escape if a.last_scan else '--' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <p><strong>No assets discovered yet</strong></p>
+            <p style="font-size: 0.8rem; margin-top: 0.5rem;">Start by running a scan or adding assets manually to populate this dashboard.</p>
+            <button onclick="openAddModal()" class="btn-small" style="margin-top: 1rem; background: var(--accent-primary); border-color: var(--accent-primary);">
+                ⊕ Add Your First Asset
+            </button>
+        </div>
+        {% endif %}
     </div>
 
 </section>
@@ -286,22 +503,6 @@
         },
         options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', stepSize: 1 } }, x: { grid: { display: false }, ticks: { color: '#9ca3af' } } }, plugins: { legend: { display: false } } }
     });
-
-    // 4. IP Breakdown Pie
-    const ipCtx = document.getElementById('chartIP').getContext('2d');
-    new Chart(ipCtx, {
-        type: 'pie',
-        data: {
-            labels: ['IPv4', 'IPv6'],
-            datasets: [{
-                data: {{ (summary.ip_breakdown or [0,0]) | tojson }},
-                backgroundColor: ['#10b981', '#3b82f6'],
-                borderWidth: 0
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#9ca3af', font: { size: 10 } } } } }
-    });
-
 
     /* ── Geolocation Map Implementation ──────────────────────── */
     var map = L.map('map').setView([20, 0], 2);

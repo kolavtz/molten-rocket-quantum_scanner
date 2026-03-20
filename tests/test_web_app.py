@@ -35,9 +35,8 @@ class TestRoutes:
 
     def test_index_get(self, client, mock_admin):
         resp = client.get('/')
-        assert resp.status_code == 200
-        assert b'QuantumShield' in resp.data
-        assert b'OPERATIONS_CONSOLE' in resp.data
+        assert resp.status_code == 302
+        assert "/dashboard/assets" in (resp.headers.get("Location") or "")
 
     def test_scan_center_get(self, client, mock_admin):
         resp = client.get('/scan-center')

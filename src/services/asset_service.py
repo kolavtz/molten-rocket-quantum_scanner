@@ -28,7 +28,7 @@ class AssetService:
             latest_scan = db_session.query(Scan).filter_by(target=meta.name, status="complete").order_by(Scan.started_at.desc()).first()
             
             if latest_scan:
-                overview = latest_scan.overview or {}
+                overview = getattr(latest_scan, "overview", None) or {}
                 # Handle possible nulls natively from scan models if stored there, else fallback to JSON blob overview
                 # Because we migrated to ORM, many metrics are native columns.
                 risk_score = float(latest_scan.overall_pqc_score or overview.get("average_compliance_score") or 0)
@@ -38,8 +38,9 @@ class AssetService:
                 cert_days = None
                 key_length = 0
                 cert_status = "Unknown"
-                if latest_scan.certificates:
-                    first_cert = latest_scan.certificates[0]
+                certs = getattr(latest_scan, "certificates", None) or []
+                if certs:
+                    first_cert = certs[0]
                     key_length = first_cert.key_length or 0
                     if first_cert.valid_until:
                         delta = (first_cert.valid_until - datetime.now(timezone.utc).replace(tzinfo=None)).days
@@ -61,7 +62,7 @@ class AssetService:
                     "key_length": key_length,
                     "last_scan": latest_scan.completed_at.strftime('%Y-%m-%d %H:%M:%S') if latest_scan.completed_at else "",
                     "owner": meta.owner or "Unassigned",
-                    "notes": meta.notes or "",
+                    "notes": getattr(meta, "notes", "") or "",
                     "overview": overview
                 })
             else:
@@ -79,7 +80,7 @@ class AssetService:
                     "key_length": 0,
                     "last_scan": "Pending",
                     "owner": meta.owner or "Unassigned",
-                    "notes": meta.notes or "",
+                    "notes": getattr(meta, "notes", "") or "",
                     "overview": {}
                 })
                 

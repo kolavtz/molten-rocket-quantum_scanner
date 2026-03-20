@@ -3965,3 +3965,1000 @@ TypeError: paginate_query() got an unexpected keyword argument 'default_sort'
 [2026-03-20 16:34:31,232] WARNING in database: Trigger 'audit_logs_no_delete' setup warning: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
 [2026-03-20 16:34:31,233] INFO in database: MySQL database 'quantumshield' initialised.
 [2026-03-20 16:34:31,254] ERROR in database: MySQL list_scans error: 1054 (42S22): Unknown column 'report_json' in 'field list'
+[2026-03-20 16:41:26,189] INFO in app: QuantumShield application starting up...
+[2026-03-20 16:41:26,396] ERROR in database: MySQL list_scans error: 1054 (42S22): Unknown column 'report_json' in 'field list'
+[2026-03-20 16:41:26,403] WARNING in database: Table 'asset_dns_records' setup warning: 3734 (HY000): Failed to add the foreign key constraint. Missing column 'scan_id' for constraint 'asset_dns_records_ibfk_1' in the referenced table 'scans'
+[2026-03-20 16:41:26,404] WARNING in database: Table 'cbom_reports' setup warning: 3734 (HY000): Failed to add the foreign key constraint. Missing column 'scan_id' for constraint 'cbom_reports_ibfk_1' in the referenced table 'scans'
+[2026-03-20 16:41:26,407] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 16:41:26,407] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 16:41:26,408] WARNING in database: Table 'audit_logs' setup warning: 3734 (HY000): Failed to add the foreign key constraint. Missing column 'scan_id' for constraint 'audit_logs_ibfk_3' in the referenced table 'scans'
+[2026-03-20 16:41:26,409] WARNING in database: Table 'report_schedules' setup warning: 3780 (HY000): Referencing column 'created_by_id' and referenced column 'id' in foreign key constraint 'report_schedules_ibfk_1' are incompatible.
+[2026-03-20 16:41:26,434] WARNING in database: Trigger 'audit_logs_no_update' setup warning: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-20 16:41:26,435] WARNING in database: Trigger 'audit_logs_no_delete' setup warning: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-20 16:41:26,437] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 16:41:26,445] ERROR in database: MySQL list_scans error: 1054 (42S22): Unknown column 'report_json' in 'field list'
+[2026-03-20 16:42:49,710] INFO in app: QuantumShield application starting up...
+[2026-03-20 16:42:49,869] ERROR in database: MySQL list_scans error: 1054 (42S22): Unknown column 'report_json' in 'field list'
+[2026-03-20 16:42:49,883] WARNING in database: Table 'asset_dns_records' setup warning: 3734 (HY000): Failed to add the foreign key constraint. Missing column 'scan_id' for constraint 'asset_dns_records_ibfk_1' in the referenced table 'scans'
+[2026-03-20 16:42:49,886] WARNING in database: Table 'cbom_reports' setup warning: 3734 (HY000): Failed to add the foreign key constraint. Missing column 'scan_id' for constraint 'cbom_reports_ibfk_1' in the referenced table 'scans'
+[2026-03-20 16:42:49,891] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 16:42:49,891] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 16:42:49,892] WARNING in database: Table 'audit_logs' setup warning: 3734 (HY000): Failed to add the foreign key constraint. Missing column 'scan_id' for constraint 'audit_logs_ibfk_3' in the referenced table 'scans'
+[2026-03-20 16:42:49,893] WARNING in database: Table 'report_schedules' setup warning: 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '{user_id_column_type},
+                    created_by_name VARCHAR(150),
+       ' at line 3
+[2026-03-20 16:42:50,462] WARNING in database: Trigger 'audit_logs_no_update' setup warning: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-20 16:42:50,464] WARNING in database: Trigger 'audit_logs_no_delete' setup warning: 1146 (42S02): Table 'quantumshield.audit_logs' doesn't exist
+[2026-03-20 16:42:50,465] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 16:42:56,293] INFO in app: QuantumShield application starting up...
+[2026-03-20 16:42:56,469] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 16:42:56,469] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 16:42:56,538] WARNING in database: Table 'report_schedules' setup warning: 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '{user_id_column_type},
+                    created_by_name VARCHAR(150),
+       ' at line 3
+[2026-03-20 16:42:56,745] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 16:43:04,154] INFO in app: QuantumShield application starting up...
+[2026-03-20 16:43:04,281] WARNING in database: Table 'report_schedules' setup warning: 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '{user_id_column_type},
+                    created_by_name VARCHAR(150),
+       ' at line 3
+[2026-03-20 16:43:04,291] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 16:43:04,291] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 16:43:04,487] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 16:43:17,852] INFO in app: QuantumShield application starting up...
+[2026-03-20 16:43:17,997] WARNING in database: Table 'report_schedules' setup warning: 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '{user_id_column_type},
+                    created_by_name VARCHAR(150),
+       ' at line 3
+[2026-03-20 16:43:18,004] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 16:43:18,004] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 16:43:18,205] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 16:43:25,856] INFO in app: QuantumShield application starting up...
+[2026-03-20 16:43:25,991] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 16:43:25,991] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 16:43:25,991] WARNING in database: Table 'report_schedules' setup warning: 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '{user_id_column_type},
+                    created_by_name VARCHAR(150),
+       ' at line 3
+[2026-03-20 16:43:26,183] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 16:43:46,439] INFO in app: QuantumShield application starting up...
+[2026-03-20 16:43:46,585] WARNING in database: Table 'report_schedules' setup warning: 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '{user_id_column_type},
+                    created_by_name VARCHAR(150),
+       ' at line 3
+[2026-03-20 16:43:46,587] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 16:43:46,587] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 16:43:46,769] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 16:43:55,752] INFO in app: QuantumShield application starting up...
+[2026-03-20 16:43:55,925] WARNING in database: Table 'report_schedules' setup warning: 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '{user_id_column_type},
+                    created_by_name VARCHAR(150),
+       ' at line 3
+[2026-03-20 16:43:55,935] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 16:43:55,935] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 16:43:56,163] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 16:45:18,044] INFO in app: QuantumShield application starting up...
+[2026-03-20 16:45:18,189] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 16:45:18,190] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 16:45:18,198] WARNING in database: Table 'report_schedules' setup warning: 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '{user_id_column_type},
+                    created_by_name VARCHAR(150),
+       ' at line 3
+[2026-03-20 16:45:18,385] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 16:45:42,380] INFO in app: QuantumShield application starting up...
+[2026-03-20 16:45:42,521] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 16:45:42,521] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 16:45:42,526] WARNING in database: Table 'report_schedules' setup warning: 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '{user_id_column_type},
+                    created_by_name VARCHAR(150),
+       ' at line 3
+[2026-03-20 16:45:42,705] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 16:46:02,309] INFO in app: QuantumShield application starting up...
+[2026-03-20 16:46:02,427] WARNING in database: Table 'report_schedules' setup warning: 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '{user_id_column_type},
+                    created_by_name VARCHAR(150),
+       ' at line 3
+[2026-03-20 16:46:02,438] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 16:46:02,438] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 16:46:02,605] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 16:46:35,882] INFO in app: QuantumShield application starting up...
+[2026-03-20 16:46:36,023] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 16:46:36,023] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 16:46:36,025] WARNING in database: Table 'report_schedules' setup warning: 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near '{user_id_column_type},
+                    created_by_name VARCHAR(150),
+       ' at line 3
+[2026-03-20 16:46:36,201] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 16:47:05,434] INFO in app: QuantumShield application starting up...
+[2026-03-20 16:47:05,585] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 16:47:05,585] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 16:47:05,796] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:00:11,039] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:00:11,235] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:00:11,235] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:00:11,547] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:02:57,779] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:02:57,953] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:02:57,954] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:02:58,181] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:03:28,945] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:03:29,152] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:03:29,153] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:03:29,284] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:03:29,838] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-20 17:03:29,839] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-20 17:03:29,841] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:03:30,571] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:03:30,711] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:03:30,711] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:03:30,893] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:04:46,005] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:04:46,158] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:04:46,158] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:04:46,349] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:04:48,515] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:04:48,646] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:04:48,647] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:04:48,840] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:04:57,078] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:04:57,284] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:04:57,284] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:04:57,451] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:05:01,408] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:05:01,569] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:05:01,570] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:05:01,754] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:05:01,848] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-20 17:05:01,849] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-20 17:05:01,851] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:05:02,623] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:05:02,781] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:05:02,782] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:05:02,946] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:05:03,031] WARNING in _internal:  * Debugger is active!
+[2026-03-20 17:05:03,045] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-20 17:05:10,335] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:10] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-20 17:05:10,849] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:10] "GET /dashboard/assets HTTP/1.1" 200 -
+[2026-03-20 17:05:11,327] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:11] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:05:11,329] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:11] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:05:11,331] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:11] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:05:11,918] ERROR in geo_service: Geolocation lookup failed for example_subagent_test.com: [Errno 11001] getaddrinfo failed
+[2026-03-20 17:05:11,920] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:11] "GET /dashboard/geojson HTTP/1.1" 200 -
+[2026-03-20 17:05:11,967] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:11] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:05:14,418] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:14] "GET /scan-center HTTP/1.1" 200 -
+[2026-03-20 17:05:14,552] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:14] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:05:14,556] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:14] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:05:14,557] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:14] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:05:14,763] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:14] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:05:42,555] ERROR in database: append_audit_log failed: 1452 (23000): Cannot add or update a child row: a foreign key constraint fails (`quantumshield`.`audit_logs`, CONSTRAINT `audit_logs_ibfk_3` FOREIGN KEY (`target_scan_id`) REFERENCES `scans` (`scan_id`) ON DELETE SET NULL)
+[2026-03-20 17:05:42,557] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:42] "[32mPOST /scan HTTP/1.1[0m" 302 -
+[2026-03-20 17:05:42,608] ERROR in database: append_audit_log failed: 1452 (23000): Cannot add or update a child row: a foreign key constraint fails (`quantumshield`.`audit_logs`, CONSTRAINT `audit_logs_ibfk_3` FOREIGN KEY (`target_scan_id`) REFERENCES `scans` (`scan_id`) ON DELETE SET NULL)
+[2026-03-20 17:05:42,634] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:42] "GET /results/36f6c8ce HTTP/1.1" 200 -
+[2026-03-20 17:05:42,780] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:42] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:05:42,783] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:42] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:05:42,790] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:42] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:05:42,983] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:05:42] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:06:28,569] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:06:28] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-20 17:06:28,668] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:06:28] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:06:28,671] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:06:28] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:06:28,697] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:06:28] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:06:28,954] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:06:28] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:06:37,534] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:06:37] "[32mPOST /dashboard/assets/1/delete HTTP/1.1[0m" 302 -
+[2026-03-20 17:06:37,629] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:06:37] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-20 17:06:37,712] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:06:37] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:06:37,716] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:06:37] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:06:37,719] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:06:37] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:06:37,857] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:06:37] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:08:08,865] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:08:08] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-20 17:08:08,921] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:08:08] "GET /dashboard/assets HTTP/1.1" 200 -
+[2026-03-20 17:08:09,014] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:08:09] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:08:09,018] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:08:09] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:08:09,022] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:08:09] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:08:09,171] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:08:09] "GET /dashboard/geojson HTTP/1.1" 200 -
+[2026-03-20 17:08:09,340] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:08:09] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:08:21,121] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:08:21] "GET /cbom-dashboard HTTP/1.1" 200 -
+[2026-03-20 17:08:21,190] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:08:21] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:08:21,195] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:08:21] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:08:21,200] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:08:21] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:08:21,285] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:08:21] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:08:28,927] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:08:28] "GET /pqc-posture HTTP/1.1" 200 -
+[2026-03-20 17:08:29,000] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:08:29] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:08:29,006] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:08:29] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:08:29,011] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:08:29] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:08:29,096] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:08:29] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:09:05,098] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:09:05] "GET /cyber-rating HTTP/1.1" 200 -
+[2026-03-20 17:09:05,172] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:09:05] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:09:05,177] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:09:05] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:09:05,210] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:09:05] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:09:05,330] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:09:05] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:11:21,184] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-20 17:11:21,506] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:11:22,539] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:11:22,596] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:11:22,771] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:11:22,771] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:11:22,800] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:11:22,800] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:11:23,056] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:11:23,165] WARNING in _internal:  * Debugger is active!
+[2026-03-20 17:11:23,174] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-20 17:11:23,197] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:18:44,014] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:18:44] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-20 17:18:44,549] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:18:44] "GET /dashboard/assets HTTP/1.1" 200 -
+[2026-03-20 17:18:44,868] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:18:44] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:18:44,871] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:18:44] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:18:44,871] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:18:44] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:18:45,143] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:18:45] "GET /dashboard/geojson HTTP/1.1" 200 -
+[2026-03-20 17:18:45,401] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:18:45] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:18:53,330] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:18:53] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-20 17:18:53,439] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:18:53] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:18:53,453] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:18:53] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:18:53,454] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:18:53] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:18:53,662] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:18:53] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:18:59,047] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:18:59] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-20 17:18:59,099] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:18:59] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:18:59,105] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:18:59] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:18:59,107] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:18:59] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:18:59,211] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:18:59] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:19:16,460] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:19:16] "[32mPOST /dashboard/assets HTTP/1.1[0m" 302 -
+[2026-03-20 17:19:16,548] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:19:16] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-20 17:19:16,624] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:19:16] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:19:16,631] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:19:16] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:19:16,643] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:19:16] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:19:16,747] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:19:16] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:19:18,883] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\blueprints\\dashboard.py', reloading
+[2026-03-20 17:19:19,118] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:19:19,558] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:19:19,731] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:19:19,731] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:19:19,892] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:19:19,981] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:19:20,083] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:19:20,084] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:19:20,334] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:19:20,412] WARNING in _internal:  * Debugger is active!
+[2026-03-20 17:19:20,418] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-20 17:19:57,670] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:19:57] "[32mPOST /dashboard/assets HTTP/1.1[0m" 302 -
+[2026-03-20 17:19:57,815] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:19:57] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-20 17:19:58,167] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:19:58] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:19:58,170] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:19:58] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:19:58,178] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:19:58] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:19:58,328] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:19:58] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:20:03,202] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:20:03] "GET /asset-inventory?sort=ipv4&order=asc&q=&page_size=25 HTTP/1.1" 200 -
+[2026-03-20 17:20:03,300] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:20:03] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:20:03,306] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:20:03] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:20:03,311] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:20:03] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:20:03,468] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:20:03] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:20:15,416] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:20:15] "GET /asset-inventory?sort=url&order=asc&q=&page_size=25 HTTP/1.1" 200 -
+[2026-03-20 17:20:15,549] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:20:15] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:20:15,560] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:20:15] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:20:15,567] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:20:15] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:20:15,729] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:20:15] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:25:06,071] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\blueprints\\dashboard.py', reloading
+[2026-03-20 17:25:06,269] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:25:07,182] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:25:07,390] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:25:07,391] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:25:07,503] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:25:07,653] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:25:07,686] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:25:07,686] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:25:07,757] WARNING in _internal:  * Debugger is active!
+[2026-03-20 17:25:07,765] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-20 17:25:07,957] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:25:40,014] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\blueprints\\dashboard.py', reloading
+[2026-03-20 17:25:40,178] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:25:40,635] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:25:40,821] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:25:40,821] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:25:41,085] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:25:41,101] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:25:41,261] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:25:41,261] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:25:41,472] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:25:41,561] WARNING in _internal:  * Debugger is active!
+[2026-03-20 17:25:41,567] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-20 17:25:49,206] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-20 17:25:49,329] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:25:50,383] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:25:50,570] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:25:50,570] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:25:50,748] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:25:50,845] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:25:50,934] WARNING in _internal:  * Debugger is active!
+[2026-03-20 17:25:50,944] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-20 17:25:50,945] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:25:50,946] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:25:51,179] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:26:24,661] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-20 17:26:25,019] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:26:26,733] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:26:27,052] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:26:27,053] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:26:27,859] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:26:28,086] WARNING in _internal:  * Debugger is active!
+[2026-03-20 17:26:28,114] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-20 17:26:28,175] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:26:28,471] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:26:28,472] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:26:28,824] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:27:28,678] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\blueprints\\dashboard.py', reloading
+[2026-03-20 17:27:28,820] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:27:29,434] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:27:29,629] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:27:29,629] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:27:29,652] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:27:29,818] ERROR in database: MySQL list_scans error: 1213 (40001): Deadlock found when trying to get lock; try restarting transaction
+[2026-03-20 17:27:29,860] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:27:29,861] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:27:29,866] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:27:30,083] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:27:30,172] WARNING in _internal:  * Debugger is active!
+[2026-03-20 17:27:30,178] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-20 17:30:23,508] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:23] "GET /asset-inventory?sort=url&order=asc&q=&page_size=25 HTTP/1.1" 200 -
+[2026-03-20 17:30:23,944] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:23] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:23,955] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:23] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:23,959] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:23] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:24,276] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:24] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:30:31,078] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:31] "GET /asset-inventory?q=&sort=url&order=asc&page_size=25&page=1 HTTP/1.1" 200 -
+[2026-03-20 17:30:31,217] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:31] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:31,225] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:31] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:31,227] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:31] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:31,367] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:31] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:30:34,218] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:34] "GET /asset-inventory?sort=ipv4&order=asc&q=&page_size=25 HTTP/1.1" 200 -
+[2026-03-20 17:30:34,326] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:34] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:34,341] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:34] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:34,343] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:34] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:34,482] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:34] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:30:38,492] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:38] "GET /asset-inventory?sort=ipv4&order=desc&q=&page_size=25 HTTP/1.1" 200 -
+[2026-03-20 17:30:38,590] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:38] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:38,596] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:38] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:38,604] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:38] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:38,762] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:38] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:30:51,174] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:51] "GET /asset-inventory?sort=asset_type&order=asc&q=&page_size=25 HTTP/1.1" 200 -
+[2026-03-20 17:30:51,267] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:51] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:51,282] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:51] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:51,285] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:51] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:51,409] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:51] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:30:59,368] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:59] "GET /asset-inventory?q=&page_size=25&sort=asset_type&order=asc HTTP/1.1" 200 -
+[2026-03-20 17:30:59,451] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:59] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:59,460] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:59] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:59,461] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:59] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:30:59,584] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:30:59] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:33:39,640] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\services\\inventory_scan_service.py', reloading
+[2026-03-20 17:33:39,990] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:33:40,862] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:33:40,950] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:33:41,051] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:33:41,052] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:33:41,134] ERROR in database: MySQL list_scans error: 1213 (40001): Deadlock found when trying to get lock; try restarting transaction
+[2026-03-20 17:33:41,196] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:33:41,197] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:33:41,359] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:33:41,503] WARNING in _internal:  * Debugger is active!
+[2026-03-20 17:33:41,511] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-20 17:33:41,585] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:34:01,308] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\blueprints\\dashboard.py', reloading
+[2026-03-20 17:34:01,566] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:34:02,529] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:34:02,746] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:34:02,746] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:34:02,790] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:34:03,055] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:34:03,059] INFO in scheduler: No targets found in Database. Skipping sweep.
+[2026-03-20 17:34:03,059] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:34:03,168] WARNING in _internal:  * Debugger is active!
+[2026-03-20 17:34:03,177] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-20 17:34:03,294] INFO in csrf: The CSRF session token is missing.
+[2026-03-20 17:34:03,295] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:34:03] "[31m[1mPOST /login HTTP/1.1[0m" 400 -
+[2026-03-20 17:34:03,310] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:35:10,163] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\scheduler.py', reloading
+[2026-03-20 17:35:10,275] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:35:11,169] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:35:11,575] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:35:11,666] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:35:11,798] WARNING in _internal:  * Debugger is active!
+[2026-03-20 17:35:11,808] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN STARTED ==========
+[2026-03-20 17:35:11,809] INFO in inventory_scan_service: Scanning 2 assets
+[2026-03-20 17:35:11,809] INFO in inventory_scan_service: [1/2] Scanning https://pnbnet.pnb.bank.in/
+[2026-03-20 17:35:11,809] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: https://pnbnet.pnb.bank.in/
+[2026-03-20 17:35:11,809] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:35:11,810] WARNING in inventory_scan_service: Network discovery failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:35:11,810] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:35:11,810] WARNING in inventory_scan_service: TLS analysis failed for https://pnbnet.pnb.bank.in/: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:35:11,811] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:35:11,811] WARNING in inventory_scan_service: DNS resolution failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:35:11,812] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:35:11,812] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:35:11,812] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:35:11,813] INFO in inventory_scan_service: [2/2] Scanning pnb.bank.in
+[2026-03-20 17:35:11,813] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-20 17:35:11,813] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: pnb.bank.in
+[2026-03-20 17:35:11,813] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for pnb.bank.in
+[2026-03-20 17:35:11,815] WARNING in inventory_scan_service: Network discovery failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:35:11,815] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for pnb.bank.in
+[2026-03-20 17:35:11,815] WARNING in inventory_scan_service: TLS analysis failed for pnb.bank.in: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:35:11,816] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for pnb.bank.in
+[2026-03-20 17:35:11,816] WARNING in inventory_scan_service: DNS resolution failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:35:11,816] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for pnb.bank.in
+[2026-03-20 17:35:11,817] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for pnb.bank.in
+[2026-03-20 17:35:11,817] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for pnb.bank.in
+[2026-03-20 17:35:11,818] INFO in inventory_scan_service: All scan results committed to database
+[2026-03-20 17:35:11,819] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN COMPLETED ==========
+[2026-03-20 17:35:11,819] INFO in inventory_scan_service: Summary: 2 successful, 0 failed
+[2026-03-20 17:35:11,910] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:35:12,094] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN STARTED ==========
+[2026-03-20 17:35:12,094] INFO in inventory_scan_service: Scanning 2 assets
+[2026-03-20 17:35:12,094] INFO in inventory_scan_service: [1/2] Scanning https://pnbnet.pnb.bank.in/
+[2026-03-20 17:35:12,094] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: https://pnbnet.pnb.bank.in/
+[2026-03-20 17:35:12,094] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:35:12,094] WARNING in inventory_scan_service: Network discovery failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:35:12,094] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:35:12,094] WARNING in inventory_scan_service: TLS analysis failed for https://pnbnet.pnb.bank.in/: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:35:12,094] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:35:12,095] WARNING in inventory_scan_service: DNS resolution failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:35:12,095] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:35:12,095] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:35:12,095] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:35:12,095] INFO in inventory_scan_service: [2/2] Scanning pnb.bank.in
+[2026-03-20 17:35:12,095] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: pnb.bank.in
+[2026-03-20 17:35:12,095] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for pnb.bank.in
+[2026-03-20 17:35:12,095] WARNING in inventory_scan_service: Network discovery failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:35:12,095] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for pnb.bank.in
+[2026-03-20 17:35:12,095] WARNING in inventory_scan_service: TLS analysis failed for pnb.bank.in: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:35:12,095] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for pnb.bank.in
+[2026-03-20 17:35:12,095] WARNING in inventory_scan_service: DNS resolution failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:35:12,095] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for pnb.bank.in
+[2026-03-20 17:35:12,095] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for pnb.bank.in
+[2026-03-20 17:35:12,095] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for pnb.bank.in
+[2026-03-20 17:35:12,096] INFO in inventory_scan_service: All scan results committed to database
+[2026-03-20 17:35:12,096] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN COMPLETED ==========
+[2026-03-20 17:35:12,096] INFO in inventory_scan_service: Summary: 2 successful, 0 failed
+[2026-03-20 17:35:12,096] INFO in scheduler: ✓ Automated inventory scan complete: 2 successful, 0 failed
+[2026-03-20 17:35:12,096] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:35:12,142] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:38:13,763] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\blueprints\\dashboard.py', reloading
+[2026-03-20 17:38:13,959] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:38:14,606] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:38:14,636] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:38:15,087] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN STARTED ==========
+[2026-03-20 17:38:15,087] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN STARTED ==========
+[2026-03-20 17:38:15,087] INFO in inventory_scan_service: Scanning 2 assets
+[2026-03-20 17:38:15,087] INFO in inventory_scan_service: [1/2] Scanning https://pnbnet.pnb.bank.in/
+[2026-03-20 17:38:15,087] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: https://pnbnet.pnb.bank.in/
+[2026-03-20 17:38:15,087] INFO in inventory_scan_service: Scanning 2 assets
+[2026-03-20 17:38:15,087] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:38:15,087] WARNING in inventory_scan_service: Network discovery failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:38:15,087] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:38:15,088] WARNING in inventory_scan_service: TLS analysis failed for https://pnbnet.pnb.bank.in/: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:38:15,088] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:38:15,087] INFO in inventory_scan_service: [1/2] Scanning https://pnbnet.pnb.bank.in/
+[2026-03-20 17:38:15,088] WARNING in inventory_scan_service: DNS resolution failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:38:15,088] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:38:15,088] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:38:15,088] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:38:15,088] INFO in inventory_scan_service: [2/2] Scanning pnb.bank.in
+[2026-03-20 17:38:15,088] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: pnb.bank.in
+[2026-03-20 17:38:15,088] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for pnb.bank.in
+[2026-03-20 17:38:15,088] WARNING in inventory_scan_service: Network discovery failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:38:15,088] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for pnb.bank.in
+[2026-03-20 17:38:15,088] WARNING in inventory_scan_service: TLS analysis failed for pnb.bank.in: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:38:15,088] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: https://pnbnet.pnb.bank.in/
+[2026-03-20 17:38:15,088] WARNING in inventory_scan_service: DNS resolution failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:38:15,088] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for pnb.bank.in
+[2026-03-20 17:38:15,088] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for pnb.bank.in
+[2026-03-20 17:38:15,088] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for pnb.bank.in
+[2026-03-20 17:38:15,088] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:38:15,088] WARNING in inventory_scan_service: Network discovery failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:38:15,089] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:38:15,089] INFO in inventory_scan_service: All scan results committed to database
+[2026-03-20 17:38:15,089] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN COMPLETED ==========
+[2026-03-20 17:38:15,089] WARNING in inventory_scan_service: TLS analysis failed for https://pnbnet.pnb.bank.in/: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:38:15,089] INFO in scheduler: ✓ Automated inventory scan complete: 2 successful, 0 failed
+[2026-03-20 17:38:15,089] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:38:15,089] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:38:15,089] WARNING in inventory_scan_service: DNS resolution failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:38:15,090] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:38:15,090] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:38:15,090] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:38:15,090] INFO in inventory_scan_service: [2/2] Scanning pnb.bank.in
+[2026-03-20 17:38:15,091] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: pnb.bank.in
+[2026-03-20 17:38:15,091] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for pnb.bank.in
+[2026-03-20 17:38:15,091] WARNING in inventory_scan_service: Network discovery failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:38:15,091] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for pnb.bank.in
+[2026-03-20 17:38:15,092] WARNING in inventory_scan_service: TLS analysis failed for pnb.bank.in: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:38:15,092] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for pnb.bank.in
+[2026-03-20 17:38:15,092] WARNING in inventory_scan_service: DNS resolution failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:38:15,092] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for pnb.bank.in
+[2026-03-20 17:38:15,093] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for pnb.bank.in
+[2026-03-20 17:38:15,093] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for pnb.bank.in
+[2026-03-20 17:38:15,094] INFO in inventory_scan_service: All scan results committed to database
+[2026-03-20 17:38:15,094] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN COMPLETED ==========
+[2026-03-20 17:38:15,094] INFO in inventory_scan_service: Summary: 2 successful, 0 failed
+[2026-03-20 17:38:15,099] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:38:15,100] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:38:15,146] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:38:15,194] WARNING in _internal:  * Debugger is active!
+[2026-03-20 17:38:15,201] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-20 17:40:17,977] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-20 17:40:18,240] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:40:18,866] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:40:19,154] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:40:19,408] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN STARTED ==========
+[2026-03-20 17:40:19,408] INFO in inventory_scan_service: Scanning 2 assets
+[2026-03-20 17:40:19,408] INFO in inventory_scan_service: [1/2] Scanning https://pnbnet.pnb.bank.in/
+[2026-03-20 17:40:19,408] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: https://pnbnet.pnb.bank.in/
+[2026-03-20 17:40:19,408] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:40:19,409] WARNING in inventory_scan_service: Network discovery failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:40:19,409] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:40:19,409] WARNING in inventory_scan_service: TLS analysis failed for https://pnbnet.pnb.bank.in/: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:40:19,409] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:40:19,409] WARNING in inventory_scan_service: DNS resolution failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:40:19,409] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:40:19,409] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:40:19,409] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:40:19,409] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:40:19,409] INFO in inventory_scan_service: [2/2] Scanning pnb.bank.in
+[2026-03-20 17:40:19,409] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: pnb.bank.in
+[2026-03-20 17:40:19,409] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for pnb.bank.in
+[2026-03-20 17:40:19,409] WARNING in inventory_scan_service: Network discovery failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:40:19,410] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for pnb.bank.in
+[2026-03-20 17:40:19,410] WARNING in inventory_scan_service: TLS analysis failed for pnb.bank.in: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:40:19,410] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for pnb.bank.in
+[2026-03-20 17:40:19,410] WARNING in inventory_scan_service: DNS resolution failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:40:19,410] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for pnb.bank.in
+[2026-03-20 17:40:19,410] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for pnb.bank.in
+[2026-03-20 17:40:19,410] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for pnb.bank.in
+[2026-03-20 17:40:19,411] INFO in inventory_scan_service: All scan results committed to database
+[2026-03-20 17:40:19,411] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN COMPLETED ==========
+[2026-03-20 17:40:19,411] INFO in inventory_scan_service: Summary: 2 successful, 0 failed
+[2026-03-20 17:40:19,411] INFO in scheduler: ✓ Automated inventory scan complete: 2 successful, 0 failed
+[2026-03-20 17:40:19,411] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:40:19,623] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN STARTED ==========
+[2026-03-20 17:40:19,624] INFO in inventory_scan_service: Scanning 2 assets
+[2026-03-20 17:40:19,624] INFO in inventory_scan_service: [1/2] Scanning https://pnbnet.pnb.bank.in/
+[2026-03-20 17:40:19,624] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: https://pnbnet.pnb.bank.in/
+[2026-03-20 17:40:19,624] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:40:19,624] WARNING in inventory_scan_service: Network discovery failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:40:19,625] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:40:19,625] WARNING in inventory_scan_service: TLS analysis failed for https://pnbnet.pnb.bank.in/: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:40:19,625] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:40:19,625] WARNING in inventory_scan_service: DNS resolution failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:40:19,625] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:40:19,625] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:40:19,626] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:40:19,626] INFO in inventory_scan_service: [2/2] Scanning pnb.bank.in
+[2026-03-20 17:40:19,626] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: pnb.bank.in
+[2026-03-20 17:40:19,626] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for pnb.bank.in
+[2026-03-20 17:40:19,626] WARNING in inventory_scan_service: Network discovery failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:40:19,626] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for pnb.bank.in
+[2026-03-20 17:40:19,626] WARNING in inventory_scan_service: TLS analysis failed for pnb.bank.in: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:40:19,627] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for pnb.bank.in
+[2026-03-20 17:40:19,627] WARNING in inventory_scan_service: DNS resolution failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:40:19,627] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for pnb.bank.in
+[2026-03-20 17:40:19,627] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for pnb.bank.in
+[2026-03-20 17:40:19,627] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for pnb.bank.in
+[2026-03-20 17:40:19,628] INFO in inventory_scan_service: All scan results committed to database
+[2026-03-20 17:40:19,628] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN COMPLETED ==========
+[2026-03-20 17:40:19,628] INFO in inventory_scan_service: Summary: 2 successful, 0 failed
+[2026-03-20 17:40:19,632] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:40:19,666] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:40:19,748] WARNING in _internal:  * Debugger is active!
+[2026-03-20 17:40:19,754] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-20 17:42:51,773] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:42:51] "GET /asset-inventory?q=&page_size=25&sort=asset_type&order=asc HTTP/1.1" 200 -
+[2026-03-20 17:42:52,146] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:42:52] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:42:52,148] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:42:52] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:42:52,148] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:42:52] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:42:52,346] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:42:52] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:42:52,462] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:42:52] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:42:55,313] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:42:55] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:42:58,342] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:42:58] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:01,330] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:01] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:04,322] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:04] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:07,306] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:07] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:11,151] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:11] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:14,188] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:14] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:17,166] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:17] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:20,172] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:20] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:23,151] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:23] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:26,163] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:26] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:29,186] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:29] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:32,162] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:32] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:35,186] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:35] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:38,190] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:38] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:41,188] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:41] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:44,178] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:44] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:47,187] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:47] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:50,178] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:50] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:53,185] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:53] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:56,173] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:56] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:43:59,158] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:43:59] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:44:02,181] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:44:02] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:44:05,151] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:44:05] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:44:08,160] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:44:08] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:44:50,203] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:44:50] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:45:50,169] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:45:50] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:46:19,874] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-20 17:46:20,290] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:46:20,937] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:46:21,062] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:46:21,484] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN STARTED ==========
+[2026-03-20 17:46:21,485] INFO in inventory_scan_service: Scanning 2 assets
+[2026-03-20 17:46:21,485] INFO in inventory_scan_service: [1/2] Scanning https://pnbnet.pnb.bank.in/
+[2026-03-20 17:46:21,485] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: https://pnbnet.pnb.bank.in/
+[2026-03-20 17:46:21,485] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:46:21,485] WARNING in inventory_scan_service: Network discovery failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:46:21,485] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:46:21,485] WARNING in inventory_scan_service: TLS analysis failed for https://pnbnet.pnb.bank.in/: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:46:21,485] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:46:21,485] WARNING in inventory_scan_service: DNS resolution failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:46:21,485] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:46:21,485] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:46:21,485] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:46:21,485] INFO in inventory_scan_service: [2/2] Scanning pnb.bank.in
+[2026-03-20 17:46:21,485] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: pnb.bank.in
+[2026-03-20 17:46:21,485] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for pnb.bank.in
+[2026-03-20 17:46:21,486] WARNING in inventory_scan_service: Network discovery failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:46:21,486] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for pnb.bank.in
+[2026-03-20 17:46:21,486] WARNING in inventory_scan_service: TLS analysis failed for pnb.bank.in: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:46:21,486] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for pnb.bank.in
+[2026-03-20 17:46:21,486] WARNING in inventory_scan_service: DNS resolution failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:46:21,486] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for pnb.bank.in
+[2026-03-20 17:46:21,486] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for pnb.bank.in
+[2026-03-20 17:46:21,486] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for pnb.bank.in
+[2026-03-20 17:46:21,487] INFO in inventory_scan_service: All scan results committed to database
+[2026-03-20 17:46:21,487] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN COMPLETED ==========
+[2026-03-20 17:46:21,487] INFO in inventory_scan_service: Summary: 2 successful, 0 failed
+[2026-03-20 17:46:21,487] INFO in scheduler: ✓ Automated inventory scan complete: 2 successful, 0 failed
+[2026-03-20 17:46:21,487] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:46:21,591] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN STARTED ==========
+[2026-03-20 17:46:21,592] INFO in inventory_scan_service: Scanning 2 assets
+[2026-03-20 17:46:21,592] INFO in inventory_scan_service: [1/2] Scanning https://pnbnet.pnb.bank.in/
+[2026-03-20 17:46:21,592] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: https://pnbnet.pnb.bank.in/
+[2026-03-20 17:46:21,592] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:46:21,592] WARNING in inventory_scan_service: Network discovery failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:46:21,593] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:46:21,593] WARNING in inventory_scan_service: TLS analysis failed for https://pnbnet.pnb.bank.in/: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:46:21,593] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:46:21,593] WARNING in inventory_scan_service: DNS resolution failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:46:21,593] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:46:21,594] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:46:21,594] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:46:21,594] INFO in inventory_scan_service: [2/2] Scanning pnb.bank.in
+[2026-03-20 17:46:21,594] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: pnb.bank.in
+[2026-03-20 17:46:21,594] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for pnb.bank.in
+[2026-03-20 17:46:21,595] WARNING in inventory_scan_service: Network discovery failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:46:21,595] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for pnb.bank.in
+[2026-03-20 17:46:21,595] WARNING in inventory_scan_service: TLS analysis failed for pnb.bank.in: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:46:21,595] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for pnb.bank.in
+[2026-03-20 17:46:21,595] WARNING in inventory_scan_service: DNS resolution failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:46:21,596] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for pnb.bank.in
+[2026-03-20 17:46:21,596] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for pnb.bank.in
+[2026-03-20 17:46:21,596] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for pnb.bank.in
+[2026-03-20 17:46:21,597] INFO in inventory_scan_service: All scan results committed to database
+[2026-03-20 17:46:21,597] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN COMPLETED ==========
+[2026-03-20 17:46:21,598] INFO in inventory_scan_service: Summary: 2 successful, 0 failed
+[2026-03-20 17:46:21,598] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:46:21,604] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:46:21,844] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:46:21,972] WARNING in _internal:  * Debugger is active!
+[2026-03-20 17:46:21,990] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-20 17:46:50,166] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:46:50] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:47:50,176] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:47:50] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:48:50,175] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:48:50] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:49:50,155] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:49:50] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:50:43,641] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-20 17:50:43,897] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:50:44,707] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:50:44,738] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:50:45,353] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN STARTED ==========
+[2026-03-20 17:50:45,354] INFO in inventory_scan_service: Scanning 2 assets
+[2026-03-20 17:50:45,354] INFO in inventory_scan_service: [1/2] Scanning https://pnbnet.pnb.bank.in/
+[2026-03-20 17:50:45,354] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: https://pnbnet.pnb.bank.in/
+[2026-03-20 17:50:45,355] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:50:45,355] WARNING in inventory_scan_service: Network discovery failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:50:45,355] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:50:45,356] WARNING in inventory_scan_service: TLS analysis failed for https://pnbnet.pnb.bank.in/: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:50:45,356] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:50:45,356] WARNING in inventory_scan_service: DNS resolution failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:50:45,356] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:50:45,357] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:50:45,357] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:50:45,357] INFO in inventory_scan_service: [2/2] Scanning pnb.bank.in
+[2026-03-20 17:50:45,358] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: pnb.bank.in
+[2026-03-20 17:50:45,358] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for pnb.bank.in
+[2026-03-20 17:50:45,358] WARNING in inventory_scan_service: Network discovery failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:50:45,359] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for pnb.bank.in
+[2026-03-20 17:50:45,359] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN STARTED ==========
+[2026-03-20 17:50:45,359] INFO in inventory_scan_service: Scanning 2 assets
+[2026-03-20 17:50:45,359] INFO in inventory_scan_service: [1/2] Scanning https://pnbnet.pnb.bank.in/
+[2026-03-20 17:50:45,359] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: https://pnbnet.pnb.bank.in/
+[2026-03-20 17:50:45,359] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:50:45,359] WARNING in inventory_scan_service: Network discovery failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:50:45,359] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:50:45,359] WARNING in inventory_scan_service: TLS analysis failed for https://pnbnet.pnb.bank.in/: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:50:45,359] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:50:45,359] WARNING in inventory_scan_service: DNS resolution failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:50:45,360] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:50:45,360] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:50:45,360] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:50:45,359] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for pnb.bank.in
+[2026-03-20 17:50:45,360] INFO in inventory_scan_service: [2/2] Scanning pnb.bank.in
+[2026-03-20 17:50:45,360] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: pnb.bank.in
+[2026-03-20 17:50:45,360] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for pnb.bank.in
+[2026-03-20 17:50:45,360] WARNING in inventory_scan_service: Network discovery failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:50:45,360] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for pnb.bank.in
+[2026-03-20 17:50:45,360] WARNING in inventory_scan_service: TLS analysis failed for pnb.bank.in: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:50:45,360] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for pnb.bank.in
+[2026-03-20 17:50:45,360] WARNING in inventory_scan_service: DNS resolution failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:50:45,360] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for pnb.bank.in
+[2026-03-20 17:50:45,360] WARNING in inventory_scan_service: DNS resolution failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:50:45,360] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for pnb.bank.in
+[2026-03-20 17:50:45,360] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for pnb.bank.in
+[2026-03-20 17:50:45,360] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for pnb.bank.in
+[2026-03-20 17:50:45,360] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for pnb.bank.in
+[2026-03-20 17:50:45,360] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for pnb.bank.in
+[2026-03-20 17:50:45,361] INFO in inventory_scan_service: All scan results committed to database
+[2026-03-20 17:50:45,361] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN COMPLETED ==========
+[2026-03-20 17:50:45,361] INFO in inventory_scan_service: Summary: 2 successful, 0 failed
+[2026-03-20 17:50:45,361] INFO in inventory_scan_service: All scan results committed to database
+[2026-03-20 17:50:45,362] INFO in scheduler: ✓ Automated inventory scan complete: 2 successful, 0 failed
+[2026-03-20 17:50:45,362] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:50:45,362] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN COMPLETED ==========
+[2026-03-20 17:50:45,362] INFO in inventory_scan_service: Summary: 2 successful, 0 failed
+[2026-03-20 17:50:45,370] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:50:45,426] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:50:45,475] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:50:45,572] WARNING in _internal:  * Debugger is active!
+[2026-03-20 17:50:45,590] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-20 17:50:50,176] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:50:50] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:50:55,156] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:50:55] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:50:55,340] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:50:55] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:50:57,876] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:50:57] "GET /asset-inventory?q=&page_size=25&sort=asset_type&order=asc HTTP/1.1" 200 -
+[2026-03-20 17:50:58,065] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:50:58] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:50:58,113] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:50:58] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:50:58,117] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:50:58] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:50:58,172] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:50:58] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:50:58,327] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:50:58] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:51:01,163] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:01] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:04,165] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:04] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:07,150] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:07] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:07,881] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:07] "[32mPOST /dashboard/inventory/scan HTTP/1.1[0m" 302 -
+[2026-03-20 17:51:07,883] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN STARTED ==========
+[2026-03-20 17:51:07,884] INFO in inventory_scan_service: Scanning 2 assets
+[2026-03-20 17:51:07,884] INFO in inventory_scan_service: [1/2] Scanning https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:07,884] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:07,885] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:07,885] WARNING in inventory_scan_service: Network discovery failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:51:07,885] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:07,885] WARNING in inventory_scan_service: TLS analysis failed for https://pnbnet.pnb.bank.in/: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:51:07,886] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:07,886] WARNING in inventory_scan_service: DNS resolution failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:51:07,886] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:07,887] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:07,887] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:07,887] INFO in inventory_scan_service: [2/2] Scanning pnb.bank.in
+[2026-03-20 17:51:07,888] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: pnb.bank.in
+[2026-03-20 17:51:07,888] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for pnb.bank.in
+[2026-03-20 17:51:07,888] WARNING in inventory_scan_service: Network discovery failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:51:07,888] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for pnb.bank.in
+[2026-03-20 17:51:07,888] WARNING in inventory_scan_service: TLS analysis failed for pnb.bank.in: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:51:07,888] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for pnb.bank.in
+[2026-03-20 17:51:07,889] WARNING in inventory_scan_service: DNS resolution failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:51:07,889] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for pnb.bank.in
+[2026-03-20 17:51:07,889] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for pnb.bank.in
+[2026-03-20 17:51:07,889] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for pnb.bank.in
+[2026-03-20 17:51:07,890] INFO in inventory_scan_service: All scan results committed to database
+[2026-03-20 17:51:07,891] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN COMPLETED ==========
+[2026-03-20 17:51:07,891] INFO in inventory_scan_service: Summary: 2 successful, 0 failed
+[2026-03-20 17:51:07,960] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:07] "GET /asset-inventory?q=&page_size=25&sort=asset_type&order=asc HTTP/1.1" 200 -
+[2026-03-20 17:51:08,055] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:08] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:51:08,059] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:08] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:51:08,069] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:08] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:51:08,116] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:08] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:08,215] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:08] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:51:11,138] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:11] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:11,924] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:11] "[32mPOST /dashboard/inventory/scan HTTP/1.1[0m" 302 -
+[2026-03-20 17:51:11,940] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN STARTED ==========
+[2026-03-20 17:51:11,941] INFO in inventory_scan_service: Scanning 2 assets
+[2026-03-20 17:51:11,941] INFO in inventory_scan_service: [1/2] Scanning https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:11,941] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:11,941] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:11,942] WARNING in inventory_scan_service: Network discovery failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:51:11,942] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:11,942] WARNING in inventory_scan_service: TLS analysis failed for https://pnbnet.pnb.bank.in/: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:51:11,942] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:11,943] WARNING in inventory_scan_service: DNS resolution failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:51:11,943] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:11,943] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:11,943] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:11,943] INFO in inventory_scan_service: [2/2] Scanning pnb.bank.in
+[2026-03-20 17:51:11,944] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: pnb.bank.in
+[2026-03-20 17:51:11,944] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for pnb.bank.in
+[2026-03-20 17:51:11,944] WARNING in inventory_scan_service: Network discovery failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:51:11,944] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for pnb.bank.in
+[2026-03-20 17:51:11,944] WARNING in inventory_scan_service: TLS analysis failed for pnb.bank.in: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:51:11,944] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for pnb.bank.in
+[2026-03-20 17:51:11,945] WARNING in inventory_scan_service: DNS resolution failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:51:11,945] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for pnb.bank.in
+[2026-03-20 17:51:11,945] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for pnb.bank.in
+[2026-03-20 17:51:11,945] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for pnb.bank.in
+[2026-03-20 17:51:11,946] INFO in inventory_scan_service: All scan results committed to database
+[2026-03-20 17:51:11,946] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN COMPLETED ==========
+[2026-03-20 17:51:11,946] INFO in inventory_scan_service: Summary: 2 successful, 0 failed
+[2026-03-20 17:51:11,996] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:11] "GET /asset-inventory?q=&page_size=25&sort=asset_type&order=asc HTTP/1.1" 200 -
+[2026-03-20 17:51:12,070] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:12] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:51:12,075] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:12] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:51:12,092] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:12] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:51:12,113] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:12] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:12,212] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:12] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:51:15,127] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:15] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:18,123] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:18] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:21,105] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:21] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:21,106] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:21,106] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:21,107] WARNING in inventory_scan_service: Network discovery failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:51:21,107] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:21,107] WARNING in inventory_scan_service: TLS analysis failed for https://pnbnet.pnb.bank.in/: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:51:21,108] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:21,108] WARNING in inventory_scan_service: DNS resolution failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:51:21,108] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:21,108] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:21,108] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:51:21,114] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:21] "[32mPOST /dashboard/inventory/asset/2/scan HTTP/1.1[0m" 302 -
+[2026-03-20 17:51:21,181] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:21] "GET /asset-inventory?q=&page_size=25&sort=asset_type&order=asc HTTP/1.1" 200 -
+[2026-03-20 17:51:21,250] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:21] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:51:21,253] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:21] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:51:21,287] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:21] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:51:21,326] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:21] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:21,392] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:21] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:51:24,308] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:24] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:28,189] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:28] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:31,159] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:31] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:34,159] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:34] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:37,184] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:37] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:40,187] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:40] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:43,179] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:43] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:46,189] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:46] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:49,176] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:49] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:52,189] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:52] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:55,155] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:55] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:51:58,163] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:51:58] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:01,183] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:01] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:04,186] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:04] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:07,184] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:07] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:10,169] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:10] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:13,178] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:13] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:16,169] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:16] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:18,816] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:18] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:21,311] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:21] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:21,362] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:21] "GET /asset-inventory?q=&page_size=25&sort=asset_type&order=asc HTTP/1.1" 200 -
+[2026-03-20 17:52:21,425] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:21] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:52:21,440] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:21] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:52:21,440] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:21] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:52:21,511] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:21] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:21,601] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:21] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:52:22,930] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:22] "GET /asset-inventory?q=&page_size=25&sort=asset_type&order=asc HTTP/1.1" 200 -
+[2026-03-20 17:52:22,985] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:22] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:52:22,988] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:22] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-20 17:52:22,993] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:22] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-20 17:52:23,027] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:23] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:23,135] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:23] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-20 17:52:26,023] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:26] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:29,020] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:29] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:32,025] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:32] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:35,047] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:35] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:38,178] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:38] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:41,150] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:41] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:44,185] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:44] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:47,176] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:47] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:50,158] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:50] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:53,183] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:53] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:56,169] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:56] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:52:59,178] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:52:59] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:53:02,174] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:53:02] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:53:05,179] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:53:05] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:53:08,144] INFO in _extension: ratelimit 50 per 1 hour (127.0.0.1) exceeded at endpoint: quantumshield_dashboard.inventory_scan_status
+[2026-03-20 17:53:08,145] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:53:08] "[31m[1mGET /dashboard/inventory/scan-status HTTP/1.1[0m" 429 -
+[2026-03-20 17:53:11,152] INFO in _extension: ratelimit 50 per 1 hour (127.0.0.1) exceeded at endpoint: quantumshield_dashboard.inventory_scan_status
+[2026-03-20 17:53:11,153] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:53:11] "[31m[1mGET /dashboard/inventory/scan-status HTTP/1.1[0m" 429 -
+[2026-03-20 17:53:14,142] INFO in _extension: ratelimit 50 per 1 hour (127.0.0.1) exceeded at endpoint: quantumshield_dashboard.inventory_scan_status
+[2026-03-20 17:53:14,143] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:53:14] "[31m[1mGET /dashboard/inventory/scan-status HTTP/1.1[0m" 429 -
+[2026-03-20 17:53:17,157] INFO in _extension: ratelimit 50 per 1 hour (127.0.0.1) exceeded at endpoint: quantumshield_dashboard.inventory_scan_status
+[2026-03-20 17:53:17,158] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:53:17] "[31m[1mGET /dashboard/inventory/scan-status HTTP/1.1[0m" 429 -
+[2026-03-20 17:53:20,151] INFO in _extension: ratelimit 50 per 1 hour (127.0.0.1) exceeded at endpoint: quantumshield_dashboard.inventory_scan_status
+[2026-03-20 17:53:20,152] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:53:20] "[31m[1mGET /dashboard/inventory/scan-status HTTP/1.1[0m" 429 -
+[2026-03-20 17:53:23,143] INFO in _extension: ratelimit 50 per 1 hour (127.0.0.1) exceeded at endpoint: quantumshield_dashboard.inventory_scan_status
+[2026-03-20 17:53:23,144] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:53:23] "[31m[1mGET /dashboard/inventory/scan-status HTTP/1.1[0m" 429 -
+[2026-03-20 17:53:26,157] INFO in _extension: ratelimit 50 per 1 hour (127.0.0.1) exceeded at endpoint: quantumshield_dashboard.inventory_scan_status
+[2026-03-20 17:53:26,158] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:53:26] "[31m[1mGET /dashboard/inventory/scan-status HTTP/1.1[0m" 429 -
+[2026-03-20 17:53:29,154] INFO in _extension: ratelimit 50 per 1 hour (127.0.0.1) exceeded at endpoint: quantumshield_dashboard.inventory_scan_status
+[2026-03-20 17:53:29,154] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:53:29] "[31m[1mGET /dashboard/inventory/scan-status HTTP/1.1[0m" 429 -
+[2026-03-20 17:53:32,143] INFO in _extension: ratelimit 50 per 1 hour (127.0.0.1) exceeded at endpoint: quantumshield_dashboard.inventory_scan_status
+[2026-03-20 17:53:32,143] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:53:32] "[31m[1mGET /dashboard/inventory/scan-status HTTP/1.1[0m" 429 -
+[2026-03-20 17:53:35,144] INFO in _extension: ratelimit 50 per 1 hour (127.0.0.1) exceeded at endpoint: quantumshield_dashboard.inventory_scan_status
+[2026-03-20 17:53:35,145] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:53:35] "[31m[1mGET /dashboard/inventory/scan-status HTTP/1.1[0m" 429 -
+[2026-03-20 17:53:50,156] INFO in _extension: ratelimit 50 per 1 hour (127.0.0.1) exceeded at endpoint: quantumshield_dashboard.inventory_scan_status
+[2026-03-20 17:53:50,156] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:53:50] "[31m[1mGET /dashboard/inventory/scan-status HTTP/1.1[0m" 429 -
+[2026-03-20 17:54:47,944] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-20 17:54:48,220] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:54:49,432] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:54:49,609] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:54:50,128] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:54:50,134] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN STARTED ==========
+[2026-03-20 17:54:50,134] INFO in inventory_scan_service: Scanning 2 assets
+[2026-03-20 17:54:50,134] INFO in inventory_scan_service: [1/2] Scanning https://pnbnet.pnb.bank.in/
+[2026-03-20 17:54:50,134] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: https://pnbnet.pnb.bank.in/
+[2026-03-20 17:54:50,135] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:54:50,135] WARNING in inventory_scan_service: Network discovery failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:54:50,135] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:54:50,135] WARNING in inventory_scan_service: TLS analysis failed for https://pnbnet.pnb.bank.in/: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:54:50,135] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:54:50,135] WARNING in inventory_scan_service: DNS resolution failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:54:50,135] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:54:50,135] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:54:50,135] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:54:50,135] INFO in inventory_scan_service: [2/2] Scanning pnb.bank.in
+[2026-03-20 17:54:50,135] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: pnb.bank.in
+[2026-03-20 17:54:50,135] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for pnb.bank.in
+[2026-03-20 17:54:50,135] WARNING in inventory_scan_service: Network discovery failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:54:50,135] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for pnb.bank.in
+[2026-03-20 17:54:50,136] WARNING in inventory_scan_service: TLS analysis failed for pnb.bank.in: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:54:50,136] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for pnb.bank.in
+[2026-03-20 17:54:50,136] WARNING in inventory_scan_service: DNS resolution failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:54:50,136] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for pnb.bank.in
+[2026-03-20 17:54:50,136] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for pnb.bank.in
+[2026-03-20 17:54:50,136] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for pnb.bank.in
+[2026-03-20 17:54:50,137] INFO in inventory_scan_service: All scan results committed to database
+[2026-03-20 17:54:50,138] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN COMPLETED ==========
+[2026-03-20 17:54:50,138] INFO in inventory_scan_service: Summary: 2 successful, 0 failed
+[2026-03-20 17:54:50,138] INFO in scheduler: ✓ Automated inventory scan complete: 2 successful, 0 failed
+[2026-03-20 17:54:50,138] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:54:50,170] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN STARTED ==========
+[2026-03-20 17:54:50,171] INFO in inventory_scan_service: Scanning 2 assets
+[2026-03-20 17:54:50,171] INFO in inventory_scan_service: [1/2] Scanning https://pnbnet.pnb.bank.in/
+[2026-03-20 17:54:50,171] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: https://pnbnet.pnb.bank.in/
+[2026-03-20 17:54:50,172] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:54:50,172] WARNING in inventory_scan_service: Network discovery failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:54:50,172] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:54:50,173] WARNING in inventory_scan_service: TLS analysis failed for https://pnbnet.pnb.bank.in/: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:54:50,173] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:54:50,173] WARNING in inventory_scan_service: DNS resolution failed for https://pnbnet.pnb.bank.in/: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:54:50,174] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:54:50,174] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:54:50,174] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for https://pnbnet.pnb.bank.in/
+[2026-03-20 17:54:50,174] INFO in inventory_scan_service: [2/2] Scanning pnb.bank.in
+[2026-03-20 17:54:50,175] INFO in inventory_scan_service: [SCAN] Starting comprehensive scan for asset: pnb.bank.in
+[2026-03-20 17:54:50,175] INFO in inventory_scan_service: [SCAN] Phase 1: Network Discovery for pnb.bank.in
+[2026-03-20 17:54:50,175] WARNING in inventory_scan_service: Network discovery failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'discover_endpoints'
+[2026-03-20 17:54:50,176] INFO in inventory_scan_service: [SCAN] Phase 2: TLS Analysis for pnb.bank.in
+[2026-03-20 17:54:50,176] WARNING in inventory_scan_service: TLS analysis failed for pnb.bank.in: 'TLSAnalyzer' object has no attribute 'analyze_target'
+[2026-03-20 17:54:50,176] INFO in inventory_scan_service: [SCAN] Phase 3: DNS Resolution for pnb.bank.in
+[2026-03-20 17:54:50,176] WARNING in inventory_scan_service: DNS resolution failed for pnb.bank.in: 'NetworkScanner' object has no attribute 'resolve_dns'
+[2026-03-20 17:54:50,177] INFO in inventory_scan_service: [SCAN] Phase 4: Quantum-Safe Assessment for pnb.bank.in
+[2026-03-20 17:54:50,177] INFO in inventory_scan_service: [SCAN] Phase 5: CBOM Generation for pnb.bank.in
+[2026-03-20 17:54:50,177] INFO in inventory_scan_service: [SCAN] Phase 6: KPI Calculation for pnb.bank.in
+[2026-03-20 17:54:50,178] INFO in inventory_scan_service: All scan results committed to database
+[2026-03-20 17:54:50,179] INFO in inventory_scan_service: ========== INVENTORY BULK SCAN COMPLETED ==========
+[2026-03-20 17:54:50,179] INFO in inventory_scan_service: Summary: 2 successful, 0 failed
+[2026-03-20 17:54:50,188] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:54:50,485] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:54:50,588] WARNING in _internal:  * Debugger is active!
+[2026-03-20 17:54:50,600] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-20 17:54:50,789] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:54:50] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:55:50,191] INFO in _internal: 127.0.0.1 - - [20/Mar/2026 17:55:50] "GET /dashboard/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-20 17:56:07,917] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:56:07,918] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:56:08,637] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:56:41,242] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\src\\services\\inventory_scan_service.py', reloading
+[2026-03-20 17:56:41,423] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:56:42,535] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:56:43,252] INFO in database: MySQL database 'quantumshield' initialised.
+[2026-03-20 17:56:43,411] WARNING in _internal:  * Debugger is active!
+[2026-03-20 17:56:43,426] INFO in _internal:  * Debugger PIN: 118-432-274
+[2026-03-20 17:56:43,547] INFO in inventory_scan_service: [INVENTORY SCAN] 1/2 pnbnet.pnb.bank.in
+[2026-03-20 17:56:43,567] INFO in scheduler: Background Automated Scan Scheduler Started.
+[2026-03-20 17:56:43,567] INFO in scheduler: Scheduler thread dispatched successfully.
+[2026-03-20 17:56:43,567] INFO in scheduler: === Automatic Inventory Scan Sweep Initiated ===
+[2026-03-20 17:56:43,569] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:56:43,576] INFO in scheduler: Scheduler sleeping for 24 hours.
+[2026-03-20 17:56:44,567] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:56:58,054] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\OneDrive - betterlivings international school\\Downloads\\Code\\molten-rocket-quantum_scanner\\web\\blueprints\\dashboard.py', reloading
+[2026-03-20 17:56:58,140] INFO in inventory_scan_service: [INVENTORY SCAN] 1/2 pnbnet.pnb.bank.in
+[2026-03-20 17:56:58,338] INFO in _internal:  * Restarting with stat
+[2026-03-20 17:56:59,038] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:56:59,278] INFO in app: QuantumShield application starting up...
+[2026-03-20 17:57:25,085] INFO in app: QuantumShield application starting up...

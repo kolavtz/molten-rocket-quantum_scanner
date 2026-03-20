@@ -24,17 +24,12 @@
 {% endmacro %}
 
 {% macro sortable_th(label, field_name, endpoint, current_sort, current_order, base_params={}) %}
-{% set is_active = (current_sort == field_name) %}
-{% set next_order = 'desc' if (is_active and current_order == 'asc') else 'asc' %}
-{% set sort_icon = '↑' if (is_active and current_order == 'asc') else '↓' if (is_active and current_order == 'desc') else '↕' %}
-
-{% set combined_args = base_params.copy() %}
-{% set _ = combined_args.update({'sort': field_name, 'order': next_order, 'q': request.args.get('q', ''), 'page_size': request.args.get('page_size', 25)}) %}
-
-<th>
-  <a href="{{ url_for(endpoint, **combined_args) }}" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:0.3rem;">
-    {{ label }} <span style="font-size:0.8rem; opacity:0.6;">{{ sort_icon }}</span>
-  </a>
+{# 
+  Client-side sortable header — clicking will be handled by scans-table.js
+  No page reload needed. Just render the header with a sortable indicator.
+#}
+<th style="cursor: pointer; user-select: none;" title="Click to sort: {{ label }}">
+  {{ label }} <span style="font-size: 0.8rem; opacity: 0.5; margin-left: 0.25rem;">↕</span>
 </th>
 {% endmacro %}
 

@@ -147,19 +147,23 @@
         <div class="stats-grid">
             <div class="glass-card stat-card">
                 <div class="stat-label">Total Assets</div>
-                <div class="stat-val">{{ summary.total_assets }}</div>
+                <div class="stat-val">{{ vm.kpis.total_assets or 0 }}</div>
             </div>
             <div class="glass-card stat-card">
-                <div class="stat-label">Public APIs</div>
-                <div class="stat-val">{{ summary.api_count }}</div>
+                <div class="stat-label">Public Web Apps</div>
+                <div class="stat-val">{{ vm.kpis.public_web_apps or 0 }}</div>
             </div>
             <div class="glass-card stat-card">
-                <div class="stat-label">VPNs / Gateways</div>
-                <div class="stat-val">{{ summary.vpn_count }}</div>
+                <div class="stat-label">APIs</div>
+                <div class="stat-val">{{ vm.kpis.apis or 0 }}</div>
             </div>
             <div class="glass-card stat-card">
-                <div class="stat-label">Overall Risk Score</div>
-                <div class="stat-val" style="color: #ef4444;">{{ summary.overall_risk_score }}%</div>
+                <div class="stat-label">Expiring Certificates</div>
+                <div class="stat-val" style="color: #ef4444;">{{ vm.kpis.expiring_certificates or 0 }}</div>
+            </div>
+            <div class="glass-card stat-card">
+                <div class="stat-label">High Risk Assets</div>
+                <div class="stat-val" style="color: #ff6b6b;">{{ vm.kpis.high_risk_assets or 0 }}</div>
             </div>
         </div>
 
@@ -223,6 +227,7 @@
     <div class="glass-card" style="width: 420px; padding: 2rem; border-radius:12px;">
         <h3 style="margin-top:0; color:#ffd700; font-size:1.2rem;"><i class="fa-solid fa-circle-plus"></i> Add New Asset</h3>
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="action" value="add">
             <div style="margin-bottom:1rem;">
                 <label style="display:block; font-size:0.75rem; color:#9ca3af; margin-bottom:0.25rem;">Target (Domain or IP)</label>
@@ -258,6 +263,7 @@
     <div class="glass-card" style="width: 420px; padding: 2rem; border-radius:12px;">
         <h3 style="margin-top:0; color:#ffd700; font-size:1.2rem;"><i class="fa-solid fa-pen-to-square"></i> Edit Asset</h3>
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="target" id="editTarget">
             <div style="margin-bottom:1rem;">
