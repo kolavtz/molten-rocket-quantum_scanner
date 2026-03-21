@@ -2193,22 +2193,14 @@ def _build_unified_dashboard_payload(include_discovery: bool = False) -> dict:
 
 
 def _deprecated_json(payload: dict, status_code: int, replacement_action: str) -> Response:
-    """Attach deprecation metadata while preserving legacy endpoint behavior."""
-    body = dict(payload or {})
-    body.setdefault(
-        "deprecation",
-        {
-            "deprecated": True,
-            "replacement_endpoint": "/api/dashboard",
-            "replacement_action": replacement_action,
-            "sunset": "2026-12-31",
-        },
-    )
-    response = jsonify(body)
+    """Attach deprecation headers while preserving legacy endpoint payload shape."""
+    response = jsonify(payload or {})
     response.status_code = status_code
     response.headers["Deprecation"] = "true"
     response.headers["Sunset"] = "2026-12-31"
     response.headers["Link"] = '</api/dashboard>; rel="successor-version"'
+    response.headers["X-Replacement-Endpoint"] = "/api/dashboard"
+    response.headers["X-Replacement-Action"] = replacement_action
     response.headers["Warning"] = (
         f'299 - "Deprecated endpoint, migrate to /api/dashboard with action={replacement_action}"'
     )
@@ -2398,7 +2390,7 @@ def api_inventory_scan_all():
         result = scan_service.scan_all_assets(background=background)
         _audit("scan", "inventory_scan_all", "success", details={"background": background, "status": result.get("status")})
         code = 200 if result.get("status") in {"started", "complete", "in_progress"} else 500
-        return _deprecated_json({"status": result.get("status"), "data": result}, code, "scan.inventory.all")
+        return _deprecated_json(result, code, "scan.inventory.all")
     except Exception as exc:
         _audit("scan", "inventory_scan_all", "failed", details={"error": str(exc)})
         return _deprecated_json({"status": "error", "message": str(exc)}, 500, "scan.inventory.all")

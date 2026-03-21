@@ -29,7 +29,8 @@ python web/app.py
 | **🏷️ Quantum-Safe Labels** | Digital certificates with SHA-256 integrity checksums |
 | **📊 HNDL Risk Scoring** | Harvest Now, Decrypt Later risk assessment (High/Medium/Low) |
 | **🔧 Migration Guidance** | Server-specific configs for Nginx, Apache, HAProxy, AWS ALB |
-| **🌐 REST API** | `/api/scan?target=example.com` for CI/CD integration |
+| **🌐 Unified Dashboard API** | `/api/dashboard` for all in-app dashboard + scan actions |
+| **🤖 CI/CD Scan API** | `/api/scan?target=example.com` for automation pipelines |
 | **📈 Visual Dashboard** | Chart.js charts, glassmorphism dark-mode UI, responsive design |
 
 ## 🏗️ Architecture
@@ -65,6 +66,14 @@ tests/
 ## 📡 API Usage
 
 ```bash
+# Unified dashboard payload (session-authenticated app clients)
+curl -X GET "http://127.0.0.1:5000/api/dashboard"
+
+# Unified action API (example: refresh)
+curl -X POST http://127.0.0.1:5000/api/dashboard \
+  -H "Content-Type: application/json" \
+  -d '{"action":"dashboard.refresh"}'
+
 # REST API scan
 curl "http://127.0.0.1:5000/api/scan?target=google.com"
 

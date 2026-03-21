@@ -42,10 +42,10 @@
     "status": "scheduled"
   },
   {
-    "id": "487493ce3ccb",
-    "created_by_id": "<AsyncMock name='current_user.id' id='3142575483136'>",
+    "id": "9c83154c9398",
+    "created_by_id": "<AsyncMock name='current_user.id' id='1562614196480'>",
     "created_by": "admin",
-    "created_at": "2026-03-21T06:56:32.376426+00:00",
+    "created_at": "2026-03-21T07:02:55.580819+00:00",
     "enabled": true,
     "report_type": "Executive Summary Report",
     "frequency": "Weekly",
