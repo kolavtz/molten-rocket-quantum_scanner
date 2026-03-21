@@ -41,22 +41,23 @@ def _inventory_scan_service():
 def dashboard_home():
     """Renders primary Quantumshield Dashboard with charts and maps using unified data service."""
     try:
-        # Get comprehensive aggregated data from single source of truth (cached for 30s)
+        # Canonical route payload: combine best of both approaches
+        # 1) Aggregate KPIs (fast DB-level query path)
+        # 2) Asset roster rows (inventory ORM path)
         data = get_dashboard_data_cached()
-        
-        # Build summary from aggregated KPIs
-        summary = {
-            "total_scans": data.get("total_scans", 0),
-            "assets": data.get("scans", []),
-            "aggregated_kpis": data.get("aggregated_kpis", {}),
-            "distributions": data.get("distributions", {}),
-        }
-        
+        assets = asset_service.load_combined_assets()
+        summary = asset_service.get_dashboard_summary(assets)
+
+        # Keep aggregate metadata available without breaking template expectations.
+        summary["total_scans"] = data.get("total_scans", 0)
+        summary["aggregated_kpis"] = data.get("aggregated_kpis", {})
+        summary["distributions"] = data.get("distributions", {})
+
         return render_template(
-            'home.html', 
-            assets=summary.get("assets", []), 
+            'home.html',
+            assets=assets,
             summary=summary,
-            enterprise_metrics=summary
+            enterprise_metrics=summary,
         )
     except Exception as e:
         current_app.logger.error(f"Error loading dashboard data: {e}")
@@ -181,7 +182,7 @@ def add_asset():
                 flash(f"Asset {hostname} already exists.", "warning")
     except Exception as e:
         db_session.rollback()
-        print(f"[!] Error adding asset: {e}")
+        current_app.logger.error(f"[!] Error adding asset: {e}")
         flash("Error adding asset. Please try again.", "error")
             
     return redirect(request.referrer or url_for('quantumshield_dashboard.dashboard_home'))

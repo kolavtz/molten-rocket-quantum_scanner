@@ -222,3 +222,26 @@ class TestDiscoveryGraph:
             assert 'ip:203.0.113.10' in node_ids
             assert any(e.get('from') == 'domain:example.org' and e.get('to') == 'ip:203.0.113.10' for e in data.get('edges', []))
 
+
+class TestUnifiedDashboardApi:
+    """Tests for the single unified dashboard API endpoint."""
+
+    def test_dashboard_api_get(self, client, mock_admin):
+        resp = client.get('/api/dashboard')
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data.get('status') == 'success'
+        assert isinstance(data.get('data'), dict)
+        assert 'inventory' in data.get('data', {})
+
+    def test_dashboard_api_refresh_action(self, client, mock_admin):
+        resp = client.post(
+            '/api/dashboard',
+            data=json.dumps({'action': 'dashboard.refresh'}),
+            content_type='application/json',
+        )
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data.get('status') == 'success'
+        assert isinstance(data.get('data'), dict)
+

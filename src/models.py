@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float, Text
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import declarative_base, relationship, synonym
 from sqlalchemy.sql import func
 import datetime
 
@@ -29,7 +29,8 @@ class User(Base):
 class Asset(Base, SoftDeleteMixin):
     __tablename__ = 'assets'
     id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False, index=True)
+    target = Column(String(255), nullable=False, unique=True, index=True)
+    name = synonym('target')
     url = Column(String(255), nullable=True)
     ipv4 = Column(String(50), nullable=True)
     ipv6 = Column(String(50), nullable=True)

@@ -175,7 +175,7 @@ a:hover {
 }
 
 .nav-container {
-    max-width: 1100px;
+    max-width: 100%;
     margin: 0 auto;
     padding: 0.7rem 1.5rem;
     display: flex;
@@ -397,7 +397,7 @@ a:hover {
 .main-content {
     position: relative;
     z-index: 1;
-    max-width: 1100px;
+    max-width: 100%;
     margin: 0 auto;
     padding: 0 1.5rem 3rem;
 }
@@ -1383,7 +1383,7 @@ code.tls-value {
 }
 
 .footer-container {
-    max-width: 1100px;
+    max-width: 100%;
     margin: 0 auto;
 }
 

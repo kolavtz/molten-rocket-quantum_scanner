@@ -1,0 +1,89 @@
+--- LAST 10000 CHARACTERS OF LOG ---
+ Available=True
+[2026-03-21 10:11:23,051] WARNING in _internal:  * Debugger is active!
+[2026-03-21 10:11:23,060] INFO in _internal:  * Debugger PIN: 483-781-071
+[2026-03-21 10:11:28,718] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:11:28] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:11:38,692] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:11:38] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:11:48,693] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:11:48] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:11:58,075] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\Downloads\\hf-proj\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-21 10:11:58,302] INFO in _internal:  * Restarting with stat
+[2026-03-21 10:11:59,845] INFO in app: QuantumShield application starting up...
+[2026-03-21 10:11:59,846] INFO in app: Initializing database connectivity...
+[2026-03-21 10:11:59,846] INFO in app: Database initialization deferred at import time. Available=False
+[2026-03-21 10:11:59,873] INFO in app: Automated scheduler disabled.
+[2026-03-21 10:11:59,873] INFO in app: Initializing database connectivity at runtime (attempt 1/3)...
+[2026-03-21 10:11:59,883] INFO in database: Database 'quantumshield' already exists, selected successfully
+[2026-03-21 10:11:59,981] INFO in database: MySQL database 'quantumshield' initialised successfully.
+[2026-03-21 10:12:00,007] INFO in app: Database initialization complete. Available=True
+[2026-03-21 10:12:00,065] WARNING in _internal:  * Debugger is active!
+[2026-03-21 10:12:00,080] INFO in _internal:  * Debugger PIN: 483-781-071
+[2026-03-21 10:12:00,233] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:12:00] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:12:00,819] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:12:00] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:12:08,668] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:12:08] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:12:18,671] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:12:18] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:12:21,993] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\Downloads\\hf-proj\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-21 10:12:22,203] INFO in _internal:  * Restarting with stat
+[2026-03-21 10:12:23,681] INFO in app: QuantumShield application starting up...
+[2026-03-21 10:12:23,681] INFO in app: Initializing database connectivity...
+[2026-03-21 10:12:23,682] INFO in app: Database initialization deferred at import time. Available=False
+[2026-03-21 10:12:23,706] INFO in app: Automated scheduler disabled.
+[2026-03-21 10:12:23,706] INFO in app: Initializing database connectivity at runtime (attempt 1/3)...
+[2026-03-21 10:12:23,713] INFO in database: Database 'quantumshield' already exists, selected successfully
+[2026-03-21 10:12:23,831] INFO in database: MySQL database 'quantumshield' initialised successfully.
+[2026-03-21 10:12:23,838] INFO in app: Database initialization complete. Available=True
+[2026-03-21 10:12:23,900] WARNING in _internal:  * Debugger is active!
+[2026-03-21 10:12:23,907] INFO in _internal:  * Debugger PIN: 483-781-071
+[2026-03-21 10:12:28,692] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:12:28] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:12:38,662] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:12:38] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:12:40,057] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:12:40] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:12:43,819] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:12:43] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:12:48,704] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:12:48] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:12:53,815] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:12:53] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:12:58,690] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:12:58] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:13:03,860] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:03] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:13:08,693] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:08] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:13:13,824] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:13] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:13:18,668] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:18] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:13:23,839] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:23] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:13:28,684] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:28] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:13:29,016] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:29] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-21 10:13:29,214] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:29] "GET /dashboard/assets HTTP/1.1" 200 -
+[2026-03-21 10:13:29,515] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:29] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-21 10:13:29,520] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:29] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-21 10:13:29,522] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:29] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-21 10:13:30,012] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:30] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-21 10:13:33,829] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:33] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:13:36,384] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:36] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-21 10:13:36,416] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:36] "GET /dashboard/assets HTTP/1.1" 200 -
+[2026-03-21 10:13:36,520] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:36] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-21 10:13:36,524] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:36] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-21 10:13:36,545] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:36] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-21 10:13:36,665] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:36] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-21 10:13:38,697] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:38] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:13:48,735] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:48] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:13:58,710] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:13:58] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:14:00,888] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:14:00] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:14:08,722] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:14:08] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:14:15,287] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:14:15] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:14:18,731] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:14:18] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:14:24,059] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:14:24] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:14:28,690] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:14:28] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:14:33,862] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:14:33] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:14:38,708] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:14:38] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:14:44,147] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:14:44] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:14:48,920] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:14:48] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:14:53,827] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:14:53] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:14:58,677] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:14:58] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:15:03,818] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:15:03] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:15:08,663] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:15:08] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:15:13,796] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:15:13] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:15:18,667] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:15:18] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:15:28,673] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:15:28] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:15:38,659] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:15:38] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:15:48,685] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:15:48] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:15:58,684] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:15:58] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:16:00,835] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:16:00] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:16:08,680] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:16:08] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 10:16:18,686] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 10:16:18] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+
+--- END OF LOG ---

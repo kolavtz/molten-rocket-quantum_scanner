@@ -13,3 +13,7 @@ Format: [DATE] Area – Decision – Rationale
 - [2026-03-20] DB startup resilience – Keep MySQL probe fast-fail by default (short timeout/retries) and make values env-configurable so app can fall back to JSON mode quickly when DB is unreachable.
 - [2026-03-20] Inventory scan orchestration – Inventory routes must inject the scan pipeline callable via app config instead of importing `web.app` from service code – avoids duplicate module initialization and scan flow breakage under different run modes.
 - [2026-03-20] Inventory UX telemetry – Bulk inventory scans must expose per-asset progress (`current/total/target/success/fail`) through status polling for real-time operator feedback.
+- [2026-03-20] Flask testing mode â€“ Route handlers and graph/report builders should skip MySQL reads/writes when `app.config["TESTING"]` is true â€“ keeps pytest deterministic when the local database is unreachable.
+- [2026-03-20] Discovery graph API â€“ `/api/discovery-graph` should return `nodes` and `edges` at the top level rather than a nested `data` object â€“ matches the current client/test contract.
+- [2026-03-20] App bootstrap â€“ Defer MySQL initialization until runtime entrypoints instead of module import â€“ keeps `web.app` import fast and avoids startup hangs in tests.
+- [2026-03-21] Dashboard route unification – `/dashboard/assets` is the single canonical dashboard route and must combine aggregate KPIs with inventory asset rows in one handler – prevents empty dashboard tables caused by relying on aggregate payload `scans` lists that can be blank.

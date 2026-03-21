@@ -63,7 +63,7 @@
       <tbody>
         {% if page_data.get('items') %}
           {% for row in page_data.get('items') %}
-          <tr data-owner="{{ row.target }}" data-exposure="Public" data-tls="Unknown" data-score="{{ row.overall_pqc_score|round|int }}" data-status="{{ row.status }}">
+          <tr data-owner="{{ row.target }}" data-exposure="Public" data-tls="Unknown" data-score="{{ (row.overall_pqc_score or 0)|round|int }}" data-status="{{ row.status }}">
             <td>{{ row.target }}</td>
             <td>{{ row.status }}</td>
             <td>{% if (row.overall_pqc_score|int) >= 700 %}YES{% else %}NO{% endif %}</td>

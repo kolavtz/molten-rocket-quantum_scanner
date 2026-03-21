@@ -228,6 +228,100 @@ def _get_users_id_column_type(cur) -> str:
     return "varchar(36)"
 
 
+def _ensure_scans_id_column(cur) -> None:
+    """Ensure a legacy scans table has an integer id primary key for ORM compatibility."""
+    try:
+        cur.execute(
+            """
+            SELECT COLUMN_KEY, EXTRA
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = %s
+              AND TABLE_NAME = 'scans'
+              AND COLUMN_NAME = 'id'
+            """,
+            (MYSQL_DATABASE,),
+        )
+        if cur.fetchone():
+            return
+    except Exception as e:
+        logger.warning("Could not query scans.id metadata: %s", e)
+        return
+
+    logger.info("Legacy scans table detected without id column; applying migration.")
+
+    # Detect whether scan_id currently serves as primary key or unique key.
+    scan_id_primary = False
+    try:
+        cur.execute(
+            """
+            SELECT COLUMN_KEY
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = %s
+              AND TABLE_NAME = 'scans'
+              AND COLUMN_NAME = 'scan_id'
+            """,
+            (MYSQL_DATABASE,),
+        )
+        row = cur.fetchone()
+        if row and row[0] == 'PRI':
+            scan_id_primary = True
+    except Exception:
+        pass
+
+    try:
+        # First attempt: add an auto-increment id primary key column.
+        cur.execute(
+            "ALTER TABLE scans ADD COLUMN id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST"
+        )
+        logger.info("Added scans.id AUTO_INCREMENT PRIMARY KEY")
+    except Exception as e:
+        logger.warning("Failed to add scans.id as primary key: %s", e)
+        try:
+            if scan_id_primary:
+                cur.execute("ALTER TABLE scans DROP PRIMARY KEY")
+            cur.execute(
+                "ALTER TABLE scans ADD COLUMN id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST"
+            )
+            if scan_id_primary:
+                cur.execute(
+                    "ALTER TABLE scans ADD UNIQUE INDEX uq_scans_scan_id (scan_id)"
+                )
+            logger.info("Migrated legacy scan_id PK by adding scans.id PK and preserving scan_id uniqueness")
+        except Exception as e2:
+            logger.warning("Failed to migrate scans.id legacy PK: %s", e2)
+
+
+def _ensure_assets_name_and_target_columns(cur) -> None:
+    """Ensure assets has both target and name columns for mixed compatibility."""
+    try:
+        cur.execute(
+            """
+            SELECT COLUMN_NAME
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = %s
+              AND TABLE_NAME = 'assets'
+              AND COLUMN_NAME IN ('target', 'name')
+            """,
+            (MYSQL_DATABASE,),
+        )
+        existing = {row[0] for row in cur.fetchall()}
+
+        if 'target' not in existing:
+            cur.execute("ALTER TABLE assets ADD COLUMN target VARCHAR(512) NULL")
+            logger.info("Added assets.target column for legacy compatibility")
+            if 'name' in existing:
+                cur.execute("UPDATE assets SET target = name WHERE target IS NULL OR target = ''")
+
+        if 'name' not in existing:
+            cur.execute("ALTER TABLE assets ADD COLUMN name VARCHAR(255) NULL")
+            logger.info("Added assets.name column for legacy compatibility")
+            if 'target' in existing or 'target' in existing:
+                cur.execute("UPDATE assets SET name = target WHERE name IS NULL OR name = ''")
+
+    except Exception as e:
+        logger.warning("Could not ensure assets target/name compatibility columns: %s", e)
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -237,18 +331,87 @@ def init_db() -> bool:
 
     Returns ``True`` on success, ``False`` if MySQL is unreachable.
     """
-    conn = _get_server_connection()
-    if conn is None:
-        logger.info("MySQL unavailable — running in JSON-only mode.")
+    try:
+        import pymysql
+    except ImportError:
+        logger.error("pymysql not installed.")
         return False
+    
+    # Connect to MySQL server WITHOUT selecting a database
+    last_exc = None
+    for attempt in range(1, _CONNECT_RETRIES + 1):
+        try:
+            conn = pymysql.connect(
+                host=MYSQL_HOST,
+                port=MYSQL_PORT,
+                user=MYSQL_USER,
+                password=MYSQL_PASSWORD,
+                connect_timeout=_CONNECT_TIMEOUT,
+                read_timeout=60,  # Very generous timeout for DDL operations (CREATE DATABASE, etc.)
+                write_timeout=60,
+                autocommit=False,  # IMPORTANT: explicit transaction control
+            )
+            break
+        except Exception as exc:
+            last_exc = exc
+            if attempt < _CONNECT_RETRIES:
+                import time as _time
+                _time.sleep(_CONNECT_RETRY_DELAY * attempt)
+    else:
+        logger.info("MySQL unavailable — running in JSON-only mode. (Connection failed: %s)", last_exc)
+        return False
+
+    migration_lock_name = f"{MYSQL_DATABASE}__init_db"
+    migration_lock_acquired = False
 
     try:
         cur = conn.cursor()
-        cur.execute(
-            f"CREATE DATABASE IF NOT EXISTS `{MYSQL_DATABASE}` "
-            "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
-        )
-        cur.execute(f"USE `{MYSQL_DATABASE}`")
+        
+        # Try to select the database directly (it may already exist)
+        try:
+            cur.execute(f"USE `{MYSQL_DATABASE}`")
+            conn.commit()
+            logger.info("Database '%s' already exists, selected successfully", MYSQL_DATABASE)
+        except Exception as e:
+            # Database doesn't exist, try to create it
+            logger.info("Database '%s' doesn't exist yet, attempting to create...", MYSQL_DATABASE)
+            try:
+                cur.execute(
+                    f"CREATE DATABASE IF NOT EXISTS `{MYSQL_DATABASE}` "
+                    "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+                )
+                conn.commit()
+                logger.info("Database '%s' created successfully", MYSQL_DATABASE)
+                # Now select it
+                cur.execute(f"USE `{MYSQL_DATABASE}`")
+                conn.commit()
+            except Exception as create_exc:
+                logger.warning("Could not create database: %s. Trying to use existing...", create_exc)
+                try:
+                    cur.execute(f"USE `{MYSQL_DATABASE}`")
+                    conn.commit()
+                    logger.info("Successfully selected existing database '%s'", MYSQL_DATABASE)
+                except Exception as use_exc:
+                    raise use_exc
+
+        # Keep metadata-lock waits reasonable (avoid long hangs while still allowing migration completion).
+        try:
+            cur.execute("SET SESSION lock_wait_timeout = 10")
+            cur.execute("SET SESSION innodb_lock_wait_timeout = 10")
+        except Exception:
+            pass
+
+        # Prevent concurrent multi-process startup migrations (e.g., Flask debug reloader).
+        try:
+            cur.execute("SELECT GET_LOCK(%s, 10)", (migration_lock_name,))
+            _lock_row = cur.fetchone()
+            migration_lock_acquired = bool(_lock_row and _lock_row[0] == 1)
+        except Exception:
+            migration_lock_acquired = False
+
+        if not migration_lock_acquired:
+            logger.info("Another process is initializing MySQL schema; skipping migrations for this cycle.")
+            return True
 
         try:
             cur.execute("""
@@ -280,21 +443,46 @@ def init_db() -> bool:
         try:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS scans (
-                    scan_id          VARCHAR(36)  PRIMARY KEY,
-                    target           VARCHAR(512) NOT NULL,
-                    asset_class      VARCHAR(64),
-                    status           VARCHAR(32),
-                    compliance_score INT          DEFAULT 0,
-                    total_assets     INT          DEFAULT 0,
-                    quantum_safe     INT          DEFAULT 0,
-                    quantum_vuln     INT          DEFAULT 0,
-                    scanned_at       DATETIME,
-                    report_json      LONGTEXT     NOT NULL,
-                    is_encrypted     BOOLEAN      DEFAULT FALSE
+                    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    scan_id         VARCHAR(36) UNIQUE,
+                    target          VARCHAR(512) NOT NULL,
+                    asset_class     VARCHAR(64),
+                    status          VARCHAR(32),
+                    started_at      DATETIME,
+                    completed_at    DATETIME,
+                    scanned_at      DATETIME,
+                    total_assets    INT          DEFAULT 0,
+                    compliance_score INT         DEFAULT 0,
+                    overall_pqc_score DOUBLE,
+                    quantum_safe    INT          DEFAULT 0,
+                    quantum_vuln    INT          DEFAULT 0,
+                    cbom_path       VARCHAR(500),
+                    report_json     LONGTEXT     NOT NULL,
+                    is_encrypted    BOOLEAN      DEFAULT FALSE,
+                    created_at      DATETIME     DEFAULT CURRENT_TIMESTAMP,
+                    is_deleted      BOOLEAN      DEFAULT FALSE,
+                    deleted_at      DATETIME,
+                    deleted_by_user_id VARCHAR(36),
+                    INDEX idx_scans_status (status),
+                    INDEX idx_scans_started_at (started_at)
                 ) ENGINE=InnoDB
             """)
+            _ensure_scans_id_column(cur)
         except Exception as e:
             logger.warning("Table 'scans' setup warning: %s", e)
+
+        # Commit core tables to persist state
+        try:
+            conn.commit()
+            logger.debug("Core tables (users, scans) committed")
+        except Exception as e:
+            # Transient connection/lock issues with DDL may occur under reloader races.
+            logger.warning("Commit after base table setup failed: %s", e)
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
 
         try:
             cur.execute("""
@@ -440,14 +628,7 @@ def init_db() -> bool:
             "ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
             "ALTER TABLE users ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
             "ALTER TABLE users ADD CONSTRAINT fk_users_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL",
-            "ALTER TABLE scans ADD COLUMN asset_class VARCHAR(64)",
-            "ALTER TABLE scans ADD COLUMN scan_id VARCHAR(36)",
-            "ALTER TABLE scans ADD COLUMN is_encrypted BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE scans ADD COLUMN report_json LONGTEXT NOT NULL",
-            "ALTER TABLE scans ADD COLUMN scanned_at DATETIME",
             "ALTER TABLE cbom_reports ADD COLUMN is_encrypted BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE scans MODIFY COLUMN scan_id VARCHAR(36)",
-            "ALTER TABLE scans MODIFY COLUMN report_json LONGTEXT NOT NULL",
             "ALTER TABLE cbom_reports MODIFY COLUMN cbom_json LONGTEXT NOT NULL",
             # API key column — graceful; ignored if already present
             "ALTER TABLE users ADD COLUMN api_key_hash CHAR(64) UNIQUE",
@@ -469,6 +650,14 @@ def init_db() -> bool:
             "ALTER TABLE report_schedules ADD CONSTRAINT fk_report_schedules_created_by FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE SET NULL",
             "ALTER TABLE asset_dns_records ADD COLUMN ttl INT DEFAULT 300",
             "ALTER TABLE asset_dns_records ADD COLUMN resolved_at DATETIME",
+            "ALTER TABLE scans ADD COLUMN IF NOT EXISTS started_at DATETIME",
+            "ALTER TABLE scans ADD COLUMN IF NOT EXISTS completed_at DATETIME",
+            "ALTER TABLE scans ADD COLUMN IF NOT EXISTS asset_class VARCHAR(64)",
+            "ALTER TABLE scans ADD COLUMN IF NOT EXISTS cbom_path VARCHAR(500)",
+            "ALTER TABLE scans ADD COLUMN IF NOT EXISTS is_encrypted BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE scans ADD COLUMN IF NOT EXISTS created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS target VARCHAR(512) UNIQUE",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS name VARCHAR(255)",
         ]:
             try:
                 cur.execute(alter_cmd)
@@ -489,87 +678,133 @@ def init_db() -> bool:
         except Exception:
             pass
 
+        # Backfill/repair legacy scans schema for SQLAlchemy compatibility.
+        try:
+            _ensure_scans_id_column(cur)
+        except Exception as e:
+            logger.warning("Failed to enforce scans.id compatibility: %s", e)
+
+        # Backfill/repair legacy assets schema for SQLAlchemy compatibility.
+        try:
+            _ensure_assets_name_and_target_columns(cur)
+        except Exception as e:
+            logger.warning("Failed to enforce assets target/name compatibility: %s", e)
+
         # Align report_schedules FK type with users.id type for mixed legacy installs.
         try:
             cur.execute(f"ALTER TABLE report_schedules MODIFY COLUMN created_by_id {user_id_column_type}")
         except Exception:
             pass
 
-        cur.execute(
-            "INSERT IGNORE INTO audit_log_chain (id, last_entry_id, last_hash) VALUES (1, NULL, %s)",
-            ("0" * 64,),
-        )
-
-        _create_trigger_if_missing(
-            cur,
-            "audit_logs_no_update",
-            """
-            CREATE TRIGGER audit_logs_no_update
-            BEFORE UPDATE ON audit_logs
-            FOR EACH ROW
-            SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'audit_logs is append-only';
-            """,
-        )
-        _create_trigger_if_missing(
-            cur,
-            "audit_logs_no_delete",
-            """
-            CREATE TRIGGER audit_logs_no_delete
-            BEFORE DELETE ON audit_logs
-            FOR EACH ROW
-            SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'audit_logs cannot be deleted';
-            """,
-        )
-        _create_trigger_if_missing(
-            cur,
-            "audit_log_chain_no_delete",
-            """
-            CREATE TRIGGER audit_log_chain_no_delete
-            BEFORE DELETE ON audit_log_chain
-            FOR EACH ROW
-            SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'audit_log_chain cannot be deleted';
-            """,
-        )
-
-        # Seed default admin if no users exist
-        cur.execute("SELECT COUNT(*) FROM users")
-        if cur.fetchone()[0] == 0:
-            from werkzeug.security import generate_password_hash  # type: ignore
-
-            admin_username = os.environ.get("QSS_ADMIN_USERNAME", "admin")
-            admin_email = os.environ.get("QSS_ADMIN_EMAIL", "admin@localhost")
-            admin_employee_id = os.environ.get("QSS_ADMIN_EMPLOYEE_ID", "ADMIN-001")
-            admin_pass = os.environ.get("QSS_ADMIN_PASSWORD", "admin123")
+        # Initialize audit_log_chain (non-fatal if fails)
+        try:
             cur.execute(
-                """
-                INSERT INTO users
-                    (id, employee_id, username, email, password_hash, role, is_active, must_change_password, password_changed_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    str(uuid.uuid4()),
-                    admin_employee_id,
-                    admin_username,
-                    admin_email,
-                    generate_password_hash(admin_pass),
-                    "Admin",
-                    True,
-                    False,
-                    _utcnow(),
-                ),
+                "INSERT IGNORE INTO audit_log_chain (id, last_entry_id, last_hash) VALUES (1, NULL, %s)",
+                ("0" * 64,),
             )
-            logger.info("Default admin user created.")
+            conn.commit()
+        except Exception as e:
+            logger.warning("Could not initialize audit_log_chain: %s", e)
+            try:
+                conn.rollback()
+            except Exception as rollback_error:
+                logger.debug("Rollback after audit_log_chain failure failed: %s", rollback_error)
+
+        # Create triggers (non-fatal if fail)
+        try:
+            _create_trigger_if_missing(
+                cur,
+                "audit_logs_no_update",
+                """
+                CREATE TRIGGER audit_logs_no_update
+                BEFORE UPDATE ON audit_logs
+                FOR EACH ROW
+                SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = 'audit_logs is append-only';
+                """,
+            )
+            _create_trigger_if_missing(
+                cur,
+                "audit_logs_no_delete",
+                """
+                CREATE TRIGGER audit_logs_no_delete
+                BEFORE DELETE ON audit_logs
+                FOR EACH ROW
+                SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = 'audit_logs cannot be deleted';
+                """,
+            )
+            _create_trigger_if_missing(
+                cur,
+                "audit_log_chain_no_delete",
+                """
+                CREATE TRIGGER audit_log_chain_no_delete
+                BEFORE DELETE ON audit_log_chain
+                FOR EACH ROW
+                SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = 'audit_log_chain cannot be deleted';
+                """,
+            )
+            conn.commit()
+        except Exception as e:
+            logger.warning("Could not create triggers: %s", e)
+            try:
+                conn.rollback()
+            except Exception as rollback_error:
+                logger.debug("Rollback after trigger creation failure failed: %s", rollback_error)
+
+        # Seed default admin if no users exist (non-fatal if fails)
+        try:
+            cur.execute("SELECT COUNT(*) FROM users")
+            _users_count_row = cur.fetchone()
+            users_count = int(_users_count_row[0]) if _users_count_row and _users_count_row[0] is not None else 0
+            if users_count == 0:
+                from werkzeug.security import generate_password_hash  # type: ignore
+
+                admin_username = os.environ.get("QSS_ADMIN_USERNAME", "admin")
+                admin_email = os.environ.get("QSS_ADMIN_EMAIL", "admin@localhost")
+                admin_employee_id = os.environ.get("QSS_ADMIN_EMPLOYEE_ID", "ADMIN-001")
+                admin_pass = os.environ.get("QSS_ADMIN_PASSWORD", "admin123")
+                cur.execute(
+                    """
+                    INSERT INTO users
+                        (id, employee_id, username, email, password_hash, role, is_active, must_change_password, password_changed_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        str(uuid.uuid4()),
+                        admin_employee_id,
+                        admin_username,
+                        admin_email,
+                        generate_password_hash(admin_pass),
+                        "Admin",
+                        True,
+                        False,
+                        _utcnow(),
+                    ),
+                )
+                logger.info("Default admin user created.")
+            conn.commit()
+        except Exception as e:
+            logger.warning("Could not seed default admin user: %s", e)
+            conn.rollback()
 
         conn.commit()
-        logger.info("MySQL database '%s' initialised.", MYSQL_DATABASE)
+        logger.info("MySQL database '%s' initialised successfully.", MYSQL_DATABASE)
         return True
     except Exception as exc:
-        logger.error("MySQL init_db error: %s", exc)
+        logger.error("MySQL init_db error: %s | Type: %s | Details: %r", exc, type(exc).__name__, exc.args)
+        import traceback
+        logger.error("Traceback: %s", traceback.format_exc())
         return False
     finally:
+        if 'conn' in locals() and conn:
+            try:
+                if migration_lock_acquired:
+                    _cur = conn.cursor()
+                    _cur.execute("DO RELEASE_LOCK(%s)", (migration_lock_name,))
+            except Exception:
+                pass
         conn.close()
     return False
 
@@ -581,15 +816,18 @@ def save_asset(asset: Dict[str, Any]) -> bool:
     try:
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO assets (target, type, owner, risk_level, notes)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO assets (target, name, type, owner, risk_level, notes)
+            VALUES (%s, %s, %s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE
+                target = VALUES(target),
+                name = VALUES(name),
                 type = VALUES(type),
                 owner = VALUES(owner),
                 risk_level = VALUES(risk_level),
                 notes = VALUES(notes)
         """, (
             asset.get("target"),
+            asset.get("name") or asset.get("target"),
             asset.get("type"),
             asset.get("owner"),
             asset.get("risk_level"),
@@ -660,13 +898,21 @@ def save_scan(report: Dict[str, Any]) -> bool:
             json_str = encrypted_str
             is_encrypted = True
 
+        # Preserve compatibility with reports that use started_at in queries.
+        started_at = report.get("started_at") or scanned_at
+        if isinstance(started_at, str):
+            try:
+                started_at = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+            except Exception:
+                started_at = scanned_at
+
         cur.execute(
             """
             INSERT INTO scans
                 (scan_id, target, asset_class, status, compliance_score,
                  total_assets, quantum_safe, quantum_vuln,
-                 scanned_at, report_json, is_encrypted)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 scanned_at, report_json, is_encrypted, started_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE
                 asset_class      = VALUES(asset_class),
                 status           = VALUES(status),
@@ -676,7 +922,8 @@ def save_scan(report: Dict[str, Any]) -> bool:
                 quantum_vuln     = VALUES(quantum_vuln),
                 scanned_at       = VALUES(scanned_at),
                 report_json      = VALUES(report_json),
-                is_encrypted     = VALUES(is_encrypted)
+                is_encrypted     = VALUES(is_encrypted),
+                started_at       = VALUES(started_at)
             """,
             (
                 report.get("scan_id", ""),
@@ -689,7 +936,8 @@ def save_scan(report: Dict[str, Any]) -> bool:
                 overview.get("quantum_vulnerable", 0),
                 scanned_at,
                 json_str,
-                is_encrypted
+                is_encrypted,
+                started_at,
             ),
         )
         conn.commit()
@@ -892,7 +1140,6 @@ def get_enterprise_metrics() -> Dict[str, Any]:
 
             # Risk Distribution
             score_val = float(scan.get("overview", {}).get("average_compliance_score") or 0)
-            from database import _score_to_risk_local # fallback loop
             # Define risk range local to avoid circle
             if score_val >= 90: risk = "Low"
             elif score_val >= 70: risk = "Medium"
@@ -1295,7 +1542,7 @@ def list_users() -> List[Dict[str, Any]]:
         users = cur.fetchall() or []
         for user in users:
             user["role"] = normalize_role(user.get("role", "Viewer"))
-        return users
+        return list(users)
     finally:
         conn.close()
 
@@ -1746,7 +1993,7 @@ def list_audit_logs(limit: int = 100) -> List[Dict[str, Any]]:
                     row["details"] = {"raw": row["details_json"]}
             else:
                 row["details"] = row.get("details_json") or {}
-        return rows
+        return list(rows)
     finally:
         conn.close()
 

@@ -50,6 +50,38 @@
         </div>
 
         <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
+          <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
+            <input type="checkbox" name="add_to_inventory" id="addToInventoryToggle" style="accent-color:#10b981;" onchange="toggleInventoryFields('single')">
+            <span style="font-weight:700; color:#10b981;">ADD TO INVENTORY</span>
+          </label>
+        </div>
+        
+        <!-- Inventory Fields (Hidden by default) -->
+        <div id="inventoryFieldsSingle" style="display:none; margin-bottom: 1rem; border: 1px dashed var(--text-muted); padding: 0.75rem; background: rgba(0,0,0,0.15);">
+          <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:0.4rem;">Inventory Options</div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.5rem; margin-bottom:0.5rem;">
+            <div>
+              <label style="font-size:0.68rem; color:var(--text-secondary);">Owner</label>
+              <input type="text" name="inv_owner" placeholder="Support Team" class="scan-input" style="width:100%; font-size:0.75rem; padding:0.4rem;">
+            </div>
+            <div>
+              <label style="font-size:0.68rem; color:var(--text-secondary);">Risk Override</label>
+              <select name="inv_risk" class="scan-input" style="width:100%; font-size:0.75rem; padding:0.4rem;">
+                <option value="Low">Low</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="High">High</option>
+                <option value="Critical">Critical</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:0.68rem; color:var(--text-secondary);">Notes</label>
+            <input type="text" name="inv_notes" placeholder="e.g. Production URL" class="scan-input" style="width:100%; font-size:0.75rem; padding:0.4rem;">
+          </div>
+        </div>
+
+
+        <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
           <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:0.5rem;">Asset Classification</div>
           <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:0.6rem;">
             <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
@@ -94,6 +126,38 @@
         </div>
 
         <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
+          <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
+            <input type="checkbox" name="add_to_inventory" id="addToInventoryBulk" style="accent-color:#10b981;" onchange="toggleInventoryFields('bulk')">
+            <span style="font-weight:700; color:#10b981;">ADD TO INVENTORY</span>
+          </label>
+        </div>
+        
+        <!-- Inventory Fields Bulk (Hidden by default) -->
+        <div id="inventoryFieldsBulk" style="display:none; margin-bottom: 1rem; border: 1px dashed var(--text-muted); padding: 0.75rem; background: rgba(0,0,0,0.15);">
+          <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:0.4rem;">Inventory Options</div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.5rem; margin-bottom:0.5rem;">
+            <div>
+              <label style="font-size:0.68rem; color:var(--text-secondary);">Owner</label>
+              <input type="text" name="inv_owner_bulk" placeholder="Support Team" class="scan-input" style="width:100%; font-size:0.75rem; padding:0.4rem;">
+            </div>
+            <div>
+              <label style="font-size:0.68rem; color:var(--text-secondary);">Risk Override</label>
+              <select name="inv_risk_bulk" class="scan-input" style="width:100%; font-size:0.75rem; padding:0.4rem;">
+                <option value="Low">Low</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="High">High</option>
+                <option value="Critical">Critical</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:0.68rem; color:var(--text-secondary);">Notes</label>
+            <input type="text" name="inv_notes_bulk" placeholder="e.g. Bulk Import" class="scan-input" style="width:100%; font-size:0.75rem; padding:0.4rem;">
+          </div>
+        </div>
+
+
+        <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
           <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:0.5rem;">Asset Classification</div>
           <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:0.6rem;">
             <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
@@ -136,6 +200,15 @@
 </section>
 
 <script>
+function toggleInventoryFields(mode) {
+  const isBulk = mode === 'bulk';
+  const toggle = document.getElementById(isBulk ? 'addToInventoryBulk' : 'addToInventoryToggle');
+  const panel = document.getElementById(isBulk ? 'inventoryFieldsBulk' : 'inventoryFieldsSingle');
+  if (toggle && panel) {
+    panel.style.display = toggle.checked ? 'block' : 'none';
+  }
+}
+
 function switchTab(mode) {
   const tabSingle = document.getElementById('tabSingle');
   const tabBulk = document.getElementById('tabBulk');

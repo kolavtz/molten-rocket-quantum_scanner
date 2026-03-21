@@ -21,7 +21,7 @@
   <div style="display:grid;grid-template-columns:auto 1fr;gap:1rem;margin-bottom:1rem;">
     <!-- Manual Scan Buttons -->
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-      <form id="inventoryScanForm" action="/api/inventory/scan" method="POST" style="display:inline;">
+      <form id="inventoryScanForm" action="/api/dashboard" method="POST" style="display:inline;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="background" value="true">
         <button type="button" onclick="startInventoryScan()" class="scan-button" style="padding:0.5rem 1rem;background:var(--accent);font-weight:700;">
@@ -358,7 +358,14 @@ function toggleScheduleSettings() {
   
   // Load current settings
   if (panel.style.display !== 'none') {
-    fetch('/api/inventory/schedule')
+    fetch('/api/dashboard', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ action: 'scan.inventory.schedule.get' })
+    })
       .then(r => r.json())
       .then(data => {
         if (data.status === 'success') {
@@ -376,13 +383,6 @@ function getCsrfToken() {
 }
 
 function startInventoryScan() {
-  const formData = new FormData();
-  formData.append('background', 'true');
-  const csrf = getCsrfToken();
-  if (csrf) {
-    formData.append('csrf_token', csrf);
-  }
-
   const indicator = document.getElementById('scanIndicator');
   const statusText = document.getElementById('scanStatusText');
   const progressText = document.getElementById('scanProgressText');
@@ -390,21 +390,23 @@ function startInventoryScan() {
   if (statusText) statusText.textContent = 'Starting inventory scan...';
   if (progressText) progressText.textContent = '';
 
-  fetch('/api/inventory/scan', {
+  fetch('/api/dashboard', {
     method: 'POST',
     headers: {
-      'Accept': 'application/json'
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
     },
-    body: formData
+    body: JSON.stringify({ action: 'scan.inventory.all', background: true })
   })
   .then(r => r.json())
   .then(data => {
-    if (data.status === 'started' || data.status === 'in_progress' || data.status === 'complete') {
+    const op = data.data || {};
+    if (op.status === 'started' || op.status === 'in_progress' || op.status === 'complete') {
       pollScanStatus();
     } else {
       if (indicator) indicator.style.background = '#ef4444';
       if (statusText) statusText.textContent = 'Scan start failed';
-      if (progressText) progressText.textContent = data.message || data.error || 'Unexpected error';
+      if (progressText) progressText.textContent = data.message || data.error || op.message || op.error || 'Unexpected error';
     }
   })
   .catch(e => {
@@ -415,17 +417,16 @@ function startInventoryScan() {
 }
 
 function saveScheduleSettings() {
-  const formData = new FormData();
-  formData.append('enabled', document.getElementById('scheduleEnabled').checked ? 'true' : 'false');
-  formData.append('interval_hours', document.getElementById('scheduleInterval').value);
-  const csrf = getCsrfToken();
-  if (csrf) {
-    formData.append('csrf_token', csrf);
-  }
+  const enabled = document.getElementById('scheduleEnabled').checked;
+  const interval = Number(document.getElementById('scheduleInterval').value || 24);
   
-  fetch('/api/inventory/schedule', {
+  fetch('/api/dashboard', {
     method: 'POST',
-    body: formData
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ action: 'scan.inventory.schedule.set', enabled: enabled, interval_hours: interval })
   })
   .then(r => r.json())
   .then(data => {
@@ -442,7 +443,14 @@ function saveScheduleSettings() {
 }
 
 function pollScanStatus() {
-  fetch('/api/inventory/scan-status')
+  fetch('/api/dashboard', {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ action: 'scan.inventory.status' })
+  })
     .then(r => {
       if (!r.ok) {
         throw new Error('Status endpoint returned HTTP ' + r.status);
@@ -492,12 +500,6 @@ function pollScanStatus() {
 }
 
 function startSingleAssetScan(assetId, assetName) {
-  const formData = new FormData();
-  const csrf = getCsrfToken();
-  if (csrf) {
-    formData.append('csrf_token', csrf);
-  }
-
   const indicator = document.getElementById('scanIndicator');
   const statusText = document.getElementById('scanStatusText');
   const progressText = document.getElementById('scanProgressText');
@@ -505,13 +507,17 @@ function startSingleAssetScan(assetId, assetName) {
   if (statusText) statusText.textContent = 'Scanning asset: ' + assetName;
   if (progressText) progressText.textContent = 'Please wait...';
 
-  fetch('/api/inventory/asset/' + assetId + '/scan', {
+  fetch('/api/dashboard', {
     method: 'POST',
-    body: formData
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ action: 'scan.inventory.asset', asset_id: assetId })
   })
   .then(r => r.json())
   .then(data => {
-    if (data.status === 'complete') {
+    if (data.status === 'complete' || (data.data && data.data.status === 'complete')) {
       if (indicator) indicator.style.background = '#10b981';
       if (statusText) statusText.textContent = 'Asset scan complete: ' + assetName;
       if (progressText) progressText.textContent = 'Refreshing inventory...';
