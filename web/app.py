@@ -2125,9 +2125,9 @@ def discovery_graph_payload():
         vm = _build_asset_discovery_view(include_in_progress=True)
         payload = vm.get("graph_payload", {"nodes": [], "edges": [], "updated_at": ""})
         payload["status"] = "success"
-        return jsonify(payload), 200
+        return _deprecated_json(payload, 200, "dashboard.refresh(include_discovery=true)")
     except Exception as exc:
-        return jsonify({"status": "error", "message": str(exc)}), 500
+        return _deprecated_json({"status": "error", "message": str(exc)}, 500, "dashboard.refresh(include_discovery=true)")
 
 
 def _inventory_scan_service_for_api():
@@ -2190,6 +2190,29 @@ def _build_unified_dashboard_payload(include_discovery: bool = False) -> dict:
         payload["discovery"] = _build_asset_discovery_view()
 
     return payload
+
+
+def _deprecated_json(payload: dict, status_code: int, replacement_action: str) -> Response:
+    """Attach deprecation metadata while preserving legacy endpoint behavior."""
+    body = dict(payload or {})
+    body.setdefault(
+        "deprecation",
+        {
+            "deprecated": True,
+            "replacement_endpoint": "/api/dashboard",
+            "replacement_action": replacement_action,
+            "sunset": "2026-12-31",
+        },
+    )
+    response = jsonify(body)
+    response.status_code = status_code
+    response.headers["Deprecation"] = "true"
+    response.headers["Sunset"] = "2026-12-31"
+    response.headers["Link"] = '</api/dashboard>; rel="successor-version"'
+    response.headers["Warning"] = (
+        f'299 - "Deprecated endpoint, migrate to /api/dashboard with action={replacement_action}"'
+    )
+    return response
 
 
 @app.route("/api/dashboard", methods=["GET", "POST"])
@@ -2375,10 +2398,10 @@ def api_inventory_scan_all():
         result = scan_service.scan_all_assets(background=background)
         _audit("scan", "inventory_scan_all", "success", details={"background": background, "status": result.get("status")})
         code = 200 if result.get("status") in {"started", "complete", "in_progress"} else 500
-        return jsonify(result), code
+        return _deprecated_json({"status": result.get("status"), "data": result}, code, "scan.inventory.all")
     except Exception as exc:
         _audit("scan", "inventory_scan_all", "failed", details={"error": str(exc)})
-        return jsonify({"status": "error", "message": str(exc)}), 500
+        return _deprecated_json({"status": "error", "message": str(exc)}, 500, "scan.inventory.all")
 
 
 @app.route("/api/inventory/scan-status", methods=["GET"])
@@ -2389,10 +2412,10 @@ def api_inventory_scan_status():
         scan_service = _inventory_scan_service_for_api()
         status_data = scan_service.get_scan_status()
         _audit("scan", "inventory_scan_status_requested", "success", details={"status": status_data.get("status")})
-        return jsonify({"status": "success", "data": status_data}), 200
+        return _deprecated_json({"status": "success", "data": status_data}, 200, "scan.inventory.status")
     except Exception as exc:
         _audit("scan", "inventory_scan_status_requested", "failed", details={"error": str(exc)})
-        return jsonify({"status": "error", "message": str(exc)}), 500
+        return _deprecated_json({"status": "error", "message": str(exc)}, 500, "scan.inventory.status")
 
 
 @app.route("/api/inventory/asset/<int:asset_id>/scan", methods=["POST"])
@@ -2406,18 +2429,18 @@ def api_inventory_scan_asset(asset_id: int):
         asset = db_session.query(Asset).filter_by(id=asset_id, is_deleted=False).first()
         if not asset:
             _audit("scan", "inventory_scan_asset", "failed", details={"asset_id": asset_id, "error": "asset_not_found"})
-            return jsonify({"status": "error", "message": "Asset not found"}), 404
+            return _deprecated_json({"status": "error", "message": "Asset not found"}, 404, "scan.inventory.asset")
 
         scan_service = _inventory_scan_service_for_api()
         result = scan_service.scan_asset(asset)
         db_session.commit()
         code = 200 if result.get("status") == "complete" else 202
         _audit("scan", "inventory_scan_asset", "success", details={"asset_id": asset_id, "status": result.get("status")})
-        return jsonify({"status": result.get("status"), "data": result}), code
+        return _deprecated_json({"status": result.get("status"), "data": result}, code, "scan.inventory.asset")
     except Exception as exc:
         db_session.rollback()
         _audit("scan", "inventory_scan_asset", "failed", details={"asset_id": asset_id, "error": str(exc)})
-        return jsonify({"status": "error", "message": str(exc)}), 500
+        return _deprecated_json({"status": "error", "message": str(exc)}, 500, "scan.inventory.asset")
 
 
 @app.route("/api/inventory/asset/<int:asset_id>/history", methods=["GET"])
@@ -2428,10 +2451,10 @@ def api_inventory_asset_history(asset_id: int):
         scan_service = _inventory_scan_service_for_api()
         history = scan_service.get_asset_scan_history(asset_id)
         _audit("scan", "inventory_asset_history_requested", "success", details={"asset_id": asset_id})
-        return jsonify({"status": "success", "data": history}), 200
+        return _deprecated_json({"status": "success", "data": history}, 200, "scan.inventory.history")
     except Exception as exc:
         _audit("scan", "inventory_asset_history_requested", "failed", details={"asset_id": asset_id, "error": str(exc)})
-        return jsonify({"status": "error", "message": str(exc)}), 500
+        return _deprecated_json({"status": "error", "message": str(exc)}, 500, "scan.inventory.history")
 
 
 @app.route("/api/inventory/schedule", methods=["GET", "POST"])
@@ -2447,23 +2470,23 @@ def api_inventory_schedule():
             interval_hours = int(interval_raw)
 
             if interval_hours < 1 or interval_hours > 168:
-                return jsonify({"status": "error", "message": "Interval must be between 1 and 168 hours"}), 400
+                return _deprecated_json({"status": "error", "message": "Interval must be between 1 and 168 hours"}, 400, "scan.inventory.schedule.set")
 
             os.environ["INVENTORY_SCAN_ENABLED"] = str(enabled)
             os.environ["INVENTORY_SCAN_INTERVAL_HOURS"] = str(interval_hours)
-            return jsonify({
+            return _deprecated_json({
                 "status": "success",
                 "message": "Schedule updated",
                 "settings": {"enabled": enabled, "interval_hours": interval_hours},
-            })
+            }, 200, "scan.inventory.schedule.set")
 
         from config import AUTOMATED_SCAN_ENABLED, AUTOMATED_SCAN_INTERVAL_HOURS
-        return jsonify({
+        return _deprecated_json({
             "status": "success",
             "data": {"enabled": AUTOMATED_SCAN_ENABLED, "interval_hours": AUTOMATED_SCAN_INTERVAL_HOURS},
-        })
+        }, 200, "scan.inventory.schedule.get")
     except Exception as exc:
-        return jsonify({"status": "error", "message": str(exc)}), 500
+        return _deprecated_json({"status": "error", "message": str(exc)}, 500, "scan.inventory.schedule.get")
 
 
 @app.route("/cbom-dashboard")
