@@ -13820,3 +13820,11 @@ WHERE assets.is_deleted = false ORDER BY assets.target ASC]
 [2026-03-21 12:33:32,579] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:33:32] "GET /api/inventory/scan-status HTTP/1.1" 200 -
 [2026-03-21 12:33:38,543] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:33:38] "GET /api/inventory/scan-status HTTP/1.1" 200 -
 [2026-03-21 12:33:42,586] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:33:42] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:33:48,540] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:33:48] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:33:52,569] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:33:52] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:33:58,532] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:33:58] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:34:02,596] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:34:02] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:34:08,554] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:34:08] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:34:12,603] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:34:12] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:34:18,563] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:34:18] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:34:22,583] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:34:22] "GET /api/inventory/scan-status HTTP/1.1" 200 -
