@@ -1,0 +1,443 @@
+=== Targeted Audit of Route Fallbacks ===
+
+--- @app.route("/forgot-password", methods=["GET", "POST"]) (Line 1199) ---
+1199:                 except Exception as exc:
+1200:                     logger.error("Failed to send password reset email: %s", exc)
+1201:                     _audit("auth", "password_reset_email_failed", "failed",
+1202:                            target_user_id=user_data["id"],
+1203:                            details={"error": str(exc)[:200]})
+1204:                     # If mail fails, flash the link directly (dev environments)
+1205:                     if DEBUG:
+1206:                         flash(f"(DEV) Reset link: {reset_link}", "warning")
+1207: 
+1208:         return render_template("forgot_password.html")
+1209: 
+1210:     return render_template("forgot_password.html")
+1211: 
+1212: 
+1213: @app.route("/logout", methods=["GET", "POST"])
+
+--- @app.route("/admin/theme", methods=["GET", "POST"]) (Line 1240) ---
+1240:         except Exception as e:
+1241:             _audit("admin", "update_theme_failed", "failed", details={"error": str(e)})
+1242:             flash(f"Failed to save theme: {e}", "danger")
+1243:         return redirect(url_for('admin_theme'))
+1244: 
+1245:     return render_template("admin_theme.html", theme=current_theme, section_title="Theme configuration")
+1246: 
+1247: @app.route("/admin/users", methods=["GET", "POST"])
+1248: @role_required(list(ADMIN_PANEL_ROLES))
+1249: def admin_users():
+1250:     """Admin panel to manage users and send setup invites."""
+1251:     if request.method == "POST":
+1252:         employee_id = (request.form.get("employee_id") or "").strip()
+1253:         email = (request.form.get("email") or "").strip().lower()
+1254:         username = (request.form.get("username") or "").strip()
+
+--- @app.route("/admin/users", methods=["GET", "POST"]) (Line 1300) ---
+1300:         except Exception as exc:
+1301:             logger.error("Failed to send setup email to %s: %s", email, exc)
+1302:             _audit("admin", "create_user", "partial", target_user_id=invited_user_id, details={"email": email, "username": username, "role": role, "email_sent": False, "error": str(exc)})
+1303:             flash(f"User created, but SMTP failed to send setup email. Temporary setup link: {setup_url}", "warning")
+1304: 
+1305:         return redirect(url_for("admin_users"))
+1306: 
+1307:     users = db.list_users()
+1308:     return render_template("admin_users.html", users=users)
+1309: 
+1310: 
+1311: @app.route("/admin/audit")
+1312: @role_required(list(ADMIN_PANEL_ROLES))
+1313: def admin_audit_logs():
+1314:     logs = db.list_audit_logs(limit=AUDIT_LOG_PAGE_SIZE)
+
+--- @app.route("/asset-inventory") (Line 2048) ---
+2048:     except Exception as e:
+2049:         import traceback
+2050:         print(f"\n[!] Error building asset inventory view: {e}")
+2051:         traceback.print_exc()
+2052:         page_data = {
+2053:             "items": [],
+2054:             "total_count": 0,
+2055:             "page": 1,
+2056:             "page_size": 0,
+2057:             "total_pages": 1,
+2058:             "has_next": False,
+2059:             "has_prev": False,
+2060:         }
+2061:         vm = {
+2062:             "empty": True,
+
+--- @app.route("/asset-discovery") (Line 2096) ---
+2096:     except Exception:
+2097:         vm = {"empty": True, "graph_payload": {"nodes": [], "edges": []}, "status_counts": {}}
+2098: 
+2099:     return render_template("asset_discovery.html", vm=vm, page_data=page_data)
+2100: 
+2101: 
+2102: @app.route("/api/discovery-graph")
+2103: @csrf.exempt
+2104: @login_required
+2105: def discovery_graph_payload():
+2106:     """Realtime discovery graph payload for incremental frontend updates."""
+2107:     _audit("scan", "discovery_graph_requested", "success")
+2108:     try:
+2109:         vm = _build_asset_discovery_view(include_in_progress=True)
+2110:         payload = vm.get("graph_payload", {"nodes": [], "edges": [], "updated_at": ""})
+
+--- @app.route("/api/discovery-graph") (Line 2113) ---
+2113:     except Exception as exc:
+2114:         return jsonify({"status": "error", "message": str(exc)}), 500
+2115: 
+2116: 
+2117: def _inventory_scan_service_for_api():
+2118:     """Create inventory scan service bound to the app's scan pipeline."""
+2119:     from src.services.inventory_scan_service import InventoryScanService
+2120: 
+2121:     scan_runner = app.config.get("RUN_SCAN_PIPELINE_FUNC")
+2122:     return InventoryScanService(scan_runner=scan_runner)
+2123: 
+2124: 
+2125: @app.route("/api/inventory/scan", methods=["POST"])
+2126: @role_required(list(SCAN_ROLES))
+2127: def api_inventory_scan_all():
+
+--- @app.route("/api/inventory/scan", methods=["POST"]) (Line 2139) ---
+2139:     except Exception as exc:
+2140:         _audit("scan", "inventory_scan_all", "failed", details={"error": str(exc)})
+2141:         return jsonify({"status": "error", "message": str(exc)}), 500
+2142: 
+2143: 
+2144: @app.route("/api/inventory/scan-status", methods=["GET"])
+2145: @role_required(list(SCAN_ROLES))
+2146: def api_inventory_scan_status():
+2147:     """Return inventory scan progress/status payload."""
+2148:     try:
+2149:         scan_service = _inventory_scan_service_for_api()
+2150:         status_data = scan_service.get_scan_status()
+2151:         _audit("scan", "inventory_scan_status_requested", "success", details={"status": status_data.get("status")})
+2152:         return jsonify({"status": "success", "data": status_data}), 200
+2153:     except Exception as exc:
+
+--- @app.route("/api/inventory/scan-status", methods=["GET"]) (Line 2153) ---
+2153:     except Exception as exc:
+2154:         _audit("scan", "inventory_scan_status_requested", "failed", details={"error": str(exc)})
+2155:         return jsonify({"status": "error", "message": str(exc)}), 500
+2156: 
+2157: 
+2158: @app.route("/api/inventory/asset/<int:asset_id>/scan", methods=["POST"])
+2159: @role_required(list(SCAN_ROLES))
+2160: def api_inventory_scan_asset(asset_id: int):
+2161:     """Run a single inventory asset scan and return JSON result."""
+2162:     from src.db import db_session
+2163:     from src.models import Asset
+2164: 
+2165:     try:
+2166:         asset = db_session.query(Asset).filter_by(id=asset_id, is_deleted=False).first()
+2167:         if not asset:
+
+--- @app.route("/api/inventory/asset/<int:asset_id>/scan", methods=["POST"]) (Line 2177) ---
+2177:     except Exception as exc:
+2178:         db_session.rollback()
+2179:         _audit("scan", "inventory_scan_asset", "failed", details={"asset_id": asset_id, "error": str(exc)})
+2180:         return jsonify({"status": "error", "message": str(exc)}), 500
+2181: 
+2182: 
+2183: @app.route("/api/inventory/asset/<int:asset_id>/history", methods=["GET"])
+2184: @role_required(list(SCAN_ROLES))
+2185: def api_inventory_asset_history(asset_id: int):
+2186:     """Return scan history for a single inventory asset."""
+2187:     try:
+2188:         scan_service = _inventory_scan_service_for_api()
+2189:         history = scan_service.get_asset_scan_history(asset_id)
+2190:         _audit("scan", "inventory_asset_history_requested", "success", details={"asset_id": asset_id})
+2191:         return jsonify({"status": "success", "data": history}), 200
+
+--- @app.route("/api/inventory/asset/<int:asset_id>/history", methods=["GET"]) (Line 2192) ---
+2192:     except Exception as exc:
+2193:         _audit("scan", "inventory_asset_history_requested", "failed", details={"asset_id": asset_id, "error": str(exc)})
+2194:         return jsonify({"status": "error", "message": str(exc)}), 500
+2195: 
+2196: 
+2197: @app.route("/api/inventory/schedule", methods=["GET", "POST"])
+2198: @role_required(list(BULK_SCAN_ROLES))
+2199: def api_inventory_schedule():
+2200:     """Get or update inventory schedule settings using JSON API semantics."""
+2201:     try:
+2202:         if request.method == "POST":
+2203:             payload = request.get_json(silent=True) or {}
+2204:             enabled_raw = payload.get("enabled", request.form.get("enabled", "false"))
+2205:             interval_raw = payload.get("interval_hours", request.form.get("interval_hours", 24))
+2206:             enabled = str(enabled_raw).strip().lower() == "true"
+
+--- @app.route("/api/inventory/schedule", methods=["GET", "POST"]) (Line 2225) ---
+2225:     except Exception as exc:
+2226:         return jsonify({"status": "error", "message": str(exc)}), 500
+2227: 
+2228: 
+2229: @app.route("/cbom-dashboard")
+2230: @login_required
+2231: def cbom_dashboard():
+2232:     """Build CBOM view with aggregated cryptographic metrics from unified data service."""
+2233:     if app.config.get("TESTING", False):
+2234:         vm = {
+2235:             "empty": True,
+2236:             "kpis": {
+2237:                 "total_applications": 0,
+2238:                 "sites_surveyed": 0,
+2239:                 "active_certificates": 0,
+
+--- @app.route("/cbom-dashboard") (Line 2322) ---
+2322:     except Exception as e:
+2323:         vm = {"empty": True, "kpis": {"total_applications": 0, "sites_surveyed": 0, "active_certificates": 0, "weak_cryptography": 0, "certificate_issues": 0}}
+2324:         page_data = {"items": [], "total_count": 0, "has_next": False, "has_prev": False}
+2325:     return render_template("cbom_dashboard.html", vm=vm, page_data=page_data)
+2326: 
+2327: 
+2328: @app.route("/pqc-posture")
+2329: @login_required
+2330: def pqc_posture():
+2331:     """Build PQC posture with aggregated quantum-safe readiness metrics from unified service."""
+2332:     if app.config.get("TESTING", False):
+2333:         vm = {
+2334:             "empty": True,
+2335:             "overall": {"elite": 0, "standard": 0, "legacy": 0, "critical_apps": 0},
+2336:             "grade_counts": {"Elite": 0, "Standard": 0, "Legacy": 0, "Critical": 0},
+
+--- @app.route("/pqc-posture") (Line 2381) ---
+2381:             except (TypeError, ValueError):
+2382:                 score = 0.0
+2383:             pqc_scores.append(score)
+2384: 
+2385:             # Use consistent PQC tier mapping from DashboardDataService
+2386:             tier = DashboardDataService._score_to_pqc_tier(score)
+2387:             pqc_counts[tier] += 1
+2388: 
+2389:         avg_pqc_score = sum(pqc_scores) / len(pqc_scores) if pqc_scores else 0
+2390:         elite_count = pqc_counts.get("Elite", 0)
+2391:         standard_count = pqc_counts.get("Standard", 0)
+2392:         legacy_count = pqc_counts.get("Legacy", 0)
+2393:         critical_count = pqc_counts.get("Critical", 0)
+2394: 
+2395:         vm = {
+
+--- @app.route("/pqc-posture") (Line 2409) ---
+2409:     except Exception as e:
+2410:         vm = {
+2411:             "empty": True,
+2412:             "overall": {"elite": 0, "standard": 0, "legacy": 0, "critical_apps": 0},
+2413:             "grade_counts": {"Elite": 0, "Critical": 0, "Standard": 0},
+2414:             "status_distribution": {},
+2415:             "recommendations": ["Run scans to populate PQC posture."],
+2416:             "support_rows": [],
+2417:             "risk_heatmap": []
+2418:         }
+2419:         page_data = {"items": [], "total_count": 0, "has_next": False, "has_prev": False}
+2420:     return render_template("pqc_posture.html", vm=vm, page_data=page_data)
+2421: 
+2422: 
+2423: @app.route("/cyber-rating")
+
+--- @app.route("/cyber-rating") (Line 2479) ---
+2479:             except (TypeError, ValueError):
+2480:                 score = 50.0
+2481: 
+2482:             scores.append(score)
+2483: 
+2484:             # Use consistent cyber grade mapping from DashboardDataService
+2485:             grade = DashboardDataService._score_to_cyber_grade(score)
+2486:             tier_dist[grade] += 1
+2487: 
+2488:         overall_score = int(sum(scores) / len(scores)) if scores else 0
+2489: 
+2490:         # Use consistent grading from service
+2491:         label = DashboardDataService._score_to_cyber_grade(overall_score)
+2492: 
+2493:         vm = {
+
+--- @app.route("/cyber-rating") (Line 2500) ---
+2500:     except Exception as e:
+2501:         vm = {"empty": True, "overall_score": 0, "label": "Unknown", "tier_counts": {"Critical": 0, "Legacy": 0, "Standard": 0, "Elite-PQC": 0}, "tier_heatmap": []}
+2502:         page_data = {"items": [], "total_count": 0, "has_next": False, "has_prev": False}
+2503:     return render_template("cyber_rating.html", vm=vm, page_data=page_data)
+2504: 
+2505: 
+2506: @app.route("/reporting")
+2507: @login_required
+2508: def reporting():
+2509:     if app.config.get("TESTING", False):
+2510:         vm = {
+2511:             "summary": {
+2512:                 "discovery": "Targets: 0 | Complete Scans: 0 | Assessed Endpoints: 0",
+2513:                 "pqc": "Assessed endpoints: 0 | Average PQC Score: 0%",
+2514:                 "cbom": "Total certificates: 0 | Weak cryptography: 0",
+
+--- @app.route("/reporting") (Line 2554) ---
+2554:     except Exception as e:
+2555:         try:
+2556:             inv = _build_asset_inventory_view()
+2557:         except:
+2558:             inv = {"kpis": {"total_assets": 0, "expiring_certificates": 0, "high_risk_assets": 0}}
+2559: 
+2560:         vm = {
+2561:             "summary": {
+2562:                 "discovery": "Targets: 0 | Complete Scans: 0 | Assessed Endpoints: 0",
+2563:                 "pqc": "Assessed endpoints: 0 | Average PQC Score: 0%",
+2564:                 "cbom": "Total certificates: 0 | Weak cryptography: 0",
+2565:                 "cyber_rating": "Average enterprise score: 0/100",
+2566:                 "inventory": f"Assets: {inv.get('kpis', {}).get('total_assets', 0)} | Expiring: {inv.get('kpis', {}).get('expiring_certificates', 0)} | High Risk: {inv.get('kpis', {}).get('high_risk_assets', 0)}",
+2567:             },
+2568:             "empty": True
+
+--- @app.route("/reporting") (Line 2557) ---
+2557:         except:
+2558:             inv = {"kpis": {"total_assets": 0, "expiring_certificates": 0, "high_risk_assets": 0}}
+2559: 
+2560:         vm = {
+2561:             "summary": {
+2562:                 "discovery": "Targets: 0 | Complete Scans: 0 | Assessed Endpoints: 0",
+2563:                 "pqc": "Assessed endpoints: 0 | Average PQC Score: 0%",
+2564:                 "cbom": "Total certificates: 0 | Weak cryptography: 0",
+2565:                 "cyber_rating": "Average enterprise score: 0/100",
+2566:                 "inventory": f"Assets: {inv.get('kpis', {}).get('total_assets', 0)} | Expiring: {inv.get('kpis', {}).get('expiring_certificates', 0)} | High Risk: {inv.get('kpis', {}).get('high_risk_assets', 0)}",
+2567:             },
+2568:             "empty": True
+2569:         }
+2570:     return render_template("reporting.html", vm=vm)
+2571: 
+
+--- @app.route("/scan", methods=["POST"]) (Line 2696) ---
+2696:                 except Exception as item_err:
+2697:                     failed_scans.append({"target": host, "error": str(item_err)})
+2698:                     logger.warning(f"Failed to scan {host}: {item_err}")
+2699:                     continue
+2700: 
+2701:             _audit("scan", "bulk_scan", "success", details={"target_count": len(targets), "successful": len(successful_scans), "failed": len(failed_scans)})
+2702:             return redirect(url_for("quantumshield_dashboard.dashboard_home"))
+2703: 
+2704:     except Exception as exc:
+2705:         _audit("scan", "scan_error", "failed", details={"error": str(exc), "target_count": len(targets)})
+2706:         error_id = uuid.uuid4().hex[:8]
+2707:         return render_template(
+2708:             "error.html",
+2709:             error_id=error_id,
+2710:             error_message=str(exc),
+
+--- @app.route("/scan", methods=["POST"]) (Line 2704) ---
+2704:     except Exception as exc:
+2705:         _audit("scan", "scan_error", "failed", details={"error": str(exc), "target_count": len(targets)})
+2706:         error_id = uuid.uuid4().hex[:8]
+2707:         return render_template(
+2708:             "error.html",
+2709:             error_id=error_id,
+2710:             error_message=str(exc),
+2711:             traceback_info=traceback.format_exc(),
+2712:         )
+2713: 
+2714: 
+2715: @app.route("/results/<scan_id>")
+2716: @login_required
+2717: def results(scan_id: str):
+2718:     """Display scan results (memory → disk → MySQL fallback)."""
+
+--- @app.route("/cbom/<scan_id>") (Line 2760) ---
+2760:         except Exception as err:
+2761:             logger.error(f"Error serving CBOM from disk: {err}")
+2762:             return jsonify({"error": "Could not serve CBOM file"}), 500
+2763: 
+2764:     # Fallback: try MySQL
+2765:     try:
+2766:         cbom_data = db.get_cbom(scan_id)
+2767:         if cbom_data:
+2768:             _audit("scan", "download_cbom", "success", target_scan_id=scan_id, details={"source": "database"})
+2769:             return jsonify({"status": "success", "data": cbom_data}), 200
+2770:     except Exception as db_err:
+2771:         logger.warning(f"Failed to retrieve CBOM from database: {db_err}")
+2772: 
+2773:     _audit("scan", "download_cbom", "failed", target_scan_id=scan_id, details={"reason": "not_found"})
+2774:     return jsonify({"error": "CBOM not found"}), 404
+
+--- @app.route("/cbom/<scan_id>") (Line 2770) ---
+2770:     except Exception as db_err:
+2771:         logger.warning(f"Failed to retrieve CBOM from database: {db_err}")
+2772: 
+2773:     _audit("scan", "download_cbom", "failed", target_scan_id=scan_id, details={"reason": "not_found"})
+2774:     return jsonify({"error": "CBOM not found"}), 404
+2775: 
+2776: 
+2777: @app.route("/api/badge/<path:target>")
+2778: def api_badge(target: str):
+2779:     """Dynamic SVG badge showing Quantum-Safe status."""
+2780:     report = db.get_latest_scan_by_target(target)
+2781: 
+2782:     if not report:
+2783:         status_text = "Unknown"
+2784:         color = "#9ca3af" # gray-400
+
+--- @app.route("/api/scan", methods=["GET", "POST"]) (Line 2889) ---
+2889:     except Exception as exc:
+2890:         _audit("scan", "api_scan", "failed", details={"target": target, "error": str(exc)})
+2891:         logger.exception(f"API scan failed for target {target}: {exc}")
+2892:         return jsonify({"status": "error", "message": str(exc)}), 500
+2893: 
+2894: 
+2895: 
+2896: @app.route("/api/scans")
+2897: @csrf.exempt
+2898: @require_api_key
+2899: def api_list_scans():
+2900:     """List all stored scan results. Requires X-API-Key header."""
+2901:     from flask import g as _g
+2902:     api_user = _g.api_user
+2903:     try:
+
+--- @app.route("/api/scan", methods=["GET", "POST"]) (Line 2891) ---
+2891:         logger.exception(f"API scan failed for target {target}: {exc}")
+2892:         return jsonify({"status": "error", "message": str(exc)}), 500
+2893: 
+2894: 
+2895: 
+2896: @app.route("/api/scans")
+2897: @csrf.exempt
+2898: @require_api_key
+2899: def api_list_scans():
+2900:     """List all stored scan results. Requires X-API-Key header."""
+2901:     from flask import g as _g
+2902:     api_user = _g.api_user
+2903:     try:
+2904:         scans = [
+2905:             {
+
+--- @app.route("/api/scans") (Line 2916) ---
+2916:     except Exception as exc:
+2917:         _audit("api", "api_list_scans", "failed", details={"error": str(exc)})
+2918:         return jsonify({"status": "error", "message": str(exc)}), 500
+2919: 
+2920: 
+2921: @app.route("/docs")
+2922: def docs():
+2923:     """Comprehensive documentation and technical guide."""
+2924:     return render_template("docs.html")
+2925: 
+2926: 
+2927: @app.route("/profile", methods=["GET"])
+2928: @login_required
+2929: def profile():
+2930:     """User profile page showing API key info."""
+
+--- @app.route("/recycle-bin") (Line 3371) ---
+3371:     except Exception:
+3372:         vm = {"empty": True, "assets": [], "scans": []}
+3373:     return render_template("inventory.html", vm=vm)
+3374: 
+3375: 
+3376: 
+3377: def _check_concurrency():
+3378:     import subprocess
+3379:     import atexit
+3380:     import time
+3381: 
+3382:     pid_file = os.path.join(os.path.dirname(__file__), "app_instance.pid")
+3383:     if os.path.exists(pid_file):
+3384:         try:
+3385:             with open(pid_file, "r") as f:
