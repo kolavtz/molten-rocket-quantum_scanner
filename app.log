@@ -13739,3 +13739,84 @@ WHERE assets.is_deleted = false ORDER BY assets.target ASC]
 [2026-03-21 12:30:44,638] INFO in app: QuantumShield application starting up...
 [2026-03-21 12:30:44,638] INFO in app: Initializing database connectivity...
 [2026-03-21 12:30:44,638] INFO in app: Database initialization deferred at import time. Available=False
+[2026-03-21 12:30:48,562] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:30:48] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:30:52,590] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:30:52] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:30:58,551] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:30:58] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:31:02,572] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:31:02] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:31:08,563] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:31:08] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:31:12,591] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:31:12] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:31:18,542] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:31:18] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:31:22,597] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:31:22] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:31:28,569] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:31:28] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:31:32,578] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:31:32] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:31:38,556] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:31:38] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:31:42,581] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:31:42] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:31:48,551] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:31:48] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:31:52,561] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:31:52] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:31:58,561] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:31:58] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:32:02,584] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:32:02] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:32:08,560] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:32:08] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:32:11,639] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:32:11] "[31m[1mGET /api/scan?target=google.com HTTP/1.1[0m" 401 -
+[2026-03-21 12:32:12,585] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:32:12] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:32:18,569] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:32:18] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:32:22,561] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:32:22] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:32:28,560] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:32:28] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:32:29,085] INFO in app: QuantumShield application starting up...
+[2026-03-21 12:32:29,086] INFO in app: Initializing database connectivity...
+[2026-03-21 12:32:29,086] INFO in app: Database initialization deferred at import time. Available=False
+[2026-03-21 12:32:29,106] INFO in app: Initializing database connectivity at runtime (attempt 1/3)...
+[2026-03-21 12:32:29,109] INFO in database: Database 'quantumshield' already exists, selected successfully
+[2026-03-21 12:32:29,175] INFO in database: MySQL database 'quantumshield' initialised successfully.
+[2026-03-21 12:32:29,180] INFO in app: Database initialization complete. Available=True
+[2026-03-21 12:32:32,599] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:32:32] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:32:38,562] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:32:38] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:32:42,592] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:32:42] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:32:48,532] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:32:48] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:32:48,951] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\Downloads\\hf-proj\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-21 12:32:49,164] INFO in _internal:  * Restarting with stat
+[2026-03-21 12:32:50,480] INFO in app: QuantumShield application starting up...
+[2026-03-21 12:32:50,480] INFO in app: Initializing database connectivity...
+[2026-03-21 12:32:50,480] INFO in app: Database initialization deferred at import time. Available=False
+[2026-03-21 12:32:50,593] INFO in app: QuantumShield application starting up...
+[2026-03-21 12:32:50,594] INFO in app: Initializing database connectivity...
+[2026-03-21 12:32:50,595] INFO in app: Database initialization deferred at import time. Available=False
+[2026-03-21 12:32:50,617] INFO in app: Automated scheduler disabled.
+[2026-03-21 12:32:50,618] INFO in app: Initializing database connectivity at runtime (attempt 1/3)...
+[2026-03-21 12:32:50,623] INFO in database: Database 'quantumshield' already exists, selected successfully
+[2026-03-21 12:32:50,732] INFO in database: MySQL database 'quantumshield' initialised successfully.
+[2026-03-21 12:32:50,736] INFO in app: Database initialization complete. Available=True
+[2026-03-21 12:32:50,850] WARNING in _internal:  * Debugger is active!
+[2026-03-21 12:32:50,855] INFO in _internal:  * Debugger PIN: 483-781-071
+[2026-03-21 12:32:52,583] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:32:52] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:32:58,520] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:32:58] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:33:02,601] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:33:02] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:33:03,926] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\Downloads\\hf-proj\\molten-rocket-quantum_scanner\\web\\app.py', reloading
+[2026-03-21 12:33:04,118] INFO in _internal:  * Restarting with stat
+[2026-03-21 12:33:04,844] INFO in app: QuantumShield application starting up...
+[2026-03-21 12:33:04,845] INFO in app: Initializing database connectivity...
+[2026-03-21 12:33:04,845] INFO in app: Database initialization deferred at import time. Available=False
+[2026-03-21 12:33:04,874] INFO in app: Initializing database connectivity at runtime (attempt 1/3)...
+[2026-03-21 12:33:04,877] INFO in database: Database 'quantumshield' already exists, selected successfully
+[2026-03-21 12:33:04,986] INFO in database: MySQL database 'quantumshield' initialised successfully.
+[2026-03-21 12:33:05,003] INFO in app: Database initialization complete. Available=True
+[2026-03-21 12:33:05,107] INFO in app: QuantumShield application starting up...
+[2026-03-21 12:33:05,107] INFO in app: Initializing database connectivity...
+[2026-03-21 12:33:05,107] INFO in app: Database initialization deferred at import time. Available=False
+[2026-03-21 12:33:05,261] INFO in app: QuantumShield application starting up...
+[2026-03-21 12:33:05,261] INFO in app: Initializing database connectivity...
+[2026-03-21 12:33:05,262] INFO in app: Database initialization deferred at import time. Available=False
+[2026-03-21 12:33:05,287] INFO in app: Automated scheduler disabled.
+[2026-03-21 12:33:05,287] INFO in app: Initializing database connectivity at runtime (attempt 1/3)...
+[2026-03-21 12:33:05,294] INFO in database: Database 'quantumshield' already exists, selected successfully
+[2026-03-21 12:33:05,375] INFO in database: MySQL database 'quantumshield' initialised successfully.
+[2026-03-21 12:33:05,393] INFO in app: Database initialization complete. Available=True
+[2026-03-21 12:33:05,451] WARNING in _internal:  * Debugger is active!
+[2026-03-21 12:33:05,457] INFO in _internal:  * Debugger PIN: 483-781-071
+[2026-03-21 12:33:08,559] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:33:08] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:33:12,585] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:33:12] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:33:18,562] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:33:18] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:33:22,599] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:33:22] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:33:28,568] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:33:28] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:33:32,579] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:33:32] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:33:38,543] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:33:38] "GET /api/inventory/scan-status HTTP/1.1" 200 -
+[2026-03-21 12:33:42,586] INFO in _internal: 127.0.0.1 - - [21/Mar/2026 12:33:42] "GET /api/inventory/scan-status HTTP/1.1" 200 -

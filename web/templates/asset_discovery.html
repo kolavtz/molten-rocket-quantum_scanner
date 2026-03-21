@@ -241,9 +241,22 @@
 
   // Realtime incremental updates during active scans.
   setInterval(function () {
-    fetch('/api/discovery-graph', { headers: { 'Accept': 'application/json' } })
+    fetch('/api/dashboard', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ action: 'dashboard.refresh', include_discovery: true })
+    })
       .then((r) => r.ok ? r.json() : null)
-      .then((payload) => { if (payload) mergePayload(payload); })
+      .then((payload) => {
+        if (!payload || payload.status !== 'success') {
+          return;
+        }
+        const graphPayload = (((payload.data || {}).discovery || {}).graph_payload) || { nodes: [], edges: [] };
+        mergePayload(graphPayload);
+      })
       .catch(() => null);
   }, 7000);
 })();

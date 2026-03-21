@@ -10,6 +10,64 @@ http://127.0.0.1:5000
 
 ## Endpoints
 
+### `GET /api/dashboard` *(Primary Dashboard API)*
+
+Single endpoint for unified dashboard state (inventory, dashboard metrics, recent scans, scan status).
+
+Query params:
+- `include_discovery=true|false`
+
+Example:
+```bash
+curl -X GET http://127.0.0.1:5000/api/dashboard
+```
+
+---
+
+### `POST /api/dashboard` *(Primary Action API)*
+
+Single action endpoint for scan + dashboard operations.
+
+Request body must include `action`.
+
+Supported actions:
+- `dashboard.refresh`
+- `scan.run`
+- `scan.inventory.all`
+- `scan.inventory.status`
+- `scan.inventory.asset`
+- `scan.inventory.history`
+- `scan.inventory.schedule.get`
+- `scan.inventory.schedule.set`
+
+Example (refresh):
+```bash
+curl -X POST http://127.0.0.1:5000/api/dashboard \
+  -H "Content-Type: application/json" \
+  -d '{"action":"dashboard.refresh","include_discovery":true}'
+```
+
+Example (run one scan):
+```bash
+curl -X POST http://127.0.0.1:5000/api/dashboard \
+  -H "Content-Type: application/json" \
+  -d '{"action":"scan.run","target":"example.com"}'
+```
+
+---
+
+### Deprecated compatibility endpoints
+
+The following still work, but are deprecated and return deprecation metadata/headers:
+- `POST /api/inventory/scan` → use `POST /api/dashboard` with `action=scan.inventory.all`
+- `GET /api/inventory/scan-status` → use `POST /api/dashboard` with `action=scan.inventory.status`
+- `POST /api/inventory/asset/<id>/scan` → use `POST /api/dashboard` with `action=scan.inventory.asset`
+- `GET /api/inventory/asset/<id>/history` → use `POST /api/dashboard` with `action=scan.inventory.history`
+- `GET|POST /api/inventory/schedule` → use `POST /api/dashboard` with `action=scan.inventory.schedule.get|set`
+- `GET /api/discovery-graph` → use `POST /api/dashboard` with `action=dashboard.refresh` and `include_discovery=true`
+
+---
+
 ### `POST /scan`
 
 **Run a TLS scan via the web form.**
@@ -48,7 +106,7 @@ curl http://127.0.0.1:5000/cbom/abc12345 -o cbom.json
 
 ### `GET /api/scan` or `POST /api/scan`
 
-**REST API — run a scan and get JSON results.**
+**REST API (CI/CD) — run a scan and get JSON results.**
 
 **GET:**
 ```bash
@@ -97,7 +155,7 @@ curl -X POST http://127.0.0.1:5000/api/scan \
 
 ### `GET /api/scans`
 
-**List all stored scan results.**
+**List all stored scan results (CI/CD/automation).**
 
 ```bash
 curl http://127.0.0.1:5000/api/scans
