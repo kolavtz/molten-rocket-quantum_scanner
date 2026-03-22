@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Scans | QuantumShield{% endblock %}
+
+{% block content %}
+<section class="hero" style="padding-bottom:1rem;">
+  <h2 class="hero-title" style="font-size:2rem;">SCANS</h2>
+  <p class="hero-subtitle">Pure API-driven scan orchestration with sequential multi-target processing.</p>
+</section>
+
+<section class="glass-card" style="padding:1rem; margin-bottom:1rem;">
+  <h3 style="margin-bottom:0.8rem; text-transform:uppercase;">Start Scans</h3>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+    <div>
+      <label for="singleTarget" style="display:block; margin-bottom:0.3rem;">Single Target</label>
+      <div style="display:flex; gap:0.6rem;">
+        <input id="singleTarget" class="scan-input" type="text" placeholder="example.com" style="flex:1;" />
+        <button id="singleScanBtn" class="scan-button" type="button">Run Scan</button>
+      </div>
+    </div>
+    <div>
+      <label for="portsInput" style="display:block; margin-bottom:0.3rem;">Ports (optional)</label>
+      <input id="portsInput" class="scan-input" type="text" placeholder="443,8443" style="width:100%;" />
+    </div>
+  </div>
+
+  <div style="margin-top:1rem;">
+    <label for="bulkTargets" style="display:block; margin-bottom:0.3rem;">Multi-Scan Targets (one per line)</label>
+    <textarea id="bulkTargets" class="scan-input" style="width:100%; min-height:110px;" placeholder="example.com&#10;google.com&#10;bank.com"></textarea>
+    <div style="margin-top:0.6rem; display:flex; gap:0.6rem; align-items:center;">
+      <button id="bulkScanBtn" class="scan-button" type="button">Run Bulk Scan (Sequential)</button>
+      <span id="scanActionMsg" style="color:var(--text-secondary); font-size:0.8rem;"></span>
+    </div>
+  </div>
+</section>
+
+<section class="glass-card" style="padding:1rem; margin-bottom:1rem;">
+  <h3 style="margin-bottom:0.8rem; text-transform:uppercase;">Progress</h3>
+  <div id="scanProgress" style="display:grid; gap:0.4rem; font-size:0.85rem;"></div>
+</section>
+
+<section class="glass-card" data-api-table-page style="padding:1rem;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.8rem; gap:0.8rem;">
+    <h3 style="margin:0; text-transform:uppercase;">All Scans</h3>
+    <div style="display:flex; gap:0.6rem;">
+      <input data-api-search-input class="scan-input" type="text" placeholder="Search scan id / target / status" />
+      <button data-api-search-btn class="scan-button" type="button">Search</button>
+    </div>
+  </div>
+
+  <div data-api-kpis style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:0.6rem; margin-bottom:0.8rem;"></div>
+  <div data-api-error style="display:none; color:#f87171; margin-bottom:0.6rem;"></div>
+
+  <table class="scans-table" style="width:100%;">
+    <thead><tr data-api-table-head></tr></thead>
+    <tbody data-api-table-body></tbody>
+  </table>
+
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.8rem;">
+    <div style="color:var(--text-secondary); font-size:0.8rem;">
+      Total: <strong data-api-total>0</strong> | Page <strong data-api-page>1</strong>/<strong data-api-total-pages>1</strong>
+    </div>
+    <div style="display:flex; gap:0.6rem;">
+      <button data-api-prev class="scan-button" type="button">Prev</button>
+      <button data-api-next class="scan-button" type="button">Next</button>
+    </div>
+  </div>
+</section>
+
+<script src="{{ url_for('static', filename='js/api-table.js') }}"></script>
+<script src="{{ url_for('static', filename='js/scans.js') }}"></script>
+<script>
+  window.QuantumShieldApiTable.initApiTablePage({
+    rootSelector: '[data-api-table-page]',
+    apiUrl: '/api/scans',
+    page: 1,
+    pageSize: 25,
+    sort: 'date',
+    order: 'desc',
+    columns: [
+      { field: 'scan_id', label: 'Scan ID' },
+      { field: 'target', label: 'Target' },
+      { field: 'status', label: 'Status' },
+      { field: 'assets_found', label: 'Assets Found' },
+      { field: 'pqc_score', label: 'PQC Score' },
+      { field: 'date', label: 'Date' },
+      { field: 'actions', label: 'Actions' }
+    ]
+  });
+  window.QuantumShieldScans.init();
+</script>
+{% endblock %}

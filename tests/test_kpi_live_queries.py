@@ -16,7 +16,7 @@ from web.app import app
 from src.models import (
     Asset, Scan, Certificate, PQCClassification, ComplianceScore
 )
-from src.database import db
+from src.db import db_session
 
 
 @pytest.fixture

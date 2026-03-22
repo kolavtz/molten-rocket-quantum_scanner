@@ -390,6 +390,7 @@
           updateSelectionSummary();
           updateSelectAllState();
         }
+        window.location.reload();
       } catch (error) {
         window.alert(error.message || 'Failed to move asset to Recycle Bin.');
       }
@@ -437,11 +438,22 @@
 
   document.querySelectorAll('[data-row-checkbox], [data-select-all]').forEach((el) => {
     el.addEventListener('change', () => {
+      if (el.matches('[data-select-all]')) {
+        const isChecked = Boolean(el.checked);
+        document.querySelectorAll('[data-row-checkbox]').forEach((rowCheckbox) => {
+          rowCheckbox.checked = isChecked;
+        });
+      }
       syncBulkIds();
       updateSelectionSummary();
       updateSelectAllState();
     });
   });
+
+  // Initial sync for first render.
+  syncBulkIds();
+  updateSelectionSummary();
+  updateSelectAllState();
 })();
 </script>
 {% endblock %}

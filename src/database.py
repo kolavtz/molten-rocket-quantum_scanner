@@ -323,6 +323,47 @@ def _ensure_assets_name_and_target_columns(cur) -> None:
         logger.warning("Could not ensure assets target/name compatibility columns: %s", e)
 
 
+def _ensure_certificates_compat_columns(cur) -> None:
+    """Ensure legacy certificates table has columns expected by current ORM model."""
+    wanted_columns = {
+        "subject_cn": "VARCHAR(255) NULL",
+        "company_name": "VARCHAR(255) NULL",
+        "expiry_days": "INT NULL",
+        "fingerprint_sha256": "VARCHAR(64) NULL",
+        "key_algorithm": "VARCHAR(100) NULL",
+        "signature_algorithm": "VARCHAR(100) NULL",
+        "ca_name": "VARCHAR(255) NULL",
+        "is_self_signed": "BOOLEAN DEFAULT FALSE",
+        "is_expired": "BOOLEAN DEFAULT FALSE",
+        "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
+        "updated_at": "DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+    }
+
+    try:
+        cur.execute(
+            """
+            SELECT COLUMN_NAME
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = %s
+              AND TABLE_NAME = 'certificates'
+            """,
+            (MYSQL_DATABASE,),
+        )
+        existing = {str(row[0]) for row in (cur.fetchall() or [])}
+    except Exception as e:
+        logger.warning("Could not inspect certificates schema: %s", e)
+        return
+
+    for col_name, col_def in wanted_columns.items():
+        if col_name in existing:
+            continue
+        try:
+            cur.execute(f"ALTER TABLE certificates ADD COLUMN {col_name} {col_def}")
+            logger.info("Added certificates.%s column for legacy compatibility", col_name)
+        except Exception as e:
+            logger.warning("Could not add certificates.%s compatibility column: %s", col_name, e)
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -678,6 +719,18 @@ def init_db() -> bool:
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS deleted_at DATETIME",
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS deleted_by_user_id BIGINT",
+            # Certificate schema compatibility for legacy deployments.
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS subject_cn VARCHAR(255)",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS company_name VARCHAR(255)",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS expiry_days INT",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS fingerprint_sha256 VARCHAR(64)",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS key_algorithm VARCHAR(100)",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS signature_algorithm VARCHAR(100)",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS ca_name VARCHAR(255)",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS is_self_signed BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS is_expired BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
             "ALTER TABLE pqc_classification ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
             "ALTER TABLE pqc_classification ADD COLUMN IF NOT EXISTS deleted_at DATETIME",
             "ALTER TABLE pqc_classification ADD COLUMN IF NOT EXISTS deleted_by_user_id BIGINT",
@@ -745,6 +798,12 @@ def init_db() -> bool:
             _ensure_assets_name_and_target_columns(cur)
         except Exception as e:
             logger.warning("Failed to enforce assets target/name compatibility: %s", e)
+
+        # Backfill/repair legacy certificates schema for SQLAlchemy compatibility.
+        try:
+            _ensure_certificates_compat_columns(cur)
+        except Exception as e:
+            logger.warning("Failed to enforce certificates compatibility columns: %s", e)
 
         # Align report_schedules FK type with users.id type for mixed legacy installs.
         try:
