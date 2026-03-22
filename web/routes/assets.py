@@ -537,26 +537,23 @@ def _soft_delete_asset(asset: Asset) -> None:
     asset.deleted_at = now
     asset.deleted_by_user_id = user_id
 
-    for child in asset.discovery_items:
-        child.is_deleted = True
-        child.deleted_at = now
-        child.deleted_by_user_id = user_id
-    for child in asset.certificates:
-        child.is_deleted = True
-        child.deleted_at = now
-        child.deleted_by_user_id = user_id
-    for child in asset.pqc_classifications:
-        child.is_deleted = True
-        child.deleted_at = now
-        child.deleted_by_user_id = user_id
-    for child in asset.cbom_entries:
-        child.is_deleted = True
-        child.deleted_at = now
-        child.deleted_by_user_id = user_id
-    for child in asset.compliance_scores:
-        child.is_deleted = True
-        child.deleted_at = now
-        child.deleted_by_user_id = user_id
+    for rel_name in (
+        "discovery_items",
+        "certificates",
+        "pqc_classifications",
+        "cbom_entries",
+        "compliance_scores",
+    ):
+        try:
+            children = list(getattr(asset, rel_name, []) or [])
+        except Exception:
+            # Some legacy schemas may not yet include recently added model columns.
+            # Continue soft-delete for asset + scans without failing the operation.
+            children = []
+        for child in children:
+            child.is_deleted = True
+            child.deleted_at = now
+            child.deleted_by_user_id = user_id
 
     canonical_target = _normalize_target(asset.target or asset.name or "")
     if canonical_target:
@@ -566,7 +563,12 @@ def _soft_delete_asset(asset: Asset) -> None:
             scan.deleted_at = now
             scan.deleted_by_user_id = user_id
             for model in (DiscoveryItem, Certificate, PQCClassification, CBOMEntry, ComplianceScore, CBOMSummary, CyberRating):
-                rows = db_session.query(model).filter(model.scan_id == scan.id, model.is_deleted == False).all()
+                try:
+                    rows = db_session.query(model).filter(model.scan_id == scan.id, model.is_deleted == False).all()
+                except Exception as query_exc:
+                    # Keep delete operations resilient when deployed DB schema lags model fields.
+                    logger.warning("Skipping cascade soft-delete for %s on scan %s due to schema/query error: %s", getattr(model, "__name__", str(model)), scan.id, query_exc)
+                    continue
                 for row in rows:
                     row.is_deleted = True
                     row.deleted_at = now

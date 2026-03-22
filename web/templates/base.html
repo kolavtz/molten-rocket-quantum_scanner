@@ -132,6 +132,7 @@
 <body>
     {% set section_map = {
         '/': 'Home',
+        '/scans': 'Scans',
         '/scan-center': 'Scan Center',
         '/asset-inventory': 'Asset Inventory',
         '/asset-discovery': 'Asset Discovery',
@@ -160,7 +161,7 @@
                 
                 {% if current_user.is_authenticated %}
                     {% if current_user.role in ['Admin', 'Manager', 'SingleScan'] %}
-                    <a href="/scan-center" class="nav-link {% if request.path == '/scan-center' %}active{% endif %}" title="Scan Center">
+                    <a href="/scans" class="nav-link {% if request.path in ['/scans', '/scan-center'] %}active{% endif %}" title="Scan Center">
                         <i class="fa-solid fa-shield-halved"></i> <span class="nav-text">SCAN</span>
                     </a>
                     {% endif %}

@@ -159,6 +159,44 @@ class TestModulePages:
         assert ctx['page_data'].total_count >= 1
         assert ctx['page_data'].total_count == len(ctx['vm']['assets'])
 
+    def test_asset_inventory_pagination_count_after_delete(self, client, mock_admin):
+        """Verify asset count decreases in pagination after soft-delete."""
+        # Create 3 test assets and remember their targets
+        targets = [_new_target(f'pag-test-{i}') for i in range(3)]
+        for target in targets:
+            asset = Asset(target=target, asset_type='Web App', is_deleted=False)
+            db_session.add(asset)
+        db_session.commit()
+        
+        # Query assets from DB to get their IDs 
+        fresh_assets = db_session.query(Asset).filter(Asset.target.in_(targets)).all()
+        assert len(fresh_assets) == 3, f"Expected 3 assets but found {len(fresh_assets)}"
+        asset_id_to_delete = int(fresh_assets[0].id)
+        
+        # Get first page with page_size=2
+        resp = client.get('/api/assets?page=1&page_size=2')
+        assert resp.status_code == 200, f"Failed to get /api/assets: {resp.status_code}"
+        data = json.loads(resp.data)
+        initial_total = data['total']
+        assert initial_total >= 3, f"Expected at least 3 total assets, got {initial_total}"
+        
+        # Delete one asset via POST
+        with patch('web.routes.assets.current_user') as route_user:
+            route_user.role = 'Manager'
+            route_user.id = 1
+            route_user.username = 'manager'
+            delete_resp = client.post(f'/assets/{asset_id_to_delete}/delete')
+        
+        assert delete_resp.status_code == 302, f"Delete failed with status {delete_resp.status_code}"
+        
+        # Query pagination again
+        resp_after = client.get('/api/assets?page=1&page_size=2')
+        assert resp_after.status_code == 200
+        data_after = json.loads(resp_after.data)
+        
+        # Verify count decreased by 1
+        assert data_after['total'] == initial_total - 1, f"Expected total={initial_total - 1}, got {data_after['total']}"
+
     def test_asset_discovery_page(self, client, mock_admin):
         resp = client.get('/asset-discovery')
         assert resp.status_code == 200

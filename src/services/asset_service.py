@@ -113,11 +113,16 @@ class AssetService:
         latest_cert_by_asset: Dict[int, Certificate] = {}
         certs = []
         if asset_ids:
-            cert_query = _db_session.query(Certificate)
-            if hasattr(cert_query, "filter"):
-                cert_query = cert_query.filter(Certificate.is_deleted == False, Certificate.deleted_at.is_(None), Certificate.asset_id.in_(asset_ids))
-                certs = self._as_list(cert_query.all()) if hasattr(cert_query, "all") else []
-            else:
+            try:
+                cert_query = _db_session.query(Certificate)
+                if hasattr(cert_query, "filter"):
+                    cert_query = cert_query.filter(Certificate.is_deleted == False, Certificate.deleted_at.is_(None), Certificate.asset_id.in_(asset_ids))
+                    certs = self._as_list(cert_query.all()) if hasattr(cert_query, "all") else []
+                else:
+                    certs = []
+            except Exception:
+                # Legacy deployments may not yet include new certificate columns.
+                # Keep inventory functional and degrade gracefully without cert joins.
                 certs = []
         for cert in certs:
             asset_id = int(getattr(cert, "asset_id", 0) or 0)

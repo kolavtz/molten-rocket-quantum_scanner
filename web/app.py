@@ -1749,8 +1749,12 @@ def index():
 # Register Main Dashboard Blueprint
 from web.blueprints.dashboard import dashboard_bp
 from web.routes.assets import assets_bp
+from web.routes.dashboard_api import api_dashboards_bp
+from web.routes.scans import scans_bp
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(assets_bp)
+app.register_blueprint(api_dashboards_bp)
+app.register_blueprint(scans_bp)
 
 # Inventory status polling runs frequently from UI; keep it outside tight default limits.
 if "quantumshield_dashboard.inventory_scan_status" in app.view_functions:
@@ -2049,6 +2053,27 @@ def _build_asset_discovery_view(include_in_progress: bool = False, page: int = 1
             "updated_at": datetime.now(timezone.utc).isoformat(),
         },
     }
+
+
+def _render_api_dashboard_page(
+    page_title: str,
+    api_endpoint: str,
+    columns: list[dict[str, str]],
+    default_sort: str,
+    default_order: str = "asc",
+    default_page_size: int = 25,
+    extra_params: dict | None = None,
+):
+    return render_template(
+        "api_dashboard_example.html",
+        page_title=page_title,
+        api_endpoint=api_endpoint,
+        columns=columns,
+        default_sort=default_sort,
+        default_order=default_order,
+        default_page_size=default_page_size,
+        extra_params=extra_params or {},
+    )
 
 
 @app.route("/asset-inventory")
@@ -3153,7 +3178,7 @@ def api_scan():
 
 
 
-@app.route("/api/scans")
+@app.route("/api/scans-legacy")
 @csrf.exempt
 @require_api_key
 def api_list_scans():
@@ -3870,7 +3895,10 @@ def recycle_bin():
 
                         # Restore child records tied to this asset
                         for model in (DiscoveryItem, Certificate, PQCClassification, CBOMEntry, ComplianceScore):
-                            rows = db_session.query(model).filter(model.asset_id == asset.id, model.is_deleted == True).all()
+                            try:
+                                rows = db_session.query(model).filter(model.asset_id == asset.id, model.is_deleted == True).all()
+                            except Exception:
+                                rows = []
                             for row in rows:
                                 row.is_deleted = False
                                 row.deleted_at = None
@@ -3887,7 +3915,10 @@ def recycle_bin():
                                     scan.deleted_by_user_id = None
 
                                 for s_model in (Certificate, PQCClassification, CBOMEntry):
-                                    s_rows = db_session.query(s_model).filter(s_model.scan_id == scan.id, s_model.is_deleted == True).all()
+                                    try:
+                                        s_rows = db_session.query(s_model).filter(s_model.scan_id == scan.id, s_model.is_deleted == True).all()
+                                    except Exception:
+                                        s_rows = []
                                     for s_row in s_rows:
                                         s_row.is_deleted = False
                                         s_row.deleted_at = None
@@ -3926,7 +3957,10 @@ def recycle_bin():
                         scan.deleted_by_user_id = None
 
                         for s_model in (Certificate, PQCClassification, CBOMEntry):
-                            s_rows = db_session.query(s_model).filter(s_model.scan_id == scan.id, s_model.is_deleted == True).all()
+                            try:
+                                s_rows = db_session.query(s_model).filter(s_model.scan_id == scan.id, s_model.is_deleted == True).all()
+                            except Exception:
+                                s_rows = []
                             for s_row in s_rows:
                                 s_row.is_deleted = False
                                 s_row.deleted_at = None
