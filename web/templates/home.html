@@ -238,10 +238,10 @@
         <div class="glass-card kpi-card">
             <div class="kpi-label">🔍 Total Scanned Assets</div>
             <div class="kpi-value">
-                <span>{{ summary.total_assets or 0 }}</span>
+                <span>{{ summary.scanned_assets if summary.scanned_assets is defined else (summary.total_assets or 0) }}</span>
             </div>
             <div class="kpi-detail">
-                <strong>Types:</strong> {{ summary.server_count or 0 }} Servers · {{ summary.api_count or 0 }} APIs · {{ summary.vpn_count or 0 }} Gateways
+                <strong>Inventory:</strong> {{ summary.total_assets or 0 }} total assets · {{ summary.server_count or 0 }} Servers · {{ summary.api_count or 0 }} APIs · {{ summary.vpn_count or 0 }} Gateways
             </div>
         </div>
         

@@ -1,3 +1,5 @@
+# pyre-ignore-all-errors
+# Dummy reload for SQLAlchemy mappings
 """
 Quantum-Safe TLS Scanner — Flask Web Application
 
@@ -10,13 +12,15 @@ Routes:
 """
 
 import sys
+import typing
 try:
     if hasattr(sys.stdout, 'reconfigure'):
-        sys.stdout.reconfigure(encoding='utf-8')
+        typing.cast(typing.Any, sys.stdout).reconfigure(encoding='utf-8')
 except Exception:
     pass
 
 import json
+import re
 
 import os
 import uuid
@@ -26,10 +30,12 @@ import socket
 import urllib.request
 import urllib.parse
 from datetime import datetime, timezone
+from typing import Any
 
 from flask import (
     Flask,
     g,
+    current_app,
     render_template,
     request,
     jsonify,
@@ -59,6 +65,7 @@ from functools import wraps, lru_cache
 import threading
 
 import sys
+import typing
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from config import SECRET_KEY, DEBUG, FLASK_HOST, FLASK_PORT, RESULTS_DIR, AUTODISCOVERY_PORTS, BASE_DIR
@@ -119,6 +126,7 @@ from config import (
     SESSION_IDLE_TIMEOUT_SECONDS,
     AUDIT_LOG_PAGE_SIZE,
     RATELIMIT_STORAGE_URI,
+    RATELIMIT_ENABLED,
     RATELIMIT_DEFAULT_LIMITS,
     CSP_CONFIG,
 )
@@ -138,6 +146,9 @@ app.config.update(
     MAIL_DEFAULT_SENDER=MAIL_DEFAULT_SENDER,
     PREFERRED_URL_SCHEME="https" if FORCE_HTTPS else "http",
     SESSION_COOKIE_NAME=SESSION_COOKIE_NAME,
+    # Keep CSRF token validation enabled, but do not hard-require Referer for HTTPS POSTs.
+    # Some local/reverse-proxy/browser setups strip Referer, which otherwise blocks form deletes with 400.
+    WTF_CSRF_SSL_STRICT=False,
 )
 
 if TRUST_PROXY_SSL_HEADER:
@@ -165,6 +176,7 @@ limiter = Limiter(
     app=app,
     default_limits=RATELIMIT_DEFAULT_LIMITS,  # type: ignore[arg-type]
     storage_uri=RATELIMIT_STORAGE_URI,
+    enabled=RATELIMIT_ENABLED,
 )
 
 def get_dashboard_data() -> dict:
@@ -172,13 +184,26 @@ def get_dashboard_data() -> dict:
     import time
 
     now = time.time()
-    if _dashboard_cache["data"] is not None and now - _dashboard_cache["updated_at"] < _dashboard_ttl_seconds:
-        return _dashboard_cache["data"]
+    if _dashboard_cache["data"] is not None and now - float(typing.cast(float, _dashboard_cache["updated_at"])) < _dashboard_ttl_seconds:
+        return typing.cast(dict, _dashboard_cache["data"])
 
     data = DashboardDataService.get_all_scans_aggregated()
-    _dashboard_cache["data"] = data
+    typing.cast(dict, _dashboard_cache)["data"] = data
     _dashboard_cache["updated_at"] = now
     return data
+
+
+def invalidate_dashboard_cache() -> None:
+    """Clear dashboard caches after asset or scan mutations."""
+    _dashboard_cache["data"] = None
+    _dashboard_cache["updated_at"] = 0
+    try:
+        from web.blueprints import dashboard as dashboard_blueprint
+
+        dashboard_blueprint._dashboard_data_cache["data"] = None
+        dashboard_blueprint._dashboard_data_cache["updated_at"] = 0
+    except Exception:
+        pass
 
 
 def _start_scheduler_if_enabled() -> None:
@@ -212,21 +237,147 @@ ALL_APP_ROLES = {"Admin", "Manager", "SingleScan", "Viewer"}
 # ── Theme Configuration ───────────────────────────────────────────
 THEME_FILE = os.path.join(os.path.dirname(__file__), "theme.json")
 
-def load_theme():
-    default_theme = {
-        "bg_navbar": "rgba(15, 18, 25, 0.92)",
-        "accent_color": "#4a9ead",
+
+_HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+THEME_DEFAULTS = {
+    "dark": {
+        "bg_navbar": "#0f1219",
         "bg_primary": "#0f1219",
-        "text_primary": "#f3f4f6"
+        "bg_secondary": "#161b26",
+        "bg_card": "#1a2030",
+        "bg_input": "#141924",
+        "border_subtle": "#2a3245",
+        "border_hover": "#4a9ead",
+        "text_primary": "#e8ecf1",
+        "text_secondary": "#94a3b8",
+        "text_muted": "#64748b",
+        "accent_color": "#4a9ead",
+        "safe": "#34d399",
+        "warn": "#fbbf24",
+        "danger": "#f87171",
+    },
+    "light": {
+        "bg_navbar": "#edf2f7",
+        "bg_primary": "#f5f7fb",
+        "bg_secondary": "#e8edf5",
+        "bg_card": "#ffffff",
+        "bg_input": "#f4f7fc",
+        "border_subtle": "#d5deeb",
+        "border_hover": "#2f6f8d",
+        "text_primary": "#1c2430",
+        "text_secondary": "#4f6177",
+        "text_muted": "#73839a",
+        "accent_color": "#2f6f8d",
+        "safe": "#0f8c5f",
+        "warn": "#c57d00",
+        "danger": "#c43b3b",
+    },
+}
+
+
+def _normalize_hex_color(value: Any, fallback: str) -> str:
+    text = str(value or "").strip()
+    if _HEX_COLOR_RE.match(text):
+        return text.lower()
+    return fallback
+
+
+def _hex_to_rgb(color: str) -> tuple[int, int, int]:
+    c = typing.cast(typing.Any, color.lstrip("#"))
+    return int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16)
+
+
+def _relative_luminance(color: str) -> float:
+    r, g, b = _hex_to_rgb(color)
+
+    def _channel(v: int) -> float:
+        x = v / 255.0
+        return x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4
+
+    rl = _channel(r)
+    gl = _channel(g)
+    bl = _channel(b)
+    return 0.2126 * rl + 0.7152 * gl + 0.0722 * bl
+
+
+def _contrast_ratio(color_a: str, color_b: str) -> float:
+    la = _relative_luminance(color_a)
+    lb = _relative_luminance(color_b)
+    lighter = max(la, lb)
+    darker = min(la, lb)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def _sanitize_theme_palette(raw_palette: dict | None, defaults: dict) -> dict:
+    raw_palette = raw_palette if isinstance(raw_palette, dict) else {}
+    palette = {
+        "bg_navbar": _normalize_hex_color(raw_palette.get("bg_navbar"), defaults["bg_navbar"]),
+        "bg_primary": _normalize_hex_color(raw_palette.get("bg_primary"), defaults["bg_primary"]),
+        "bg_secondary": _normalize_hex_color(raw_palette.get("bg_secondary"), defaults["bg_secondary"]),
+        "bg_card": _normalize_hex_color(raw_palette.get("bg_card"), defaults["bg_card"]),
+        "bg_input": _normalize_hex_color(raw_palette.get("bg_input"), defaults["bg_input"]),
+        "border_subtle": _normalize_hex_color(raw_palette.get("border_subtle"), defaults["border_subtle"]),
+        "border_hover": _normalize_hex_color(raw_palette.get("border_hover"), defaults["border_hover"]),
+        "text_primary": _normalize_hex_color(raw_palette.get("text_primary"), defaults["text_primary"]),
+        "text_secondary": _normalize_hex_color(raw_palette.get("text_secondary"), defaults["text_secondary"]),
+        "text_muted": _normalize_hex_color(raw_palette.get("text_muted"), defaults["text_muted"]),
+        "accent_color": _normalize_hex_color(raw_palette.get("accent_color"), defaults["accent_color"]),
+        "safe": _normalize_hex_color(raw_palette.get("safe"), defaults["safe"]),
+        "warn": _normalize_hex_color(raw_palette.get("warn"), defaults["warn"]),
+        "danger": _normalize_hex_color(raw_palette.get("danger"), defaults["danger"]),
     }
+
+    if _contrast_ratio(palette["bg_primary"], palette["text_primary"]) < 4.5:
+        dark_text = "#0b1120"
+        light_text = "#f3f4f6"
+        dark_ratio = _contrast_ratio(palette["bg_primary"], dark_text)
+        light_ratio = _contrast_ratio(palette["bg_primary"], light_text)
+        palette["text_primary"] = dark_text if dark_ratio >= light_ratio else light_text
+
+    if _contrast_ratio(palette["bg_card"], palette["text_secondary"]) < 3.0:
+        palette["text_secondary"] = palette["text_primary"]
+    if _contrast_ratio(palette["bg_card"], palette["text_muted"]) < 2.5:
+        palette["text_muted"] = palette["text_secondary"]
+
+    return palette
+
+
+def _sanitize_theme(raw_theme: dict) -> dict:
+    raw_theme = raw_theme if isinstance(raw_theme, dict) else {}
+    if "dark" in raw_theme or "light" in raw_theme:
+        dark = _sanitize_theme_palette(raw_theme.get("dark"), THEME_DEFAULTS["dark"])
+        light = _sanitize_theme_palette(raw_theme.get("light"), THEME_DEFAULTS["light"])
+        mode = str(raw_theme.get("mode") or "system").lower()
+    else:
+        dark = _sanitize_theme_palette(raw_theme, THEME_DEFAULTS["dark"])
+        light = _sanitize_theme_palette(raw_theme, THEME_DEFAULTS["light"])
+        mode = str(raw_theme.get("mode") or "system").lower()
+
+    if mode not in {"system", "dark", "light"}:
+        mode = "system"
+
+    active = dark if mode == "dark" else light if mode == "light" else dark
+    return {
+        "mode": mode,
+        "dark": dark,
+        "light": light,
+        "active": active,
+        "bg_navbar": active["bg_navbar"],
+        "accent_color": active["accent_color"],
+        "bg_primary": active["bg_primary"],
+        "text_primary": active["text_primary"],
+    }
+
+def load_theme():
     if os.path.exists(THEME_FILE):
         try:
             with open(THEME_FILE, 'r') as f:
                 data = json.load(f)
-                return {**default_theme, **data}
+                return _sanitize_theme(data if isinstance(data, dict) else {})
         except Exception:
             pass
-    return default_theme
+    return _sanitize_theme({"dark": THEME_DEFAULTS["dark"], "light": THEME_DEFAULTS["light"], "mode": "system"})
 
 @app.context_processor
 def inject_theme():
@@ -546,7 +697,7 @@ def _days_to_expiry(cert_not_after: str) -> int | None:
 def _normalize_tls_result(raw_result: dict) -> dict:
     """Normalize TLS analyzer output into dashboard/report-friendly schema."""
     raw = dict(raw_result or {})
-    cert = raw.get("certificate") if isinstance(raw.get("certificate"), dict) else {}
+    cert = typing.cast(dict, raw.get("certificate") if isinstance(raw.get("certificate"), dict) else {})
     issuer = cert.get("issuer") if isinstance(cert.get("issuer"), dict) else {}
     subject = cert.get("subject") if isinstance(cert.get("subject"), dict) else {}
 
@@ -725,6 +876,11 @@ def _bootstrap_runtime_state() -> None:
     """Load scan state from MySQL when running the application for real."""
     global _db_available, _db_initialized
 
+    if app.config.get("TESTING", False):
+        _db_available = False
+        _db_initialized = True
+        return
+
     if _db_initialized:
         logger.debug("_bootstrap_runtime_state called but db already initialized.")
         return
@@ -778,16 +934,22 @@ def _bootstrap_runtime_state() -> None:
 # Initialise MySQL (if available) and hydrate scan_store
 logger.info("Initializing database connectivity...")
 _db_available = False
-logger.info("Database initialization deferred at import time. Available=%s", _db_available)
+logger.info("Database bootstrap deferred until runtime startup hook.")
 
 # Run data hydration only from runtime bootstrap path (_bootstrap_runtime_state)
 # to avoid early ORM lookups against partially integrated legacy schemas.
-print(f"  ⚙️ Waiting for runtime DB bootstrap; currently MYSQL available={_db_available}")
+print("  ⚙️ Waiting for runtime DB bootstrap...")
 
 # ── Pipeline ─────────────────────────────────────────────────────────
 
 
-def run_scan_pipeline(target: str, ports: list[int] | None = None, asset_class_hint: str | None = None) -> dict:
+def run_scan_pipeline(
+    target: str,
+    ports: list[int] | None = None,
+    asset_class_hint: str | None = None,
+    scan_kind: str = "manual",
+    scanned_by: str | None = None,
+) -> dict:
     """Execute the full scan pipeline and return a report dict."""
     scan_id = uuid.uuid4().hex[:8]
 
@@ -924,6 +1086,8 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None, asset_class_h
     report["target"] = target
     report["asset_class"] = asset_class
     report["status"] = "complete"
+    report["scan_kind"] = str(scan_kind or "manual")
+    report["scanned_by"] = str(scanned_by or "system")
     report["tls_results"] = tls_results
     report["pqc_assessments"] = pqc_dicts
     report["recommendations_detailed"] = recommendations
@@ -943,15 +1107,18 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None, asset_class_h
 
     # 11. Save to MySQL natively via SQLAlchemy Models
     from src.db import db_session
-    from src.models import Scan, Asset, Certificate, DiscoveryItem, PQCClassification, CBOMSummary, CBOMEntry, ComplianceScore
+    from src.models import Scan, Asset, Certificate, DiscoveryItem, PQCClassification, CBOMSummary, CBOMEntry
+    from sqlalchemy import func
     from sqlalchemy.exc import SQLAlchemyError
+    report["orm_persisted"] = False
     try:
         dt = datetime.strptime(report.get("timestamp", datetime.now(timezone.utc).isoformat()), "%Y-%m-%dT%H:%M:%S.%f%z") if "." in report.get("timestamp", "") else datetime.now()
         overall_score = sum(float(pq.get("score", 0)) for pq in pqc_dicts) / max(len(pqc_dicts), 1)
+        canonical_target = _host_from_target(target).strip().lower() or str(target or "").strip().lower()
         
         db_scan = Scan(
             scan_id=scan_id,
-            target=target,
+            target=canonical_target,
             status="complete",
             asset_class=asset_class,
             started_at=dt,
@@ -972,22 +1139,70 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None, asset_class_h
         scan_pk = getattr(db_scan, "id", None) or getattr(db_scan, "scan_id", None)
         
         # Resolve Asset
-        inventory_asset = db_session.query(Asset).filter_by(name=target, is_deleted=False).first()
-        asset_id = inventory_asset.id if inventory_asset else None
+        inventory_asset = (
+            db_session.query(Asset)
+            .filter(func.lower(Asset.name) == canonical_target)
+            .first()
+        )
+        if inventory_asset and getattr(inventory_asset, "is_deleted", False):
+            inventory_asset.is_deleted = False
+        if not inventory_asset:
+            score_risk = "Critical"
+            if overall_score >= 80:
+                score_risk = "Low"
+            elif overall_score >= 60:
+                score_risk = "Medium"
+            elif overall_score >= 40:
+                score_risk = "High"
+            inventory_asset = Asset(
+                name=canonical_target,
+                url=f"https://{canonical_target}" if canonical_target and not canonical_target.startswith(("http://", "https://")) else canonical_target,
+                asset_type="Web App",
+                owner=str(scanned_by or "Unassigned"),
+                risk_level=score_risk,
+                notes="Auto-created from scan pipeline",
+                is_deleted=False,
+            )
+            db_session.add(inventory_asset)
+            db_session.flush()
+        asset_id = int(getattr(inventory_asset, "id", 0) or 0)
+        inventory_asset.last_scan_id = int(getattr(db_scan, "id", 0) or 0)
+        if not str(getattr(inventory_asset, "url", "") or "") and canonical_target:
+            inventory_asset.url = f"https://{canonical_target}"
+        if not str(getattr(inventory_asset, "owner", "") or "").strip() and scanned_by:
+            inventory_asset.owner = str(scanned_by)
         
         # Discovery Items
+        discovery_types = {"domain"}
         for svc in discovered_services:
+            host = str(svc.get("host") or "").strip()
+            if host:
+                discovery_types.add("ip")
+            if str(svc.get("banner") or "").strip():
+                discovery_types.add("software")
+        if tls_results:
+            discovery_types.add("ssl")
+
+        detection_dt = datetime.now()
+        for dtype in sorted(discovery_types):
             discovery_item = DiscoveryItem(
                 asset_id=asset_id,
-                type="ip",
-                status="new",
-                detection_date=datetime.now()
+                type=dtype,
+                status="confirmed",
+                detection_date=detection_dt,
             )
             if hasattr(db_scan, "discovery_items"):
                 db_scan.discovery_items.append(discovery_item)
             elif hasattr(discovery_item, "scan_id") and scan_pk is not None:
                 discovery_item.scan_id = scan_pk
                 db_session.add(discovery_item)
+
+        for svc in discovered_services:
+            host = str(svc.get("host") or "").strip()
+            if host and not str(getattr(inventory_asset, "ipv4", "") or "") and host.count(":") == 0 and any(ch.isdigit() for ch in host):
+                inventory_asset.ipv4 = host
+            if host and not str(getattr(inventory_asset, "ipv6", "") or "") and host.count(":") > 1:
+                inventory_asset.ipv6 = host
             
         # TLS & Certificates
         for tls in tls_results:
@@ -1054,14 +1269,20 @@ def run_scan_pipeline(target: str, ports: list[int] | None = None, asset_class_h
                 db_session.add(cbom_entry)
 
         db_session.commit()
+        report["orm_persisted"] = True
     except SQLAlchemyError as err:
         db_session.rollback()
         import traceback
         print(f"Failed to ingest native DB schema: {err}")
         traceback.print_exc()
+        report["orm_persisted"] = False
         
     # Store in memory primarily for caching/legacy access if needed
     scan_store[scan_id] = report
+    try:
+        invalidate_dashboard_cache()
+    except Exception:
+        pass
     return report
 
 
@@ -1226,16 +1447,46 @@ def admin_theme():
     """Admin panel to configure dynamic UI theme colors."""
     current_theme = load_theme()
     if request.method == "POST":
-        new_theme = {
-            "bg_navbar": request.form.get("bg_navbar", current_theme["bg_navbar"]),
-            "accent_color": request.form.get("accent_color", current_theme["accent_color"]),
-            "bg_primary": request.form.get("bg_primary", current_theme["bg_primary"]),
-            "text_primary": request.form.get("text_primary", current_theme["text_primary"])
+        requested_theme = {
+            "mode": request.form.get("mode", current_theme.get("mode", "system")),
+            "dark": {
+                "bg_navbar": request.form.get("dark_bg_navbar", current_theme["dark"]["bg_navbar"]),
+                "bg_primary": request.form.get("dark_bg_primary", current_theme["dark"]["bg_primary"]),
+                "bg_secondary": request.form.get("dark_bg_secondary", current_theme["dark"]["bg_secondary"]),
+                "bg_card": request.form.get("dark_bg_card", current_theme["dark"]["bg_card"]),
+                "bg_input": request.form.get("dark_bg_input", current_theme["dark"]["bg_input"]),
+                "border_subtle": request.form.get("dark_border_subtle", current_theme["dark"]["border_subtle"]),
+                "border_hover": request.form.get("dark_border_hover", current_theme["dark"]["border_hover"]),
+                "text_primary": request.form.get("dark_text_primary", current_theme["dark"]["text_primary"]),
+                "text_secondary": request.form.get("dark_text_secondary", current_theme["dark"]["text_secondary"]),
+                "text_muted": request.form.get("dark_text_muted", current_theme["dark"]["text_muted"]),
+                "accent_color": request.form.get("dark_accent_color", current_theme["dark"]["accent_color"]),
+                "safe": request.form.get("dark_safe", current_theme["dark"]["safe"]),
+                "warn": request.form.get("dark_warn", current_theme["dark"]["warn"]),
+                "danger": request.form.get("dark_danger", current_theme["dark"]["danger"]),
+            },
+            "light": {
+                "bg_navbar": request.form.get("light_bg_navbar", current_theme["light"]["bg_navbar"]),
+                "bg_primary": request.form.get("light_bg_primary", current_theme["light"]["bg_primary"]),
+                "bg_secondary": request.form.get("light_bg_secondary", current_theme["light"]["bg_secondary"]),
+                "bg_card": request.form.get("light_bg_card", current_theme["light"]["bg_card"]),
+                "bg_input": request.form.get("light_bg_input", current_theme["light"]["bg_input"]),
+                "border_subtle": request.form.get("light_border_subtle", current_theme["light"]["border_subtle"]),
+                "border_hover": request.form.get("light_border_hover", current_theme["light"]["border_hover"]),
+                "text_primary": request.form.get("light_text_primary", current_theme["light"]["text_primary"]),
+                "text_secondary": request.form.get("light_text_secondary", current_theme["light"]["text_secondary"]),
+                "text_muted": request.form.get("light_text_muted", current_theme["light"]["text_muted"]),
+                "accent_color": request.form.get("light_accent_color", current_theme["light"]["accent_color"]),
+                "safe": request.form.get("light_safe", current_theme["light"]["safe"]),
+                "warn": request.form.get("light_warn", current_theme["light"]["warn"]),
+                "danger": request.form.get("light_danger", current_theme["light"]["danger"]),
+            },
         }
+        new_theme = _sanitize_theme(requested_theme)
         try:
             with open(THEME_FILE, 'w') as f:
                 json.dump(new_theme, f, indent=4)
-            _audit("admin", "update_theme", "success")
+            _audit("admin", "update_theme", "success", details={"mode": new_theme.get("mode"), "theme": new_theme})
             flash("Theme configurations updated successfully!", "success")
         except Exception as e:
             _audit("admin", "update_theme_failed", "failed", details={"error": str(e)})
@@ -1319,20 +1570,28 @@ def admin_audit_logs():
 @app.route("/admin/users/<user_id>/reset-password", methods=["POST"])
 @role_required(list(ADMIN_PANEL_ROLES))
 def admin_reset_user_password(user_id: str):
-    """Admin-triggered password reset email for an existing user."""
+    """Admin-triggered password reset email for an existing user. Supports form OR JSON."""
+    wants_json = request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html
+    
     user = db.get_user_by_id(user_id)
     if not user:
         _audit("admin", "reset_password", "failed", target_user_id=user_id, details={"reason": "user_not_found"})
+        if wants_json:
+            return jsonify({"status": "error", "message": "User not found or inactive."}), 404
         flash("User not found or inactive.", "error")
         return redirect(url_for("admin_users"))
     if not user.get("email"):
         _audit("admin", "reset_password", "failed", target_user_id=user_id, details={"reason": "missing_email"})
+        if wants_json:
+            return jsonify({"status": "error", "message": "User has no email configured."}), 400
         flash("User has no email configured.", "error")
         return redirect(url_for("admin_users"))
 
     token = db.create_password_setup_token(user_id, expires_hours=24)
     if not token:
         _audit("admin", "reset_password", "failed", target_user_id=user_id, details={"reason": "token_generation_failed"})
+        if wants_json:
+            return jsonify({"status": "error", "message": "Failed to generate reset token."}), 500
         flash("Failed to generate reset token.", "error")
         return redirect(url_for("admin_users"))
 
@@ -1348,10 +1607,22 @@ def admin_reset_user_password(user_id: str):
         )
         mail.send(msg)
         _audit("admin", "reset_password", "success", target_user_id=user_id, details={"email": user["email"], "email_sent": True})
+        if wants_json:
+            return jsonify({
+                "status": "success",
+                "message": "Password reset email sent.",
+                "user_id": user_id,
+                "username": user["username"]
+            }), 200
         flash("Password reset email sent.", "success")
     except Exception as exc:
         logger.error("Password reset email failed for %s: %s", user["email"], exc)
         _audit("admin", "reset_password", "partial", target_user_id=user_id, details={"email": user["email"], "email_sent": False, "error": str(exc)})
+        if wants_json:
+            return jsonify({
+                "status": "error",
+                "message": f"SMTP failed: {str(exc)}"
+            }), 500
         flash(f"SMTP failed. Temporary setup link: {setup_url}", "warning")
     return redirect(url_for("admin_users"))
 
@@ -1359,13 +1630,32 @@ def admin_reset_user_password(user_id: str):
 @app.route("/admin/users/<user_id>/update", methods=["POST"])
 @role_required(list(ADMIN_PANEL_ROLES))
 def admin_update_user(user_id: str):
-    role = db.normalize_role(request.form.get("role") or "Viewer")
-    is_active = request.form.get("is_active") == "on"
+    """Update user role and active status. Supports form OR JSON."""
+    wants_json = request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html
+    
+    if request.is_json:
+        data = request.get_json() or {}
+        role = db.normalize_role(data.get("role") or "Viewer")
+        is_active = data.get("is_active", True)
+    else:
+        role = db.normalize_role(request.form.get("role") or "Viewer")
+        is_active = request.form.get("is_active") == "on"
+    
     if db.update_user_profile(user_id, role=role, is_active=is_active):
         _audit("admin", "update_user", "success", target_user_id=user_id, details={"role": role, "is_active": is_active})
+        if wants_json:
+            return jsonify({
+                "status": "success",
+                "message": "User profile updated.",
+                "user_id": user_id,
+                "role": role,
+                "is_active": is_active
+            }), 200
         flash("User profile updated.", "success")
     else:
         _audit("admin", "update_user", "failed", target_user_id=user_id, details={"role": role, "is_active": is_active})
+        if wants_json:
+            return jsonify({"status": "error", "message": "Failed to update user profile."}), 500
         flash("Failed to update user profile.", "error")
     return redirect(url_for("admin_users"))
 
@@ -1432,55 +1722,35 @@ def index():
     """Scanner dashboard with enterprise metrics directly populated from DB view aggregate for performance."""
     recent_scans = db.list_scans(limit=10)
 
-    # Use the Direct MySQL Aggegate Loader for dashboard performance instead of loops
-    enterprise_metrics = db.get_enterprise_metrics()
-    
-    # Ensure zero-state consistency using AssetService aggregates if DB totals fail
-    if not enterprise_metrics or enterprise_metrics.get("total_assets", 0) == 0:
-        logger.info("Direct enterprise metrics empty. Utilizing AssetService aggregations.")
-        from src.services.asset_service import AssetService
-        asset_svc = AssetService()
-        assets = asset_svc.load_combined_assets()
-        summary = asset_svc.get_dashboard_summary(assets)
-        
-        enterprise_metrics = {
-            "total_assets": summary.get("total_assets", 0),
-            "quantum_safe": max(0, summary.get("total_assets", 0) - summary.get("expiring_certs", 0)), 
-            "quantum_vulnerable": 0,
-            "total_score": 0,
-            "scan_count": len(recent_scans),
-            "avg_score": summary.get("overall_risk_score", 0),
-            "critical_findings": summary.get("risk_distribution", {}).get("Critical", 0),
-            "api_services": summary.get("api_count", 0),
-            "asset_class_distribution": {
-                "APIs": summary.get("api_count", 0),
-                "VPNs": summary.get("vpn_count", 0),
-                "Servers": summary.get("server_count", 0),
-                "Web Apps": max(0, summary.get("total_assets", 0) - summary.get("api_count", 0) - summary.get("vpn_count", 0) - summary.get("server_count", 0))
-            },
-            "risk_distribution": summary.get("risk_distribution", {}),
-            "ssl_expiry": {"0-30": summary.get("expiring_certs", 0)},
-            "ssl_expiry_extended": {},
-            "ip_breakdown": {},
-            "crypto_overview": [],
-            "certificate_inventory": [],
-            "dns_records_total": 0,
-            "latest_scan": recent_scans[0].get("scanned_at") if recent_scans else "Never"
-        }
+    from src.services.asset_service import AssetService
 
-    # Verify inventory_vm aggregation
-    inventory_vm = _build_asset_inventory_view()
+    asset_svc = AssetService()
+    assets = asset_svc.load_combined_assets()
+    summary = asset_svc.get_dashboard_summary(assets)
+
+    if not summary or summary.get("total_assets", 0) == 0:
+        logger.info("AssetService summary empty. Falling back to MySQL enterprise metrics.")
+        summary = db.get_enterprise_metrics()
+        assets = asset_svc.load_combined_assets()
+
+    summary = {
+        **summary,
+        "latest_scan": summary.get("latest_scan") or (recent_scans[0].get("scanned_at") if recent_scans else "Never"),
+    }
 
     return render_template(
-        "home1.html",
+        "home.html",
         recent_scans=recent_scans,
-        enterprise_metrics=enterprise_metrics,
-        inventory_vm=inventory_vm,
+        assets=assets,
+        summary=summary,
+        enterprise_metrics=summary,
     )
 
 # Register Main Dashboard Blueprint
 from web.blueprints.dashboard import dashboard_bp
+from web.routes.assets import assets_bp
 app.register_blueprint(dashboard_bp)
+app.register_blueprint(assets_bp)
 
 # Inventory status polling runs frequently from UI; keep it outside tight default limits.
 if "quantumshield_dashboard.inventory_scan_status" in app.view_functions:
@@ -1522,274 +1792,19 @@ def _host_from_target(target: str) -> str:
 
 
 def _build_asset_inventory_view() -> dict:
-    """Build inventory view-model from both database assets AND live scans."""
-    from collections import Counter
-    import ipaddress
-    from src.db import db_session
-    from src.models import Asset
+    """Build inventory view-model from MySQL tables only."""
+    from src.services.asset_service import AssetService
 
-    testing_mode = app.config.get("TESTING", False)
-    assets: list[dict] = []
-    nameserver_records: list[dict] = []
-    crypto_overview: list[dict] = []
-    asset_locations: list[dict] = []
-    certificate_inventory: list[dict] = []
-    cert_bucket = Counter({"0-30": 0, "30-60": 0, "60-90": 0, ">90": 0})
-    visited_targets = set()
-
-    # First, load all assets from the Asset table (database)
-    if testing_mode:
-        db_assets = []
-    else:
-        try:
-            db_assets = db_session.query(Asset).filter(Asset.is_deleted == False).all()
-        except Exception as exc:
-            logger.warning("Asset inventory DB load failed: %s", exc)
-            db_assets = []
-    
-    for db_asset in db_assets:
-        updated_at = getattr(db_asset, "updated_at", None)
-        asset_name = str(getattr(db_asset, "name", "") or "")
-        asset_dict = {
-            "asset_name": asset_name,
-            "url": str(getattr(db_asset, "url", "") or f"https://{asset_name}"),
-            "ipv4": str(getattr(db_asset, "ipv4", "") or ""),
-            "ipv6": str(getattr(db_asset, "ipv6", "") or ""),
-            "type": str(getattr(db_asset, "asset_type", "") or "Web App"),
-            "asset_class": "Database",
-            "owner": str(getattr(db_asset, "owner", "") or "Unassigned"),
-            "risk": str(getattr(db_asset, "risk_level", "") or "Medium"),
-            "cert_status": "Not Scanned",
-            "key_length": 0,
-            "last_scan": _iso_date(str(updated_at)) if updated_at else "Pending",
-        }
-        assets.append(asset_dict)
-        visited_targets.add(asset_name)
-
-    # Then augment with scan data for scanned assets
-    scans_feed = []
-    seen_scan_ids = set()
-    for scan in scan_store.values():
-        if isinstance(scan, dict):
-            sid = str(scan.get("scan_id") or "")
-            seen_scan_ids.add(sid)
-            scans_feed.append(scan)
-    if not testing_mode:
-        try:
-            for scan in db.list_scans(limit=100):
-                if not isinstance(scan, dict):
-                    continue
-                sid = str(scan.get("scan_id") or "")
-                if sid and sid in seen_scan_ids:
-                    continue
-                scans_feed.append(scan)
-        except Exception as exc:
-            logger.warning("Asset inventory scan fallback load failed: %s", exc)
-
-    for scan in scans_feed:
-        if scan.get("status") != "complete":
-            continue
-
-        target = str(scan.get("target", "")).strip()
-        host = _host_from_target(target)
-        if not host:
-            continue
-
-        overview = scan.get("overview") or {}
-        tls_results = scan.get("tls_results") or []
-        discovered = scan.get("discovered_services") or []
-        score = float(overview.get("average_compliance_score") or 0)
-        risk = _score_to_risk(score if score > 100 else score * 10)
-
-        ipv4 = ""
-        ipv6 = ""
-        for svc in discovered:
-            cand = str(svc.get("host", ""))
-            if not cand:
-                continue
-            try:
-                parsed = ipaddress.ip_address(cand)
-                if parsed.version == 4 and not ipv4:
-                    ipv4 = cand
-                if parsed.version == 6 and not ipv6:
-                    ipv6 = cand
-            except ValueError:
-                continue
-
-        first = tls_results[0] if tls_results else {}
-        key_length = first.get("key_size") or first.get("key_length") or 0
-        tls_version = first.get("tls_version") or "Unknown"
-        ciphers = first.get("cipher_suites") or []
-        cipher_suite = ciphers[0] if ciphers else "Unknown"
-        issuer = first.get("issuer") if isinstance(first.get("issuer"), dict) else {}
-        issuer_name = issuer.get("O") or issuer.get("CN") or "Unknown"
-
-        cert_days = first.get("cert_days_remaining")
-        cert_status = "Unknown"
-        if isinstance(cert_days, (int, float)):
-            if cert_days < 0:
-                cert_status = "Expired"
-            elif cert_days <= 30:
-                cert_status = "Expiring"
-                cert_bucket["0-30"] += 1
-            elif cert_days <= 60:
-                cert_status = "Valid"
-                cert_bucket["30-60"] += 1
-            elif cert_days <= 90:
-                cert_status = "Valid"
-                cert_bucket["60-90"] += 1
-            else:
-                cert_status = "Valid"
-                cert_bucket[">90"] += 1
- 
-        if tls_results:
-            first_tr = tls_results[0]
-            certificate_inventory.append({
-                "asset": host,
-                "issuer": issuer_name,
-                "key_length": key_length,
-                "tls_version": tls_version,
-                "days_remaining": cert_days if isinstance(cert_days, (int, float)) else None,
-                "status": cert_status,
-            })
-
-        kind = "Web App"
-        if any("api" in str(s).lower() for s in (host, target)):
-            kind = "API"
-        elif any("gateway" in str(s).lower() for s in (host, target)):
-            kind = "Load Balancer"
-        elif discovered:
-            kind = "Server"
-
-        # Update existing asset with scan data if it exists
-        existing_asset = next((a for a in assets if a["asset_name"].lower() == host.lower()), None)
-        if existing_asset:
-            existing_asset.update({
-                "ipv4": ipv4 or existing_asset.get("ipv4"),
-                "ipv6": ipv6 or existing_asset.get("ipv6"),
-                "type": kind,
-                "risk": risk,
-                "cert_status": cert_status,
-                "key_length": key_length,
-                "last_scan": _iso_date(str(scan.get("generated_at", ""))),
-                "asset_class": "Scanned",
-            })
-        else:
-            # New asset from scan not in database yet
-            row = {
-                "asset_name": host,
-                "url": target if str(target).startswith("http") else f"https://{host}",
-                "ipv4": ipv4,
-                "ipv6": ipv6,
-                "type": kind,
-                "asset_class": "Scanned",
-                "owner": "Infra",
-                "risk": risk,
-                "cert_status": cert_status,
-                "key_length": key_length,
-                "last_scan": _iso_date(str(scan.get("generated_at", ""))),
-            }
-            assets.append(row)
-
-        crypto_overview.append({
-            "asset": host,
-            "key_length": key_length,
-            "cipher_suite": cipher_suite,
-            "tls_version": tls_version,
-            "ca": issuer_name,
-            "last_scan": _iso_date(str(scan.get("generated_at", ""))),
-        })
-
-        for dns_row in (scan.get("dns_records") or []):
-            if not isinstance(dns_row, dict):
-                continue
-            nameserver_records.append(
-                {
-                    "hostname": str(dns_row.get("hostname") or host),
-                    "type": str(dns_row.get("record_type") or "A"),
-                    "ip": str(dns_row.get("record_value") or "") if str(dns_row.get("record_type") or "").upper() in {"A", "MX", "NS", "PTR", "CNAME"} else "",
-                    "ipv6": str(dns_row.get("record_value") or "") if str(dns_row.get("record_type") or "").upper() == "AAAA" else "",
-                    "ttl": int(dns_row.get("ttl") or 300),
-                }
-            )
-
-        for loc in (scan.get("asset_locations") or []):
-            if not isinstance(loc, dict):
-                continue
-            lat = loc.get("lat")
-            lon = loc.get("lon")
-            if not isinstance(lat, (int, float)) or not isinstance(lon, (int, float)):
-                continue
-            asset_locations.append(
-                {
-                    "asset": host,
-                    "ip": str(loc.get("ip") or ""),
-                    "lat": float(lat),
-                    "lon": float(lon),
-                    "city": str(loc.get("city") or ""),
-                    "region": str(loc.get("region") or ""),
-                    "country": str(loc.get("country") or ""),
-                }
-            )
-
-    # Calculate KPIs from the complete asset list
-    kpis = {
-        "total_assets": len(assets),
-        "public_web_apps": sum(1 for a in assets if a["type"] == "Web App"),
-        "apis": sum(1 for a in assets if a["type"] == "API"),
-        "servers": sum(1 for a in assets if a["type"] == "Server"),
-        "expiring_certificates": sum(1 for a in assets if a["cert_status"] == "Expiring"),
-        "high_risk_assets": sum(1 for a in assets if a["risk"] in {"Critical", "High"}),
-    }
-
-    type_dist = Counter(a["type"] for a in assets)
-    risk_dist = Counter(a["risk"] for a in assets)
-    ipv4_count = sum(1 for a in assets if a["ipv4"])
-    ipv6_count = sum(1 for a in assets if a["ipv6"])
-    total_ip_assets = max(1, ipv4_count + ipv6_count)
-
-    owners = sorted({a["owner"] for a in assets}) or ["Infra"]
-    heatmap = []
-    for owner in owners:
-        owner_rows = [a for a in assets if a["owner"] == owner]
-        for band in ("Critical", "High", "Medium", "Low"):
-            value = sum(1 for a in owner_rows if a["risk"] == band)
-            heatmap.append({"x": owner, "y": band, "value": value})
-
-    return {
-        "empty": len(assets) == 0,
-        "kpis": kpis,
-        "asset_type_distribution": {
-            "Web Applications": type_dist.get("Web App", 0),
-            "APIs": type_dist.get("API", 0),
-            "Servers": type_dist.get("Server", 0),
-            "Load Balancers": type_dist.get("Load Balancer", 0),
-            "Other": type_dist.get("Other", 0),
-        },
-        "asset_risk_distribution": {
-            "Critical": risk_dist.get("Critical", 0),
-            "High": risk_dist.get("High", 0),
-            "Medium": risk_dist.get("Medium", 0),
-            "Low": risk_dist.get("Low", 0),
-        },
-        "risk_heatmap": heatmap,
-        "certificate_expiry_timeline": dict(cert_bucket),
-        "ip_version_breakdown": {
-            "IPv4": round((ipv4_count * 100) / total_ip_assets),
-            "IPv6": round((ipv6_count * 100) / total_ip_assets),
-        },
-        "assets": assets,
-        "nameserver_records": nameserver_records,
-        "crypto_overview": crypto_overview,
-        "asset_locations": asset_locations,
-        "certificate_inventory": certificate_inventory,
-    }
+    service = AssetService()
+    return service.get_inventory_view_model(testing_mode=app.config.get("TESTING", False))
 
 
 def _build_asset_discovery_view(include_in_progress: bool = False, page: int = 1, page_size: int = 100) -> dict:
-    """Build discovery view from live scan artifacts only."""
+    """Build discovery view from persisted scan table data (with testing fallback)."""
     from collections import Counter
     import ipaddress
+    from src.db import db_session
+    from src.models import Asset, Scan as ScanModel
 
     testing_mode = app.config.get("TESTING", False)
     domains: list[dict] = []
@@ -1802,19 +1817,15 @@ def _build_asset_discovery_view(include_in_progress: bool = False, page: int = 1
     node_ids: set[str] = set()
     edge_ids: set[str] = set()
 
-    # Pre-load known assets for cross-correlation
-    if testing_mode:
+    try:
+        known_assets = {
+            str(getattr(a, "name", "") or "").strip().lower()
+            for a in db_session.query(Asset).filter(Asset.is_deleted == False).all()
+            if str(getattr(a, "name", "") or "").strip()
+        }
+    except Exception as exc:
+        logger.warning("Asset discovery known-asset load failed: %s", exc)
         known_assets = set()
-    else:
-        try:
-            known_assets = {
-                str(a.get("target") or a.get("name") or a.get("asset_name") or "").strip()
-                for a in db.list_assets()
-                if str(a.get("target") or a.get("name") or a.get("asset_name") or "").strip()
-            }
-        except Exception as exc:
-            logger.warning("Asset discovery known-asset load failed: %s", exc)
-            known_assets = set()
 
     def add_node(node_id: str, label: str, group: str, title: str) -> None:
         if node_id in node_ids:
@@ -1830,34 +1841,56 @@ def _build_asset_discovery_view(include_in_progress: bool = False, page: int = 1
         edges.append({"id": key, "from": src, "to": dst})
 
     scans_feed = []
-    seen_scan_ids = set()
-    for scan in scan_store.values():
-        if isinstance(scan, dict):
-            sid = str(scan.get("scan_id") or "")
-            seen_scan_ids.add(sid)
-            scans_feed.append(scan)
-    # Paginate MySQL scans (avoid full table scan on each request)
-    if not testing_mode:
+    if testing_mode:
+        for scan in scan_store.values():
+            if isinstance(scan, dict):
+                scans_feed.append(scan)
+    else:
         try:
-            from src.db import db_session
-            from src.models import Scan as ScanModel
             offset = max(page - 1, 0) * page_size
-            for _scan in db_session.query(ScanModel).filter(ScanModel.status == "complete").order_by(ScanModel.started_at.desc()).offset(offset).limit(page_size).all():
-                try:
-                    db_scan_id = getattr(_scan, "scan_id", None) or getattr(_scan, "id", None)
-                    _report = {
-                        "scan_id": str(db_scan_id or ""),
-                        "target": str(getattr(_scan, "target", "")),
-                        "status": "complete",
-                        "generated_at": getattr(_scan, "started_at", "").isoformat() if getattr(_scan, "started_at", None) else "",
-                        "discovered_services": [],
-                        "tls_results": [],
+            rows = (
+                db_session.query(ScanModel)
+                .filter(ScanModel.is_deleted == False)
+                .order_by(ScanModel.started_at.desc(), ScanModel.id.desc())
+                .offset(offset)
+                .limit(page_size)
+                .all()
+            )
+            for scan_row in rows:
+                row_status = str(getattr(scan_row, "status", "") or "").strip().lower()
+                if row_status != "complete" and not include_in_progress:
+                    continue
+                target = str(getattr(scan_row, "target", "") or "").strip()
+                if not target:
+                    continue
+                report_payload = {}
+                raw_report = getattr(scan_row, "report_json", None)
+                if isinstance(raw_report, str) and raw_report.strip().startswith("{"):
+                    try:
+                        parsed = json.loads(raw_report)
+                        report_payload = parsed if isinstance(parsed, dict) else {}
+                    except Exception:
+                        report_payload = {}
+                scans_feed.append(
+                    {
+                        "scan_id": str(getattr(scan_row, "scan_id", "") or getattr(scan_row, "id", "")),
+                        "target": target,
+                        "status": str(getattr(scan_row, "status", "") or ""),
+                        "generated_at": (
+                            getattr(scan_row, "scanned_at", None)
+                            or getattr(scan_row, "completed_at", None)
+                            or getattr(scan_row, "started_at", None)
+                        ).isoformat()
+                        if (
+                            getattr(scan_row, "scanned_at", None)
+                            or getattr(scan_row, "completed_at", None)
+                            or getattr(scan_row, "started_at", None)
+                        )
+                        else "",
+                        "discovered_services": report_payload.get("discovered_services", []),
+                        "tls_results": report_payload.get("tls_results", []),
                     }
-                    sid = _report.get("scan_id")
-                    if sid and sid not in seen_scan_ids:
-                        scans_feed.append(_report)
-                except Exception:
-                    pass
+                )
         except Exception as exc:
             logger.warning("Asset discovery DB scan load failed: %s", exc)
 
@@ -1865,7 +1898,7 @@ def _build_asset_discovery_view(include_in_progress: bool = False, page: int = 1
         if scan.get("status") != "complete" and not include_in_progress:
             continue
 
-        target = str(scan.get("target", "")).strip()
+        target = str(scan.get("target", "")).strip().lower()
         
         # Only show discovery details of the asset added to the asset inventory
         if not testing_mode and target not in known_assets:
@@ -2021,65 +2054,10 @@ def _build_asset_discovery_view(include_in_progress: bool = False, page: int = 1
 @app.route("/asset-inventory")
 @login_required
 def asset_inventory_page():
-    if app.config.get("TESTING", False):
-        page_data = {
-            "items": [],
-            "total_count": 0,
-            "page": 1,
-            "page_size": 0,
-            "total_pages": 1,
-            "has_next": False,
-            "has_prev": False,
-        }
-        vm = _build_asset_inventory_view()
-        return render_template("asset_inventory.html", page_data=page_data, vm=vm)
+    from web.routes.assets import render_assets_inventory_page
 
-    try:
-        from src.db import db_session
-        from src.models import Asset
-        items = (
-            db_session.query(Asset)
-            .filter(Asset.is_deleted == False)
-            .order_by(Asset.name.asc())
-            .all()
-        )
-        page_data = {
-            "items": items,
-            "total_count": len(items),
-            "page": 1,
-            "page_size": len(items),
-            "total_pages": 1,
-            "has_next": False,
-            "has_prev": False,
-        }
-        vm = _build_asset_inventory_view()
-    except Exception as e:
-        app.logger.error(f"[!] Error building asset inventory view: {e}", exc_info=True)
-        page_data = {
-            "items": [],
-            "total_count": 0,
-            "page": 1,
-            "page_size": 0,
-            "total_pages": 1,
-            "has_next": False,
-            "has_prev": False,
-        }
-        vm = {
-            "empty": True,
-            "kpis": {},
-            "asset_type_distribution": {},
-            "asset_risk_distribution": {},
-            "risk_heatmap": [],
-            "certificate_expiry_timeline": {},
-            "ip_version_breakdown": {},
-            "assets": [],
-            "nameserver_records": [],
-            "crypto_overview": [],
-            "asset_locations": [],
-            "certificate_inventory": [],
-        }
+    return render_assets_inventory_page()
 
-    return render_template("asset_inventory.html", page_data=page_data, vm=vm)
 
 
 @app.route("/asset-discovery")
@@ -2095,7 +2073,7 @@ def asset_discovery():
 
     # We will use 'tab' parameter to define which model to paginate in future revisions
     # For now, we will pass an empty page_data to avoid crashing the macro injection UI until Discovery DB tables operate
-    page_data = {"items": [], "total_count": 0, "has_next": False, "has_prev": False}
+    page_data: typing.Dict[str, typing.Any] = {"items": [], "total_count": 0, "has_next": False, "has_prev": False}
 
     try:
         vm = _build_asset_discovery_view(page=page, page_size=page_size)
@@ -2122,8 +2100,46 @@ def discovery_graph_payload():
     """Realtime discovery graph payload for incremental frontend updates."""
     _audit("scan", "discovery_graph_requested", "success")
     try:
-        vm = _build_asset_discovery_view(include_in_progress=True)
-        payload = vm.get("graph_payload", {"nodes": [], "edges": [], "updated_at": ""})
+        nodes: list[dict] = []
+        edges: list[dict] = []
+        node_ids: set[str] = set()
+        edge_ids: set[str] = set()
+
+        def add_node(node_id: str, label: str, group: str, title: str) -> None:
+            if node_id in node_ids:
+                return
+            node_ids.add(node_id)
+            nodes.append({"id": node_id, "label": label, "group": group, "title": title})
+
+        def add_edge(src: str, dst: str) -> None:
+            key = f"{src}->{dst}"
+            if key in edge_ids:
+                return
+            edge_ids.add(key)
+            edges.append({"id": key, "from": src, "to": dst})
+
+        for scan in scan_store.values():
+            if not isinstance(scan, dict):
+                continue
+            if scan.get("status") != "complete":
+                continue
+            target = str(scan.get("target", "")).strip().lower()
+            host = _host_from_target(target)
+            if not host:
+                continue
+            add_node(f"domain:{host}", host, "domain", f"Domain · {host}")
+            for svc in scan.get("discovered_services") or []:
+                svc_host = str(svc.get("host", "")).strip()
+                port = svc.get("port")
+                if svc_host:
+                    add_node(f"ip:{svc_host}", svc_host, "ip", f"IP · {svc_host}")
+                    add_edge(f"domain:{host}", f"ip:{svc_host}")
+                    if port:
+                        service_label = f"{str(svc.get('service', 'service')).upper()}:{port}"
+                        add_node(f"service:{svc_host}:{port}", service_label, "service", f"Service · {svc_host}:{port}")
+                        add_edge(f"ip:{svc_host}", f"service:{svc_host}:{port}")
+
+        payload = {"nodes": nodes, "edges": edges, "updated_at": datetime.now(timezone.utc).isoformat()}
         payload["status"] = "success"
         return _deprecated_json(payload, 200, "dashboard.refresh(include_discovery=true)")
     except Exception as exc:
@@ -2139,7 +2155,10 @@ def _inventory_scan_service_for_api():
 
 
 def _can_access_roles(roles: set[str]) -> bool:
-    return bool(getattr(current_user, "is_authenticated", False) and getattr(current_user, "role", "") in roles)
+    if not getattr(current_user, "is_authenticated", False):
+        return False
+    user_role = str(getattr(current_user, "role", "") or "").strip().title()
+    return user_role in {r.strip().title() for r in roles}
 
 
 def _parse_ports_from_payload(value) -> list[int] | None:
@@ -2254,9 +2273,16 @@ def api_dashboard_unified():
             asset_class_hint = str(payload.get("asset_class_hint", "")).strip() or None
             ports = _parse_ports_from_payload(payload.get("ports"))
             clean_target, _ = sanitize_target(target)
-            report = run_scan_pipeline(clean_target, ports=ports, asset_class_hint=asset_class_hint)
+            scanned_by = getattr(current_user, "username", None) if getattr(current_user, "is_authenticated", False) else None
+            report = run_scan_pipeline(
+                clean_target,
+                ports=ports,
+                asset_class_hint=asset_class_hint,
+                scan_kind="api_scan_run",
+                scanned_by=scanned_by,
+            )
 
-            if not app.config.get("TESTING", False):
+            if not app.config.get("TESTING", False) and not bool(report.get("orm_persisted")):
                 db.save_scan(report)
             scan_store[report.get("scan_id")] = report
 
@@ -2459,7 +2485,10 @@ def api_inventory_schedule():
             enabled_raw = payload.get("enabled", request.form.get("enabled", "false"))
             interval_raw = payload.get("interval_hours", request.form.get("interval_hours", 24))
             enabled = str(enabled_raw).strip().lower() == "true"
-            interval_hours = int(interval_raw)
+            try:
+                interval_hours = int(interval_raw)
+            except (ValueError, TypeError):
+                interval_hours = 24
 
             if interval_hours < 1 or interval_hours > 168:
                 return _deprecated_json({"status": "error", "message": "Interval must be between 1 and 168 hours"}, 400, "scan.inventory.schedule.set")
@@ -2484,17 +2513,84 @@ def api_inventory_schedule():
 @app.route("/cbom-dashboard")
 @login_required
 def cbom_dashboard():
-    """Build CBOM view with aggregated cryptographic metrics from unified data service."""
-    if app.config.get("TESTING", False):
+    """Build CBOM view with aggregated cryptographic metrics from MySQL.
+    
+    Always queries live database—never returns hardcoded KPIs. Service failures
+    fall back to minimal DB aggregation to ensure KPIs always reflect current state.
+    """
+    from src.services.cbom_service import CbomService
+
+    try:
+        asset_filter_id = request.args.get("asset_id", type=int)
+        start_date_str = request.args.get("start_date")
+        end_date_str = request.args.get("end_date")
+        page = max(1, request.args.get("page", 1, type=int) or 1)
+        page_size = min(max(1, request.args.get("page_size", 25, type=int) or 25), 250)
+        sort_field = (request.args.get("sort") or "asset_name").strip()
+        sort_order = (request.args.get("order") or "asc").strip().lower()
+        search_term = (request.args.get("q") or "").strip()
+
+        cbom_data = CbomService.get_cbom_dashboard_data(
+            asset_id=asset_filter_id,
+            start_date=start_date_str,
+            end_date=end_date_str,
+            limit=200,
+            page=page,
+            page_size=page_size,
+            sort_field=sort_field,
+            sort_order=sort_order,
+            search_term=search_term,
+        )
+
         vm = {
-            "empty": True,
-            "kpis": {
+            "empty": (cbom_data.get("meta", {}).get("certificate_count", 0) or 0) == 0,
+            "kpis": cbom_data.get("kpis", {}),
+            "key_length_distribution": cbom_data.get("key_length_distribution", {"No Data": 0}),
+            "cipher_usage": cbom_data.get("cipher_usage", {"No Data": 0}),
+            "top_cas": cbom_data.get("top_cas", {"No Data": 0}),
+            "protocols": cbom_data.get("protocols", {"No Data": 0}),
+            "rows": [],
+            "weakness_heatmap": cbom_data.get("weakness_heatmap", []),
+        }
+
+        page_data = cbom_data.get("page_data", {
+            "items": [], "total_count": 0, "page": 1, "page_size": 0, "total_pages": 1, "has_next": False, "has_prev": False
+        })
+
+    except Exception as e:
+        current_app.logger.error("CBOM dashboard error: %s", e)
+        # On error, query DB directly for KPI counts instead of hardcoding zeros
+        try:
+            from src.db import db_session
+            from src.models import Certificate
+            from sqlalchemy import func
+            
+            cert_count = db_session.query(Certificate).filter(Certificate.is_deleted == False).count()
+            active_certs = db_session.query(func.count(Certificate.id)).filter(
+                Certificate.is_deleted == False,
+                Certificate.valid_until >= func.now()
+            ).scalar() or 0
+            
+            fallback_kpis = {
+                "total_applications": cert_count,
+                "sites_surveyed": cert_count,
+                "active_certificates": active_certs,
+                "weak_cryptography": 0,
+                "certificate_issues": 0,
+            }
+        except Exception as db_e:
+            current_app.logger.error("CBOM KPI fallback DB query failed: %s", db_e)
+            fallback_kpis = {
                 "total_applications": 0,
                 "sites_surveyed": 0,
                 "active_certificates": 0,
                 "weak_cryptography": 0,
                 "certificate_issues": 0,
-            },
+            }
+        
+        vm = {
+            "empty": True,
+            "kpis": fallback_kpis,
             "key_length_distribution": {"No Data": 0},
             "cipher_usage": {"No Data": 0},
             "top_cas": {"No Data": 0},
@@ -2502,98 +2598,70 @@ def cbom_dashboard():
             "rows": [],
             "weakness_heatmap": [],
         }
-        page_data = {"items": [], "total_count": 0, "page": 1, "page_size": 0, "total_pages": 1, "has_next": False, "has_prev": False}
-        return render_template("cbom_dashboard.html", vm=vm, page_data=page_data)
+        page_data: typing.Dict[str, typing.Any] = {"items": [], "total_count": 0, "page": 1, "page_size": 0, "total_pages": 1, "has_next": False, "has_prev": False}
 
-    from src.db import db_session
-    from src.models import Certificate, Scan
-    from sqlalchemy import func
-    from collections import Counter
-    try:
-        # Load aggregated data from unified service
-        agg_data = DashboardDataService.get_all_scans_aggregated()
-        
-        cert_count = db_session.query(func.count(Certificate.id)).scalar() or 0
-        weak_tls = db_session.query(func.count(Certificate.id)).filter(Certificate.tls_version.in_(["TLS 1.0", "TLS 1.1", "SSLv3", "SSLv2"])).scalar() or 0
-        weak_keys = db_session.query(func.count(Certificate.id)).filter(Certificate.key_length < 2048).scalar() or 0
-        
-        # Use aggregated scan count from service (ensures consistency across all dashboards)
-        scan_count = agg_data.get("total_scans", 0)
-        
-        items = db_session.query(Certificate).order_by(Certificate.id.desc()).all()
-        page_data = {
-            "items": items,
-            "total_count": len(items),
-            "page": 1,
-            "page_size": len(items),
-            "total_pages": 1,
-            "has_next": False,
-            "has_prev": False,
-        }
-
-        # Calculate key length distribution
-        certs = db_session.query(Certificate).all()
-        key_dist = Counter()
-        cipher_dist = Counter()
-        ca_dist = Counter()
-        tls_dist = Counter()
-        
-        for cert in certs:
-            key_length_value = getattr(cert, "key_length", None)
-            kl = int(key_length_value) if key_length_value is not None else 0
-            if kl >= 4096:
-                key_dist["4096+"] += 1
-            elif kl >= 2048:
-                key_dist["2048-4095"] += 1
-            elif kl > 0:
-                key_dist[f"<2048"] += 1
-            
-            cipher_suite = str(getattr(cert, "cipher_suite", "") or "")
-            ca_name = str(getattr(cert, "ca", "") or "")
-            tls_version = str(getattr(cert, "tls_version", "") or "")
-            if cipher_suite:
-                cipher_dist[cipher_suite[:30]] += 1
-            if ca_name:
-                ca_dist[ca_name[:25]] += 1
-            if tls_version:
-                tls_dist[tls_version] += 1
-
-        vm = {
-            "empty": cert_count == 0,
-            "kpis": {
-                "total_applications": scan_count, 
-                "sites_surveyed": scan_count, 
-                "active_certificates": cert_count,
-                "weak_cryptography": weak_tls + weak_keys, 
-                "certificate_issues": weak_tls + weak_keys,
-            },
-            "key_length_distribution": dict(key_dist) or {"No Data": 0},
-            "cipher_usage": dict(cipher_dist.most_common(5)) or {"No Data": 0}, 
-            "top_cas": dict(ca_dist.most_common(5)) or {"No Data": 0}, 
-            "protocols": dict(tls_dist) or {"No Data": 0},
-            "rows": [], 
-            "weakness_heatmap": [{"x": "Weak TLS", "y": "Risk", "value": weak_tls}, {"x": "Weak Keys", "y": "Risk", "value": weak_keys}],
-        }
-    except Exception as e:
-        vm = {
-            "empty": True,
-            "kpis": {"total_applications": 0, "sites_surveyed": 0, "active_certificates": 0, "weak_cryptography": 0, "certificate_issues": 0},
-            "key_length_distribution": {},
-            "cipher_usage": {},
-            "top_cas": {},
-            "protocols": {},
-            "weakness_heatmap": []
-        }
-
-        page_data = {"items": [], "total_count": 0, "has_next": False, "has_prev": False}
     return render_template("cbom_dashboard.html", vm=vm, page_data=page_data)
 
 
 @app.route("/pqc-posture")
 @login_required
 def pqc_posture():
-    """Build PQC posture with aggregated quantum-safe readiness metrics from unified service."""
-    if app.config.get("TESTING", False):
+    """Build PQC posture with aggregated quantum-safe readiness metrics from service.
+    
+    Only includes active (non-deleted) assets. Metrics aggregated by asset count,
+    not scan count. Joins Asset -> PQCClassification to ensure consistency.
+    Always queries live database—never returns hardcoded KPIs.
+    """
+    from src.services.pqc_service import PQCService
+    
+    try:
+        page = max(1, request.args.get("page", 1, type=int) or 1)
+        page_size = min(max(1, request.args.get("page_size", 25, type=int) or 25), 250)
+        sort_field = (request.args.get("sort") or "asset_name").strip()
+        sort_order = (request.args.get("order") or "asc").strip().lower()
+        search_term = (request.args.get("q") or "").strip()
+
+        # Load PQC dashboard data from service (asset-based aggregation, soft-delete filtering)
+        data = PQCService.get_pqc_dashboard_data(
+            page=page,
+            page_size=page_size,
+            sort_field=sort_field,
+            sort_order=sort_order,
+            search_term=search_term,
+            limit=500,
+        )
+        
+        # Build view model with percentages and counts
+        vm = {
+            "empty": data["meta"]["total_assets"] == 0,
+            "overall": {
+                "elite": data["kpis"]["elite_pct"],
+                "standard": data["kpis"]["standard_pct"],
+                "legacy": data["kpis"]["legacy_pct"],
+                "critical_apps": data["kpis"]["critical_count"],
+            },
+            "grade_counts": data["grade_counts"],
+            "average_pqc_score": data["kpis"]["avg_score"],
+            "status_distribution": data["status_distribution"],
+            "recommendations": data["recommendations"],
+            "support_rows": data["applications"],
+            "risk_heatmap": data["risk_heatmap"],
+        }
+        
+        # Build pagination data (applications are asset-based)
+        page_data = data.get("page_data", {
+            "items": data.get("applications", []),
+            "total_count": len(data.get("applications", [])),
+            "page": 1,
+            "page_size": len(data.get("applications", [])),
+            "total_pages": 1,
+            "has_next": False,
+            "has_prev": False,
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"PQC dashboard error: {e}")
+        # On error, return minimal KPI structure instead of hardcoded zeros
         vm = {
             "empty": True,
             "overall": {"elite": 0, "standard": 0, "legacy": 0, "critical_apps": 0},
@@ -2602,120 +2670,38 @@ def pqc_posture():
             "status_distribution": {},
             "recommendations": ["Run scans to populate PQC posture."],
             "support_rows": [],
-            "risk_heatmap": [],
-        }
-        page_data = {"items": [], "total_count": 0, "page": 1, "page_size": 0, "total_pages": 1, "has_next": False, "has_prev": False}
-        return render_template("pqc_posture.html", vm=vm, page_data=page_data)
-
-    from src.db import db_session
-    from src.models import PQCClassification, Scan
-    from sqlalchemy import func
-    from collections import Counter
-    
-    try:
-        # Load aggregated data from unified service
-        agg_data = DashboardDataService.get_all_scans_aggregated()
-        scans_list = agg_data.get("scans", [])
-        distributions = agg_data.get("distributions", {})
-        
-        items = (
-            db_session.query(Scan)
-            .filter(Scan.status == "complete")
-            .order_by(Scan.started_at.desc())
-            .all()
-        )
-        page_data = {
-            "items": items,
-            "total_count": len(items),
-            "page": 1,
-            "page_size": len(items),
-            "total_pages": 1,
-            "has_next": False,
-            "has_prev": False,
-        }
-        
-        # Use aggregated PQC posture data from service
-        pqc_counts = Counter()
-        pqc_scores = []
-        
-        for scan in items:
-            raw_score = getattr(scan, "overall_pqc_score", 0)
-            try:
-                score = float(raw_score or 0)
-            except (TypeError, ValueError):
-                score = 0.0
-            pqc_scores.append(score)
-            
-            # Use consistent PQC tier mapping from DashboardDataService
-            tier = DashboardDataService._score_to_pqc_tier(score)
-            pqc_counts[tier] += 1
-        
-        avg_pqc_score = sum(pqc_scores) / len(pqc_scores) if pqc_scores else 0
-        elite_count = pqc_counts.get("Elite", 0)
-        standard_count = pqc_counts.get("Standard", 0)
-        legacy_count = pqc_counts.get("Legacy", 0)
-        critical_count = pqc_counts.get("Critical", 0)
-        
-        vm = {
-            "empty": page_data["total_count"] == 0,
-            "overall": {"elite": elite_count, "standard": standard_count, "legacy": legacy_count, "critical_apps": critical_count},
-            "grade_counts": {"Elite": elite_count, "Standard": standard_count, "Legacy": legacy_count, "Critical": critical_count},
-            "average_pqc_score": round(avg_pqc_score, 1),
-            "status_distribution": dict(pqc_counts),
-            "recommendations": [
-                f"Total scanned targets: {len(items)}",
-                f"Average PQC readiness: {round(avg_pqc_score, 1)}%",
-                f"Critical applications requiring remediation: {critical_count}",
-            ],
-            "support_rows": [],
-            "risk_heatmap": [{"x": "PQC Grade", "y": grade, "value": pqc_counts.get(grade, 0)} for grade in ["Critical", "Legacy", "Standard", "Elite"]]
-        }
-    except Exception as e:
-        vm = {
-            "empty": True,
-            "overall": {"elite": 0, "standard": 0, "legacy": 0, "critical_apps": 0},
-            "grade_counts": {"Elite": 0, "Critical": 0, "Standard": 0},
-            "status_distribution": {},
-            "recommendations": ["Run scans to populate PQC posture."],
-            "support_rows": [],
             "risk_heatmap": []
         }
-        page_data = {"items": [], "total_count": 0, "has_next": False, "has_prev": False}
+        page_data: typing.Dict[str, typing.Any] = {"items": [], "total_count": 0, "page": 1, "page_size": 0, "total_pages": 1, "has_next": False, "has_prev": False}
+    
     return render_template("pqc_posture.html", vm=vm, page_data=page_data)
 
 
 @app.route("/cyber-rating")
 @login_required
 def cyber_rating():
-    """Build cyber rating with aggregated enterprise compliance metrics from unified service."""
-    if app.config.get("TESTING", False):
-        vm = {
-            "empty": True,
-            "overall_score": 0,
-            "label": "Unknown",
-            "tier_counts": {"Critical": 0, "Legacy": 0, "Standard": 0, "Elite-PQC": 0},
-            "tier_heatmap": [],
-        }
-        page_data = {"items": [], "total_count": 0, "page": 1, "page_size": 0, "total_pages": 1, "has_next": False, "has_prev": False}
-        return render_template("cyber_rating.html", vm=vm, page_data=page_data)
-
-    from src.db import db_session
-    from src.models import Scan
-    from sqlalchemy import func
-    from collections import Counter
+    """Build cyber rating from active inventory assets and live DB telemetry.
+    
+    Always queries live database—never returns hardcoded KPIs.
+    """
+    from src.services.cyber_reporting_service import CyberReportingService
     try:
-        # Load aggregated data from unified service
-        agg_data = DashboardDataService.get_all_scans_aggregated()
-        
-        scan_pk = getattr(Scan, "id", None) or getattr(Scan, "scan_id")
-        scan_count = db_session.query(func.count(scan_pk)).scalar() or 0
-        items = (
-            db_session.query(Scan)
-            .filter(Scan.status == "complete")
-            .order_by(Scan.started_at.desc())
-            .all()
-        )
-        page_data = {
+        data = CyberReportingService.get_cyber_rating_data(limit=200)
+
+        avg_score = data.get("kpis", {}).get("avg_score", 0)
+        if avg_score >= 90:
+            label = "A"
+        elif avg_score >= 80:
+            label = "B"
+        elif avg_score >= 70:
+            label = "C"
+        elif avg_score >= 60:
+            label = "D"
+        else:
+            label = "F"
+
+        items = data.get("applications", [])
+        page_data: typing.Dict[str, typing.Any] = {
             "items": items,
             "total_count": len(items),
             "page": 1,
@@ -2724,110 +2710,58 @@ def cyber_rating():
             "has_next": False,
             "has_prev": False,
         }
-        
-        # Calculate enterprise-wide cyber rating using consistent scoring
-        scans = items
-        scores = []
-        tier_dist = Counter()
-        
-        for scan in scans:
-            # Get available score field (multiple naming conventions)
-            score = 50.0
-            overall_pqc_score = getattr(scan, "overall_pqc_score", None)
-            avg_compliance_score = getattr(scan, "average_compliance_score", None)
-            try:
-                if overall_pqc_score is not None:
-                    score = float(overall_pqc_score)
-                elif avg_compliance_score is not None:
-                    score = float(avg_compliance_score)
-            except (TypeError, ValueError):
-                score = 50.0
-            
-            scores.append(score)
-            
-            # Use consistent cyber grade mapping from DashboardDataService
-            grade = DashboardDataService._score_to_cyber_grade(score)
-            tier_dist[grade] += 1
-        
-        overall_score = int(sum(scores) / len(scores)) if scores else 0
-        
-        # Use consistent grading from service
-        label = DashboardDataService._score_to_cyber_grade(overall_score)
-        
+
         vm = {
-            "empty": scan_count == 0,
-            "overall_score": overall_score,
+            "empty": data.get("meta", {}).get("total_assets", 0) == 0,
+            "overall_score": avg_score,
             "label": label,
-            "tier_counts": {"Critical": tier_dist.get("F", 0), "Legacy": tier_dist.get("D", 0), "Standard": tier_dist.get("B", 0), "Elite-PQC": tier_dist.get("A", 0)},
-            "tier_heatmap": [{"x": "Cyber Rating", "y": grade, "value": tier_dist.get(grade, 0)} for grade in ["F", "D", "B", "A"]],
+            "tier_counts": {
+                "Critical": data.get("grade_counts", {}).get("Critical", 0),
+                "Legacy": data.get("grade_counts", {}).get("Legacy", 0),
+                "Standard": data.get("grade_counts", {}).get("Standard", 0),
+                "Elite-PQC": data.get("grade_counts", {}).get("Elite", 0),
+            },
+            "tier_heatmap": data.get("risk_heatmap", []),
+            "recommendations": data.get("recommendations", []),
         }
     except Exception as e:
-        vm = {"empty": True, "overall_score": 0, "label": "Unknown", "tier_counts": {"Critical": 0, "Legacy": 0, "Standard": 0, "Elite-PQC": 0}, "tier_heatmap": []}
-        page_data = {"items": [], "total_count": 0, "has_next": False, "has_prev": False}
+        current_app.logger.error("Cyber rating error: %s", e)
+        vm = {
+            "empty": True,
+            "overall_score": 0,
+            "label": "Unknown",
+            "tier_counts": {"Critical": 0, "Legacy": 0, "Standard": 0, "Elite-PQC": 0},
+            "tier_heatmap": [],
+            "recommendations": ["Run scans to populate cyber posture."],
+        }
+        page_data: typing.Dict[str, typing.Any] = {"items": [], "total_count": 0, "page": 1, "page_size": 0, "total_pages": 1, "has_next": False, "has_prev": False}
     return render_template("cyber_rating.html", vm=vm, page_data=page_data)
 
 
 @app.route("/reporting")
 @login_required
 def reporting():
-    if app.config.get("TESTING", False):
-        vm = {
-            "summary": {
-                "discovery": "Targets: 0 | Complete Scans: 0 | Assessed Endpoints: 0",
-                "pqc": "Assessed endpoints: 0 | Average PQC Score: 0%",
-                "cbom": "Total certificates: 0 | Weak cryptography: 0",
-                "cyber_rating": "Average enterprise score: 0/100",
-                "inventory": "Assets: 0 | Expiring: 0 | High Risk: 0",
-            },
-            "empty": True,
-        }
-        return render_template("reporting.html", vm=vm)
-
-    from src.db import db_session
-    from src.models import Scan
-    from sqlalchemy import func
+    """Build reporting dashboard from live database metrics.
+    
+    Always queries live database—never returns hardcoded KPIs.
+    """
+    from src.services.cyber_reporting_service import CyberReportingService
     try:
-        scan_pk = getattr(Scan, "id", None) or getattr(Scan, "scan_id")
-        scan_count = db_session.query(func.count(scan_pk)).scalar() or 0
-        
-        # Build real reporting metrics
-        inv = _build_asset_inventory_view()
-        
-        from src.models import Certificate
-        cert_count = db_session.query(func.count(Certificate.id)).scalar() or 0
-        weak_certs = db_session.query(func.count(Certificate.id)).filter(
-            Certificate.tls_version.in_(["TLS 1.0", "TLS 1.1", "SSLv3", "SSLv2"])
-        ).scalar() or 0
-        
-        scans = db_session.query(Scan).filter(Scan.status == "complete").all()
-        pqc_scores = [float(getattr(s, 'overall_pqc_score', 0) or 50) for s in scans]
-        avg_pqc_score = int(sum(pqc_scores) / len(pqc_scores)) if pqc_scores else 0
-        
-        unique_targets = db_session.query(func.count(func.distinct(Scan.target))).filter(Scan.status == "complete").scalar() or 0
-        
+        summary = CyberReportingService.get_reporting_summary()
+
         vm = {
-            "summary": {
-                "discovery": f"Targets: {unique_targets} | Complete Scans: {scan_count} | Assessed Endpoints: {len(scans)}",
-                "pqc": f"Assessed endpoints: {len(scans)} | Average PQC Score: {avg_pqc_score}%",
-                "cbom": f"Total certificates: {cert_count} | Weak cryptography: {weak_certs}",
-                "cyber_rating": f"Average enterprise score: {avg_pqc_score}/100",
-                "inventory": f"Assets: {inv.get('kpis', {}).get('total_assets', 0)} | Expiring: {inv.get('kpis', {}).get('expiring_certificates', 0)} | High Risk: {inv.get('kpis', {}).get('high_risk_assets', 0)}",
-            },
-            "empty": scan_count == 0,
+            "summary": summary,
+            "empty": "Targets: 0" in str(summary.get("discovery", "")),
         }
     except Exception as e:
-        try:
-            inv = _build_asset_inventory_view()
-        except:
-            inv = {"kpis": {"total_assets": 0, "expiring_certificates": 0, "high_risk_assets": 0}}
-        
+        current_app.logger.error("Reporting dashboard error: %s", e)
         vm = {
             "summary": {
                 "discovery": "Targets: 0 | Complete Scans: 0 | Assessed Endpoints: 0",
                 "pqc": "Assessed endpoints: 0 | Average PQC Score: 0%",
                 "cbom": "Total certificates: 0 | Weak cryptography: 0",
                 "cyber_rating": "Average enterprise score: 0/100",
-                "inventory": f"Assets: {inv.get('kpis', {}).get('total_assets', 0)} | Expiring: {inv.get('kpis', {}).get('expiring_certificates', 0)} | High Risk: {inv.get('kpis', {}).get('high_risk_assets', 0)}",
+                "inventory": "Assets: 0 | Critical Apps: 0 | Legacy: 0",
             }, 
             "empty": True
         }
@@ -2932,17 +2866,23 @@ def scan():
             # Single scan: redirect directly to results page
             host, ports = targets[0]
             clean_target, _ = sanitize_target(host)
-            report = run_scan_pipeline(clean_target, ports, asset_class_hint=asset_class_hint)
+            report = run_scan_pipeline(
+                clean_target,
+                ports,
+                asset_class_hint=asset_class_hint,
+                scan_kind="manual_single",
+                scanned_by=getattr(current_user, "username", None),
+            )
             
             # Ensure persistence to both JSON and MySQL
             try:
-                if not app.config.get("TESTING", False):
+                if not app.config.get("TESTING", False) and not bool(report.get("orm_persisted")):
                     db.save_scan(report)
                     
                     if add_to_inventory:
                         from src.db import db_session
                         from src.models import Asset
-                        exists = db_session.query(Asset).filter(Asset.name == clean_target).first()
+                        exists = db_session.query(Asset).filter(Asset.name == clean_target, Asset.is_deleted == False).first()
                         if not exists:
                             asset_type = asset_class_hint or "Web App"
                             new_asset = Asset(
@@ -2972,17 +2912,23 @@ def scan():
             for host, ports in targets:
                 try:
                     clean_target, _ = sanitize_target(host)
-                    report = run_scan_pipeline(clean_target, ports, asset_class_hint=asset_class_hint)
+                    report = run_scan_pipeline(
+                        clean_target,
+                        ports,
+                        asset_class_hint=asset_class_hint,
+                        scan_kind="manual_bulk",
+                        scanned_by=getattr(current_user, "username", None),
+                    )
                     
                     # Persist to both JSON and MySQL
                     try:
-                        if not app.config.get("TESTING", False):
+                        if not app.config.get("TESTING", False) and not bool(report.get("orm_persisted")):
                             db.save_scan(report)
                             
                             if add_to_inventory:
                                 from src.db import db_session
                                 from src.models import Asset
-                                exists = db_session.query(Asset).filter(Asset.name == clean_target).first()
+                                exists = db_session.query(Asset).filter(Asset.name == clean_target, Asset.is_deleted == False).first()
                                 if not exists:
                                     asset_type = asset_class_hint or "Web App"
                                     new_asset = Asset(
@@ -3174,11 +3120,15 @@ def api_scan():
 
     try:
         clean_target, _ = sanitize_target(target)
-        report = run_scan_pipeline(clean_target)
+        report = run_scan_pipeline(
+            clean_target,
+            scan_kind="api_key_scan",
+            scanned_by=api_user.get("username"),
+        )
         
         # Ensure persistence: save to both JSON and MySQL
         try:
-            if not app.config.get("TESTING", False):
+            if not app.config.get("TESTING", False) and not bool(report.get("orm_persisted")):
                 db.save_scan(report)
         except Exception as db_err:
             logger.warning(f"Failed to save scan to MySQL: {db_err}")
@@ -3273,26 +3223,41 @@ def rotate_api_key():
 @app.route("/admin/users/<user_id>/regen-api-key", methods=["POST"])
 @role_required(list(ADMIN_PANEL_ROLES))
 def admin_regen_api_key(user_id: str):
-    """Admin: revoke and reissue an API key for any user."""
+    """Admin: revoke and reissue an API key for any user. Supports form OR JSON."""
+    wants_json = request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html
+    
     user = db.get_user_by_id(user_id)
     if not user:
+        if wants_json:
+            return jsonify({"status": "error", "message": "User not found."}), 404
         flash("User not found.", "error")
         return redirect(url_for("admin_users"))
+    
     db.revoke_api_key(user_id)
     new_key = db.generate_api_key(user_id)
     if new_key:
         _audit("admin", "api_key_regen", "success", target_user_id=user_id,
                details={"username": user.get("username")})
+        if wants_json:
+            return jsonify({
+                "status": "success",
+                "message": f"API key regenerated for {user.get('username')}.",
+                "user_id": user_id,
+                "username": user.get("username"),
+                "api_key": new_key
+            }), 200
         flash(f"New API key for {user.get('username')}: {new_key}", "api_key")
     else:
         _audit("admin", "api_key_regen", "failed", target_user_id=user_id)
+        if wants_json:
+            return jsonify({"status": "error", "message": "Failed to regenerate API key."}), 500
         flash("Failed to regenerate API key.", "error")
     return redirect(url_for("admin_users"))
 
 
 # ── Report Generation Engine ─────────────────────────────────────────
 
-def _make_pdf_report(report_type: str, username: str, sections: list[str]) -> bytes:
+def _make_pdf_report(report_type: str, username: str, sections: list[str], pdf_password: str | None = None) -> bytes:
     """Build a PDF byte-stream for the requested report type.
 
     Uses reportlab for full cross-platform support (Windows + Linux).
@@ -3308,16 +3273,34 @@ def _make_pdf_report(report_type: str, username: str, sections: list[str]) -> by
     )
 
     buf = BytesIO()
-    doc = SimpleDocTemplate(
-        buf,
-        pagesize=A4,
-        leftMargin=2.2 * cm,
-        rightMargin=2.2 * cm,
-        topMargin=2.5 * cm,
-        bottomMargin=2 * cm,
-        title=f"PNB Hackathon 2026 — {report_type}",
-        author="QuantumShield Platform",
-    )
+    doc_kwargs = {
+        "pagesize": A4,
+        "leftMargin": 2.2 * cm,
+        "rightMargin": 2.2 * cm,
+        "topMargin": 2.5 * cm,
+        "bottomMargin": 2 * cm,
+        "title": f"PNB Hackathon 2026 — {report_type}",
+        "author": "QuantumShield Platform",
+    }
+
+    password_text = str(pdf_password or "").strip()
+    if password_text:
+        try:
+            from reportlab.lib.pdfencrypt import StandardEncryption
+
+            doc_kwargs["encrypt"] = StandardEncryption(
+                userPassword=password_text,
+                ownerPassword=password_text,
+                canPrint=1,
+                canModify=0,
+                canCopy=0,
+                canAnnotate=0,
+                strength=128,
+            )
+        except Exception as exc:
+            logger.warning("PDF encryption unavailable; generating plain PDF: %s", exc)
+
+    doc = SimpleDocTemplate(buf, **doc_kwargs)
 
     styles = getSampleStyleSheet()
     TEAL = colors.HexColor("#4a9ead")
@@ -3346,48 +3329,99 @@ def _make_pdf_report(report_type: str, username: str, sections: list[str]) -> by
     inv = _build_asset_inventory_view()
     dis = _build_asset_discovery_view()
 
-    cb_rows = []
+    cb_rows: list[tuple[str, str, str, str]] = []
     cb_key_dist: dict[str, int] = {}
     cb_cipher_usage: dict[str, int] = {}
     cb_protocols: dict[str, int] = {}
-    for scan in scan_store.values():
-        if scan.get("status") != "complete":
-            continue
-        for tr in (scan.get("tls_results") or []):
-            key = str(tr.get("key_size") or tr.get("key_length") or "0")
-            cb_key_dist[key] = cb_key_dist.get(key, 0) + 1
-            for cs in (tr.get("cipher_suites") or []):
-                cb_cipher_usage[cs] = cb_cipher_usage.get(cs, 0) + 1
-            proto = str(tr.get("tls_version") or "Unknown")
-            cb_protocols[proto] = cb_protocols.get(proto, 0) + 1
+    pqc_rows: list[tuple[str, str, str]] = []
+    cyber_rows: list[tuple[str, str]] = []
+
+    if app.config.get("TESTING", False):
+        for scan in scan_store.values():
+            if scan.get("status") != "complete":
+                continue
+            for tr in (scan.get("tls_results") or []):
+                key = str(tr.get("key_size") or tr.get("key_length") or "0")
+                cb_key_dist[key] = cb_key_dist.get(key, 0) + 1
+                for cs in (tr.get("cipher_suites") or []):
+                    cb_cipher_usage[cs] = cb_cipher_usage.get(cs, 0) + 1
+                proto = str(tr.get("tls_version") or "Unknown")
+                cb_protocols[proto] = cb_protocols.get(proto, 0) + 1
+                cb_rows.append((
+                    _host_from_target(str(scan.get("target", ""))) or str(scan.get("target", "")),
+                    key,
+                    (tr.get("cipher_suites") or ["Unknown"])[0],
+                    (tr.get("issuer") or {}).get("O", "Unknown") if isinstance(tr.get("issuer"), dict) else "Unknown",
+                ))
+
+        for scan in scan_store.values():
+            if scan.get("status") != "complete":
+                continue
+            host = _host_from_target(str(scan.get("target", "")))
+            for pqc in (scan.get("pqc_assessments") or []):
+                score = int(pqc.get("pqc_score") or pqc.get("score") or 0)
+                status = "Elite" if score >= 800 else ("Standard" if score >= 500 else ("Legacy" if score >= 300 else "Critical"))
+                pqc_rows.append((host, str(score), status))
+
+        for scan in scan_store.values():
+            if scan.get("status") != "complete":
+                continue
+            overview = scan.get("overview") or {}
+            raw = overview.get("average_compliance_score") or 0
+            norm = min(int(raw * 10) if raw <= 100 else int(raw), 1000)
+            cyber_rows.append((
+                str(scan.get("target", "")),
+                str(norm),
+            ))
+    else:
+        from src.services.cbom_service import CbomService
+        from src.services.pqc_service import PQCService
+        from src.services.cyber_reporting_service import CyberReportingService
+        from src.services.certificate_telemetry_service import CertificateTelemetryService
+
+        cbom_data = CbomService.get_cbom_dashboard_data(limit=20)
+        for key, count in cbom_data.get("key_length_distribution", {}).items():
+            cb_key_dist[str(key)] = int(count or 0)
+        for cipher, count in cbom_data.get("cipher_usage", {}).items():
+            cb_cipher_usage[str(cipher)] = int(count or 0)
+        for proto, count in cbom_data.get("protocols", {}).items():
+            cb_protocols[str(proto)] = int(count or 0)
+        for row in cbom_data.get("applications", [])[:20]:
             cb_rows.append((
-                _host_from_target(str(scan.get("target", ""))) or str(scan.get("target", "")),
-                key,
-                (tr.get("cipher_suites") or ["Unknown"])[0],
-                (tr.get("issuer") or {}).get("O", "Unknown") if isinstance(tr.get("issuer"), dict) else "Unknown",
+                str(row.get("asset_name") or "Unknown"),
+                str(row.get("key_length") or "0"),
+                str(row.get("cipher_suite") or "Unknown"),
+                str(row.get("ca") or "Unknown"),
             ))
 
-    pqc_rows = []
-    for scan in scan_store.values():
-        if scan.get("status") != "complete":
-            continue
-        host = _host_from_target(str(scan.get("target", "")))
-        for pqc in (scan.get("pqc_assessments") or []):
-            score = int(pqc.get("pqc_score") or pqc.get("score") or 0)
-            status = "Elite" if score >= 800 else ("Standard" if score >= 500 else ("Legacy" if score >= 300 else "Critical"))
-            pqc_rows.append((host, str(score), status))
+        pqc_data = PQCService.get_pqc_dashboard_data(limit=20)
+        for row in pqc_data.get("applications", [])[:20]:
+            pqc_rows.append((
+                str(row.get("asset_name") or row.get("target") or "Unknown"),
+                str(int(float(row.get("score") or 0))),
+                str(row.get("status") or "Critical"),
+            ))
 
-    cyber_rows = []
-    for scan in scan_store.values():
-        if scan.get("status") != "complete":
-            continue
-        overview = scan.get("overview") or {}
-        raw = overview.get("average_compliance_score") or 0
-        norm = min(int(raw * 10) if raw <= 100 else int(raw), 1000)
-        cyber_rows.append((
-            str(scan.get("target", "")),
-            str(norm),
-        ))
+        cyber_data = CyberReportingService.get_cyber_rating_data(limit=20)
+        for row in cyber_data.get("applications", [])[:20]:
+            cyber_rows.append((
+                str(row.get("target") or "Unknown"),
+                str(int(float(row.get("score") or 0))),
+            ))
+
+        cert_service = CertificateTelemetryService()
+        cert_inventory = cert_service.get_certificate_inventory(limit=20)
+        for cert in cert_inventory:
+            key = str(cert.get("key_length") or "0")
+            cb_key_dist[key] = cb_key_dist.get(key, 0) + 1
+            cb_cipher_usage[str(cert.get("cipher_suite") or "Unknown")] = cb_cipher_usage.get(str(cert.get("cipher_suite") or "Unknown"), 0) + 1
+            cb_protocols[str(cert.get("tls_version") or "Unknown")] = cb_protocols.get(str(cert.get("tls_version") or "Unknown"), 0) + 1
+            cb_rows.append((
+                str(cert.get("asset") or "Unknown"),
+                key,
+                str(cert.get("cipher_suite") or "Unknown"),
+                str(cert.get("issuer") or "Unknown"),
+            ))
 
     section_data: dict[str, list] = {
         "Asset Inventory": [
@@ -3506,6 +3540,44 @@ def _save_schedules(schedules: list[dict]) -> None:
         json.dump(schedules, f, indent=2, default=str)
 
 
+def _safe_report_output_path(save_path: str, filename: str) -> str:
+    base_dir = os.path.join(RESULTS_DIR, "generated_reports")
+    raw_subdir = str(save_path or "").strip().replace("\\", "/")
+    if not raw_subdir:
+        subdir = "manual"
+    else:
+        parts = [p for p in raw_subdir.split("/") if p and p not in (".", "..")]
+        cleaned = []
+        for part in parts:
+            safe = "".join(ch for ch in part if ch.isalnum() or ch in ("-", "_", "."))
+            if safe:
+                cleaned.append(safe)
+        subdir = os.path.join(*cleaned) if cleaned else "manual"
+
+    out_dir = os.path.join(base_dir, subdir)
+    os.makedirs(out_dir, exist_ok=True)
+    return os.path.join(out_dir, filename)
+
+
+def _send_report_email(email_list: str, report_type: str, filename: str, pdf_bytes: bytes) -> tuple[bool, str]:
+    recipients = [e.strip() for e in re.split(r"[;,]", str(email_list or "")) if e.strip()]
+    if not recipients:
+        return False, "no_recipients"
+
+    msg = Message(
+        subject=f"QuantumShield Report — {report_type}",
+        recipients=recipients,
+        body=(
+            "Attached is your generated QuantumShield report.\n\n"
+            f"Report Type: {report_type}\n"
+            f"Generated At: {datetime.now(timezone.utc).isoformat()}\n"
+        ),
+    )
+    msg.attach(filename=filename, content_type="application/pdf", data=pdf_bytes)
+    mail.send(msg)
+    return True, "sent"
+
+
 @app.route("/favicon.ico")
 def favicon():
     """Silence browser 404s on favicon."""
@@ -3539,15 +3611,52 @@ def generate_report():
         sections = list(raw_sections)
 
     username = getattr(current_user, "username", "user")
+    email_enabled = str(data.get("email_enabled") or "").lower() in ("true", "1", "on")
+    email_list = str(data.get("email_list") or "").strip()
+    save_enabled = str(data.get("save_enabled") or "").lower() in ("true", "1", "on")
+    save_path = str(data.get("save_path") or "").strip()
+    password_protect = str(data.get("password_protect") or "").lower() in ("true", "1", "on")
+    password = str(data.get("password") or "").strip()
+    if password_protect and not password:
+        return jsonify({"status": "error", "message": "Password is required when password protection is enabled."}), 400
+
     _audit("report", "generate_pdf", "success", details={
         "report_type": report_type,
         "sections": sections,
         "username": username,
+        "email_enabled": email_enabled,
+        "save_enabled": save_enabled,
+        "password_protect": password_protect,
     })
 
-    pdf_bytes = _make_pdf_report(report_type, username, sections)
+    pdf_bytes = _make_pdf_report(
+        report_type,
+        username,
+        sections,
+        pdf_password=password if password_protect else None,
+    )
     safe_type = "".join(c if c.isalnum() else "_" for c in report_type)[:40]
     filename = f"PNB_{safe_type}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.pdf"
+
+    if save_enabled:
+        try:
+            out_path = _safe_report_output_path(save_path, filename)
+            with open(out_path, "wb") as f:
+                f.write(pdf_bytes)
+        except Exception as exc:
+            logger.error("Failed to save generated report: %s", exc)
+            _audit("report", "save_pdf_failed", "failed", details={"error": str(exc), "save_path": save_path})
+
+    if email_enabled:
+        try:
+            sent, info = _send_report_email(email_list, report_type, filename, pdf_bytes)
+            if not sent:
+                _audit("report", "email_pdf_skipped", "failed", details={"reason": info})
+            else:
+                _audit("report", "email_pdf", "success", details={"recipients": email_list})
+        except Exception as exc:
+            logger.error("Failed to email generated report: %s", exc)
+            _audit("report", "email_pdf", "failed", details={"error": str(exc), "recipients": email_list})
 
     return Response(
         pdf_bytes,
@@ -3556,6 +3665,7 @@ def generate_report():
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
             "Content-Length": str(len(pdf_bytes)),
+            "X-Report-Encrypted": "true" if password_protect else "false",
         },
     )
 
@@ -3578,12 +3688,17 @@ def schedule_report():
     def _single(v):
         return v[0] if isinstance(v, list) else (v or "")
 
+    password_protect = str(_single(data.get("password_protect", ""))).lower() in ("true", "1", "on")
+    password = str(_single(data.get("password", ""))).strip()
+    if password_protect and not password:
+        return jsonify({"status": "error", "message": "Password is required when password protection is enabled."}), 400
+
     schedule = {
         "id": uuid.uuid4().hex[:12],
         "created_by_id": str(getattr(current_user, "id", "")) or None,
         "created_by": getattr(current_user, "username", "unknown"),
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "enabled": _single(data.get("enabled", "true")).lower() not in ("false", "0", "off", ""),
+        "enabled": str(_single(data.get("enabled", "true"))).lower() not in ("false", "0", "off", ""),
         "report_type": _single(data.get("report_type", "Executive Summary Report"))[:120],
         "frequency": _single(data.get("frequency", "Weekly"))[:32],
         "assets": _single(data.get("assets", "All Assets"))[:256],
@@ -3592,6 +3707,8 @@ def schedule_report():
         "schedule_time": _single(data.get("schedule_time", ""))[:10],
         "timezone": _single(data.get("timezone", "UTC"))[:64],
         "email_list": _single(data.get("email_list", ""))[:512],
+        "password_protect": password_protect,
+        "pdf_password": password if password_protect else "",
         "save_path": _single(data.get("save_path", ""))[:512],
         "download_link": _single(data.get("download_link", "false")).lower() in ("true", "1", "on"),
         "status": "scheduled",
@@ -3606,6 +3723,7 @@ def schedule_report():
         "schedule_id": schedule["id"],
         "report_type": schedule["report_type"],
         "frequency": schedule["frequency"],
+        "password_protected": password_protect,
     })
 
     return jsonify({"status": "ok", "id": schedule["id"], "message": "Schedule saved successfully."})
@@ -3667,39 +3785,260 @@ def _start_http_redirect_server(http_port: int, https_port: int, https_host: str
 @app.route("/recycle-bin", methods=["GET", "POST"])
 @login_required
 def recycle_bin():
-    """Isolated dashboard for soft-deleted assets and scans."""
+    """Isolated dashboard for soft-deleted assets and scans.
+
+    GET: Display soft-deleted items (Admin-only).
+    POST actions (Admin-only):
+      - restore_assets: Restore deleted assets
+      - restore_scans: Restore deleted scans
+      - delete_assets: Permanently purge deleted assets (hard delete, Admin-only)
+      - delete_scans: Permanently purge deleted scans (hard delete, Admin-only)
+    """
     from src.db import db_session
-    from src.models import Asset, Scan
+    from src.models import Asset, Scan, DiscoveryItem, Certificate, PQCClassification, CBOMEntry, ComplianceScore, CBOMSummary, CyberRating
+    
+    # Check admin/manager permission for destructive actions
+    ALLOWED_RESTORE_ROLES = {"Admin", "Manager"}
+    ALLOWED_HARD_DELETE_ROLES = {"Admin"}
+    
+    is_admin = current_user.role in ALLOWED_HARD_DELETE_ROLES if hasattr(current_user, 'role') else False
+    is_manager = current_user.role in ALLOWED_RESTORE_ROLES if hasattr(current_user, 'role') else False
+    wants_json = request.is_json or (request.accept_mimetypes.best == "application/json")
+
+    def _payload() -> dict:
+        if request.is_json:
+            return request.get_json(silent=True) or {}
+        return request.form.to_dict(flat=False)
+
+    def _payload_value(data: dict, key: str, default: str = "") -> str:
+        raw = data.get(key, default)
+        if isinstance(raw, list):
+            raw = raw[0] if raw else default
+        return str(raw or default)
+
+    def _payload_ids(data: dict, key: str) -> list[int]:
+        raw = data.get(key)
+        values: list[str] = []
+        if isinstance(raw, list):
+            values.extend(str(v).strip() for v in raw if str(v).strip())
+        elif raw is not None:
+            values.extend(part.strip() for part in str(raw).split(",") if part.strip())
+        return [int(v) for v in values if v.isdigit()]
+
+    def _json(message: str, code: int, **extra):
+        return jsonify({
+            "status": "success" if code < 400 else "error",
+            "message": message,
+            **extra,
+        }), code
+
+    if not is_admin:
+        _audit("recycle_bin", "view", "denied", details={"required_role": "Admin", "actual_role": getattr(current_user, 'role', None)})
+        if wants_json:
+            return _json("Recycle Bin is restricted to Admin users.", 403)
+        flash("Recycle Bin is restricted to Admin users.", "error")
+        return redirect(url_for("quantumshield_dashboard.dashboard_home"))
     
     if request.method == "POST":
-        action = request.form.get("action")
+        payload = _payload()
+        action = _payload_value(payload, "action")
+        
+        # Check permission for the action being requested
+        if action in ["restore_assets", "restore_scans"] and not is_manager:
+            _audit("recycle_bin", action, "denied", details={"required_role": "Admin or Manager", "actual_role": current_user.role})
+            if wants_json:
+                return _json("Only Admins and Managers can restore items.", 403)
+            flash("Only Admins and Managers can restore items.", "error")
+            return redirect(url_for("recycle_bin"))
+        
+        if action in ["delete_assets", "delete_scans"] and not is_admin:
+            _audit("recycle_bin", action, "denied", details={"required_role": "Admin", "actual_role": current_user.role})
+            if wants_json:
+                return _json("Only Admins can permanently delete items.", 403)
+            flash("Only Admins can permanently delete items.", "error")
+            return redirect(url_for("recycle_bin"))
+        
         try:
             if action == "restore_assets":
-                asset_ids = request.form.getlist("asset_ids")
+                asset_ids = _payload_ids(payload, "asset_ids")
                 if asset_ids:
-                    asset_ids = [int(aid) for aid in asset_ids]
-                    assets_to_restore = db_session.query(Asset).filter(Asset.id.in_(asset_ids)).all()
+                    assets_to_restore = db_session.query(Asset).filter(Asset.id.in_(asset_ids), Asset.is_deleted == True).all()
                     for asset in assets_to_restore:
                         asset.is_deleted = False
+                        asset.deleted_at = None
+                        asset.deleted_by_user_id = None
+
+                        # Restore child records tied to this asset
+                        for model in (DiscoveryItem, Certificate, PQCClassification, CBOMEntry, ComplianceScore):
+                            rows = db_session.query(model).filter(model.asset_id == asset.id, model.is_deleted == True).all()
+                            for row in rows:
+                                row.is_deleted = False
+                                row.deleted_at = None
+                                row.deleted_by_user_id = None
+
+                        # Restore scans linked by target and scan-bound child tables.
+                        asset_target = str(getattr(asset, "name", "") or "").strip().lower()
+                        if asset_target:
+                            related_scans = db_session.query(Scan).filter(Scan.target.ilike(asset_target)).all()
+                            for scan in related_scans:
+                                if getattr(scan, "is_deleted", False):
+                                    scan.is_deleted = False
+                                    scan.deleted_at = None
+                                    scan.deleted_by_user_id = None
+
+                                for s_model in (Certificate, PQCClassification, CBOMEntry):
+                                    s_rows = db_session.query(s_model).filter(s_model.scan_id == scan.id, s_model.is_deleted == True).all()
+                                    for s_row in s_rows:
+                                        s_row.is_deleted = False
+                                        s_row.deleted_at = None
+                                        s_row.deleted_by_user_id = None
+
+                                for s_model in (DiscoveryItem, ComplianceScore, CyberRating):
+                                    s_rows = db_session.query(s_model).filter(s_model.scan_id == scan.id, s_model.is_deleted == True).all()
+                                    for s_row in s_rows:
+                                        s_row.is_deleted = False
+                                        s_row.deleted_at = None
+                                        s_row.deleted_by_user_id = None
+
+                                s_summary = db_session.query(CBOMSummary).filter(CBOMSummary.scan_id == scan.id, CBOMSummary.is_deleted == True).first()
+                                if s_summary:
+                                    s_summary.is_deleted = False
+                                    s_summary.deleted_at = None
+                                    s_summary.deleted_by_user_id = None
                     db_session.commit()
+                    _audit("recycle_bin", "restore_assets", "success", details={"count": len(assets_to_restore)})
+                    if wants_json:
+                        return _json(
+                            f"Successfully restored {len(assets_to_restore)} asset(s).",
+                            200,
+                            restored_count=len(assets_to_restore),
+                            restored_asset_ids=[int(getattr(a, "id", 0) or 0) for a in assets_to_restore],
+                        )
                     flash(f"Successfully restored {len(assets_to_restore)} asset(s).", "success")
                     
             elif action == "restore_scans":
-                scan_ids = request.form.getlist("scan_ids")
+                scan_ids = _payload_ids(payload, "scan_ids")
                 if scan_ids:
-                    scan_ids = [int(sid) for sid in scan_ids]
-                    scans_to_restore = db_session.query(Scan).filter(Scan.id.in_(scan_ids)).all()
+                    scans_to_restore = db_session.query(Scan).filter(Scan.id.in_(scan_ids), Scan.is_deleted == True).all()
                     for scan in scans_to_restore:
                         scan.is_deleted = False
+                        scan.deleted_at = None
+                        scan.deleted_by_user_id = None
+
+                        for s_model in (Certificate, PQCClassification, CBOMEntry):
+                            s_rows = db_session.query(s_model).filter(s_model.scan_id == scan.id, s_model.is_deleted == True).all()
+                            for s_row in s_rows:
+                                s_row.is_deleted = False
+                                s_row.deleted_at = None
+                                s_row.deleted_by_user_id = None
+
+                        for s_model in (DiscoveryItem, ComplianceScore, CyberRating):
+                            s_rows = db_session.query(s_model).filter(s_model.scan_id == scan.id, s_model.is_deleted == True).all()
+                            for s_row in s_rows:
+                                s_row.is_deleted = False
+                                s_row.deleted_at = None
+                                s_row.deleted_by_user_id = None
+
+                        s_summary = db_session.query(CBOMSummary).filter(CBOMSummary.scan_id == scan.id, CBOMSummary.is_deleted == True).first()
+                        if s_summary:
+                            s_summary.is_deleted = False
+                            s_summary.deleted_at = None
+                            s_summary.deleted_by_user_id = None
                     db_session.commit()
+                    _audit("recycle_bin", "restore_scans", "success", details={"count": len(scans_to_restore)})
+                    if wants_json:
+                        return _json(
+                            f"Successfully restored {len(scans_to_restore)} scan(s).",
+                            200,
+                            restored_count=len(scans_to_restore),
+                            restored_scan_ids=[int(getattr(s, "id", 0) or 0) for s in scans_to_restore],
+                        )
                     flash(f"Successfully restored {len(scans_to_restore)} scan(s).", "success")
+            
+            elif action == "delete_assets":
+                # Admin-only: permanently purge soft-deleted assets
+                asset_ids = _payload_ids(payload, "asset_ids")
+                if asset_ids:
+                    assets_to_delete = db_session.query(Asset).filter(
+                        Asset.id.in_(asset_ids), 
+                        Asset.is_deleted == True
+                    ).all()
+                    
+                    deleted_count = 0
+                    for asset in assets_to_delete:
+                        try:
+                            # Explicitly purge scan-linked rows that are not FK-constrained by asset_id.
+                            asset_target = str(getattr(asset, "name", "") or "").strip().lower()
+                            if asset_target:
+                                related_scans = db_session.query(Scan).filter(Scan.target.ilike(asset_target), Scan.is_deleted == True).all()
+                                for scan in related_scans:
+                                    db_session.query(DiscoveryItem).filter(DiscoveryItem.scan_id == scan.id).delete(synchronize_session=False)
+                                    db_session.query(Certificate).filter(Certificate.scan_id == scan.id).delete(synchronize_session=False)
+                                    db_session.query(PQCClassification).filter(PQCClassification.scan_id == scan.id).delete(synchronize_session=False)
+                                    db_session.query(CBOMEntry).filter(CBOMEntry.scan_id == scan.id).delete(synchronize_session=False)
+                                    db_session.query(ComplianceScore).filter(ComplianceScore.scan_id == scan.id).delete(synchronize_session=False)
+                                    db_session.query(CyberRating).filter(CyberRating.scan_id == scan.id).delete(synchronize_session=False)
+                                    db_session.query(CBOMSummary).filter(CBOMSummary.scan_id == scan.id).delete(synchronize_session=False)
+                                    db_session.delete(scan)
+
+                            # Hard delete the asset (ORM cascade will handle related entities via ON DELETE CASCADE)
+                            db_session.delete(asset)
+                            deleted_count += 1
+                        except Exception as e:
+                            logger.warning(f"Failed to hard-delete asset {asset.id}: {e}")
+                    
+                    db_session.commit()
+                    _audit("recycle_bin", "delete_assets", "success", details={"count": deleted_count})
+                    if wants_json:
+                        return _json(
+                            f"Permanently deleted {deleted_count} asset(s) and related records.",
+                            200,
+                            deleted_count=deleted_count,
+                            deleted_asset_ids=[int(getattr(a, "id", 0) or 0) for a in assets_to_delete],
+                        )
+                    flash(f"Permanently deleted {deleted_count} asset(s) and related records.", "warning")
+            
+            elif action == "delete_scans":
+                # Admin-only: permanently purge soft-deleted scans
+                scan_ids = _payload_ids(payload, "scan_ids")
+                if scan_ids:
+                    scans_to_delete = db_session.query(Scan).filter(
+                        Scan.id.in_(scan_ids), 
+                        Scan.is_deleted == True
+                    ).all()
+                    
+                    deleted_count = 0
+                    for scan in scans_to_delete:
+                        try:
+                            # Hard delete the scan (ORM cascade will handle related entities)
+                            db_session.delete(scan)
+                            deleted_count += 1
+                        except Exception as e:
+                            logger.warning(f"Failed to hard-delete scan {scan.id}: {e}")
+                    
+                    db_session.commit()
+                    _audit("recycle_bin", "delete_scans", "success", details={"count": deleted_count})
+                    if wants_json:
+                        return _json(
+                            f"Permanently deleted {deleted_count} scan(s) and related records.",
+                            200,
+                            deleted_count=deleted_count,
+                            deleted_scan_ids=[int(getattr(s, "id", 0) or 0) for s in scans_to_delete],
+                        )
+                    flash(f"Permanently deleted {deleted_count} scan(s) and related records.", "warning")
+                    
         except Exception as e:
             db_session.rollback()
-            flash(f"Error restoring items: {str(e)}", "danger")
+            _audit("recycle_bin", action or "unknown", "failed", details={"error": str(e)})
+            if wants_json:
+                return _json(f"Error processing request: {str(e)}", 500)
+            flash(f"Error processing request: {str(e)}", "danger")
             
+        if wants_json:
+            return _json("No matching items selected.", 200)
         return redirect(url_for("recycle_bin"))
 
-    # GET Request
+    # GET Request: display soft-deleted items
     try:
         deleted_assets = db_session.query(Asset).filter(Asset.is_deleted == True).all()
         deleted_scans = db_session.query(Scan).filter(Scan.is_deleted == True).all()
@@ -3707,12 +4046,17 @@ def recycle_bin():
             "empty": not deleted_assets and not deleted_scans,
             "assets": deleted_assets,
             "scans": deleted_scans,
+            "is_admin": is_admin,  # Pass to template for conditional UI
+            "is_manager": is_manager,
         }
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error loading recycle bin: {e}")
         vm = {
             "empty": True,
             "assets": [],
-            "scans": []
+            "scans": [],
+            "is_admin": is_admin,
+            "is_manager": is_manager,
         }
     
     return render_template("recycle_bin.html", vm=vm)

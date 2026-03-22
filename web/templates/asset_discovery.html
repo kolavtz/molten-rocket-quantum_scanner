@@ -49,7 +49,7 @@
         {% if r.is_inventoried %}
           <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
         {% else %}
-          <form action="/dashboard/assets" method="POST" style="display:inline;">
+          <form action="/dashboard/assets" method="POST" style="display:inline;" class="js-discovery-add-form" data-target="{{ r.domain_name }}" data-type="Web App">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="target" value="{{ r.domain_name }}">
             <input type="hidden" name="type" value="Web App">
@@ -66,7 +66,7 @@
         {% if r.is_inventoried %}
           <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
         {% else %}
-          <form action="/dashboard/assets" method="POST" style="display:inline;">
+          <form action="/dashboard/assets" method="POST" style="display:inline;" class="js-discovery-add-form" data-target="{{ r.common_name }}" data-type="Web App">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="target" value="{{ r.common_name }}">
             <input type="hidden" name="type" value="Web App">
@@ -83,7 +83,7 @@
         {% if r.is_inventoried %}
           <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
         {% else %}
-          <form action="/dashboard/assets" method="POST" style="display:inline;">
+          <form action="/dashboard/assets" method="POST" style="display:inline;" class="js-discovery-add-form" data-target="{{ r.ip }}" data-type="Server">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="target" value="{{ r.ip }}">
             <input type="hidden" name="type" value="Server">
@@ -100,7 +100,7 @@
         {% if r.is_inventoried %}
           <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
         {% else %}
-          <form action="/dashboard/assets" method="POST" style="display:inline;">
+          <form action="/dashboard/assets" method="POST" style="display:inline;" class="js-discovery-add-form" data-target="{{ r.host }}" data-type="Web App">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="target" value="{{ r.host }}">
             <input type="hidden" name="type" value="Web App">
@@ -303,6 +303,60 @@
   }));
 
   ['globalSearch','startDate','endDate'].forEach((id) => document.getElementById(id).addEventListener('input', applyFilters));
+})();
+
+(function () {
+  const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+
+  function getCsrfToken() {
+    return csrfMeta ? (csrfMeta.getAttribute('content') || '') : '';
+  }
+
+  async function addAsset(target, type) {
+    const response = await fetch('/dashboard/api/assets', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-CSRFToken': getCsrfToken(),
+      },
+      body: JSON.stringify({
+        target,
+        type,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.status === 'error') {
+      throw new Error(payload.message || 'Failed to add asset.');
+    }
+    return payload;
+  }
+
+  document.querySelectorAll('.js-discovery-add-form').forEach((form) => {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const button = form.querySelector('button[type="submit"]');
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'Adding...';
+      }
+
+      try {
+        await addAsset(form.dataset.target || '', form.dataset.type || 'Web App');
+        const cell = form.closest('td');
+        if (cell) {
+          cell.innerHTML = '<span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>';
+        }
+      } catch (error) {
+        if (button) {
+          button.disabled = false;
+          button.textContent = '+ Add';
+        }
+        window.alert(error.message || 'Failed to add asset.');
+      }
+    });
+  });
 })();
 </script>
 {% endblock %}

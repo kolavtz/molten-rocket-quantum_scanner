@@ -49,30 +49,38 @@
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;">
     <h3 style="margin-bottom:0;">PQC Support telemetry</h3>
   </div>
+
+  {{ tb.search_form('pqc_posture', request.args.get('q', ''), request.args.get('page_size', page_data.page_size if page_data else 25), {}) }}
   
   <div class="scans-table-wrapper">
-    <table class="scans-table" id="supportTable">
+    <table class="scans-table" id="supportTable" data-table-mode="server">
       <thead>
         <tr>
-          {{ tb.sortable_th('Asset Name', 'target', 'pqc_posture', request.args.get('sort'), request.args.get('order')) }}
-          {{ tb.sortable_th('Status', 'status', 'pqc_posture', request.args.get('sort'), request.args.get('order')) }}
-          {{ tb.sortable_th('PQC Readiness Score', 'overall_pqc_score', 'pqc_posture', request.args.get('sort'), request.args.get('order')) }}
-          {{ tb.sortable_th('Started', 'started_at', 'pqc_posture', request.args.get('sort'), request.args.get('order')) }}
+          <th>Asset Name</th>
+          <th>PQC Tier</th>
+          <th>Readiness Score</th>
+          <th>Quantum-Safe Algorithms</th>
+          <th>Vulnerable Algorithms</th>
+          <th>Last Scan Time</th>
+          <th>Scan Type</th>
         </tr>
       </thead>
       <tbody>
         {% if page_data.get('items') %}
           {% for row in page_data.get('items') %}
-          <tr data-owner="{{ row.target }}" data-exposure="Public" data-tls="Unknown" data-score="{{ (row.overall_pqc_score or 0)|round|int }}" data-status="{{ row.status }}">
-            <td>{{ row.target }}</td>
-            <td>{{ row.status }}</td>
-            <td>{% if (row.overall_pqc_score|int) >= 700 %}YES{% else %}NO{% endif %}</td>
-            <td>{{ row.started_at }}</td>
+          <tr data-owner="{{ row.asset_name or row.target }}" data-exposure="Public" data-tls="Unknown" data-score="{{ (row.score or 0)|round|int }}" data-status="{{ row.status }}">
+            <td>{{ row.asset_name or row.target }}</td>
+            <td><span style="font-weight:600;">{{ row.status }}</span></td>
+            <td>{{ row.readiness }} ({{ row.score }}%)</td>
+            <td>{{ row.quantum_safe_algorithms }}</td>
+            <td>{{ row.quantum_vulnerable_algorithms }}</td>
+            <td>{{ row.last_scan or 'Never' }}</td>
+            <td>{{ row.scan_kind or 'N/A' }}</td>
           </tr>
           {% endfor %}
         {% else %}
           <tr>
-            <td colspan="4" style="padding: 2rem;">
+            <td colspan="7" style="padding: 2rem;">
               {{ tb.empty_state("No PQC records matched your criteria.") }}
             </td>
           </tr>
@@ -81,6 +89,8 @@
     </table>
     
   </div>
+
+  {{ tb.pagination_controls('pqc_posture', page_data, {}) }}
 </section>
 
 <section style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">

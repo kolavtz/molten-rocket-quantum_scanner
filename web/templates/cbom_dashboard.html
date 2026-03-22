@@ -63,25 +63,27 @@
   <div style="display:flex;justify-content:space-between;align-items:center;">
     <h3 style="margin-bottom:0;">Applications Crypto Table</h3>
   </div>
+
+  {{ tb.search_form('cbom_dashboard', request.args.get('q', ''), request.args.get('page_size', page_data.page_size if page_data else 25), {}) }}
   
   <div class="scans-table-wrapper" style="margin-top: 0.8rem;">
-    <table class="scans-table">
+    <table class="scans-table" data-table-mode="server">
       <thead>
         <tr>
-          {{ tb.sortable_th('Application', 'asset_id', 'cbom_dashboard', request.args.get('sort'), request.args.get('order')) }}
-          {{ tb.sortable_th('Key Length', 'key_length', 'cbom_dashboard', request.args.get('sort'), request.args.get('order')) }}
-          {{ tb.sortable_th('Cipher', 'cipher_suite', 'cbom_dashboard', request.args.get('sort'), request.args.get('order')) }}
-          {{ tb.sortable_th('Certificate Authority', 'ca', 'cbom_dashboard', request.args.get('sort'), request.args.get('order')) }}
+          {{ tb.sortable_th('Application', 'asset_name', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
+          {{ tb.sortable_th('Key Length', 'key_length', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
+          {{ tb.sortable_th('Cipher', 'cipher_suite', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
+          {{ tb.sortable_th('Certificate Authority', 'ca', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
         </tr>
       </thead>
       <tbody>
         {% if page_data.get('items') %}
           {% for row in page_data.get('items') %}
           <tr>
-            <td>{{ row.asset.name if row.asset else 'Unknown Asset' }}</td>
-            <td>{{ row.key_length }}</td>
-            <td>{{ row.cipher_suite }}</td>
-            <td>{{ row.ca }}</td>
+            <td>{{ row.asset_name or 'Unknown Asset' }}</td>
+            <td>{{ row.key_length or 0 }}</td>
+            <td>{{ row.cipher_suite or 'Unknown' }}</td>
+            <td>{{ row.ca or 'Unknown' }}</td>
           </tr>
           {% endfor %}
         {% else %}
@@ -90,6 +92,8 @@
       </tbody>
     </table>
   </div>
+
+  {{ tb.pagination_controls('cbom_dashboard', page_data, {}) }}
 </section>
 
 <script>

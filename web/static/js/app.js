@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    const saved = localStorage.getItem(THEME_KEY) || 'system';
+    const saved = localStorage.getItem(THEME_KEY) || root.getAttribute('data-theme') || 'system';
     applyTheme(saved);
 
     if (toggle) {

@@ -1,0 +1,10 @@
+{
+  "source_directories": [
+    "src",
+    "web"
+  ],
+  "search_path": [
+    ".venv/Lib/site-packages",
+    "."
+  ]
+}

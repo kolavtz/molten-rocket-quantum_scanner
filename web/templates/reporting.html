@@ -80,6 +80,10 @@
     <label style="font-size:0.82rem;">Email list <input type="text" name="email_list" placeholder="ciso@pnb.example;soc@pnb.example" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
     <label style="font-size:0.82rem;">Save to location <input type="text" name="save_path" placeholder="/reports/executive" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
     <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="download_link" /> Include download link</label>
+    <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="password_protect" id="schedPasswordProtect" /> Password Protect PDF</label>
+    <div id="schedPasswordFields" style="display:none;">
+      <label style="font-size:0.82rem;">PDF Password <input type="password" name="password" id="schedPassword" placeholder="Enter PDF password" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
+    </div>
     <button type="button" id="schedBtn" class="scan-button" style="padding:0.45rem 0.8rem;">📅 Schedule Report</button>
     <div id="schedStatus" style="font-size:0.78rem;"></div>
   </form>
@@ -114,7 +118,10 @@
         </select>
       </label>
       <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;margin-top:0.4rem;"><input type="checkbox" name="include_charts" checked /> Include Charts</label>
-      <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="password_protect" /> Password Protect</label>
+      <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="password_protect" id="odPasswordProtect" /> Password Protect</label>
+      <div id="odPasswordFields" style="display:none;">
+        <label style="font-size:0.82rem;">PDF Password <input type="password" name="password" id="odPassword" placeholder="Enter PDF password" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
+      </div>
     </fieldset>
     <button type="button" id="generateBtn" class="scan-button" style="padding:0.45rem 0.8rem;">⚡ Generate Report</button>
     <div id="generateStatus" style="font-size:0.78rem;"></div>
@@ -144,6 +151,12 @@
   });
   document.getElementById('odSave').addEventListener('change', function(){
     document.getElementById('odSaveFields').style.display = this.checked ? 'block' : 'none';
+  });
+  document.getElementById('schedPasswordProtect').addEventListener('change', function(){
+    document.getElementById('schedPasswordFields').style.display = this.checked ? 'block' : 'none';
+  });
+  document.getElementById('odPasswordProtect').addEventListener('change', function(){
+    document.getElementById('odPasswordFields').style.display = this.checked ? 'block' : 'none';
   });
 
   // ── Schedule report ────────────────────────────────────────────
@@ -186,6 +199,18 @@
   document.getElementById('generateBtn').addEventListener('click', function(){
     const reportType = document.getElementById('odReportType').value;
     const genStatus = document.getElementById('generateStatus');
+    const emailEnabled = document.getElementById('odEmail').checked;
+    const saveEnabled = document.getElementById('odSave').checked;
+    const passwordProtect = document.getElementById('odPasswordProtect').checked;
+    const emailInput = document.querySelector('#odEmailFields input[name="email_list"]');
+    const saveInput = document.querySelector('#odSaveFields input[name="save_path"]');
+    const passwordInput = document.getElementById('odPassword');
+
+    if(passwordProtect && (!passwordInput || !passwordInput.value.trim())){
+      genStatus.textContent = '✗ Password required for password-protected PDF.';
+      genStatus.style.color = 'var(--danger)';
+      return;
+    }
 
     genStatus.textContent = '⌛ Generating PDF…';
     genStatus.style.color = 'var(--text-secondary)';
@@ -193,7 +218,16 @@
     fetch('/report/generate', {
       method: 'POST',
       headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrf()},
-      body: JSON.stringify({report_type: reportType, sections: []})
+      body: JSON.stringify({
+        report_type: reportType,
+        sections: [],
+        email_enabled: emailEnabled,
+        email_list: emailInput ? emailInput.value : '',
+        save_enabled: saveEnabled,
+        save_path: saveInput ? saveInput.value : '',
+        password_protect: passwordProtect,
+        password: passwordInput ? passwordInput.value : ''
+      })
     })
     .then(resp => {
       if(!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -226,4 +260,3 @@
 })();
 </script>
 {% endblock %}
-

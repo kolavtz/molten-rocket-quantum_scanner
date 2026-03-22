@@ -16,6 +16,8 @@
     "schedule_time": "",
     "timezone": "UTC",
     "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
     "save_path": "",
     "download_link": false,
     "status": "scheduled"
@@ -37,15 +39,17 @@
     "schedule_time": "",
     "timezone": "UTC",
     "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
     "save_path": "",
     "download_link": false,
     "status": "scheduled"
   },
   {
-    "id": "9c83154c9398",
-    "created_by_id": "<AsyncMock name='current_user.id' id='1562614196480'>",
+    "id": "ca608be23bde",
+    "created_by_id": "<AsyncMock name='current_user.id' id='1793769482832'>",
     "created_by": "admin",
-    "created_at": "2026-03-21T07:02:55.580819+00:00",
+    "created_at": "2026-03-22T05:18:41.659861+00:00",
     "enabled": true,
     "report_type": "Executive Summary Report",
     "frequency": "Weekly",
@@ -58,6 +62,8 @@
     "schedule_time": "",
     "timezone": "UTC",
     "email_list": "",
+    "password_protect": false,
+    "pdf_password": "",
     "save_path": "",
     "download_link": false,
     "status": "scheduled"
