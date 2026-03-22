@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="system">
+<html lang="en" data-theme="{{ theme.mode if theme.mode in ['dark', 'light'] else 'system' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,12 +12,28 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/table.css') }}">
     {% block head %}{% endblock %}
     <style>
         :root {
-            {% if theme.accent_color %}--accent-primary: {{ theme.accent_color }} !important; --accent-hover: {{ theme.accent_color }}ee !important;{% endif %}
-            {% if theme.bg_primary %}--bg-dark: {{ theme.bg_primary }} !important;{% endif %}
-            {% if theme.text_primary %}--text-light: {{ theme.text_primary }} !important;{% endif %}
+            {% if theme.active %}
+            --bg-navbar: {{ theme.active.bg_navbar }} !important;
+            --bg-primary: {{ theme.active.bg_primary }} !important;
+            --bg-secondary: {{ theme.active.bg_secondary }} !important;
+            --bg-card: {{ theme.active.bg_card }} !important;
+            --bg-input: {{ theme.active.bg_input }} !important;
+            --border-subtle: {{ theme.active.border_subtle }} !important;
+            --border-hover: {{ theme.active.border_hover }} !important;
+            --text-primary: {{ theme.active.text_primary }} !important;
+            --text-secondary: {{ theme.active.text_secondary }} !important;
+            --text-muted: {{ theme.active.text_muted }} !important;
+            --accent: {{ theme.active.accent_color }} !important;
+            --accent-hover: {{ theme.active.accent_color }}ee !important;
+            --safe: {{ theme.active.safe }} !important;
+            --warn: {{ theme.active.warn }} !important;
+            --danger: {{ theme.active.danger }} !important;
+            --accent-primary: {{ theme.active.accent_color }} !important;
+            {% endif %}
         }
         .navbar {
             background-color: {{ theme.bg_navbar or 'rgba(15, 18, 25, 0.95)' }} !important;
@@ -50,6 +66,66 @@
         }
         button.nav-link .nav-text, button.nav-dropdown-trigger .nav-text {
             color: inherit;
+        }
+    </style>
+    <style>
+        html[data-theme='dark'] {
+            --bg-primary: {{ theme.dark.bg_primary }} !important;
+            --bg-secondary: {{ theme.dark.bg_secondary }} !important;
+            --bg-card: {{ theme.dark.bg_card }} !important;
+            --bg-input: {{ theme.dark.bg_input }} !important;
+            --bg-dark: {{ theme.dark.bg_primary }} !important;
+            --border-subtle: {{ theme.dark.border_subtle }} !important;
+            --border-hover: {{ theme.dark.border_hover }} !important;
+            --text-primary: {{ theme.dark.text_primary }} !important;
+            --text-secondary: {{ theme.dark.text_secondary }} !important;
+            --text-muted: {{ theme.dark.text_muted }} !important;
+            --text-light: {{ theme.dark.text_primary }} !important;
+            --accent: {{ theme.dark.accent_color }} !important;
+            --accent-hover: {{ theme.dark.accent_color }}ee !important;
+            --accent-primary: {{ theme.dark.accent_color }} !important;
+            --safe: {{ theme.dark.safe }} !important;
+            --warn: {{ theme.dark.warn }} !important;
+            --danger: {{ theme.dark.danger }} !important;
+        }
+        html[data-theme='light'] {
+            --bg-primary: {{ theme.light.bg_primary }} !important;
+            --bg-secondary: {{ theme.light.bg_secondary }} !important;
+            --bg-card: {{ theme.light.bg_card }} !important;
+            --bg-input: {{ theme.light.bg_input }} !important;
+            --bg-dark: {{ theme.light.bg_primary }} !important;
+            --border-subtle: {{ theme.light.border_subtle }} !important;
+            --border-hover: {{ theme.light.border_hover }} !important;
+            --text-primary: {{ theme.light.text_primary }} !important;
+            --text-secondary: {{ theme.light.text_secondary }} !important;
+            --text-muted: {{ theme.light.text_muted }} !important;
+            --text-light: {{ theme.light.text_primary }} !important;
+            --accent: {{ theme.light.accent_color }} !important;
+            --accent-hover: {{ theme.light.accent_color }}ee !important;
+            --accent-primary: {{ theme.light.accent_color }} !important;
+            --safe: {{ theme.light.safe }} !important;
+            --warn: {{ theme.light.warn }} !important;
+            --danger: {{ theme.light.danger }} !important;
+        }
+        html[data-theme='dark'] .navbar {
+            background-color: {{ theme.dark.bg_navbar }} !important;
+        }
+        html[data-theme='light'] .navbar {
+            background-color: {{ theme.light.bg_navbar }} !important;
+        }
+        @media (max-width: 768px) {
+            html[data-theme='dark'] .nav-links {
+                background-color: {{ theme.dark.bg_navbar }} !important;
+                animation: none !important;
+            }
+            html[data-theme='light'] .nav-links {
+                background-color: {{ theme.light.bg_navbar }} !important;
+                animation: none !important;
+            }
+        }
+
+        .scans-table th::after {
+            content: none !important;
         }
     </style>
 </head>
@@ -130,7 +206,7 @@
                     </a>
 
                     <!-- Admin Dropdown -->
-                    {% if current_user.role == 'Admin' %}
+                    {% if current_user.role|lower == 'admin' %}
                     <div class="nav-dropdown">
                         <button class="nav-dropdown-trigger" title="Admin">
                             <i class="fa-solid fa-user-gear"></i> <span class="nav-text">ADMIN</span> <span class="arrow">▾</span>
@@ -141,6 +217,9 @@
                             </a>
                             <a href="/admin/audit" class="dropdown-link {% if request.path == '/admin/audit' %}active{% endif %}">
                                 <i class="fa-solid fa-clock-rotate-left"></i> Audit Logs
+                            </a>
+                            <a href="/recycle-bin" class="dropdown-link {% if request.path == '/recycle-bin' %}active{% endif %}">
+                                <i class="fa-solid fa-recycle"></i> Recycle Bin
                             </a>
                             <a href="/admin/theme" class="dropdown-link {% if request.path == '/admin/theme' %}active{% endif %}">
                                 <i class="fa-solid fa-palette"></i> Theme Settings
@@ -220,6 +299,7 @@
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/scans-table.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/table.js') }}"></script>
     <script>
         (function () {
             const now = new Date();

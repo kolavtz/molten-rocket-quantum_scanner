@@ -141,7 +141,8 @@ class DashboardDataService:
             asset_name = getattr(asset, "name", None)
             if asset_name:
                 scans = db_session.query(Scan).filter(
-                    Scan.target == asset_name
+                    Scan.target == asset_name,
+                    Scan.is_deleted == False,
                 ).order_by(Scan.started_at.desc()).all()
             else:
                 scans = []

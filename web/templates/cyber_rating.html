@@ -15,7 +15,7 @@
 {% endif %}
 
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;text-align:center;">
-  <div style="font-size:3rem;font-weight:800;color:var(--accent);">{{ vm.overall_score }}/1000</div>
+  <div style="font-size:3rem;font-weight:800;color:var(--accent);">{{ vm.overall_score }}/100</div>
   <div style="font-size:1rem;letter-spacing:0.08em;">{{ vm.label }}</div>
 </section>
 
@@ -24,10 +24,10 @@
   <table class="scans-table">
     <thead><tr><th data-key="label">Label</th><th data-key="range">Range</th></tr></thead>
     <tbody>
-      <tr><td>Legacy</td><td>&lt; 400</td></tr>
-      <tr><td>Standard</td><td>400 - 700</td></tr>
-      <tr><td>Elite-PQC</td><td>&gt; 700</td></tr>
-      <tr><td>Max Normalized Score</td><td>1000</td></tr>
+      <tr><td>Critical</td><td>&lt; 40</td></tr>
+      <tr><td>Legacy</td><td>40 - 59</td></tr>
+      <tr><td>Standard</td><td>60 - 79</td></tr>
+      <tr><td>Elite-PQC</td><td>&ge; 80</td></tr>
     </tbody>
   </table>
 </section>
@@ -42,7 +42,8 @@
       <thead>
         <tr>
           {{ tb.sortable_th('URL / Target', 'target', 'cyber_rating', request.args.get('sort'), request.args.get('order')) }}
-          {{ tb.sortable_th('PQC Score', 'overall_pqc_score', 'cyber_rating', request.args.get('sort'), request.args.get('order')) }}
+          <th>Tier</th>
+          {{ tb.sortable_th('PQC Score', 'score', 'cyber_rating', request.args.get('sort'), request.args.get('order')) }}
         </tr>
       </thead>
       <tbody>
@@ -50,11 +51,12 @@
           {% for row in page_data.get('items') %}
           <tr>
             <td>{{ row.target }}</td>
-            <td>{{ (row.overall_pqc_score or 0)|round|int }}</td>
+            <td>{{ row.tier }}</td>
+            <td>{{ (row.score or 0)|round|int }}</td>
           </tr>
           {% endfor %}
         {% else %}
-          <tr><td colspan="2" style="padding: 2rem;">{{ tb.empty_state("No scan ratings available.") }}</td></tr>
+          <tr><td colspan="3" style="padding: 2rem;">{{ tb.empty_state("No scan ratings available.") }}</td></tr>
         {% endif %}
       </tbody>
     </table>
@@ -92,5 +94,14 @@
       <tr><td>Critical</td><td>Insecure</td><td>SSLv2/v3, key &lt; 1024-bit, very weak ciphers, known exploitable vulnerabilities</td><td>Immediate action</td></tr>
     </tbody>
   </table>
+</section>
+
+<section class="glass-card" style="padding:1rem; margin-top:1rem;">
+  <h3 style="margin-bottom:0.6rem;">Recommendations</h3>
+  <ul style="padding-left:1.2rem;">
+    {% for rec in vm.recommendations %}
+      <li style="margin-bottom:0.4rem;">{{ rec }}</li>
+    {% endfor %}
+  </ul>
 </section>
 {% endblock %}

@@ -545,7 +545,10 @@ ENCRYPTION_KEY = os.environ.get("QSS_ENCRYPTION_KEY")
 # ---------------------------------------------------------------------------
 # Rate Limiting
 RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
-RATELIMIT_DEFAULT_LIMITS = ["200 per day", "50 per hour"]
+RATELIMIT_ENABLED = os.environ.get("RATELIMIT_ENABLED", "true").lower() == "true"
+# Format: comma-separated list of limits (e.g., "200 per day, 50 per hour")
+RATELIMIT_DEFAULT_LIMITS_STR = os.environ.get("RATELIMIT_DEFAULT_LIMITS", "200 per day,50 per hour")
+RATELIMIT_DEFAULT_LIMITS = [limit.strip() for limit in RATELIMIT_DEFAULT_LIMITS_STR.split(",")]
 
 # Content Security Policy (Simple restrictive policy)
 # Allows self, Google Fonts, and inline styles for the glassmorphism effects

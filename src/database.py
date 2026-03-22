@@ -1,5 +1,5 @@
 """
-Database Module — MySQL Redundant Storage
+Database Module - MySQL Redundant Storage
 
 Provides MySQL persistence alongside JSON file storage for scan results
 and CBOM reports.  All public functions are designed to fail gracefully:
@@ -8,18 +8,19 @@ continues using JSON files only.
 
 Tables
 ------
-- ``scans``        — structured scan metadata + full JSON blob
-- ``cbom_reports`` — CBOM JSON keyed by scan_id
+- ``scans``        - structured scan metadata + full JSON blob
+- ``cbom_reports`` - CBOM JSON keyed by scan_id
 
 Functions
 ---------
-- ``init_db()``        — create database and tables if they don't exist
-- ``save_scan()``      — INSERT a scan report
-- ``save_cbom()``      — INSERT a CBOM document
-- ``get_scan()``       — SELECT one scan by ID
-- ``list_scans()``     — SELECT recent scans
-- ``get_cbom()``       — SELECT CBOM by scan ID
+- ``init_db()``        - create database and tables if they don't exist
+- ``save_scan()``      - INSERT a scan report
+- ``save_cbom()``      - INSERT a CBOM document
+- ``get_scan()``       - SELECT one scan by ID
+- ``list_scans()``     - SELECT recent scans
+- ``get_cbom()``       - SELECT CBOM by scan ID
 """
+# pyre-ignore-all-errors
 
 from __future__ import annotations
 
@@ -582,6 +583,7 @@ def init_db() -> bool:
                     schedule_time   VARCHAR(10),
                     timezone_name   VARCHAR(64),
                     email_list      VARCHAR(512),
+                    pdf_password_enc LONGTEXT,
                     save_path       VARCHAR(512),
                     download_link   BOOLEAN DEFAULT FALSE,
                     status          VARCHAR(32) DEFAULT 'scheduled',
@@ -599,12 +601,22 @@ def init_db() -> bool:
                 CREATE TABLE IF NOT EXISTS assets (
                     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
                     target      VARCHAR(512) UNIQUE NOT NULL,
+                    name        VARCHAR(255),
+                    url         VARCHAR(255),
+                    ipv4        VARCHAR(50),
+                    ipv6        VARCHAR(50),
+                    asset_type  VARCHAR(50) DEFAULT 'Web App',
                     type        VARCHAR(64),
                     owner       VARCHAR(150),
                     risk_level  VARCHAR(32),
                     notes       TEXT,
+                    last_scan_id BIGINT,
                     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    is_deleted  BOOLEAN DEFAULT FALSE,
+                    deleted_at  DATETIME,
+                    deleted_by_user_id BIGINT,
+                    INDEX idx_assets_is_deleted (is_deleted)
                 ) ENGINE=InnoDB
             """)
         except Exception as e:
@@ -644,6 +656,7 @@ def init_db() -> bool:
             "ALTER TABLE report_schedules ADD COLUMN schedule_time VARCHAR(10)",
             "ALTER TABLE report_schedules ADD COLUMN timezone_name VARCHAR(64)",
             "ALTER TABLE report_schedules ADD COLUMN email_list VARCHAR(512)",
+            "ALTER TABLE report_schedules ADD COLUMN pdf_password_enc LONGTEXT",
             "ALTER TABLE report_schedules ADD COLUMN save_path VARCHAR(512)",
             "ALTER TABLE report_schedules ADD COLUMN download_link BOOLEAN DEFAULT FALSE",
             "ALTER TABLE report_schedules ADD COLUMN status VARCHAR(32) DEFAULT 'scheduled'",
@@ -656,13 +669,56 @@ def init_db() -> bool:
             "ALTER TABLE scans ADD COLUMN IF NOT EXISTS cbom_path VARCHAR(500)",
             "ALTER TABLE scans ADD COLUMN IF NOT EXISTS is_encrypted BOOLEAN DEFAULT FALSE",
             "ALTER TABLE scans ADD COLUMN IF NOT EXISTS created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
+            "ALTER TABLE scans ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE scans ADD COLUMN IF NOT EXISTS deleted_at DATETIME",
+            "ALTER TABLE scans ADD COLUMN IF NOT EXISTS deleted_by_user_id BIGINT",
+            "ALTER TABLE discovery_items ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE discovery_items ADD COLUMN IF NOT EXISTS deleted_at DATETIME",
+            "ALTER TABLE discovery_items ADD COLUMN IF NOT EXISTS deleted_by_user_id BIGINT",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS deleted_at DATETIME",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS deleted_by_user_id BIGINT",
+            "ALTER TABLE pqc_classification ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE pqc_classification ADD COLUMN IF NOT EXISTS deleted_at DATETIME",
+            "ALTER TABLE pqc_classification ADD COLUMN IF NOT EXISTS deleted_by_user_id BIGINT",
+            "ALTER TABLE cbom_summary ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE cbom_summary ADD COLUMN IF NOT EXISTS deleted_at DATETIME",
+            "ALTER TABLE cbom_summary ADD COLUMN IF NOT EXISTS deleted_by_user_id BIGINT",
+            "ALTER TABLE cbom_entries ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE cbom_entries ADD COLUMN IF NOT EXISTS deleted_at DATETIME",
+            "ALTER TABLE cbom_entries ADD COLUMN IF NOT EXISTS deleted_by_user_id BIGINT",
+            "ALTER TABLE compliance_scores ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE compliance_scores ADD COLUMN IF NOT EXISTS deleted_at DATETIME",
+            "ALTER TABLE compliance_scores ADD COLUMN IF NOT EXISTS deleted_by_user_id BIGINT",
+            "ALTER TABLE cyber_rating ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE cyber_rating ADD COLUMN IF NOT EXISTS deleted_at DATETIME",
+            "ALTER TABLE cyber_rating ADD COLUMN IF NOT EXISTS deleted_by_user_id BIGINT",
             "ALTER TABLE assets ADD COLUMN IF NOT EXISTS target VARCHAR(512) UNIQUE",
             "ALTER TABLE assets ADD COLUMN IF NOT EXISTS name VARCHAR(255)",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS url VARCHAR(255)",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS ipv4 VARCHAR(50)",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS ipv6 VARCHAR(50)",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS asset_type VARCHAR(50) DEFAULT 'Web App'",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS type VARCHAR(64)",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS owner VARCHAR(150)",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS risk_level VARCHAR(32)",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS notes TEXT",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS last_scan_id BIGINT",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS deleted_at DATETIME",
+            "ALTER TABLE assets ADD COLUMN IF NOT EXISTS deleted_by_user_id BIGINT",
         ]:
             try:
                 cur.execute(alter_cmd)
             except Exception:
                 pass # Column likely already exists
+
+        try:
+            cur.execute("CREATE INDEX idx_assets_is_deleted ON assets(is_deleted)")
+        except Exception:
+            pass
 
         # Normalize legacy scans tables that were created by older ORM metadata.
         try:
@@ -842,16 +898,27 @@ def save_asset(asset: Dict[str, Any]) -> bool:
     return False
 
 def delete_asset(target: str) -> bool:
-    """Deletes an asset from MySQL by target hostname or IP."""
+    """Soft-deletes an asset from MySQL by target hostname or IP.
+    
+    Marks asset as deleted (is_deleted=True) instead of physically removing.
+    Allows recovery from recycle bin. Related entities (discovery_items, 
+    certificates, etc.) should be handled by ORM cascades or application logic.
+    """
+    from datetime import datetime, timezone
     conn = _get_connection()
     if conn is None: return False
     try:
         cur = conn.cursor()
-        cur.execute("DELETE FROM assets WHERE target = %s", (target,))
+        now = datetime.now(timezone.utc).isoformat()
+        # Soft delete: mark with timestamp instead of physical removal
+        cur.execute(
+            "UPDATE assets SET is_deleted=1, deleted_at=%s WHERE target=%s",
+            (now, target)
+        )
         conn.commit()
-        return True
+        return cur.rowcount > 0  # True if at least one row was updated
     except Exception as e:
-        if logger: logger.error(f"delete_asset error: {e}")
+        if logger: logger.error(f"delete_asset (soft) error: {e}")
         return False
     finally: conn.close()
     return False
@@ -1075,7 +1142,7 @@ def get_enterprise_metrics() -> Dict[str, Any]:
                 AVG(compliance_score) as avg_score,
                 MAX(scanned_at) as latest_scan
             FROM scans 
-            WHERE status = 'complete'
+            WHERE status = 'complete' AND COALESCE(is_deleted, 0) = 0
         """)
         row = cur.fetchone()
         if row and row.get("scan_count", 0) > 0:
@@ -1091,7 +1158,7 @@ def get_enterprise_metrics() -> Dict[str, Any]:
         cur.execute("""
             SELECT asset_class, COUNT(*) as cnt 
             FROM scans 
-            WHERE status = 'complete' 
+            WHERE status = 'complete' AND COALESCE(is_deleted, 0) = 0
             GROUP BY asset_class
         """)
         for r in cur.fetchall():
@@ -1107,7 +1174,7 @@ def get_enterprise_metrics() -> Dict[str, Any]:
         cur.execute("""
             SELECT report_json, is_encrypted 
             FROM scans 
-            WHERE status = 'complete' 
+            WHERE status = 'complete' AND COALESCE(is_deleted, 0) = 0
             ORDER BY scanned_at DESC 
             LIMIT 20
         """)
@@ -1307,14 +1374,16 @@ def save_report_schedule(schedule: Dict[str, Any]) -> bool:
         cur = conn.cursor()
         sections = schedule.get("sections")
         sections_json = json.dumps(sections if isinstance(sections, list) else [], ensure_ascii=False)
+        password_raw = str(schedule.get("pdf_password") or "").strip()
+        password_enc = _encrypt_data(password_raw) if password_raw else None
         cur.execute(
             """
             INSERT INTO report_schedules
                 (schedule_id, created_by_id, created_by_name, created_at, enabled,
                  report_type, frequency, assets, sections_json, schedule_date,
-                 schedule_time, timezone_name, email_list, save_path, download_link, status)
+                 schedule_time, timezone_name, email_list, pdf_password_enc, save_path, download_link, status)
             VALUES
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE
                 enabled = VALUES(enabled),
                 report_type = VALUES(report_type),
@@ -1325,6 +1394,7 @@ def save_report_schedule(schedule: Dict[str, Any]) -> bool:
                 schedule_time = VALUES(schedule_time),
                 timezone_name = VALUES(timezone_name),
                 email_list = VALUES(email_list),
+                pdf_password_enc = VALUES(pdf_password_enc),
                 save_path = VALUES(save_path),
                 download_link = VALUES(download_link),
                 status = VALUES(status)
@@ -1343,6 +1413,7 @@ def save_report_schedule(schedule: Dict[str, Any]) -> bool:
                 schedule.get("schedule_time", ""),
                 schedule.get("timezone", "UTC"),
                 schedule.get("email_list", ""),
+                password_enc,
                 schedule.get("save_path", ""),
                 bool(schedule.get("download_link", False)),
                 schedule.get("status", "scheduled"),
@@ -1357,7 +1428,7 @@ def save_report_schedule(schedule: Dict[str, Any]) -> bool:
         conn.close()
 
 
-def list_report_schedules(limit: int = 500) -> List[Dict[str, Any]]:
+def list_report_schedules(limit: int = 500, include_password: bool = False) -> List[Dict[str, Any]]:
     """Return report schedules ordered by created_at descending."""
     conn = _get_connection()
     if conn is None:
@@ -1368,7 +1439,7 @@ def list_report_schedules(limit: int = 500) -> List[Dict[str, Any]]:
             """
             SELECT schedule_id, created_by_id, created_by_name, created_at, enabled,
                    report_type, frequency, assets, sections_json, schedule_date,
-                   schedule_time, timezone_name, email_list, save_path, download_link, status
+                   schedule_time, timezone_name, email_list, pdf_password_enc, save_path, download_link, status
             FROM report_schedules
             ORDER BY created_at DESC
             LIMIT %s
@@ -1400,6 +1471,8 @@ def list_report_schedules(limit: int = 500) -> List[Dict[str, Any]]:
                     "schedule_time": row.get("schedule_time"),
                     "timezone": row.get("timezone_name"),
                     "email_list": row.get("email_list"),
+                    "pdf_password": _decrypt_data(row.get("pdf_password_enc") or "") if include_password and row.get("pdf_password_enc") else "",
+                    "password_protected": bool(row.get("pdf_password_enc")),
                     "save_path": row.get("save_path"),
                     "download_link": bool(row.get("download_link")),
                     "status": row.get("status"),

@@ -96,29 +96,22 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <form action="{{ url_for('admin_update_user', user_id=user.id) }}" method="POST" style="display:flex; gap: 0.5rem; align-items: center;">
+                                <form class="js-admin-user-update" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="display:flex; gap: 0.5rem; align-items: center;">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <select name="role" class="form-input" style="padding: 0.2rem; font-size: 0.7rem; width: 100px;">
-                                        <option value="Viewer" {% if user.role == 'Viewer' %}selected{% endif %}>VIEWER</option>
-                                        <option value="SingleScan" {% if user.role == 'SingleScan' %}selected{% endif %}>SINGLE</option>
-                                        <option value="Manager" {% if user.role == 'Manager' %}selected{% endif %}>MANAGER</option>
-                                        <option value="Admin" {% if user.role == 'Admin' %}selected{% endif %}>ADMIN</option>
+                                        <option value="Viewer" {% if user.role|lower == 'viewer' %}selected{% endif %}>VIEWER</option>
+                                        <option value="SingleScan" {% if user.role|lower == 'singlescan' %}selected{% endif %}>SINGLE</option>
+                                        <option value="Manager" {% if user.role|lower == 'manager' %}selected{% endif %}>MANAGER</option>
+                                        <option value="Admin" {% if user.role|lower == 'admin' %}selected{% endif %}>ADMIN</option>
                                     </select>
                                     <input type="checkbox" name="is_active" {% if user.is_active %}checked{% endif %} title="Active Status">
                                     <button type="submit" class="scan-button" style="padding: 0.3rem 0.5rem; font-size: 0.65rem;">COMMIT</button>
                                 </form>
                                 <div style="margin-top: 0.5rem; display:flex; gap: 0.4rem; flex-wrap:wrap;">
                                     {% if user.email %}
-                                    <form action="{{ url_for('admin_reset_user_password', user_id=user.id) }}" method="POST">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <button type="submit" class="scan-button" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; border-color: var(--text-muted); color: var(--text-muted);">RESET_PASS</button>
-                                    </form>
+                                    <button class="js-admin-reset-pass scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; border-color: var(--text-muted); color: var(--text-muted); background: transparent; cursor: pointer;">RESET_PASS</button>
                                     {% endif %}
-                                    <form action="{{ url_for('admin_regen_api_key', user_id=user.id) }}" method="POST"
-                                          onsubmit="return confirm('Regenerate API key for {{ user.username }}? Current key will be revoked.')">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                        <button type="submit" class="scan-button" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; border-color: #5b9e6f; color: #5b9e6f;">REGEN_KEY</button>
-                                    </form>
+                                    <button class="js-admin-regen-key scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; border-color: #5b9e6f; color: #5b9e6f; background: transparent; cursor: pointer;">REGEN_KEY</button>
                                 </div>
                             </td>
                         </tr>
@@ -134,4 +127,149 @@
 
     </div>
 </div>
+
+<script>
+// Helper: get CSRF token from meta tag
+function getCsrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+}
+
+// Helper: show flash message
+function showFlash(message, category = 'success') {
+    const flashDiv = document.createElement('div');
+    flashDiv.className = 'flash-msg';
+    flashDiv.textContent = message.toUpperCase();
+    flashDiv.style.position = 'fixed';
+    flashDiv.style.top = '1rem';
+    flashDiv.style.right = '1rem';
+    flashDiv.style.backgroundColor = category === 'success' ? 'var(--safe)' : 'var(--danger)';
+    flashDiv.style.color = '#000';
+    flashDiv.style.padding = '0.75rem 1.5rem';
+    flashDiv.style.borderRadius = 'var(--radius-md)';
+    flashDiv.style.zIndex = '9999';
+    flashDiv.style.maxWidth = '400px';
+    document.body.appendChild(flashDiv);
+    setTimeout(() => flashDiv.remove(), 5000);
+}
+
+// Helper: update role badge in row
+function updateRoleBadge(row, role) {
+    const badge = row.querySelector('.status-badge[style*="accent"]');
+    if (badge) {
+        badge.textContent = role.toUpperCase();
+    }
+}
+
+// Helper: update status badge in row
+function updateStatusBadge(row, isActive) {
+    const statusCell = row.querySelector('td:nth-child(4)');
+    if (statusCell) {
+        statusCell.innerHTML = isActive
+            ? '<span class="status-badge" style="color: var(--safe); border-color: var(--safe);">ACTIVE</span>'
+            : '<span class="status-badge" style="color: var(--danger); border-color: var(--danger);">SUSPENDED</span>';
+    }
+}
+
+// Role + Status update form
+document.querySelectorAll('.js-admin-user-update').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const userId = form.getAttribute('data-user-id');
+        const username = form.getAttribute('data-username');
+        const role = form.querySelector('[name="role"]').value;
+        const isActive = form.querySelector('[name="is_active"]').checked;
+        
+        try {
+            const response = await fetch(`/admin/users/${userId}/update`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({ role, is_active: isActive })
+            });
+            
+            const payload = await response.json();
+            if (!response.ok || payload.status === 'error') {
+                throw new Error(payload.message || 'Failed to update user');
+            }
+            
+            // Update display in-place
+            const row = form.closest('tr');
+            updateRoleBadge(row, role);
+            updateStatusBadge(row, isActive);
+            showFlash('User profile updated.', 'success');
+        } catch (error) {
+            showFlash(error.message, 'error');
+            console.error('Admin user update error:', error);
+        }
+    });
+});
+
+// Reset password button
+document.querySelectorAll('.js-admin-reset-pass').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const userId = btn.getAttribute('data-user-id');
+        const username = btn.getAttribute('data-username');
+        
+        try {
+            const response = await fetch(`/admin/users/${userId}/reset-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({})
+            });
+            
+            const payload = await response.json();
+            if (!response.ok || payload.status === 'error') {
+                throw new Error(payload.message || 'Failed to reset password');
+            }
+            
+            showFlash('Password reset email sent.', 'success');
+        } catch (error) {
+            showFlash(error.message, 'error');
+            console.error('Admin reset password error:', error);
+        }
+    });
+});
+
+// Regenerate API key button
+document.querySelectorAll('.js-admin-regen-key').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const userId = btn.getAttribute('data-user-id');
+        const username = btn.getAttribute('data-username');
+        
+        if (!confirm(`Regenerate API key for ${username}? Current key will be revoked.`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/admin/users/${userId}/regen-api-key`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({})
+            });
+            
+            const payload = await response.json();
+            if (!response.ok || payload.status === 'error') {
+                throw new Error(payload.message || 'Failed to regenerate API key');
+            }
+            
+            // Show new key in a modal/alert for copy
+            const keyValue = payload.api_key;
+            const msg = `New API key: ${keyValue}\n\nCopy now. This will not be shown again.`;
+            alert(msg);
+            showFlash('API key regenerated.', 'success');
+        } catch (error) {
+            showFlash(error.message, 'error');
+            console.error('Admin regen key error:', error);
+        }
+    });
+});
+</script>
 {% endblock %}

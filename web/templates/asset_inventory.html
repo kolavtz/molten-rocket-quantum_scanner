@@ -1,551 +1,447 @@
 {% extends "base.html" %}
-{% import "macros/table_macros.html" as tb %}
-{% block title %}Asset Inventory | PNB Cyber Observability{% endblock %}
+{% import "macros/table.html" as tb %}
+
+{% block title %}Asset Inventory | QuantumShield{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/table.css') }}">
+{% endblock %}
+
 {% block content %}
 <section class="hero" style="padding-bottom:1rem;">
   <h2 class="hero-title" style="font-size:2rem;">ASSET INVENTORY</h2>
-  <p class="hero-subtitle">Unified asset, certificate, and cryptography posture</p>
+  <p class="hero-subtitle">Real-time inventory, cryptography posture, and bulk operations</p>
 </section>
 
-<!-- ═════════════════════════════════════════════════════════════ -->
-<!-- BULK SCANNING SECTION: Manual + Scheduled Scanning Control -->
-<!-- ═════════════════════════════════════════════════════════════ -->
-<section class="glass-card" style="padding:1rem;margin-bottom:1rem;border-left:4px solid var(--accent);">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-    <div>
-      <h3 style="margin-bottom:0.3rem;">🔍 Inventory Scanning Control</h3>
-      <p style="font-size:0.8rem;color:var(--text-secondary);margin:0;">Comprehensive asset scanning: TLS/Certificates • DNS Records • CBOM • PQC Posture • KPIs</p>
-    </div>
-  </div>
-  
-  <div style="display:grid;grid-template-columns:auto 1fr;gap:1rem;margin-bottom:1rem;">
-    <!-- Manual Scan Buttons -->
-    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-      <form id="inventoryScanForm" action="/api/dashboard" method="POST" style="display:inline;">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="background" value="true">
-        <button type="button" onclick="startInventoryScan()" class="scan-button" style="padding:0.5rem 1rem;background:var(--accent);font-weight:700;">
-          ▶ Scan All Assets (Background)
-        </button>
-      </form>
-      <button onclick="toggleScheduleSettings()" class="scan-button" style="padding:0.5rem 1rem;">
-        ⚙ Schedule Settings
-      </button>
-    </div>
-    
-    <!-- Scan Status Display -->
-    <div id="scanStatus" style="display:flex;gap:0.75rem;align-items:center;font-size:0.85rem;">
-      <span 
-        id="scanIndicator" 
-        style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981;"
-      ></span>
-      <span id="scanStatusText">Idle (Ready)</span>
-      <span id="scanProgressText" style="font-size:0.78rem;color:var(--text-secondary);"></span>
-    </div>
-  </div>
-  
-  <!-- Schedule Settings Panel -->
-  <div id="schedulePanel" style="display:none;background:rgba(0,0,0,0.3);padding:1rem;border-radius:6px;border:1px solid rgba(255,255,255,0.1);">
-    <h4 style="margin-bottom:0.75rem;">Automatic Scan Schedule</h4>
-    <form id="scheduleForm" style="display:grid;grid-template-columns:auto auto auto;gap:0.75rem;align-items:end;">
-      <div>
-        <label style="font-size:0.75rem;color:var(--text-secondary);display:block;margin-bottom:0.3rem;">Enable Auto-Scan</label>
-        <input type="checkbox" id="scheduleEnabled" name="enabled" style="width:20px;height:20px;">
-      </div>
-      <div>
-        <label style="font-size:0.75rem;color:var(--text-secondary);display:block;margin-bottom:0.3rem;">Interval (hours)</label>
-        <input type="number" id="scheduleInterval" name="interval_hours" value="24" min="1" max="168" style="width:80px;padding:0.4rem;">
-      </div>
-      <button type="button" onclick="saveScheduleSettings()" class="scan-button" style="padding:0.4rem 0.8rem;">Save</button>
-      <button type="button" onclick="toggleScheduleSettings()" class="scan-button" style="padding:0.4rem 0.8rem;background:transparent;border-color:rgba(255,255,255,0.2);">Cancel</button>
-    </form>
-    <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:0.5rem;">
-      ℹ Scans will run automatically at the specified interval, capturing all asset details.
-    </div>
-  </div>
-</section>
-
-{% if vm.empty %}
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <strong>No asset inventory data yet.</strong>
-  <p style="margin-top:0.4rem;color:var(--text-secondary);">Add assets above, then click "Scan All Assets" to populate certificates, DNS, CBOM, and PQC data.</p>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
+    <div>
+      <h3 style="margin:0 0 0.35rem;">Quick Scan</h3>
+      <p style="margin:0;color:var(--text-secondary);font-size:0.86rem;">Create or refresh an asset, then run the scan pipeline immediately.</p>
+    </div>
+    <div class="selection-summary" data-assets-in-view-summary>{{ page_data.total_count }} assets in view</div>
+  </div>
+
+  <form action="{{ url_for('assets.asset_scan') }}" method="post" class="asset-create-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.75rem;align-items:end;margin-top:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div>
+      <label class="asset-modal-label" for="scanTarget">Target URL / IP</label>
+      <input id="scanTarget" name="target" class="asset-modal-input" type="text" placeholder="example.com or 203.0.113.10" required>
+    </div>
+    <div>
+      <label class="asset-modal-label" for="scanOwner">Owner</label>
+      <input id="scanOwner" name="owner" class="asset-modal-input" type="text" placeholder="Infra / App Team">
+    </div>
+    <div>
+      <label class="asset-modal-label" for="scanType">Asset Type</label>
+      <select id="scanType" name="asset_type" class="asset-modal-select">
+        <option value="Web App">Web App</option>
+        <option value="API">API</option>
+        <option value="Server">Server</option>
+        <option value="Load Balancer">Load Balancer</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div>
+      <label class="asset-modal-label" for="scanRisk">Risk Level</label>
+      <select id="scanRisk" name="risk_level" class="asset-modal-select">
+        <option value="Low">Low</option>
+        <option value="Medium" selected>Medium</option>
+        <option value="High">High</option>
+        <option value="Critical">Critical</option>
+      </select>
+    </div>
+    <button type="submit" class="scan-button" style="min-height:42px;">Scan & Save</button>
+  </form>
 </section>
-{% endif %}
 
 <section class="overview-grid" style="margin-bottom:1rem;">
-  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.total_assets }}</div><div class="overview-label">TOTAL ASSETS</div></div>
-  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.public_web_apps }}</div><div class="overview-label">PUBLIC WEB APPS</div></div>
-  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.apis }}</div><div class="overview-label">APIs</div></div>
-  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.servers }}</div><div class="overview-label">SERVERS</div></div>
-  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.expiring_certificates }}</div><div class="overview-label">EXPIRING CERTIFICATES</div></div>
-  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.high_risk_assets }}</div><div class="overview-label">HIGH RISK ASSETS</div></div>
+  <div class="overview-card glass-card">
+    <div class="overview-value" data-assets-in-view-count>{{ page_data.total_count or 0 }}</div>
+    <div class="overview-label">Assets in View</div>
+  </div>
+  <div class="overview-card glass-card">
+    <div class="overview-value">{{ vm.kpis.total_scans or 0 }}</div>
+    <div class="overview-label">Total Scans</div>
+  </div>
+  <div class="overview-card glass-card">
+    <div class="overview-value">{{ vm.kpis.quantum_safe_percent or 0 }}</div>
+    <div class="overview-label">Quantum Safe %</div>
+  </div>
+  <div class="overview-card glass-card">
+    <div class="overview-value">{{ vm.kpis.vulnerable_assets or 0 }}</div>
+    <div class="overview-label">Vulnerable Assets</div>
+  </div>
+  <div class="overview-card glass-card">
+    <div class="overview-value">{{ vm.kpis.avg_pqc_score or 0 }}</div>
+    <div class="overview-label">Avg PQC Score</div>
+  </div>
+  <div class="overview-card glass-card">
+    <div class="overview-value">{{ vm.kpis.high_risk_assets or vm.kpis.vulnerable_assets or 0 }}</div>
+    <div class="overview-label">High Risk Assets</div>
+  </div>
 </section>
 
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <h3 style="margin-bottom:0.8rem;">Charts</h3>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1rem;">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;">
     <div>
       <div style="font-size:0.8rem;margin-bottom:0.6rem;">Asset Type Distribution</div>
-      {% for k,v in vm.asset_type_distribution.items() %}
+      {% for k, v in vm.asset_type_distribution.items() %}
       <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.4rem;">
         <span style="width:130px;font-size:0.74rem;color:var(--text-secondary);">{{ k }}</span>
-        <div style="height:8px;flex:1;background:var(--bg-secondary);border-radius:999px;overflow:hidden;"><div class="dyn-bar" data-width="{{ (v*20)|int }}" style="height:100%;background:var(--accent);"></div></div>
+        <div style="height:8px;flex:1;background:var(--bg-secondary);border-radius:999px;overflow:hidden;">
+          <div class="dyn-bar" data-width="{{ (v * 20)|int }}" style="height:100%;background:var(--accent);"></div>
+        </div>
         <span style="font-size:0.72rem;">{{ v }}</span>
       </div>
       {% endfor %}
     </div>
     <div>
-      <div style="font-size:0.8rem;margin-bottom:0.6rem;">Asset Risk Distribution</div>
-      {% for k,v in vm.asset_risk_distribution.items() %}
-      {% set c = 'var(--danger)' if k in ['Critical','High'] else ('var(--warn)' if k == 'Medium' else 'var(--safe)') %}
+      <div style="font-size:0.8rem;margin-bottom:0.6rem;">Risk Distribution</div>
+      {% for k, v in vm.asset_risk_distribution.items() %}
+      {% set c = 'var(--danger)' if k in ['Critical', 'High'] else ('var(--warn)' if k == 'Medium' else 'var(--safe)') %}
       <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.4rem;">
         <span style="width:80px;font-size:0.74rem;color:var(--text-secondary);">{{ k }}</span>
-        <div style="height:8px;flex:1;background:var(--bg-secondary);border-radius:999px;overflow:hidden;"><div class="dyn-bar" data-width="{{ (v*25)|int }}" data-color="{{ c }}" style="height:100%;"></div></div>
+        <div style="height:8px;flex:1;background:var(--bg-secondary);border-radius:999px;overflow:hidden;">
+          <div class="dyn-bar" data-width="{{ (v * 25)|int }}" data-color="{{ c }}" style="height:100%;"></div>
+        </div>
         <span style="font-size:0.72rem;">{{ v }}</span>
       </div>
       {% endfor %}
     </div>
-    <div>
-      <div style="font-size:0.8rem;margin-bottom:0.6rem;">Certificate Expiry Timeline</div>
-      {% for k,v in vm.certificate_expiry_timeline.items() %}
-      <div style="display:flex;justify-content:space-between;padding:0.35rem 0;border-bottom:1px solid var(--border-subtle);font-size:0.75rem;"><span>{{ k }} days</span><strong>{{ v }}</strong></div>
-      {% endfor %}
-    </div>
-    <div>
-      <div style="font-size:0.8rem;margin-bottom:0.6rem;">Risk Heatmap (Owner x Risk)</div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.4rem;">
-        {% for cell in vm.risk_heatmap %}
-        <div style="border:1px solid var(--border-subtle);border-radius:6px;padding:0.45rem;background:var(--bg-secondary);">
-          <div style="font-size:0.65rem;color:var(--text-secondary);">{{ cell.x }} · {{ cell.y }}</div>
-          <div style="font-size:1rem;font-weight:700;">{{ cell.value }}</div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    <div>
-      <div style="font-size:0.8rem;margin-bottom:0.6rem;">IP Version Breakdown</div>
-      <div style="display:flex;gap:0.6rem;align-items:center;margin-top:0.75rem;">
-        <div style="flex:1;background:var(--bg-secondary);height:14px;border-radius:999px;overflow:hidden;display:flex;">
-          <div class="dyn-bar" data-width="{{ vm.ip_version_breakdown['IPv4'] }}" style="background:var(--accent);"></div>
-          <div class="dyn-bar" data-width="{{ vm.ip_version_breakdown['IPv6'] }}" style="background:var(--safe);"></div>
-        </div>
-      </div>
-      <div style="margin-top:0.5rem;font-size:0.75rem;color:var(--text-secondary);">IPv4 {{ vm.ip_version_breakdown['IPv4'] }}% | IPv6 {{ vm.ip_version_breakdown['IPv6'] }}%</div>
-    </div>
   </div>
 </section>
 
-<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;">
-    <h3 style="margin-bottom:0;">Asset Inventory</h3>
-    <button onclick="document.getElementById('addAssetForm').style.display=(document.getElementById('addAssetForm').style.display==='none'?'block':'none')" class="scan-button" style="padding:0.4rem 0.8rem;font-size:0.75rem;">
-      <i class="fa-solid fa-plus"></i> Add Asset
-    </button>
-  </div>
-  
-  <!-- Inline Add Asset Form -->
-  <div id="addAssetForm" class="glass-card" style="display:none;padding:0.9rem;margin-bottom:1rem;background:rgba(0,0,0,0.15);border-color:var(--accent);">
-    <form action="/dashboard/assets" method="POST" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:0.6rem;align-items:end;">
-         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-         <div>
-             <label style="font-size:0.68rem;color:var(--text-secondary);display:block;margin-bottom:0.2rem;">TARGET (HOST/IP)</label>
-             <input type="text" name="target" class="scan-input" style="padding:0.4rem;font-size:0.8rem;" placeholder="e.g. domain.com" required>
-         </div>
-         <div>
-             <label style="font-size:0.68rem;color:var(--text-secondary);display:block;margin-bottom:0.2rem;">TYPE</label>
-             <select name="type" class="scan-input" style="padding:0.4rem;font-size:0.8rem;">
-                 <option value="Web App">Web App</option>
-                 <option value="API">API</option>
-                 <option value="Server">Server</option>
-                 <option value="Load Balancer">Load Balancer</option>
-                 <option value="Other">Other</option>
-             </select>
-         </div>
-         <div>
-             <label style="font-size:0.68rem;color:var(--text-secondary);display:block;margin-bottom:0.2rem;">OWNER</label>
-             <input type="text" name="owner" class="scan-input" style="padding:0.4rem;font-size:0.8rem;" placeholder="Infra">
-         </div>
-         <div>
-             <label style="font-size:0.68rem;color:var(--text-secondary);display:block;margin-bottom:0.2rem;">RISK</label>
-             <select name="risk_level" class="scan-input" style="padding:0.4rem;font-size:0.8rem;">
-                 <option value="Low">Low</option>
-                 <option value="Medium" selected>Medium</option>
-                 <option value="High">High</option>
-                 <option value="Critical">Critical</option>
-             </select>
-         </div>
-         <button type="submit" class="scan-button" style="padding:0.42rem;font-size:0.8rem;width:100%;">Create</button>
+<section class="glass-card" data-table-shell style="padding:1rem;">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem;">
+    <div>
+      <h3 style="margin:0;">Asset Inventory</h3>
+      <div class="selection-summary" data-selected-count>0 items selected</div>
+    </div>
+    <form
+      id="bulkAssetsForm"
+      class="bulk-toolbar"
+      data-bulk-form
+      data-bulk-delete-action="{{ url_for('assets.asset_bulk_delete') }}"
+      data-bulk-edit-action="{{ url_for('assets.asset_bulk_edit') }}"
+      data-api-bulk-delete-action="{{ url_for('assets.asset_bulk_delete_api') }}"
+      data-api-bulk-edit-action="{{ url_for('assets.asset_bulk_edit_api') }}"
+      action="{{ url_for('assets.asset_bulk_delete') }}"
+      method="post"
+    >
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="selected_asset_ids" data-bulk-ids value="">
+      <label class="table-control-label" for="bulkActionSelect">Bulk action</label>
+      <select id="bulkActionSelect" name="bulk_action" class="table-control-select" data-bulk-action>
+        <option value="bulk-delete">Move Selected to Recycle Bin</option>
+        <option value="bulk-edit">Edit Selected</option>
+      </select>
+      <button type="submit" class="scan-button">Apply</button>
     </form>
   </div>
-  <div class="scans-table-wrapper">
-    <table class="scans-table" id="assetTable">
-      <thead>
-        <tr>
-          {{ tb.sortable_th('Asset Name', 'name', 'asset_inventory_page', request.args.get('sort'), request.args.get('order')) }}
-          {{ tb.sortable_th('URL', 'url', 'asset_inventory_page', request.args.get('sort'), request.args.get('order')) }}
-          {{ tb.sortable_th('IPv4 Address', 'ipv4', 'asset_inventory_page', request.args.get('sort'), request.args.get('order')) }}
-          {{ tb.sortable_th('IPv6 Address', 'ipv6', 'asset_inventory_page', request.args.get('sort'), request.args.get('order')) }}
-          {{ tb.sortable_th('Type', 'asset_type', 'asset_inventory_page', request.args.get('sort'), request.args.get('order')) }}
-          {{ tb.sortable_th('Owner', 'owner', 'asset_inventory_page', request.args.get('sort'), request.args.get('order')) }}
-          {{ tb.sortable_th('Risk', 'risk_level', 'asset_inventory_page', request.args.get('sort'), request.args.get('order')) }}
-          {{ tb.sortable_th('Last Scan ID', 'last_scan_id', 'asset_inventory_page', request.args.get('sort'), request.args.get('order')) }}
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% if page_data.get('items') %}
-          {% for row in page_data.get('items') %}
-          <tr>
-            <td>{{ row.name }}</td>
-            <td>{{ row.url }}</td>
-            <td>{{ row.ipv4 }}</td>
-            <td>{{ row.ipv6 or '-' }}</td>
-            <td>{{ row.asset_type }}</td>
-            <td>{{ row.owner }}</td>
-            <td>{{ row.risk_level }}</td>
-            <td>{{ row.last_scan_id or 'Never' }}</td>
-            <td>
-              <button
-                type="button"
-                data-asset-id="{{ row.id }}"
-                data-asset-name="{{ row.name|e }}"
-                onclick="startSingleAssetScanFromButton(this)"
-                class="scan-button"
-                style="padding:0.2rem 0.4rem;font-size:0.65rem;background:var(--accent);margin-right:0.2rem;"
-              >Scan</button>
-              <form action="/dashboard/assets/{{ row.id }}/delete" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete {{ row.name }}?');">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.65rem;background:var(--danger);">Delete</button>
-              </form>
-            </td>
-          </tr>
-          {% endfor %}
-        {% else %}
-          <tr>
-            <td colspan="9" style="padding: 2rem;">
-              {{ tb.empty_state("No assets found matching your criteria.") }}
-            </td>
-          </tr>
-        {% endif %}
-      </tbody>
-    </table>
-    
-  </div>
 
+  {{ tb.paginated_table(
+    items=page_data.items,
+    headers=headers,
+    total=page_data.total_count,
+    page=page_data.page,
+    page_size=page_data.page_size,
+    search=page_data.search,
+    sort=page_data.sort,
+    order=page_data.order,
+    endpoint='assets.assets_index',
+    base_params={},
+    empty_message='No records found. Run a scan to get started.'
+  ) }}
 </section>
 
-<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <h3 style="margin-bottom:0.6rem;">IP to Location Reverse Map</h3>
-  {% if vm.asset_locations %}
-  <div id="assetLocationMap" style="height:280px;border:1px solid var(--border-subtle);border-radius:8px;"></div>
-  <script id="assetLocationPayload" type="application/json">{{ vm.asset_locations|tojson }}</script>
-  {% else %}
-  <div style="font-size:0.8rem;color:var(--text-secondary);">Location data becomes available after DNS and host geolocation enrichment completes.</div>
-  {% endif %}
-</section>
+{% include "modals/asset_edit.html" %}
+{% endblock %}
 
-<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <h3 style="margin-bottom:0.6rem;">Nameserver Records</h3>
-  <table class="scans-table">
-    <thead><tr><th>Hostname</th><th>Type</th><th>IP Address</th><th>IPv6 Address</th><th>TTL</th></tr></thead>
-    <tbody>
-      {% for row in vm.nameserver_records %}
-      <tr><td>{{ row.hostname }}</td><td>{{ row.type }}</td><td>{{ row.ip or '-' }}</td><td>{{ row.ipv6 or '-' }}</td><td>{{ row.ttl }}</td></tr>
-      {% else %}
-      <tr><td colspan="5" style="text-align:center;color:var(--text-secondary);">No nameserver records from live scan data.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</section>
-
-<section class="glass-card" style="padding:1rem;">
-  <h3 style="margin-bottom:0.6rem;">Crypto and Security Overview</h3>
-  <table class="scans-table">
-    <thead><tr><th>Asset</th><th>Key Length</th><th>Cipher Suite</th><th>TLS Version</th><th>Certificate Authority</th><th>Last Scan</th></tr></thead>
-    <tbody>
-      {% for row in vm.crypto_overview %}
-      <tr><td>{{ row.asset }}</td><td>{{ row.key_length }}</td><td>{{ row.cipher_suite }}</td><td>{{ row.tls_version }}</td><td>{{ row.ca }}</td><td>{{ row.last_scan }}</td></tr>
-      {% else %}
-      <tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">No cryptographic telemetry available from live scans.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</section>
-
-<section class="glass-card" style="padding:1rem;margin-top:1rem;">
-  <h3 style="margin-bottom:0.6rem;">SSL Certificate Intelligence</h3>
-  <table class="scans-table">
-    <thead>
-      <tr>
-        <th>Asset</th><th>Issuer</th><th>Key</th><th>TLS</th><th>Days Left</th><th>Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for cert in vm.certificate_inventory %}
-      <tr>
-        <td>{{ cert.asset }}</td>
-        <td>{{ cert.issuer }}</td>
-        <td>{{ cert.key_length }}</td>
-        <td>{{ cert.tls_version }}</td>
-        <td>{{ cert.days_remaining if cert.days_remaining is not none else '-' }}</td>
-        <td>
-          {% if cert.status == 'Expired' %}
-          <span style="color:var(--danger);font-weight:700;">{{ cert.status }}</span>
-          {% elif cert.status == 'Expiring' %}
-          <span style="color:var(--warn);font-weight:700;">{{ cert.status }}</span>
-          {% else %}
-          <span style="color:var(--safe);font-weight:700;">{{ cert.status }}</span>
-          {% endif %}
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">No certificate telemetry available.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</section>
-
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-</section>
-
+{% block scripts %}
 <script>
-(function() {
-  const payloadNode = document.getElementById('assetLocationPayload');
-  if (payloadNode && typeof L !== 'undefined') {
-    let points = [];
-    try {
-      points = JSON.parse(payloadNode.textContent || '[]');
-    } catch (e) {
-      points = [];
-    }
-    if (Array.isArray(points) && points.length) {
-      const map = L.map('assetLocationMap', { scrollWheelZoom: false }).setView([20.5937, 78.9629], 4);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 18,
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
+(function () {
+  const modal = document.getElementById('assetEditModal');
+  const form = document.getElementById('assetEditForm');
+  const title = document.getElementById('assetEditTitle');
+  const subtitle = document.getElementById('assetEditSubtitle');
+  const assetIdInput = document.getElementById('assetEditAssetId');
+  const selectedIdsInput = document.getElementById('assetEditSelectedIds');
+  const nameInput = document.getElementById('assetEditName');
+  const urlInput = document.getElementById('assetEditUrl');
+  const ownerInput = document.getElementById('assetEditOwner');
+  const riskInput = document.getElementById('assetEditRisk');
+  const lastScanInput = document.getElementById('assetEditLastScan');
+  const bulkForm = document.getElementById('bulkAssetsForm');
+  const bulkAction = document.querySelector('[data-bulk-action]');
+  const bulkIds = document.querySelector('[data-bulk-ids]');
+  const csrfMeta = document.querySelector('meta[name="csrf-token"]');
 
-      const bounds = [];
-      points.forEach((pt) => {
-        const lat = Number(pt.lat);
-        const lon = Number(pt.lon);
-        if (Number.isFinite(lat) && Number.isFinite(lon)) {
-          const marker = L.circleMarker([lat, lon], {
-            radius: 6,
-            color: 'var(--accent)',
-            fillColor: 'var(--accent)',
-            fillOpacity: 0.85
-          }).addTo(map);
-          marker.bindPopup((pt.asset || pt.ip || 'asset') + ' :: ' + (pt.city || '') + ' ' + (pt.country || ''));
-          bounds.push([lat, lon]);
-        }
-      });
-      if (bounds.length > 0) {
-        map.fitBounds(bounds, { padding: [24, 24] });
-      }
+  function toInt(value) {
+    const parsed = Number.parseInt(String(value || ''), 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function getCheckedRows() {
+    return Array.from(document.querySelectorAll('[data-row-checkbox]:checked'));
+  }
+
+  function getCheckedIds() {
+    return getCheckedRows()
+      .map((checkbox) => toInt(checkbox.value))
+      .filter((value) => value !== null);
+  }
+
+  function syncBulkIds() {
+    if (!bulkIds) return;
+    bulkIds.value = getCheckedIds().join(',');
+  }
+
+  function updateSelectionSummary() {
+    const selectedCount = getCheckedRows().length;
+    document.querySelectorAll('[data-selected-count]').forEach((node) => {
+      node.textContent = `${selectedCount} item${selectedCount === 1 ? '' : 's'} selected`;
+    });
+  }
+
+  function updateSelectAllState() {
+    const selectAll = document.querySelector('[data-select-all]');
+    if (!selectAll) return;
+
+    const allRows = Array.from(document.querySelectorAll('[data-row-checkbox]'));
+    const selectedRows = allRows.filter((checkbox) => checkbox.checked);
+    selectAll.checked = allRows.length > 0 && selectedRows.length === allRows.length;
+    selectAll.indeterminate = selectedRows.length > 0 && selectedRows.length < allRows.length;
+  }
+
+  function updateVisibleAssetCount(delta) {
+    if (!Number.isFinite(delta) || delta === 0) return;
+
+    const countNode = document.querySelector('[data-assets-in-view-count]');
+    if (countNode) {
+      const current = Number.parseInt((countNode.textContent || '0').trim(), 10) || 0;
+      countNode.textContent = String(Math.max(0, current + delta));
+    }
+
+    const summaryNode = document.querySelector('[data-assets-in-view-summary]');
+    if (summaryNode) {
+      const current = Number.parseInt((summaryNode.textContent || '0').trim(), 10) || 0;
+      const next = Math.max(0, current + delta);
+      summaryNode.textContent = `${next} assets in view`;
     }
   }
-})();
 
-// ══════════════════════════════════════════════════════════════
-// INVENTORY SCANNING CONTROL FUNCTIONS
-// ══════════════════════════════════════════════════════════════
+  function removeRowsByIds(ids) {
+    const idSet = new Set((ids || []).map((value) => String(value)));
+    if (!idSet.size) return 0;
 
-function toggleScheduleSettings() {
-  const panel = document.getElementById('schedulePanel');
-  panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
-  
-  // Load current settings
-  if (panel.style.display !== 'none') {
-    fetch('/api/dashboard', {
+    let removed = 0;
+    document.querySelectorAll('[data-row-checkbox]').forEach((checkbox) => {
+      if (!idSet.has(String(checkbox.value))) {
+        return;
+      }
+      const row = checkbox.closest('tr');
+      if (row) {
+        row.remove();
+        removed += 1;
+      }
+    });
+
+    syncBulkIds();
+    updateSelectionSummary();
+    updateSelectAllState();
+    updateVisibleAssetCount(-removed);
+    return removed;
+  }
+
+  function getCsrfToken() {
+    return csrfMeta ? csrfMeta.getAttribute('content') || '' : '';
+  }
+
+  async function postJson(url, payload) {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
+        'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        'X-CSRFToken': getCsrfToken(),
       },
-      body: JSON.stringify({ action: 'scan.inventory.schedule.get' })
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.status === 'success') {
-          document.getElementById('scheduleEnabled').checked = data.data.enabled;
-          document.getElementById('scheduleInterval').value = data.data.interval_hours;
-        }
-      })
-      .catch(e => console.error('Failed to load schedule settings:', e));
-  }
-}
-
-function getCsrfToken() {
-  const field = document.querySelector('input[name="csrf_token"]');
-  return field ? field.value : '';
-}
-
-function startInventoryScan() {
-  const indicator = document.getElementById('scanIndicator');
-  const statusText = document.getElementById('scanStatusText');
-  const progressText = document.getElementById('scanProgressText');
-  if (indicator) indicator.style.background = '#f59e0b';
-  if (statusText) statusText.textContent = 'Starting inventory scan...';
-  if (progressText) progressText.textContent = '';
-
-  fetch('/api/dashboard', {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ action: 'scan.inventory.all', background: true })
-  })
-  .then(r => r.json())
-  .then(data => {
-    const op = data.data || {};
-    if (op.status === 'started' || op.status === 'in_progress' || op.status === 'complete') {
-      pollScanStatus();
-    } else {
-      if (indicator) indicator.style.background = '#ef4444';
-      if (statusText) statusText.textContent = 'Scan start failed';
-      if (progressText) progressText.textContent = data.message || data.error || op.message || op.error || 'Unexpected error';
-    }
-  })
-  .catch(e => {
-    if (indicator) indicator.style.background = '#ef4444';
-    if (statusText) statusText.textContent = 'Scan start failed';
-    if (progressText) progressText.textContent = e.message;
-  });
-}
-
-function saveScheduleSettings() {
-  const enabled = document.getElementById('scheduleEnabled').checked;
-  const interval = Number(document.getElementById('scheduleInterval').value || 24);
-  
-  fetch('/api/dashboard', {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ action: 'scan.inventory.schedule.set', enabled: enabled, interval_hours: interval })
-  })
-  .then(r => r.json())
-  .then(data => {
-    if (data.status === 'success') {
-      alert('Schedule settings saved successfully!');
-      toggleScheduleSettings();
-    } else {
-      alert('Error: ' + data.message);
-    }
-  })
-  .catch(e => {
-    alert('Failed to save settings: ' + e.message);
-  });
-}
-
-function pollScanStatus() {
-  fetch('/api/dashboard', {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ action: 'scan.inventory.status' })
-  })
-    .then(r => {
-      if (!r.ok) {
-        throw new Error('Status endpoint returned HTTP ' + r.status);
-      }
-      return r.json();
-    })
-    .then(data => {
-      if (data.status === 'success') {
-        const indicator = document.getElementById('scanIndicator');
-        const statusText = document.getElementById('scanStatusText');
-        const progressText = document.getElementById('scanProgressText');
-        const progress = data.data.progress || {};
-        const current = Number(progress.current || 0);
-        const total = Number(progress.total || 0);
-        const successful = Number(progress.successful || 0);
-        const failed = Number(progress.failed || 0);
-        const percent = Number(progress.percent_complete || 0);
-        const currentTarget = progress.current_target || '';
-        
-        if (data.data.in_progress) {
-          indicator.style.background = '#f59e0b';
-          statusText.textContent = 'Scanning... ' + percent + '%';
-          progressText.textContent = 'Progress: ' + current + '/' + total + ' | Success: ' + successful + ' | Failed: ' + failed + (currentTarget ? ' | Current: ' + currentTarget : '');
-        } else {
-          indicator.style.background = '#10b981';
-          if (data.data.last_scan_time) {
-            statusText.textContent = 'Last scan: ' + new Date(data.data.last_scan_time).toLocaleString();
-            const summary = data.data.last_summary || {};
-            const ok = Number(summary.successful || 0);
-            const ko = Number(summary.failed || 0);
-            progressText.textContent = 'Last result: ' + ok + ' successful, ' + ko + ' failed';
-          } else {
-            statusText.textContent = 'Idle (Ready)';
-            progressText.textContent = '';
-          }
-        }
-      }
-    })
-    .catch(e => {
-      const indicator = document.getElementById('scanIndicator');
-      const statusText = document.getElementById('scanStatusText');
-      const progressText = document.getElementById('scanProgressText');
-      if (indicator) indicator.style.background = '#ef4444';
-      if (statusText) statusText.textContent = 'Status unavailable';
-      if (progressText) progressText.textContent = e.message;
+      body: JSON.stringify(payload),
     });
-}
 
-function startSingleAssetScan(assetId, assetName) {
-  const indicator = document.getElementById('scanIndicator');
-  const statusText = document.getElementById('scanStatusText');
-  const progressText = document.getElementById('scanProgressText');
-  if (indicator) indicator.style.background = '#f59e0b';
-  if (statusText) statusText.textContent = 'Scanning asset: ' + assetName;
-  if (progressText) progressText.textContent = 'Please wait...';
-
-  fetch('/api/dashboard', {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ action: 'scan.inventory.asset', asset_id: assetId })
-  })
-  .then(r => r.json())
-  .then(data => {
-    if (data.status === 'complete' || (data.data && data.data.status === 'complete')) {
-      if (indicator) indicator.style.background = '#10b981';
-      if (statusText) statusText.textContent = 'Asset scan complete: ' + assetName;
-      if (progressText) progressText.textContent = 'Refreshing inventory...';
-      setTimeout(() => window.location.reload(), 800);
-    } else {
-      if (indicator) indicator.style.background = '#ef4444';
-      if (statusText) statusText.textContent = 'Asset scan failed: ' + assetName;
-      if (progressText) progressText.textContent = (data.data && data.data.errors) ? data.data.errors.join(' | ') : (data.message || 'Unknown error');
+    let data = {};
+    try {
+      data = await response.json();
+    } catch (error) {
+      data = {};
     }
-  })
-  .catch(e => {
-    if (indicator) indicator.style.background = '#ef4444';
-    if (statusText) statusText.textContent = 'Asset scan failed: ' + assetName;
-    if (progressText) progressText.textContent = e.message;
-  });
-}
 
-function startSingleAssetScanFromButton(buttonEl) {
-  const assetId = Number(buttonEl && buttonEl.dataset ? buttonEl.dataset.assetId : 0);
-  const assetName = buttonEl && buttonEl.dataset ? (buttonEl.dataset.assetName || '') : '';
-  if (!assetId) {
-    return;
+    if (!response.ok || data.status === 'error') {
+      throw new Error(data.message || 'Request failed.');
+    }
+
+    return data;
   }
-  startSingleAssetScan(assetId, assetName);
-}
 
-// Poll scan status every 10 seconds
-setInterval(pollScanStatus, 10000);
-pollScanStatus(); // Initial poll
+  function openModal(payload) {
+    if (!modal || !form) return;
+    const mode = payload.mode || 'single';
+    title.textContent = mode === 'bulk' ? 'Edit Selected Assets' : 'Edit Asset';
+    subtitle.textContent = mode === 'bulk' ? 'Changes apply to all selected assets.' : 'Update owner and risk level.';
+    form.action = payload.action || form.action;
+    assetIdInput.value = payload.assetId || '';
+    selectedIdsInput.value = payload.selectedIds || '';
+    nameInput.value = payload.name || (mode === 'bulk' ? 'Multiple selected' : '');
+    urlInput.value = payload.url || (mode === 'bulk' ? 'Multiple selected' : '');
+    ownerInput.value = payload.owner || '';
+    riskInput.value = payload.riskLevel || 'Medium';
+    lastScanInput.value = payload.lastScan || 'Unknown';
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeModal() {
+    if (!modal) return;
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  document.querySelectorAll('[data-open-asset-edit]').forEach((button) => {
+    button.addEventListener('click', () => {
+      openModal({
+        mode: 'single',
+        action: `/api/assets/${button.dataset.assetId}/edit`,
+        assetId: button.dataset.assetId,
+        name: button.dataset.name,
+        url: button.dataset.url,
+        owner: button.dataset.owner,
+        riskLevel: button.dataset.riskLevel || 'Medium',
+        lastScan: button.dataset.lastScan || 'Never',
+      });
+    });
+  });
+
+  document.querySelectorAll('[data-close-asset-edit]').forEach((button) => {
+    button.addEventListener('click', closeModal);
+  });
+
+  if (modal) {
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) closeModal();
+    });
+  }
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeModal();
+    }
+  });
+
+  if (form) {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const selectedIds = (selectedIdsInput.value || '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+      const payload = {
+        owner: ownerInput.value,
+        risk_level: riskInput.value,
+      };
+
+      if (selectedIds.length > 0) {
+        payload.selected_asset_ids = selectedIds.join(',');
+      }
+
+      try {
+        await postJson(form.action, payload);
+        closeModal();
+        window.location.reload();
+      } catch (error) {
+        window.alert(error.message || 'Failed to update asset.');
+      }
+    });
+  }
+
+  document.querySelectorAll('[data-asset-delete-form]').forEach((deleteForm) => {
+    deleteForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const assetName = deleteForm.dataset.assetName || 'this asset';
+      if (!window.confirm(`Move ${assetName} to Recycle Bin?`)) {
+        return;
+      }
+
+      try {
+        const payload = await postJson(deleteForm.dataset.apiEndpoint, {});
+        const apiDeletedIds = Array.isArray(payload.deleted_ids) ? payload.deleted_ids : [];
+        const fallbackRowId = toInt(deleteForm.querySelector('[name="asset_id"]')?.value)
+          || toInt((deleteForm.action.match(/\/assets\/(\d+)\/delete/) || [])[1]);
+        const idsToRemove = apiDeletedIds.length ? apiDeletedIds : (fallbackRowId ? [fallbackRowId] : []);
+        if (!removeRowsByIds(idsToRemove)) {
+          const row = deleteForm.closest('tr');
+          if (row) {
+            row.remove();
+            updateVisibleAssetCount(-1);
+          }
+          syncBulkIds();
+          updateSelectionSummary();
+          updateSelectAllState();
+        }
+      } catch (error) {
+        window.alert(error.message || 'Failed to move asset to Recycle Bin.');
+      }
+    });
+  });
+
+  if (bulkForm && bulkAction && bulkIds) {
+    bulkForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const selectedIds = getCheckedIds();
+      bulkIds.value = selectedIds.join(',');
+
+      if (!selectedIds.length) {
+        return;
+      }
+
+      if (bulkAction.value !== 'bulk-edit') {
+        try {
+          const payload = await postJson(bulkForm.dataset.apiBulkDeleteAction, {
+            selected_asset_ids: selectedIds.join(','),
+          });
+          const apiDeletedIds = Array.isArray(payload.deleted_ids) ? payload.deleted_ids : [];
+          const idsToRemove = apiDeletedIds.length ? apiDeletedIds : selectedIds;
+          removeRowsByIds(idsToRemove);
+        } catch (error) {
+          window.alert(error.message || 'Failed to move selected assets to Recycle Bin.');
+        }
+        return;
+      }
+
+      event.preventDefault();
+      openModal({
+        mode: 'bulk',
+        action: bulkForm.dataset.apiBulkEditAction,
+        selectedIds: selectedIds.join(','),
+        name: 'Multiple selected',
+        url: 'Multiple selected',
+        owner: '',
+        riskLevel: 'Medium',
+        lastScan: 'Mixed',
+      });
+    });
+  }
+
+  document.querySelectorAll('[data-row-checkbox], [data-select-all]').forEach((el) => {
+    el.addEventListener('change', () => {
+      syncBulkIds();
+      updateSelectionSummary();
+      updateSelectAllState();
+    });
+  });
+})();
 </script>
 {% endblock %}

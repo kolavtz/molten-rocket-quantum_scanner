@@ -62,7 +62,7 @@ When editing memory:
 When tools are available (MCP, browser, Google Workspace, etc.), follow this order of operations:
 
 1. Use repo files and docs first.
-2. Use project-scoped tools (DB, test runners, code search).
+2. Use project-scoped tools (DB, test runners, code search etc.).
 3. Use external automation tools only when the task explicitly requires them.
 
 Prefer tools over guessing. If you are uncertain and a tool can resolve it, call the tool.

@@ -1,0 +1,51 @@
+<div id="assetEditModal" class="asset-modal" aria-hidden="true">
+  <div class="asset-modal-card">
+    <div class="section-header" style="margin-bottom:1rem;">
+      <div>
+        <h3 id="assetEditTitle" style="margin:0;">Edit Asset</h3>
+        <div class="table-summary" id="assetEditSubtitle" style="margin:0.2rem 0 0;">Update owner and risk level.</div>
+      </div>
+      <button type="button" class="btn-mini" data-close-asset-edit>Close</button>
+    </div>
+
+    <form id="assetEditForm" method="post" action="">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="asset_id" id="assetEditAssetId" value="">
+      <input type="hidden" name="selected_asset_ids" id="assetEditSelectedIds" value="">
+
+      <div class="asset-modal-grid">
+        <div class="full-width">
+          <label class="asset-modal-label" for="assetEditName">Asset Name</label>
+          <input id="assetEditName" class="asset-modal-input" type="text" readonly>
+        </div>
+        <div class="full-width">
+          <label class="asset-modal-label" for="assetEditUrl">URL</label>
+          <input id="assetEditUrl" class="asset-modal-input" type="text" readonly>
+        </div>
+        <div>
+          <label class="asset-modal-label" for="assetEditOwner">Owner</label>
+          <input id="assetEditOwner" name="owner" class="asset-modal-input" type="text" placeholder="Owner">
+        </div>
+        <div>
+          <label class="asset-modal-label" for="assetEditRisk">Risk Level</label>
+          <select id="assetEditRisk" name="risk_level" class="asset-modal-select">
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Critical">Critical</option>
+          </select>
+        </div>
+        <div class="full-width">
+          <label class="asset-modal-label" for="assetEditLastScan">Last Scan</label>
+          <input id="assetEditLastScan" class="asset-modal-input" type="text" readonly>
+        </div>
+      </div>
+
+      <div class="asset-modal-actions">
+        <button type="button" class="btn-mini" data-close-asset-edit>Cancel</button>
+        <button type="submit" class="scan-button">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+

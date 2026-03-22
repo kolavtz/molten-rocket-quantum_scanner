@@ -24,7 +24,7 @@
 
 <!-- Deleted Assets Panel -->
 <div id="tab-assets" class="tab-panel active">
-  <form method="POST" action="/recycle-bin">
+  <form method="POST" action="/recycle-bin" data-api-recycle="assets" data-action="restore_assets">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="restore_assets">
     
@@ -66,11 +66,24 @@
       </div>
     </div>
   </form>
+
+  {% if vm.is_admin %}
+  <form method="POST" action="/recycle-bin" style="margin-top:0.75rem;" data-api-recycle="assets" data-action="delete_assets">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="delete_assets">
+    <div style="display:flex;justify-content:flex-end;">
+      <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Permanently destroy selected deleted assets? This cannot be undone.');">
+        <i class="fa-solid fa-skull-crossbones"></i> Destroy Selected Permanently
+      </button>
+    </div>
+    <div id="destroyAssetsMirror" style="display:none;"></div>
+  </form>
+  {% endif %}
 </div>
 
 <!-- Deleted Scans Panel -->
 <div id="tab-scans" class="tab-panel">
-  <form method="POST" action="/recycle-bin">
+  <form method="POST" action="/recycle-bin" data-api-recycle="scans" data-action="restore_scans">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="restore_scans">
     
@@ -112,6 +125,19 @@
       </div>
     </div>
   </form>
+
+  {% if vm.is_admin %}
+  <form method="POST" action="/recycle-bin" style="margin-top:0.75rem;" data-api-recycle="scans" data-action="delete_scans">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="delete_scans">
+    <div style="display:flex;justify-content:flex-end;">
+      <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Permanently destroy selected deleted scans? This cannot be undone.');">
+        <i class="fa-solid fa-skull-crossbones"></i> Destroy Selected Permanently
+      </button>
+    </div>
+    <div id="destroyScansMirror" style="display:none;"></div>
+  </form>
+  {% endif %}
 </div>
 
 <style>
@@ -160,6 +186,99 @@
     const checkboxes = document.getElementsByName(name);
     const checkedCount = Array.from(checkboxes).filter(c => c.checked).length;
     document.getElementById(buttonId).disabled = checkedCount === 0;
+
+    // Mirror checked IDs into destroy forms so destroy targets exactly selected rows.
+    if (name === 'asset_ids') {
+      const mirror = document.getElementById('destroyAssetsMirror');
+      if (mirror) {
+        mirror.innerHTML = '';
+        Array.from(checkboxes).filter(c => c.checked).forEach(c => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = 'asset_ids';
+          input.value = c.value;
+          mirror.appendChild(input);
+        });
+      }
+    }
+    if (name === 'scan_ids') {
+      const mirror = document.getElementById('destroyScansMirror');
+      if (mirror) {
+        mirror.innerHTML = '';
+        Array.from(checkboxes).filter(c => c.checked).forEach(c => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = 'scan_ids';
+          input.value = c.value;
+          mirror.appendChild(input);
+        });
+      }
+    }
   }
+
+  (function () {
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+
+    function csrfToken() {
+      return csrfMeta ? (csrfMeta.getAttribute('content') || '') : '';
+    }
+
+    async function postRecycleAction(action, idsKey, ids) {
+      const response = await fetch('/recycle-bin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRFToken': csrfToken(),
+        },
+        body: JSON.stringify({ action, [idsKey]: ids }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.status === 'error') {
+        throw new Error(payload.message || 'Recycle Bin action failed.');
+      }
+      return payload;
+    }
+
+    function selectedIds(name) {
+      return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`))
+        .map((el) => String(el.value || '').trim())
+        .filter(Boolean);
+    }
+
+    function removeRowsByInputName(name, ids) {
+      const idSet = new Set((ids || []).map(String));
+      if (!idSet.size) return;
+      document.querySelectorAll(`input[name="${name}"]`).forEach((input) => {
+        if (idSet.has(String(input.value))) {
+          const row = input.closest('tr');
+          if (row) row.remove();
+        }
+      });
+    }
+
+    document.querySelectorAll('form[data-api-recycle]').forEach((form) => {
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const area = form.dataset.apiRecycle;
+        const action = form.dataset.action;
+        const idsKey = area === 'assets' ? 'asset_ids' : 'scan_ids';
+        const ids = selectedIds(idsKey);
+
+        if (!ids.length) {
+          return;
+        }
+
+        try {
+          await postRecycleAction(action, idsKey, ids);
+          removeRowsByInputName(idsKey, ids);
+          const buttonId = area === 'assets' ? 'btnRestoreAssets' : 'btnRestoreScans';
+          updateButtonState(idsKey, buttonId);
+        } catch (error) {
+          window.alert(error.message || 'Recycle Bin action failed.');
+        }
+      });
+    });
+  })();
 </script>
 {% endblock %}

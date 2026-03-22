@@ -68,7 +68,110 @@ The following still work, but are deprecated and return deprecation metadata/hea
 
 ---
 
-### `POST /scan`
+### Recycle Bin & Asset Deletion
+
+**All inventory deletions use soft deletes** — deleted assets, scans, and related records are marked as deleted without physical removal. This allows recovery via the Recycle Bin.
+
+#### `GET /recycle-bin`
+
+View soft-deleted assets and scans.
+
+**Authentication:** Required (all users can view)
+
+**Permissions:**
+- View: All authenticated users
+- Restore: Admin, Manager
+- Permanently Delete: Admin only
+
+**Response:** HTML page showing deleted assets and scans with restore/delete buttons.
+
+---
+
+#### `POST /recycle-bin`
+
+Restore or permanently delete soft-deleted items.
+
+**Query/Form Parameters:**
+
+| Parameter | Type | Required | Values | Description |
+|-----------|------|----------|--------|-------------|
+| `action` | string | ✅ | `restore_assets`, `restore_scans`, `delete_assets`, `delete_scans` | Operation to perform |
+| `asset_ids` or `scan_ids` | array | ✅ | IDs | Which items to act on |
+
+**Actions:**
+
+- `restore_assets`: Restore deleted assets (Admin/Manager only)
+  - Clears `is_deleted`, `deleted_at`, `deleted_by_user_id` flags
+  - Cascades restoration to child records (discovery_items, certificates, etc.)
+  
+- `restore_scans`: Restore deleted scans (Admin/Manager only)
+  - Clears soft-delete markers
+  
+- `delete_assets`: Permanently purge soft-deleted assets (Admin only)
+  - Hard DELETE from database with cascade to child records
+  - Irreversible action — requires admin confirmation
+  
+- `delete_scans`: Permanently purge soft-deleted scans (Admin only)
+  - Hard DELETE with full cascade
+
+**Example:**
+```bash
+# Restore asset ID 42
+curl -X POST http://127.0.0.1:5000/recycle-bin \
+  -d "action=restore_assets&asset_ids=42"
+
+# Permanently delete asset ID 42 (Admin only)
+curl -X POST http://127.0.0.1:5000/recycle-bin \
+  -d "action=delete_assets&asset_ids=42"
+```
+
+---
+
+#### Dashboard Asset Deletion: `POST /dashboard/assets/<asset_id>/delete`
+
+Soft-delete an asset immediately (moves to recycle bin).
+
+**Authentication:** Required
+
+**Permissions:** Admin, Manager
+
+**Behavior:**
+- Sets `is_deleted=True`, `deleted_at=NOW()`, `deleted_by_user_id=<current_user>`
+- Cascades soft delete to:
+  - `discovery_items` (network discoveries tied to asset)
+  - `certificates` (TLS certs associated with asset)
+  - `pqc_classifications` (PQC posture records)
+  - `cbom_entries` (CBOM component entries)
+  - `compliance_scores` (compliance metrics)
+- Asset remains recoverable from `/recycle-bin`
+
+**Response:** Redirect to previous page or `/asset-inventory` on success
+
+---
+
+### Soft Delete Behavior (All Endpoints)
+
+**Query Filtering:**
+- All inventory queries (asset lists, dashboards, charts) automatically exclude soft-deleted rows (`WHERE is_deleted = 0`)
+- Deleted rows do NOT appear in counts, charts, or inventory listings
+
+**CBOM import/scans included:**
+- Certificates from deleted assets are not included in TLS metrics
+- PQC scores exclude deleted records
+- Compliance charts exclude deleted asset data
+
+**Affected Entities:**
+- `assets` — host/domain/IP records
+- `scans` — scan run records
+- `certificates` — TLS certificate metadata
+- `discovery_items` — network discovery findings
+- `pqc_classifications` — quantum-safe classification records
+- `cbom_entries` — component BOM entries
+- `compliance_scores` — compliance/KPI records
+
+---
+
+
 
 **Run a TLS scan via the web form.**
 

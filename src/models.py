@@ -1,4 +1,6 @@
+# pyre-ignore-all-errors
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float, Text
+from sqlalchemy.types import TypeDecorator
 from sqlalchemy.orm import declarative_base, relationship, synonym
 from sqlalchemy.sql import func
 import datetime
@@ -6,6 +8,26 @@ import datetime
 Base = declarative_base()
 
 from sqlalchemy.ext.declarative import declared_attr
+
+
+class DeletedByUserIdType(TypeDecorator):
+    """Audit user id type that keeps UUID support and normalizes numeric values."""
+
+    impl = String
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        text = str(value).strip()
+        if text.isdigit():
+            return int(text)
+        return text
 
 class SoftDeleteMixin:
     @declared_attr
@@ -18,11 +40,11 @@ class SoftDeleteMixin:
     
     @declared_attr
     def deleted_by_user_id(cls):
-        return Column(Integer, ForeignKey('users.id'), nullable=True)
+        return Column(DeletedByUserIdType(length=128), ForeignKey('users.id'), nullable=True)
 
 class User(Base):
     __tablename__ = 'users'
-    id = Column(Integer, primary_key=True)
+    id = Column(String(36), primary_key=True)
     username = Column(String(50), unique=True, nullable=False)
     role = Column(String(50), default="Viewer")
 
@@ -93,35 +115,67 @@ class DiscoveryItem(Base, SoftDeleteMixin):
 class Certificate(Base, SoftDeleteMixin):
     __tablename__ = 'certificates'
     id = Column(Integer, primary_key=True)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
-    issuer = Column(String(255))
-    subject = Column(String(255))
-    serial = Column(String(255))
-    valid_from = Column(DateTime)
-    valid_until = Column(DateTime)
-    fingerprint_sha256 = Column(String(64))
-    tls_version = Column(String(50))
-    key_length = Column(Integer)
-    cipher_suite = Column(String(255))
-    ca = Column(String(255))
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
+    
+    # Certificate identifying fields
+    issuer = Column(String(500), nullable=True, index=True)
+    subject = Column(String(500), nullable=True)
+    subject_cn = Column(String(255), nullable=True, index=True)  # Common Name from subject
+    serial = Column(String(255), nullable=True, unique=True, index=True)
+    company_name = Column(String(255), nullable=True, index=True)  # Organization name
+    
+    # Certificate validity
+    valid_from = Column(DateTime, nullable=True)
+    valid_until = Column(DateTime, nullable=True, index=True)
+    expiry_days = Column(Integer, nullable=True)  # Days remaining (calculated on save)
+    
+    # Technical details
+    fingerprint_sha256 = Column(String(64), nullable=True, unique=True, index=True)
+    tls_version = Column(String(50), nullable=True, index=True)
+    key_length = Column(Integer, nullable=True)
+    key_algorithm = Column(String(100), nullable=True)
+    cipher_suite = Column(String(255), nullable=True)
+    signature_algorithm = Column(String(100), nullable=True)
+    ca = Column(String(255), nullable=True, index=True)
+    ca_name = Column(String(255), nullable=True)
+    
+    # Status tracking
+    is_self_signed = Column(Boolean, default=False)
+    is_expired = Column(Boolean, default=False)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
     asset = relationship("Asset", back_populates="certificates")
     scan = relationship("Scan", back_populates="certificates")
+    pqc_classifications = relationship("PQCClassification", back_populates="certificate", cascade="all, delete-orphan", passive_deletes=True)
 
 
 class PQCClassification(Base, SoftDeleteMixin):
     __tablename__ = 'pqc_classification'
     id = Column(Integer, primary_key=True)
-    certificate_id = Column(Integer, ForeignKey('certificates.id', ondelete='CASCADE'), nullable=True)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
-    algorithm_name = Column(String(100))
-    algorithm_type = Column(String(100))
-    quantum_safe_status = Column(String(50))
-    nist_category = Column(String(50))
-    pqc_score = Column(Float)
+    certificate_id = Column(Integer, ForeignKey('certificates.id', ondelete='CASCADE'), nullable=True, index=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
+    
+    # Algorithm classification
+    algorithm_name = Column(String(100), nullable=True, index=True)
+    algorithm_type = Column(String(100), nullable=True)  # symmetric, asymmetric, hash
+    quantum_safe_status = Column(String(50), nullable=True, index=True)  # safe, unsafe, migration_advised
+    nist_category = Column(String(50), nullable=True, index=True)  # NIST category (1-5 for quantum resistance)
+    pqc_score = Column(Float, nullable=True)  # 0-100 score
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
     asset = relationship("Asset", back_populates="pqc_classifications")
     scan = relationship("Scan", back_populates="pqc_classifications")
+    certificate = relationship("Certificate", back_populates="pqc_classifications")
 
 
 class CBOMSummary(Base, SoftDeleteMixin):

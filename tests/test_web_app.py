@@ -3,15 +3,24 @@ Unit tests for the Flask web application routes.
 """
 import json
 import pytest
+from datetime import datetime, timezone
+from uuid import uuid4
 
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from web.app import app
 import web.app as web_app_module
+from web.routes.assets import build_assets_page_context
+from src.db import db_session
+from src.models import Asset, User
 
 
 from unittest.mock import patch
+
+
+def _new_target(prefix: str) -> str:
+    return f"{prefix}-{uuid4().hex[:10]}.example"
 
 @pytest.fixture
 def client():
@@ -28,6 +37,15 @@ def mock_admin():
         mock_user.is_authenticated = True
         mock_user.role = "Admin"
         mock_user.username = "admin"
+        yield mock_user
+
+
+@pytest.fixture
+def mock_manager():
+    with patch('web.app.current_user') as mock_user:
+        mock_user.is_authenticated = True
+        mock_user.role = "Manager"
+        mock_user.username = "manager"
         yield mock_user
 
 class TestRoutes:
@@ -102,6 +120,44 @@ class TestModulePages:
         resp = client.get('/asset-inventory')
         assert resp.status_code == 200
         assert b'ASSET INVENTORY' in resp.data
+
+    def test_asset_inventory_uses_server_table_mode(self, client, mock_admin):
+        asset = Asset(target=_new_target('inventory-render'), asset_type='Web App', is_deleted=False)
+        db_session.add(asset)
+        db_session.commit()
+
+        resp = client.get('/asset-inventory')
+        assert resp.status_code == 200
+        assert b'data-table-mode="server"' in resp.data
+        assert b'data-table-shell' in resp.data
+        assert b'data-bulk-form' in resp.data
+
+    def test_asset_inventory_context_excludes_deleted_assets(self, client, mock_admin):
+        active = Asset(target=_new_target('inventory-active'), asset_type='Web App', is_deleted=False)
+        deleted = Asset(
+            target=_new_target('inventory-deleted'),
+            asset_type='Web App',
+            is_deleted=True,
+            deleted_at=datetime.now(timezone.utc),
+        )
+        active_target = active.target
+        deleted_target = deleted.target
+        db_session.add_all([active, deleted])
+        db_session.commit()
+
+        previous_testing = app.config['TESTING']
+        app.config['TESTING'] = False
+        try:
+            with app.test_request_context('/asset-inventory'):
+                ctx = build_assets_page_context()
+        finally:
+            app.config['TESTING'] = previous_testing
+
+        asset_targets = {row['name'] for row in ctx['vm']['assets']}
+        assert active_target in asset_targets
+        assert deleted_target not in asset_targets
+        assert ctx['page_data'].total_count >= 1
+        assert ctx['page_data'].total_count == len(ctx['vm']['assets'])
 
     def test_asset_discovery_page(self, client, mock_admin):
         resp = client.get('/asset-discovery')
@@ -245,3 +301,313 @@ class TestUnifiedDashboardApi:
         assert data.get('status') == 'success'
         assert isinstance(data.get('data'), dict)
 
+
+class TestAssetDeletionRoutes:
+    def test_asset_delete_allows_manager_role(self, client, mock_manager):
+        target = _new_target('mgr-del')
+        asset = Asset(target=target, asset_type='Web App', is_deleted=False)
+        db_session.add(asset)
+        db_session.commit()
+        asset_id = int(asset.id)
+
+        with patch('web.routes.assets.current_user') as route_user:
+            route_user.role = 'Manager'
+            route_user.id = 42
+            route_user.username = 'manager'
+            resp = client.post(f'/assets/{asset_id}/delete')
+
+        assert resp.status_code == 302
+        reloaded = db_session.query(Asset).filter(Asset.id == asset_id).first()
+        assert reloaded is not None
+        assert reloaded.is_deleted is True
+
+    def test_asset_bulk_delete_allows_manager_role(self, client, mock_manager):
+        target_a = _new_target('mgr-bulk-a')
+        target_b = _new_target('mgr-bulk-b')
+        a = Asset(target=target_a, asset_type='Web App', is_deleted=False)
+        b = Asset(target=target_b, asset_type='Web App', is_deleted=False)
+        db_session.add_all([a, b])
+        db_session.commit()
+        a_id = int(a.id)
+        b_id = int(b.id)
+
+        payload = {'selected_asset_ids': f'{a_id},{b_id}', 'bulk_action': 'bulk-delete'}
+        with patch('web.routes.assets.current_user') as route_user:
+            route_user.role = 'Manager'
+            route_user.id = 99
+            route_user.username = 'manager'
+            resp = client.post('/assets/bulk-delete', data=payload)
+
+        assert resp.status_code == 302
+        reloaded = db_session.query(Asset).filter(Asset.id.in_([a_id, b_id])).all()
+        assert len(reloaded) == 2
+        assert all(row.is_deleted for row in reloaded)
+
+    def test_asset_bulk_delete_accepts_native_checkbox_submission(self, client, mock_manager):
+        target_a = _new_target('mgr-native-a')
+        target_b = _new_target('mgr-native-b')
+        a = Asset(target=target_a, asset_type='Web App', is_deleted=False)
+        b = Asset(target=target_b, asset_type='Web App', is_deleted=False)
+        db_session.add_all([a, b])
+        db_session.commit()
+        a_id = int(a.id)
+        b_id = int(b.id)
+
+        payload = {'asset_ids': [str(a_id), str(b_id)], 'bulk_action': 'bulk-delete'}
+        with patch('web.routes.assets.current_user') as route_user:
+            route_user.role = 'Manager'
+            route_user.id = 100
+            route_user.username = 'manager'
+            resp = client.post('/assets/bulk-delete', data=payload)
+
+        assert resp.status_code == 302
+        reloaded = db_session.query(Asset).filter(Asset.id.in_([a_id, b_id])).all()
+        assert len(reloaded) == 2
+        assert all(row.is_deleted for row in reloaded)
+
+    def test_asset_delete_api_allows_manager_role(self, client, mock_manager):
+        target = _new_target('mgr-api-del')
+        asset = Asset(target=target, asset_type='Web App', is_deleted=False)
+        db_session.add(asset)
+        db_session.commit()
+        asset_id = int(asset.id)
+
+        with patch('web.routes.assets.current_user') as route_user:
+            route_user.role = 'Manager'
+            route_user.id = 142
+            route_user.username = 'manager'
+            resp = client.post(
+                f'/api/assets/{asset_id}/delete',
+                data=json.dumps({}),
+                content_type='application/json',
+                headers={'Accept': 'application/json'},
+            )
+
+        assert resp.status_code == 200
+        payload = json.loads(resp.data)
+        assert payload['status'] == 'success'
+        assert asset_id in payload.get('deleted_ids', [])
+        reloaded = db_session.query(Asset).filter(Asset.id == asset_id).first()
+        assert reloaded is not None
+        assert reloaded.is_deleted is True
+
+    def test_asset_bulk_delete_api_allows_manager_role(self, client, mock_manager):
+        target_a = _new_target('mgr-api-bulk-a')
+        target_b = _new_target('mgr-api-bulk-b')
+        a = Asset(target=target_a, asset_type='Web App', is_deleted=False)
+        b = Asset(target=target_b, asset_type='Web App', is_deleted=False)
+        db_session.add_all([a, b])
+        db_session.commit()
+        a_id = int(a.id)
+        b_id = int(b.id)
+
+        with patch('web.routes.assets.current_user') as route_user:
+            route_user.role = 'Manager'
+            route_user.id = 143
+            route_user.username = 'manager'
+            resp = client.post(
+                '/api/assets/bulk-delete',
+                data=json.dumps({'selected_asset_ids': f'{a_id},{b_id}'}),
+                content_type='application/json',
+                headers={'Accept': 'application/json'},
+            )
+
+        assert resp.status_code == 200
+        payload = json.loads(resp.data)
+        assert payload['status'] == 'success'
+        deleted_ids = payload.get('deleted_ids', [])
+        assert a_id in deleted_ids and b_id in deleted_ids
+        reloaded = db_session.query(Asset).filter(Asset.id.in_([a_id, b_id])).all()
+        assert len(reloaded) == 2
+        assert all(row.is_deleted for row in reloaded)
+
+    def test_asset_edit_api_updates_asset(self, client, mock_manager):
+        target = _new_target('mgr-api-edit')
+        asset = Asset(target=target, asset_type='Web App', owner='Old', risk_level='Low', is_deleted=False)
+        db_session.add(asset)
+        db_session.commit()
+
+        with patch('web.routes.assets.current_user') as route_user:
+            route_user.role = 'Manager'
+            route_user.id = 144
+            route_user.username = 'manager'
+            resp = client.post(
+                f'/api/assets/{asset.id}/edit',
+                data=json.dumps({'owner': 'New Team', 'risk_level': 'Critical'}),
+                content_type='application/json',
+                headers={'Accept': 'application/json'},
+            )
+
+        assert resp.status_code == 200
+        payload = json.loads(resp.data)
+        assert payload['status'] == 'success'
+        reloaded = db_session.query(Asset).filter(Asset.id == asset.id).first()
+        assert reloaded is not None
+        assert reloaded.owner == 'New Team'
+        assert reloaded.risk_level == 'Critical'
+
+
+class TestNonInventoryApiMutations:
+    def test_dashboard_add_asset_api(self, client, mock_admin):
+        target = _new_target('discovery-api-add')
+        resp = client.post(
+            '/dashboard/api/assets',
+            data=json.dumps({'target': target, 'type': 'Web App', 'owner': 'SecOps', 'risk_level': 'Medium'}),
+            content_type='application/json',
+            headers={'Accept': 'application/json'},
+        )
+
+        assert resp.status_code == 200
+        payload = json.loads(resp.data)
+        assert payload.get('status') == 'success'
+        created = db_session.query(Asset).filter(Asset.target == target).first()
+        assert created is not None
+        assert created.is_deleted is False
+
+    def test_recycle_bin_restore_assets_json(self, client, mock_admin):
+        target = _new_target('recycle-json-restore')
+        asset = Asset(
+            target=target,
+            asset_type='Web App',
+            is_deleted=True,
+            deleted_at=datetime.now(timezone.utc),
+        )
+        db_session.add(asset)
+        db_session.commit()
+
+        resp = client.post(
+            '/recycle-bin',
+            data=json.dumps({'action': 'restore_assets', 'asset_ids': [asset.id]}),
+            content_type='application/json',
+            headers={'Accept': 'application/json'},
+        )
+
+        assert resp.status_code == 200
+        payload = json.loads(resp.data)
+        assert payload.get('status') == 'success'
+        assert payload.get('restored_count') == 1
+        reloaded = db_session.query(Asset).filter(Asset.id == asset.id).first()
+        assert reloaded is not None
+        assert reloaded.is_deleted is False
+
+
+class TestAdminUserApiMutations:
+    """Tests for admin user management table-row actions via JSON API."""
+
+    def test_admin_update_user_json(self, client, mock_admin):
+        # Create a test user using db module
+        from werkzeug.security import generate_password_hash
+        import uuid
+        from src import database as db
+        
+        db.init_db()  # Ensure DB exists
+        
+        username = f'test_user_{uuid.uuid4().hex[:8]}'
+        email = f'{username}@example.com'
+        
+        # Get or create a valid created_by user (using None avoids FK constraint issues)
+        updated_user_username = f'test_target_{uuid.uuid4().hex[:8]}'
+        
+        user_id = db.create_invited_user(
+            employee_id=f'EMP-{uuid.uuid4().hex[:8]}',
+            username=updated_user_username,
+            email=email,
+            role='Viewer',
+            created_by=None,  # Avoid FK constraint
+            password_hash=generate_password_hash('Test123!')
+        )
+        assert user_id is not None
+
+        with patch('web.app.current_user') as route_user:
+            route_user.role = 'Admin'
+            route_user.id = 999
+            route_user.username = 'admin'
+            resp = client.post(
+                f'/admin/users/{user_id}/update',
+                data=json.dumps({'role': 'Manager', 'is_active': False}),
+                content_type='application/json',
+                headers={'Accept': 'application/json'},
+            )
+
+        assert resp.status_code == 200
+        payload = json.loads(resp.data)
+        assert payload['status'] == 'success'
+        assert payload['role'] == 'Manager'
+        assert payload['is_active'] is False
+
+    def test_admin_reset_password_json(self, client, mock_admin):
+        # Create a test user with email
+        from werkzeug.security import generate_password_hash
+        import uuid
+        from src import database as db
+        
+        db.init_db()
+        
+        username = f'test_reset_{uuid.uuid4().hex[:8]}'
+        email = f'{username}@example.com'
+        
+        user_id = db.create_invited_user(
+            employee_id=f'EMP-{uuid.uuid4().hex[:8]}',
+            username=username,
+            email=email,
+            role='Viewer',
+            created_by=None,
+            password_hash=generate_password_hash('Test123!')
+        )
+        assert user_id is not None
+
+        with patch('web.app.current_user') as route_user, \
+             patch('web.app.mail.send') as mock_send:
+            route_user.role = 'Admin'
+            route_user.id = 999
+            route_user.username = 'admin'
+            resp = client.post(
+                f'/admin/users/{user_id}/reset-password',
+                data=json.dumps({}),
+                content_type='application/json',
+                headers={'Accept': 'application/json'},
+            )
+
+        assert resp.status_code == 200
+        payload = json.loads(resp.data)
+        assert payload['status'] == 'success'
+        assert payload['message'] == 'Password reset email sent.'
+        assert payload['user_id'] == user_id
+
+    def test_admin_regen_api_key_json(self, client, mock_admin):
+        # Create a test user
+        from werkzeug.security import generate_password_hash
+        import uuid
+        from src import database as db
+        
+        db.init_db()
+        
+        username = f'test_api_key_{uuid.uuid4().hex[:8]}'
+        email = f'{username}@example.com'
+        
+        user_id = db.create_invited_user(
+            employee_id=f'EMP-{uuid.uuid4().hex[:8]}',
+            username=username,
+            email=email,
+            role='Viewer',
+            created_by=None,
+            password_hash=generate_password_hash('Test123!')
+        )
+        assert user_id is not None
+
+        with patch('web.app.current_user') as route_user:
+            route_user.role = 'Admin'
+            route_user.id = 999
+            route_user.username = 'admin'
+            resp = client.post(
+                f'/admin/users/{user_id}/regen-api-key',
+                data=json.dumps({}),
+                content_type='application/json',
+                headers={'Accept': 'application/json'},
+            )
+
+        assert resp.status_code == 200
+        payload = json.loads(resp.data)
+        assert payload['status'] == 'success'
+        assert 'api_key' in payload
+        assert payload['api_key'].startswith('qss_')

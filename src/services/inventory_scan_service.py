@@ -121,7 +121,7 @@ class InventoryScanService:
         if latest_scan:
             asset.last_scan_id = latest_scan.id
 
-    def scan_asset(self, asset: Asset) -> Dict:
+    def scan_asset(self, asset: Asset, scan_kind: str = "inventory_asset") -> Dict:
         """Scan a single asset and sync key fields into inventory."""
         target = self._canonical_target(asset)
         if not target:
@@ -137,7 +137,12 @@ class InventoryScanService:
             if not callable(self.scan_runner):
                 raise RuntimeError("scan_runner_not_configured")
 
-            report = self.scan_runner(target)
+            scanned_by = str(getattr(asset, "owner", "") or "system")
+            try:
+                report = self.scan_runner(target, scan_kind=scan_kind, scanned_by=scanned_by)
+            except TypeError:
+                # Backward compatibility for older scan runners that accept target only.
+                report = self.scan_runner(target)
             status = "complete" if report.get("status") == "complete" else "failed"
             if status == "complete":
                 self._sync_asset_from_report(asset, report)
@@ -231,7 +236,7 @@ class InventoryScanService:
                 target = self._canonical_target(asset)
                 logger.info("[INVENTORY SCAN] %s/%s %s", idx, len(unique_assets), target)
                 self.__class__._progress["current_target"] = target
-                result = self.scan_asset(asset)
+                result = self.scan_asset(asset, scan_kind="inventory_bulk")
                 asset_id = int(getattr(asset, "id", 0) or 0)
                 detailed_results[asset_id] = result
                 summary["results"][target] = {
@@ -295,9 +300,10 @@ class InventoryScanService:
 
         history: List[Dict] = []
 
+        canonical_target = self._canonical_target(asset)
         latest_scan = (
             db_session.query(Scan)
-            .filter(func.lower(Scan.target) == (asset.name or "").lower())
+            .filter(func.lower(Scan.target) == canonical_target)
             .order_by(Scan.id.desc())
             .first()
         )

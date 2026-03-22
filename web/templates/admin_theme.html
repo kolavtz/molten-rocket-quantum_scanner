@@ -3,19 +3,29 @@
 {% block header_title %}Theme Settings - QuantumShield{% endblock %}
 
 {% block content %}
-<div class="container mt-4 animate-fade-in">
-    <!-- Page Header -->
+{% macro color_input(name, label, value) %}
+<div class="theme-field">
+    <label class="theme-label" for="{{ name }}">{{ label }}</label>
+    <div class="theme-input-row">
+        <input type="color" class="theme-color-picker" id="{{ name }}_picker" value="{{ value }}" data-preview-target="{{ name }}">
+        <input type="text" name="{{ name }}" id="{{ name }}" class="theme-text-input" value="{{ value }}" placeholder="#123456" data-preview-field="{{ name }}">
+    </div>
+</div>
+{% endmacro %}
+
+<div class="container mt-4 animate-fade-in" style="max-width: 1200px;">
+    
+    <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h1 class="h3 text-light mb-1"><i class="fa-solid fa-palette me-2 text-info"></i>Theme Configuration</h1>
-            <p class="text-muted small">Customize the application sidebar, navigation, and core template style colors.</p>
+            <h1 class="h3 text-light mb-1"><i class="fa-solid fa-wand-magic-sparkles me-2 text-info"></i>THEME CUSTOMIZER</h1>
+            <p class="text-muted small">Design your dashboard atmosphere live. Changes propagate application-wide upon saving.</p>
         </div>
-        <a href="{{ url_for('admin_users') }}" class="btn btn-outline-secondary btn-sm">
-            <i class="fa-solid fa-arrow-left me-1"></i> Back to Users
+        <a href="{{ url_for('cbom_dashboard') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fa-solid fa-arrow-left me-1"></i> Dashboard
         </a>
     </div>
 
-    <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -27,99 +37,314 @@
         {% endif %}
     {% endwith %}
 
-    <div class="row">
-        <div class="col-md-6">
-            <div class="card bg-dark border-secondary shadow-sm mb-4">
-                <div class="card-header bg-transparent border-secondary">
-                    <h5 class="card-title text-light mb-0">Color Management Panel</h5>
+    <form method="POST" action="{{ url_for('admin_theme') }}" class="row g-4">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <!-- Left Column: Controls (Tabs) -->
+        <div class="col-12 col-md-7">
+            <div class="glass-card theme-adjuster-card h-100" style="padding: 1.5rem;">
+                
+                <!-- Tab Headers -->
+                <div class="theme-tabs">
+                    <button type="button" class="tab-btn active" onclick="switchThemeTab('night')">Night Palette</button>
+                    <button type="button" class="tab-btn" onclick="switchThemeTab('day')">Day Palette</button>
+                    <button type="button" class="tab-btn" onclick="switchThemeTab('global')">Global Mode</button>
                 </div>
-                <div class="card-body">
-                    <form method="POST" action="{{ url_for('admin_theme') }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                        <div class="mb-3">
-                            <label class="form-label text-muted small">Navbar / Sidebar Background</label>
-                            <div class="d-flex gap-2 align-items-center">
-                                <input type="color" class="form-control form-control-color bg-transparent border-secondary" 
-                                       id="bg_navbar_picker" value="{{ theme.bg_navbar if theme.bg_navbar.startswith('#') else '#0f1219' }}">
-                                <input type="text" name="bg_navbar" id="bg_navbar_text" class="form-control bg-transparent border-secondary text-light" 
-                                       value="{{ theme.bg_navbar }}" placeholder="e.g. #0f1219 or rgba(...)">
+                <!-- Tab: Global Mode -->
+                <div id="tab-content-global" class="tab-view d-none">
+                    <h5 class="tab-title">Global Setting</h5>
+                    <div class="form-group mb-3">
+                        <label class="theme-label" for="mode">STARTUP MODE</label>
+                        <select id="mode" name="mode" class="theme-text-input">
+                            <option value="system" {% if theme.mode == 'system' %}selected{% endif %}>SYSTEM PREFERENCE</option>
+                            <option value="dark" {% if theme.mode == 'dark' %}selected{% endif %}>FORCE NIGHT MODE</option>
+                            <option value="light" {% if theme.mode == 'light' %}selected{% endif %}>FORCE DAY MODE</option>
+                        </select>
+                        <small class="text-muted d-block mt-1">Users can change nodes at runtime; this triggers default boot defaults.</small>
+                    </div>
+                </div>
+
+                <!-- Tab: Night Style -->
+                <div id="tab-content-night" class="tab-view">
+                    <h5 class="tab-title text-info">Night Mode Palette</h5>
+                    <div class="theme-grid">
+                        <div class="theme-section-block">
+                            <h6 class="theme-sub">BACKGROUNDS</h6>
+                            {{ color_input('dark_bg_navbar', 'Navbar Header', theme.dark.bg_navbar) }}
+                            {{ color_input('dark_bg_primary', 'Main Canvas', theme.dark.bg_primary) }}
+                            {{ color_input('dark_bg_secondary', 'Dashboard Track', theme.dark.bg_secondary) }}
+                            {{ color_input('dark_bg_card', 'Widget Card', theme.dark.bg_card) }}
+                            {{ color_input('dark_bg_input', 'Input Base', theme.dark.bg_input) }}
+                        </div>
+                        <div class="theme-section-block">
+                            <h6 class="theme-sub">TYPOGRAPHY</h6>
+                            {{ color_input('dark_text_primary', 'Primary Title', theme.dark.text_primary) }}
+                            {{ color_input('dark_text_secondary', 'Body Text', theme.dark.text_secondary) }}
+                            {{ color_input('dark_text_muted', 'Muted Details', theme.dark.text_muted) }}
+                        </div>
+                        <div class="theme-section-block">
+                            <h6 class="theme-sub">SYSTEM</h6>
+                            {{ color_input('dark_accent_color', 'Accent Highlight', theme.dark.accent_color) }}
+                            {{ color_input('dark_safe', 'Success (Safe)', theme.dark.safe) }}
+                            {{ color_input('dark_warn', 'Warning (Warn)', theme.dark.warn) }}
+                            {{ color_input('dark_danger', 'Danger (Alert)', theme.dark.danger) }}
+                            {{ color_input('dark_border_subtle', 'Subtle Border', theme.dark.border_subtle) }}
+                            {{ color_input('dark_border_hover', 'Hover State', theme.dark.border_hover) }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Day Style -->
+                <div id="tab-content-day" class="tab-view d-none">
+                    <h5 class="tab-title text-warning">Day Mode Palette</h5>
+                    <div class="theme-grid">
+                        <div class="theme-section-block">
+                            <h6 class="theme-sub">BACKGROUNDS</h6>
+                            {{ color_input('light_bg_navbar', 'Navbar Header', theme.light.bg_navbar) }}
+                            {{ color_input('light_bg_primary', 'Main Canvas', theme.light.bg_primary) }}
+                            {{ color_input('light_bg_secondary', 'Dashboard Track', theme.light.bg_secondary) }}
+                            {{ color_input('light_bg_card', 'Widget Card', theme.light.bg_card) }}
+                            {{ color_input('light_bg_input', 'Input Base', theme.light.bg_input) }}
+                        </div>
+                        <div class="theme-section-block">
+                            <h6 class="theme-sub">TYPOGRAPHY</h6>
+                            {{ color_input('light_text_primary', 'Primary Title', theme.light.text_primary) }}
+                            {{ color_input('light_text_secondary', 'Body Text', theme.light.text_secondary) }}
+                            {{ color_input('light_text_muted', 'Muted Details', theme.light.text_muted) }}
+                        </div>
+                        <div class="theme-section-block">
+                            <h6 class="theme-sub">SYSTEM</h6>
+                            {{ color_input('light_accent_color', 'Accent Highlight', theme.light.accent_color) }}
+                            {{ color_input('light_safe', 'Success (Safe)', theme.light.safe) }}
+                            {{ color_input('light_warn', 'Warning (Warn)', theme.light.warn) }}
+                            {{ color_input('light_danger', 'Danger (Alert)', theme.light.danger) }}
+                            {{ color_input('light_border_subtle', 'Subtle Border', theme.light.border_subtle) }}
+                            {{ color_input('light_border_hover', 'Hover State', theme.light.border_hover) }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-top border-secondary">
+                    <button type="submit" class="btn btn-info text-dark fw-bold px-4 py-2" style="border-radius:6px;">
+                        <i class="fa-solid fa-floppy-disk me-1"></i> SAVE CHANGES
+                    </button>
+                    <span class="text-muted small ms-2">Contrast ratio and thresholds verified on save.</span>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Right Column: Interactive Live Preview -->
+        <div class="col-12 col-md-5">
+            <div class="glass-card theme-preview-container h-100" style="padding: 1.5rem; position: sticky; top: 2rem;">
+                <h5 class="tab-title mb-3">Live Sandbox Preview</h5>
+                <p class="text-muted small mb-3">Demonstrating current inputs loaded onto elements scope.</p>
+
+                <!-- Sandbox Mockup Frame -->
+                <div id="sandbox-mockup" class="sandbox-mockup">
+                    <div class="mock-nav">
+                        <div class="mock-nav-logo"><i class="fa-solid fa-shield-halved"></i> QS</div>
+                        <div class="mock-nav-accent"></div>
+                    </div>
+                    
+                    <div class="mock-content">
+                        <h6 class="mock-title">Dashboard Node</h6>
+                        <p class="mock-text">Telemetry and Asset compliance readout grid.</p>
+
+                        <div class="mock-card">
+                            <div class="mock-card-header">Kpi.Overview</div>
+                            <div class="mock-card-body">
+                                <div class="mock-kpi-row">
+                                    <div class="mock-kpi"><span class="mock-kpi-val">1.2s</span> <span class="mock-kpi-cap">Latency</span></div>
+                                    <div class="mock-kpi"><span class="mock-kpi-val text-info">94</span> <span class="mock-kpi-cap">Score</span></div>
+                                </div>
+                                <div class="mock-badge-row mt-2">
+                                    <span class="mock-badge bg-safe">SAFE</span>
+                                    <span class="mock-badge bg-warn">WARN</span>
+                                    <span class="mock-badge bg-danger">ALERT</span>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label text-muted small">Accent / Highlight Color</label>
-                            <div class="d-flex gap-2 align-items-center">
-                                <input type="color" class="form-control form-control-color bg-transparent border-secondary" 
-                                       id="accent_picker" value="{{ theme.accent_color if theme.accent_color.startswith('#') else '#4a9ead' }}">
-                                <input type="text" name="accent_color" id="accent_text" class="form-control bg-transparent border-secondary text-light" 
-                                       value="{{ theme.accent_color }}">
-                            </div>
+                        <div class="mock-form mt-2">
+                            <input type="text" class="mock-input" value="Sample query..." disabled>
+                            <button type="button" class="mock-btn mt-1">Submit</button>
                         </div>
-
-                        <div class="mb-3">
-                            <label class="form-label text-muted small">Global Background Color</label>
-                            <div class="d-flex gap-2 align-items-center">
-                                <input type="color" class="form-control form-control-color bg-transparent border-secondary" 
-                                       id="bg_primary_picker" value="{{ theme.bg_primary if theme.bg_primary.startswith('#') else '#0f1219' }}">
-                                <input type="text" name="bg_primary" id="bg_primary_text" class="form-control bg-transparent border-secondary text-light" 
-                                       value="{{ theme.bg_primary }}">
-                            </div>
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="form-label text-muted small">Main Text Color</label>
-                            <div class="d-flex gap-2 align-items-center">
-                                <input type="color" class="form-control form-control-color bg-transparent border-secondary" 
-                                       id="text_picker" value="{{ theme.text_primary if theme.text_primary.startswith('#') else '#f3f4f6' }}">
-                                <input type="text" name="text_primary" id="text_text" class="form-control bg-transparent border-secondary text-light" 
-                                       value="{{ theme.text_primary }}">
-                            </div>
-                        </div>
-
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-info text-dark fw-semibold">
-                                <i class="fa-solid fa-floppy-disk me-1"></i> Save Changes
-                            </button>
-                        </div>
-                    </form>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-6">
-            <div class="card bg-dark border-secondary shadow-sm">
-                <div class="card-header bg-transparent border-secondary">
-                    <h5 class="card-title text-light mb-0">Help & Instructions</h5>
-                </div>
-                <div class="card-body text-muted small">
-                    <p>Use hexadecimal (`#1a1e24`) or standard CSS forms like `rgb(10, 20, 30)` or transparent overrides like `rgba(15, 18, 25, 0.95)` to refine transparency blends over high headers overlay drawers setups.</p>
-                    <p>Color codes apply instantly upon saving. Use pickers to find values, inputs are linked dynamically inside live contexts overrides variables blocks headers.</p>
-                </div>
-            </div>
-        </div>
-    </div>
+    </form>
 </div>
 
+<!-- Stylings Overhaul -->
+<style>
+    :root {
+        --glass-card: rgba(30, 41, 59, 0.4);
+    }
+    .glass-card {
+        background: var(--glass-card) !important;
+        backdrop-filter: blur(12px) !important;
+        border: 1.5px solid rgba(255, 255, 255, 0.04) !important;
+        border-radius: 12px !important;
+    }
+    .theme-tabs {
+        display: flex;
+        gap: 0.35rem;
+        background: rgba(15, 23, 42, 0.3);
+        padding: 0.3rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        border: 1px solid rgba(255,255,255,0.02);
+    }
+    .tab-btn {
+        flex: 1;
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        color: var(--text-secondary, #94a3b8);
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .tab-btn.active {
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-primary, #f8fafc);
+        border: 1px solid rgba(255,255,255,0.06);
+    }
+    .tab-title {
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        font-weight: 600;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        padding-bottom: 0.4rem;
+        margin-bottom: 1.25rem;
+        letter-spacing: 0.5px;
+    }
+    .theme-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.25rem;
+    }
+    .theme-sub {
+        font-size: 0.75rem;
+        color: var(--text-muted, #64748b);
+        letter-spacing: 1px;
+        margin-bottom: 0.8rem;
+    }
+    .theme-field { margin-bottom: 0.75rem; }
+    .theme-label { display: block; font-size: 0.7rem; color: var(--text-secondary, #94a3b8); margin-bottom: 0.3rem; }
+    .theme-input-row { display: flex; gap: 0.4rem; }
+    .theme-color-picker {
+        width: 32px; height: 32px; padding: 0; background: transparent; border-radius: 4px; border: 1px solid rgba(255,255,255,0.08); cursor: pointer;
+    }
+    .theme-text-input {
+        flex: 1; background: rgba(15, 23, 42, 0.3); color: var(--text-primary, #f8fafc); border: 1px solid rgba(255,255,255,0.06); border-radius: 4px; padding: 0.35rem 0.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
+    }
+    .theme-text-input:focus { outline: none; border-color: #38bdf8; }
+
+    /* Sandbox Mockup layout scope variables overrides */
+    .sandbox-mockup {
+        border-radius: 8px; overflow: hidden; height: 320px;
+        background: var(--bg-primary); color: var(--text-primary);
+        border: 1.5px solid var(--border-subtle); display: flex; flex-direction: column;
+        --accent: #0ea5e9; --bg-card: #1e293b; --bg-navbar: #0f172a; --bg-input: rgba(15,23,42,0.4);
+        --text-secondary: #94a3b8; --border-subtle: rgba(255,255,255,0.04);
+        --safe: #10b981; --warn: #f59e0b; --danger: #ef4444;
+    }
+    .mock-nav { background: var(--bg-navbar); padding: 0.6rem 0.8rem; border-bottom: 2px solid var(--accent); position: relative; }
+    .mock-nav-logo { font-size: 0.8rem; font-weight: bold; color: var(--text-primary); }
+    .mock-content { flex: 1; background: var(--bg-primary); padding: 0.8rem; }
+    .mock-title { font-size: 0.82rem; font-weight: 600; margin-bottom: 0.2rem; color: var(--text-primary); }
+    .mock-text { font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 0.7rem; }
+    .mock-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.6rem; margin-bottom:0.6rem; }
+    .mock-card-header { font-size: 0.65rem; color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.3rem; margin-bottom: 0.4rem; font-family: 'JetBrains Mono', monospace;}
+    .mock-kpi-row { display: flex; gap: 0.5rem; }
+    .mock-kpi { flex: 1; padding: 0.4rem; border-radius: 4px; border: 1px solid var(--border-subtle); background: rgba(0,0,0,0.1); }
+    .mock-kpi-val { font-size: 0.88rem; font-weight: bold; display: block; }
+    .mock-kpi-cap { font-size: 0.55rem; color: var(--text-secondary); }
+    .mock-badge-row { display: flex; gap: 0.3rem; }
+    .mock-badge { font-size: 0.55rem; padding: 0.15rem 0.35rem; border-radius: 3px; font-weight:600; text-shadow:0 1px 1px rgba(0,0,0,0.2); }
+    .bg-safe { background: var(--safe); color:#fff; } .bg-warn { background: var(--warn); color:#fff; } .bg-danger { background: var(--danger); color:#fff; }
+    .mock-form { padding-top: 0.4rem; border-top: 1px solid var(--border-subtle); }
+    .mock-input { width: 100%; background: var(--bg-input); border: 1px solid var(--border-subtle); color: var(--text-primary); font-size: 0.65rem; padding: 0.3rem; border-radius: 4px; }
+    .mock-btn { background: var(--accent); color: #fff; border: none; font-size: 0.65rem; font-weight: bold; padding: 0.3rem 0.6rem; border-radius: 4px; width: 100%; text-shadow:0 1px 1px rgba(0,0,0,0.2); }
+</style>
+
 <script>
-    // Sync picker and text input
-    function setupSync(pickerId, textId) {
+    // Tab switching
+    function switchThemeTab(tabId) {
+        document.querySelectorAll('.tab-view').forEach(v => v.classList.add('d-none'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-content-' + tabId).classList.remove('d-none');
+        event.target.classList.add('active');
+        updateSandboxScope(tabId === 'day' ? 'light_' : 'dark_');
+    }
+
+    // Live CSS Preview Injections
+    const sandbox = document.getElementById('sandbox-mockup');
+    let activePrefix = 'dark_';
+
+    function updateSandboxScope(prefix) {
+        activePrefix = prefix;
+        const fields = [
+            'bg_navbar', 'bg_primary', 'bg_secondary', 'bg_card', 'bg_input',
+            'border_subtle', 'border_hover', 'text_primary', 'text_secondary',
+            'text_muted', 'accent_color', 'safe', 'warn', 'danger'
+        ];
+        fields.forEach(f => {
+            const input = document.getElementById(activePrefix + f);
+            if(input) {
+                const varName = f === 'accent_color' ? '--accent' : '--' + f.replace('_', '-');
+                sandbox.style.setProperty(varName, input.value);
+            }
+        });
+    }
+
+    // Sync picking & Trigger Sandbox
+    function setupSync(pickerId, textId, varName) {
         const picker = document.getElementById(pickerId);
         const text = document.getElementById(textId);
-        if(picker && text) {
-            picker.addEventListener('input', (e) => {
-                text.value = e.target.value;
-            });
-            text.addEventListener('input', (e) => {
-                if(e.target.value.startsWith('#') && e.target.value.length === 7) {
-                    picker.value = e.target.value;
-                }
-            });
+        if (!picker || !text) return;
+
+        function apply(val) {
+            if (pickerId.startsWith(activePrefix)) {
+                sandbox.style.setProperty(varName, val);
+            }
         }
+
+        picker.addEventListener('input', (e) => {
+            text.value = e.target.value;
+            apply(e.target.value);
+        });
+        text.addEventListener('input', (e) => {
+            const value = e.target.value.trim();
+            if (/^#[0-9a-fA-F]{6}$/.test(value)) {
+                picker.value = value;
+                apply(value);
+            }
+        });
     }
-    setupSync('bg_navbar_picker', 'bg_navbar_text');
-    setupSync('accent_picker', 'accent_text');
-    setupSync('bg_primary_picker', 'bg_primary_text');
-    setupSync('text_picker', 'text_text');
+
+    const fields = [
+        'bg_navbar', 'bg_primary', 'bg_secondary', 'bg_card', 'bg_input',
+        'border_subtle', 'border_hover', 'text_primary', 'text_secondary',
+        'text_muted', 'accent_color', 'safe', 'warn', 'danger'
+    ];
+
+    ['dark_', 'light_'].forEach(pfx => {
+        fields.forEach(f => {
+            const varName = f === 'accent_color' ? '--accent' : '--' + f.replace('_', '-');
+            setupSync(pfx + f + '_picker', pfx + f, varName);
+        });
+    });
+
+    // Boot initialize active view
+    updateSandboxScope('dark_');
 </script>
+
 {% endblock %}
