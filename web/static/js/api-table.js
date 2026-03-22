@@ -29,7 +29,28 @@
     return qp.toString();
   }
 
+  function normalizeEnvelope(payload) {
+    var raw = payload || {};
+    var data = (raw && raw.data && typeof raw.data === 'object') ? raw.data : raw;
+    return {
+      success: typeof raw.success === 'boolean' ? raw.success : true,
+      items: Array.isArray(data.items) ? data.items : [],
+      total: Number(data.total || 0),
+      page: Number(data.page || 1),
+      page_size: Number(data.page_size || data.pageSize || 25),
+      total_pages: Number(data.total_pages || data.totalPages || 1),
+      kpis: (data.kpis && typeof data.kpis === 'object') ? data.kpis : {},
+      filters: (raw.filters && typeof raw.filters === 'object') ? raw.filters : {},
+      error: raw.error || null,
+    };
+  }
+
   async function fetchDashboardPage(apiUrl, params) {
+    if (window.QuantumShieldApiClient && typeof window.QuantumShieldApiClient.get === 'function') {
+      var clientPayload = await window.QuantumShieldApiClient.get(apiUrl, params || {});
+      return normalizeEnvelope(clientPayload);
+    }
+
     var url = apiUrl + '?' + buildQuery(params || {});
     var response = await fetch(url, {
       method: 'GET',
@@ -48,13 +69,19 @@
     }
 
     if (!response.ok) {
-      throw new Error(data.message || ('Request failed (' + response.status + ')'));
+      var message = (data.error && data.error.message) || data.message || ('Request failed (' + response.status + ')');
+      throw new Error(message);
     }
 
-    return data;
+    return normalizeEnvelope(data);
   }
 
   function renderTable(tableBody, columns, items) {
+    if (window.QuantumShieldUniversalTable && typeof window.QuantumShieldUniversalTable.renderBody === 'function') {
+      window.QuantumShieldUniversalTable.renderBody(tableBody, columns, items);
+      return;
+    }
+
     if (!tableBody) return;
     if (!Array.isArray(items) || items.length === 0) {
       tableBody.innerHTML = '<tr><td colspan="' + columns.length + '">No records found.</td></tr>';
@@ -74,6 +101,11 @@
   }
 
   function renderHeaders(headerRow, columns) {
+    if (window.QuantumShieldUniversalTable && typeof window.QuantumShieldUniversalTable.renderHead === 'function') {
+      window.QuantumShieldUniversalTable.renderHead(headerRow, columns);
+      return;
+    }
+
     if (!headerRow) return;
     headerRow.innerHTML = columns.map(function (col) {
       return '<th>' + escapeHtml(col.label) + '</th>';

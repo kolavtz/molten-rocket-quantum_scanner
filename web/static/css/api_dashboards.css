@@ -1,0 +1,33 @@
+[data-api-table-page] [data-api-error] {
+  background: rgba(248, 113, 113, 0.15);
+  border: 1px solid var(--danger);
+  padding: 0.8rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+[data-api-table-page] [data-api-kpis] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+[data-api-table-page] .api-kpi {
+  border: 1px solid var(--border_subtle);
+  border-radius: 10px;
+  padding: 0.75rem;
+  background: var(--bg_card);
+}
+
+[data-api-table-page] .api-kpi-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text_primary);
+}
+
+[data-api-table-page] .api-kpi-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text_secondary);
+}

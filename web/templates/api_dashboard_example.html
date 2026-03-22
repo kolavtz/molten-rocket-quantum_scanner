@@ -2,6 +2,10 @@
 
 {% block title %}API-First Dashboard Example | QuantumShield{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/api_dashboards.css') }}" />
+{% endblock %}
+
 {% block content %}
 <section class="hero" style="padding-bottom:1rem;">
   <h2 class="hero-title" style="font-size:2rem;">{{ page_title }}</h2>
@@ -41,6 +45,8 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/api_client.js') }}"></script>
+<script src="{{ url_for('static', filename='js/universal_table.js') }}"></script>
 <script src="{{ url_for('static', filename='js/api-table.js') }}"></script>
 <script type="application/json" id="api-columns-json">{{ columns|tojson }}</script>
 <script type="application/json" id="api-extra-params-json">{{ extra_params|tojson }}</script>

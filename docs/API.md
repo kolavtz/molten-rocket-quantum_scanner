@@ -1,5 +1,12 @@
 # QuantumShield API Reference
 
+## V2 Refactor Reference (Inventory-Centric, API-First)
+
+For the strict GLOBAL_APP_REFACTOR_V2 contract (inventory-only KPI scope, no hardcoded metrics, universal envelope, per-page endpoint matrix, and SQL/data-flow guardrails), see:
+
+- `docs/GLOBAL_APP_REFACTOR_V2.md`
+- `schema_v2_inventory_api_first.sql`
+
 ## Base URL
 
 ```

@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Scans | QuantumShield{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/api_dashboards.css') }}" />
+{% endblock %}
+
 {% block content %}
 <section class="hero" style="padding-bottom:1rem;">
   <h2 class="hero-title" style="font-size:2rem;">SCANS</h2>
@@ -66,6 +70,8 @@
   </div>
 </section>
 
+<script src="{{ url_for('static', filename='js/api_client.js') }}"></script>
+<script src="{{ url_for('static', filename='js/universal_table.js') }}"></script>
 <script src="{{ url_for('static', filename='js/api-table.js') }}"></script>
 <script src="{{ url_for('static', filename='js/scans.js') }}"></script>
 <script>
