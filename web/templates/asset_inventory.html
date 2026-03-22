@@ -22,7 +22,7 @@
     <div class="selection-summary" data-assets-in-view-summary>{{ page_data.total_count }} assets in view</div>
   </div>
 
-  <form action="{{ url_for('assets.asset_scan') }}" method="post" class="asset-create-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.75rem;align-items:end;margin-top:1rem;">
+  <form id="assetCreateForm" class="asset-create-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.75rem;align-items:end;margin-top:1rem;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div>
       <label class="asset-modal-label" for="scanTarget">Target URL / IP</label>
@@ -34,7 +34,7 @@
     </div>
     <div>
       <label class="asset-modal-label" for="scanType">Asset Type</label>
-      <select id="scanType" name="asset_type" class="asset-modal-select">
+      <select id="scanType" name="type" class="asset-modal-select">
         <option value="Web App">Web App</option>
         <option value="API">API</option>
         <option value="Server">Server</option>
@@ -53,6 +53,50 @@
     </div>
     <button type="submit" class="scan-button" style="min-height:42px;">Scan & Save</button>
   </form>
+  
+  <script>
+  (function() {
+    const form = document.getElementById('assetCreateForm');
+    if (!form) return;
+    
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData);
+      delete data.csrf_token;  // API will validate token separately
+      
+      const btn = form.querySelector('[type="submit"]');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Creating...';
+      
+      try {
+        const response = await fetch('/api/assets', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': data.csrf_token || '{{ csrf_token() }}'
+          },
+          body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+          alert('Asset created/restored. Refreshing...');
+          location.reload();
+        } else {
+          alert('Error: ' + (result.error?.message || 'Failed to create asset'));
+          btn.disabled = false;
+          btn.textContent = originalText;
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    });
+  })();
+  </script>
 </section>
 
 <section class="overview-grid" style="margin-bottom:1rem;">

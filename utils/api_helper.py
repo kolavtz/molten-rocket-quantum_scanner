@@ -248,3 +248,188 @@ def extract_pagination_params(request_obj=None) -> Dict[str, Any]:
         "order": order,
         "search": q
     }
+
+
+def error_response(message: str, status_code: int = 400, hint: str = "") -> Tuple[Dict[str, Any], int]:
+    """
+    Standard error response formatter.
+    
+    Args:
+        message: User-friendly error message
+        status_code: HTTP status code
+        hint: Optional hint for debugging
+    
+    Returns:
+        Tuple of (response_dict, status_code)
+    """
+    response = {
+        "success": False,
+        "error": {
+            "status": status_code,
+            "message": message
+        }
+    }
+    
+    if hint:
+        response["error"]["hint"] = hint
+    
+    return response, status_code
+
+
+def success_response(data: Dict[str, Any], filters: Optional[Dict[str, Any]] = None, status_code: int = 200) -> Tuple[Dict[str, Any], int]:
+    """
+    Standard success response formatter.
+    
+    Args:
+        data: Response data object
+        filters: Optional applied filters
+        status_code: HTTP status code
+    
+    Returns:
+        Tuple of (response_dict, status_code)
+    """
+    response = {
+        "success": True,
+        "data": data,
+        "filters": filters or {}
+    }
+    
+    return response, status_code
+
+
+def build_data_envelope(items: List[Any], total: int, params: Dict[str, Any], kpis: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Build standard data envelope for paginated responses.
+    
+    Args:
+        items: List of items for current page
+        total: Total number of items
+        params: Pagination params dict with page, page_size, sort, order
+        kpis: Optional KPIs dict
+    
+    Returns:
+        Standardized data envelope dict
+    """
+    page = params.get("page", 1)
+    page_size = params.get("page_size", 25)
+    total_pages = math.ceil(total / page_size) if page_size > 0 else 1
+    
+    envelope = {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages
+    }
+    
+    if kpis:
+        envelope["kpis"] = kpis
+    
+    return envelope
+
+
+def parse_paging_args(request_obj=None, default_sort: str = "id") -> Dict[str, Any]:
+    """
+    Parse pagination arguments from Flask request.
+    
+    Args:
+        request_obj: Flask request object (defaults to current request)
+        default_sort: Default sort field
+    
+    Returns:
+        Dict with page, page_size, sort, order, search
+    """
+    if request_obj is None:
+        request_obj = request
+    
+    page = request_obj.args.get("page", 1, type=int)
+    page_size = request_obj.args.get("page_size", 25, type=int)
+    sort = request_obj.args.get("sort", default_sort, type=str)
+    order = request_obj.args.get("order", "asc", type=str)
+    search = request_obj.args.get("search", "", type=str)
+    
+    page, page_size = validate_pagination_params(page, page_size)
+    
+    return {
+        "page": page,
+        "page_size": page_size,
+        "sort": sort,
+        "order": order,
+        "search": search
+    }
+
+
+def apply_sort(query, sort_field: Optional[str], order: str = "asc", sort_map: Optional[Dict[str, Any]] = None, default_field=None):
+    """
+    Apply sorting to a SQLAlchemy query.
+    
+    Args:
+        query: SQLAlchemy query object
+        sort_field: Field name to sort by
+        order: Sort order (asc or desc)
+        sort_map: Dictionary mapping field names to SQLAlchemy column objects
+        default_field: Default field to use if sort_field not found
+    
+    Returns:
+        Modified query with sorting applied
+    """
+    if not sort_field or not sort_map:
+        return query
+    
+    sort_column = sort_map.get(sort_field, sort_map.get("id") if default_field is None else default_field)
+    if sort_column is None:
+        return query
+    
+    if order.lower() == "desc":
+        return query.order_by(sort_column.desc())
+    else:
+        return query.order_by(sort_column.asc())
+
+
+def apply_text_search(query, search_query: str, searchable_fields: List[Any]):
+    """
+    Apply text search to a SQLAlchemy query.
+    
+    Args:
+        query: SQLAlchemy query object
+        search_query: Search string
+        searchable_fields: List of SQLAlchemy column objects to search in
+    
+    Returns:
+        Modified query with search filter applied
+    """
+    if not search_query or not searchable_fields:
+        return query
+    
+    from sqlalchemy import or_
+    search_term = f"%{search_query}%"
+    conditions = []
+    
+    for field in searchable_fields:
+        try:
+            conditions.append(field.ilike(search_term))
+        except (AttributeError, TypeError):
+            # Field is not a SQLAlchemy column, skip it
+            pass
+    
+    if conditions:
+        return query.filter(or_(*conditions))
+    
+    return query
+
+
+def to_iso(dt) -> Optional[str]:
+    """
+    Convert datetime to ISO 8601 format string.
+    
+    Args:
+        dt: Datetime object or None
+    
+    Returns:
+        ISO 8601 formatted string or None
+    """
+    if dt is None:
+        return None
+    if hasattr(dt, "isoformat"):
+        return dt.isoformat()
+    return str(dt)

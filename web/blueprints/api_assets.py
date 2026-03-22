@@ -263,3 +263,187 @@ def get_asset_detail(asset_id):
     
     except Exception as e:
         return api_response(success=False, message=str(e), status_code=500)[0], 500
+
+
+@api_assets.route("/assets", methods=["POST"])
+@login_required
+def create_asset():
+    """
+    POST /api/assets
+    Create a new asset or restore a soft-deleted one.
+    
+    Body:
+    {
+        "target": "example.com" (required),
+        "type": "Web App",
+        "owner": "Infra Team",
+        "risk_level": "Medium"
+    }
+    
+    Response: 201 or 400 on validation error
+    """
+    try:
+        from flask_login import current_user
+        import re
+        from urllib.parse import urlparse
+        import ipaddress
+        
+        db = SessionLocal()
+        
+        # Parse request
+        payload = request.get_json(silent=True) or request.form or {}
+        target = str(payload.get("target") or "").strip()
+        asset_type = str(payload.get("type") or payload.get("asset_type") or "Web App").strip()[:100]
+        owner = str(payload.get("owner") or getattr(current_user, "username", "Unassigned") or "Unassigned").strip()[:100]
+        risk_level = str(payload.get("risk_level") or "Medium").strip()[:20]
+        
+        # Validate target
+        if not target or len(target) > 255:
+            db.close()
+            return api_response(success=False, message="target is required and must be <= 255 chars", status_code=400)[0], 400
+        
+        # Normalize target (remove protocol, port)
+        if target.startswith(("http://", "https://", "ftp://")):
+            try:
+                parsed = urlparse(target)
+                target = parsed.netloc or parsed.path
+            except:
+                pass
+        
+        if ":" in target:
+            target = target.split(":")[0]
+        
+        target = target.strip().lower()
+        
+        # Try to parse as IP or validate as hostname
+        valid = False
+        try:
+            ipaddress.ip_address(target)
+            valid = True
+        except ValueError:
+            if re.match(r"^[a-z0-9][a-z0-9.-]*[a-z0-9]$|^[a-z0-9]$", target, re.I):
+                valid = True
+        
+        if not valid:
+            db.close()
+            return api_response(success=False, message="target must be valid hostname or IP", status_code=400)[0], 400
+        
+        # Check if asset exists
+        asset = db.query(Asset).filter(
+            Asset.target == target
+        ).first()
+        
+        if asset:
+            # Restore if soft-deleted
+            created = False
+            if asset.is_deleted:
+                asset.is_deleted = False
+                asset.deleted_at = None
+                asset.deleted_by_user_id = None
+            else:
+                created = False  # Already exists
+        else:
+            # Create new asset
+            asset = Asset(
+                target=target,
+                url=f"https://{target}",
+                asset_type=asset_type,
+                owner=owner,
+                risk_level=risk_level,
+                is_deleted=False
+            )
+            db.add(asset)
+            created = True
+        
+        db.commit()
+        asset_id = asset.id
+        db.close()
+        
+        return api_response(
+            success=True,
+            data={
+                "id": asset_id,
+                "target": target,
+                "created": created,
+                "restored": asset and asset.is_deleted == False and not created
+            },
+            status_code=201 if created else 200
+        )[0], (201 if created else 200)
+    
+    except Exception as e:
+        return api_response(success=False, message=str(e), status_code=500)[0], 500
+
+
+@api_assets.route("/discovery/promote", methods=["POST"])
+@login_required
+def promote_discovery_to_asset():
+    """
+    POST /api/discovery/promote
+    Promote a discovery item to inventory asset.
+    
+    Body:
+    {
+        "discovery_id": 123 (required),
+        "asset_type": "Web App" (optional, from item),
+        "owner": "Infra Team" (optional)
+    }
+    
+    Response: 200 or 400/404 on error
+    """
+    try:
+        from flask_login import current_user
+        
+        db = SessionLocal()
+        
+        payload =  request.get_json(silent=True) or request.form or {}
+        discovery_id = payload.get("discovery_id", type=int)
+        
+        if not discovery_id:
+            db.close()
+            return api_response(success=False, message="discovery_id is required", status_code=400)[0], 400
+        
+        # Get discovery item
+        discovery = db.query(DiscoveryItem).filter(
+            DiscoveryItem.id == discovery_id,
+            DiscoveryItem.is_deleted == False
+        ).first()
+        
+        if not discovery:
+            db.close()
+            return api_response(success=False, message="Discovery item not found", status_code=404)[0], 404
+        
+        # Get or create asset
+        target = str(discovery.domain_name or discovery.ip or discovery.common_name or "").strip().lower()
+        if not target:
+            db.close()
+            return api_response(success=False, message="Cannot infer target from discovery", status_code=400)[0], 400
+        
+        asset = db.query(Asset).filter(Asset.target == target).first()
+        if not asset:
+            asset = Asset(
+                target=target,
+                url=f"https://{target}",
+                asset_type=payload.get("asset_type") or "Web App",
+                owner=payload.get("owner") or getattr(current_user, "username", "Unassigned") or "Unassigned",
+                risk_level="Medium",
+                is_deleted=False
+            )
+            db.add(asset)
+            db.flush()
+        elif asset.is_deleted:
+            asset.is_deleted = False
+            asset.deleted_at = None
+        
+        # Link discovery to asset
+        discovery.asset_id = asset.id
+        
+        db.commit()
+        db.close()
+        
+        return api_response(
+            success=True,
+            data={"asset_id": asset.id, "discovery_id": discovery_id}
+        )[0], 200
+    
+    except Exception as e:
+        return api_response(success=False, message=str(e), status_code=500)[0], 500
