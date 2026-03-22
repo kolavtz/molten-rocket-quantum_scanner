@@ -29815,3 +29815,98 @@ WHERE certificates.is_deleted = false) AS anon_1]
 [2026-03-22 14:46:26,246] INFO in app: Database initialization complete. Available=True
 [2026-03-22 14:46:26,312] WARNING in _internal:  * Debugger is active!
 [2026-03-22 14:46:26,323] INFO in _internal:  * Debugger PIN: 483-781-071
+[2026-03-22 14:46:36,600] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\Downloads\\hf-proj\\molten-rocket-quantum_scanner\\src\\database.py', reloading
+[2026-03-22 14:46:37,062] INFO in _internal:  * Restarting with stat
+[2026-03-22 14:46:39,463] INFO in app: QuantumShield application starting up...
+[2026-03-22 14:46:39,463] INFO in app: Initializing database connectivity...
+[2026-03-22 14:46:39,463] INFO in app: Database bootstrap deferred until runtime startup hook.
+[2026-03-22 14:46:39,541] INFO in app: Automated scheduler disabled.
+[2026-03-22 14:46:39,542] INFO in app: Initializing database connectivity at runtime (attempt 1/3)...
+[2026-03-22 14:46:39,568] INFO in database: Database 'quantumshield' already exists, selected successfully
+[2026-03-22 14:46:39,835] INFO in app: QuantumShield application starting up...
+[2026-03-22 14:46:39,835] INFO in app: Initializing database connectivity...
+[2026-03-22 14:46:39,835] INFO in app: Database bootstrap deferred until runtime startup hook.
+[2026-03-22 14:46:40,025] INFO in database: MySQL database 'quantumshield' initialised successfully.
+[2026-03-22 14:46:40,073] INFO in app: Database initialization complete. Available=True
+[2026-03-22 14:46:40,245] WARNING in _internal:  * Debugger is active!
+[2026-03-22 14:46:40,259] INFO in _internal:  * Debugger PIN: 483-781-071
+[2026-03-22 14:46:41,269] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:46:41] "[32mGET /assets HTTP/1.1[0m" 302 -
+[2026-03-22 14:46:41,362] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:46:41] "GET /login?next=/assets HTTP/1.1" 200 -
+[2026-03-22 14:46:41,912] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:46:41] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:46:41,925] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:46:41] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:46:41,931] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:46:41] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:46:41,932] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:46:41] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:46:41,932] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:46:41] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:46:42,341] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:46:42] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-22 14:47:16,416] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:16] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-22 14:47:16,442] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:16] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-22 14:47:17,399] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:17] "GET /dashboard/assets HTTP/1.1" 200 -
+[2026-03-22 14:47:17,622] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:17] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:47:17,635] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:17] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:47:17,646] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:17] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:47:17,660] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:17] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:47:17,693] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:17] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:47:18,474] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:18] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-22 14:47:24,582] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:24] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-22 14:47:24,799] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:24] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:47:24,821] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:24] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:47:24,831] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:24] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:47:24,854] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:24] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:47:24,866] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:24] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:47:25,084] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:25] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-22 14:47:30,202] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:30] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-22 14:47:30,260] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:30] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:47:30,267] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:30] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:47:30,274] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:30] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:47:30,279] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:30] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:47:30,284] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:30] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:47:30,429] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:47:30] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-22 14:48:30,769] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:30] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-22 14:48:30,980] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:30] "GET /dashboard/assets HTTP/1.1" 200 -
+[2026-03-22 14:48:31,115] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:31] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:31,133] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:31] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:31,146] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:31] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:31,180] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:31] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:31,181] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:31] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:31,495] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:31] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-22 14:48:31,579] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:31] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:31,586] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:31] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:31,592] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:31] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:31,599] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:31] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:31,602] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:31] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:31,880] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:31] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-22 14:48:31,935] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:31] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-22 14:48:41,348] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:41] "GET /reporting HTTP/1.1" 200 -
+[2026-03-22 14:48:41,592] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:41] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:41,690] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:41] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:41,714] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:41] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:41,748] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:41] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:41,759] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:41] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:42,166] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:42] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-22 14:48:45,149] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:45] "GET /cbom-dashboard HTTP/1.1" 200 -
+[2026-03-22 14:48:45,252] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:45] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:45,289] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:45] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:45,290] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:45] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:45,307] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:45] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:45,335] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:45] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:45,470] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:45] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-22 14:48:53,124] WARNING in app: Asset discovery DB scan load failed: 'str' object has no attribute 'isoformat'
+[2026-03-22 14:48:53,169] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:53] "GET /asset-discovery HTTP/1.1" 200 -
+[2026-03-22 14:48:53,319] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:53] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:53,375] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:53] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:53,391] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:53] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:53,408] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:53] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:53,414] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:53] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:48:53,756] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:48:53] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-22 14:49:01,065] WARNING in app: Asset discovery DB scan load failed: 'str' object has no attribute 'isoformat'
+[2026-03-22 14:49:01,081] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:49:01] "POST /api/dashboard HTTP/1.1" 200 -
+[2026-03-22 14:49:06,738] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:49:06] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-22 14:49:06,989] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:49:06] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-22 14:49:07,389] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:49:07] "GET /asset-inventory HTTP/1.1" 200 -
+[2026-03-22 14:49:07,548] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:49:07] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:49:07,602] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:49:07] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:49:07,610] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:49:07] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-22 14:49:07,654] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:49:07] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:49:07,681] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:49:07] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-22 14:49:07,808] INFO in _internal: 127.0.0.1 - - [22/Mar/2026 14:49:07] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-22 14:49:07,921] INFO in _internal:  * Detected change in 'C:\\Users\\saura\\Downloads\\hf-proj\\molten-rocket-quantum_scanner\\utils\\api_helper.py', reloading
