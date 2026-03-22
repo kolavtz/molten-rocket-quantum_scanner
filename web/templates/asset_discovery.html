@@ -49,12 +49,7 @@
         {% if r.is_inventoried %}
           <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
         {% else %}
-          <form action="/dashboard/assets" method="POST" style="display:inline;" class="js-discovery-add-form" data-target="{{ r.domain_name }}" data-type="Web App">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="target" value="{{ r.domain_name }}">
-            <input type="hidden" name="type" value="Web App">
-            <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);">+ Add</button>
-          </form>
+          <button class="scan-button js-add-discovery" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);" data-target="{{ r.domain_name }}" data-type="Web App">+ Add</button>
         {% endif %}
       </td></tr>{% endfor %}
     </tbody></table>
@@ -66,12 +61,7 @@
         {% if r.is_inventoried %}
           <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
         {% else %}
-          <form action="/dashboard/assets" method="POST" style="display:inline;" class="js-discovery-add-form" data-target="{{ r.common_name }}" data-type="Web App">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="target" value="{{ r.common_name }}">
-            <input type="hidden" name="type" value="Web App">
-            <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);">+ Add</button>
-          </form>
+          <button class="scan-button js-add-discovery" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);" data-target="{{ r.common_name }}" data-type="Web App">+ Add</button>
         {% endif %}
       </td></tr>{% endfor %}
     </tbody></table>
@@ -83,12 +73,7 @@
         {% if r.is_inventoried %}
           <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
         {% else %}
-          <form action="/dashboard/assets" method="POST" style="display:inline;" class="js-discovery-add-form" data-target="{{ r.ip }}" data-type="Server">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="target" value="{{ r.ip }}">
-            <input type="hidden" name="type" value="Server">
-            <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);">+ Add</button>
-          </form>
+          <button class="scan-button js-add-discovery" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);" data-target="{{ r.ip }}" data-type="Server">+ Add</button>
         {% endif %}
       </td></tr>{% endfor %}
     </tbody></table>
@@ -100,12 +85,7 @@
         {% if r.is_inventoried %}
           <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
         {% else %}
-          <form action="/dashboard/assets" method="POST" style="display:inline;" class="js-discovery-add-form" data-target="{{ r.host }}" data-type="Web App">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="target" value="{{ r.host }}">
-            <input type="hidden" name="type" value="Web App">
-            <button type="submit" class="scan-button" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);">+ Add</button>
-          </form>
+          <button class="scan-button js-add-discovery" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);" data-target="{{ r.host }}" data-type="Web App">+ Add</button>
         {% endif %}
       </td></tr>{% endfor %}
     </tbody></table>
@@ -333,26 +313,48 @@
     return payload;
   }
 
-  document.querySelectorAll('.js-discovery-add-form').forEach((form) => {
-    form.addEventListener('submit', async (event) => {
+  // Handle new API-based discovery add buttons
+  document.querySelectorAll('.js-add-discovery').forEach((button) => {
+    button.addEventListener('click', async (event) => {
       event.preventDefault();
-      const button = form.querySelector('button[type="submit"]');
-      if (button) {
-        button.disabled = true;
-        button.textContent = 'Adding...';
-      }
+      const target = button.dataset.target || '';
+      const type = button.dataset.type || 'Web App';
+      
+      button.disabled = true;
+      const originalText = button.textContent;
+      button.textContent = 'Adding...';
 
       try {
-        await addAsset(form.dataset.target || '', form.dataset.type || 'Web App');
-        const cell = form.closest('td');
-        if (cell) {
-          cell.innerHTML = '<span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>';
+        // Create asset via API
+        const response = await fetch('/api/assets', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+          },
+          body: JSON.stringify({
+            target: target,
+            type: type
+          })
+        });
+        
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error?.message || 'Failed to create asset');
+        }
+        
+        const result = await response.json();
+        if (result.success) {
+          const cell = button.closest('td');
+          if (cell) {
+            cell.innerHTML = '<span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>';
+          }
+        } else {
+          throw new Error(result.error?.message || 'Failed to create asset');
         }
       } catch (error) {
-        if (button) {
-          button.disabled = false;
-          button.textContent = '+ Add';
-        }
+        button.disabled = false;
+        button.textContent = originalText;
         window.alert(error.message || 'Failed to add asset.');
       }
     });

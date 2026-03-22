@@ -1751,10 +1751,15 @@ from web.blueprints.dashboard import dashboard_bp
 from web.routes.assets import assets_bp
 from web.routes.dashboard_api import api_dashboards_bp
 from web.routes.scans import scans_bp
+from web.blueprints.api_blueprint_init import register_api_blueprints
+
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(assets_bp)
 app.register_blueprint(api_dashboards_bp)
 app.register_blueprint(scans_bp)
+
+# Register all API blueprints (API-first refactor V2)
+register_api_blueprints(app)
 
 # Inventory status polling runs frequently from UI; keep it outside tight default limits.
 if "quantumshield_dashboard.inventory_scan_status" in app.view_functions:
