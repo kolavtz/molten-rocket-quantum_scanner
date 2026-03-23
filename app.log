@@ -36494,3 +36494,135 @@ startup hook.
 [2026-03-23 07:41:21,283] INFO in app: QuantumShield application starting up...
 [2026-03-23 07:41:21,284] INFO in app: Initializing database connectivity...
 [2026-03-23 07:41:21,284] INFO in app: Database bootstrap deferred until runtime startup hook.
+[2026-03-23 07:41:34,562] INFO in app: QuantumShield application starting up...
+[2026-03-23 07:41:34,562] INFO in app: Initializing database connectivity...
+[2026-03-23 07:41:34,562] INFO in app: Database bootstrap deferred until runtime startup hook.
+[2026-03-23 07:44:14,988] INFO in app: QuantumShield application starting up...
+[2026-03-23 07:44:14,990] INFO in app: Initializing database connectivity...
+[2026-03-23 07:44:14,990] INFO in app: Database bootstrap deferred until runtime startup hook.
+[2026-03-23 07:44:15,094] INFO in app: Automated scheduler disabled.
+[2026-03-23 07:44:15,095] INFO in app: Initializing database connectivity at runtime (attempt 1/3)...
+[2026-03-23 07:44:15,117] INFO in database: Database 'quantumshield' already exists, selected successfully
+[2026-03-23 07:44:15,465] INFO in database: MySQL database 'quantumshield' initialised successfully.
+[2026-03-23 07:44:15,496] INFO in app: Database initialization complete. Available=True
+[2026-03-23 07:44:15,601] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-23 07:44:15,602] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-23 07:44:15,605] INFO in _internal:  * Restarting with stat
+[2026-03-23 07:44:16,772] INFO in app: QuantumShield application starting up...
+[2026-03-23 07:44:16,772] INFO in app: Initializing database connectivity...
+[2026-03-23 07:44:16,773] INFO in app: Database bootstrap deferred until runtime startup hook.
+[2026-03-23 07:44:16,835] INFO in app: Automated scheduler disabled.
+[2026-03-23 07:44:16,835] INFO in app: Initializing database connectivity at runtime (attempt 1/3)...
+[2026-03-23 07:44:16,847] INFO in database: Database 'quantumshield' already exists, selected successfully
+[2026-03-23 07:44:17,075] INFO in database: MySQL database 'quantumshield' initialised successfully.
+[2026-03-23 07:44:17,107] INFO in app: Database initialization complete. Available=True
+[2026-03-23 07:44:17,159] WARNING in _internal:  * Debugger is active!
+[2026-03-23 07:44:17,172] INFO in _internal:  * Debugger PIN: 483-781-071
+[2026-03-23 07:44:36,891] INFO in csrf: The CSRF session token is missing.
+[2026-03-23 07:44:36,892] WARNING in app: CSRF validation failed: 400 Bad Request: The CSRF session token is missing.
+[2026-03-23 07:44:36,940] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:36] "[31m[1mPOST /login HTTP/1.1[0m" 400 -
+[2026-03-23 07:44:37,296] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:37] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:37,304] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:37] "GET /static/css/style.css HTTP/1.1" 200 -
+[2026-03-23 07:44:37,323] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:37] "GET /static/js/app.js HTTP/1.1" 200 -
+[2026-03-23 07:44:37,324] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:37] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:37,326] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:37] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:37,578] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:37] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-23 07:44:42,679] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:42] "[32mPOST /login HTTP/1.1[0m" 302 -
+[2026-03-23 07:44:42,876] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:42] "GET /dashboard/assets HTTP/1.1" 200 -
+[2026-03-23 07:44:42,990] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:42] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:43,001] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:43] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:43,015] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:43] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:43,019] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:43] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:43,028] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:43] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:43,369] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:43] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-23 07:44:48,579] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:48] "GET /admin/theme HTTP/1.1" 200 -
+[2026-03-23 07:44:48,732] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:48] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:48,743] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:48] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:48,748] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:48] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:48,749] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:48] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:48,759] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:48] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:48,945] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:48] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-23 07:44:54,270] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:54] "[32mPOST /admin/theme HTTP/1.1[0m" 302 -
+[2026-03-23 07:44:54,337] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:54] "GET /admin/theme HTTP/1.1" 200 -
+[2026-03-23 07:44:54,454] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:54] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:54,471] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:54] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:54,479] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:54] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:54,485] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:54] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:54,490] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:54] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:54,578] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:54] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-23 07:44:59,708] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:59] "[32mPOST /admin/theme HTTP/1.1[0m" 302 -
+[2026-03-23 07:44:59,764] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:59] "GET /admin/theme HTTP/1.1" 200 -
+[2026-03-23 07:44:59,888] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:59] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:59,900] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:59] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:59,907] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:59] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:59,911] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:59] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:59,915] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:59] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:44:59,967] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:44:59] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-23 07:45:12,835] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:12] "[32mPOST /admin/theme HTTP/1.1[0m" 302 -
+[2026-03-23 07:45:12,879] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:12] "GET /admin/theme HTTP/1.1" 200 -
+[2026-03-23 07:45:12,962] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:12] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:45:12,978] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:12] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:45:12,982] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:12] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:45:12,987] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:12] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:45:12,992] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:12] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:45:13,061] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:13] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-23 07:45:16,652] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:16] "[32mPOST /admin/theme HTTP/1.1[0m" 302 -
+[2026-03-23 07:45:16,684] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:16] "GET /admin/theme HTTP/1.1" 200 -
+[2026-03-23 07:45:16,780] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:16] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:45:16,793] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:16] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:45:16,799] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:16] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:45:16,807] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:16] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:45:16,813] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:16] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:45:16,891] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:16] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-23 07:45:22,339] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:22] "[32mGET / HTTP/1.1[0m" 302 -
+[2026-03-23 07:45:22,420] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:22] "GET /dashboard/assets HTTP/1.1" 200 -
+[2026-03-23 07:45:22,532] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:22] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:45:22,548] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:22] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:45:22,555] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:22] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:45:22,559] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:22] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:45:22,572] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:22] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:45:22,729] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:45:22] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-23 07:46:05,827] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:05] "GET /scans HTTP/1.1" 200 -
+[2026-03-23 07:46:05,942] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:05] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:05,951] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:05] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:05,957] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:05] "[36mGET /static/js/api_client.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:05,966] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:05] "[36mGET /static/js/api-table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:05,975] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:05] "[36mGET /static/js/universal_table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:05,982] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:05] "[36mGET /static/js/scans.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:05,985] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:05] "[36mGET /static/css/api_dashboards.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:05,988] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:05] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:05,991] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:05] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:06,000] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:06] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:06,125] INFO in app: QuantumShield application starting up...
+[2026-03-23 07:46:06,127] INFO in app: Initializing database connectivity...
+[2026-03-23 07:46:06,128] INFO in app: Database bootstrap deferred until runtime startup hook.
+[2026-03-23 07:46:06,201] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:06] "GET /api/scans?page=1&page_size=25&sort=date&order=desc HTTP/1.1" 200 -
+[2026-03-23 07:46:06,204] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:06] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-23 07:46:23,761] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:23] "GET /cbom-dashboard HTTP/1.1" 200 -
+[2026-03-23 07:46:23,771] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:23] "GET /cbom-dashboard HTTP/1.1" 200 -
+[2026-03-23 07:46:23,845] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:23] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:23,861] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:23] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:23,867] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:23] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:23,872] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:23] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:23,875] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:23] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:23,955] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:23] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-23 07:46:28,864] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:28] "GET /scans HTTP/1.1" 200 -
+[2026-03-23 07:46:28,961] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:28] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:28,983] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:28] "[36mGET /static/css/api_dashboards.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:28,988] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:28] "[36mGET /static/css/table.css HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:28,991] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:28] "[36mGET /static/js/api_client.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:29,000] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:29] "[36mGET /static/js/universal_table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:29,006] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:29] "[36mGET /static/js/api-table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:29,012] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:29] "[36mGET /static/js/scans.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:29,018] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:29] "[36mGET /static/js/app.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:29,020] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:29] "[36mGET /static/js/scans-table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:29,023] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:29] "[36mGET /static/js/table.js HTTP/1.1[0m" 304 -
+[2026-03-23 07:46:29,054] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:29] "GET /api/scans?page=1&page_size=25&sort=date&order=desc HTTP/1.1" 200 -
+[2026-03-23 07:46:29,069] INFO in _internal: 127.0.0.1 - - [23/Mar/2026 07:46:29] "[35m[1mGET /favicon.ico HTTP/1.1[0m" 204 -
+[2026-03-23 07:56:58,207] INFO in app: QuantumShield application starting up...
+[2026-03-23 07:56:58,207] INFO in app: Initializing database connectivity...
+[2026-03-23 07:56:58,208] INFO in app: Initializing database connectivity...
+[2026-03-23 07:56:58,208] INFO in app: Database bootstrap deferred until runtime startup hook.
+[2026-03-23 07:56:58,208] INFO in app: Database bootstrap deferred until runtime startup hook.
+[2026-03-23 07:56:58,208] INFO in app: Database bootstrap deferred until runtime startup hook.
