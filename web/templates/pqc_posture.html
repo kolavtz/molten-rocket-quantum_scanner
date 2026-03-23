@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% import "macros/table_macros.html" as tb %}
-{% block title %}Posture of PQC | PNB Cyber Observability{% endblock %}
+{% block title %}Posture of PQC | QuantumShield{% endblock %}
 {% block content %}
 <section class="hero" style="padding-bottom:1rem;">
   <h2 class="hero-title" style="font-size:2rem;">POSTURE OF PQC</h2>
@@ -9,8 +9,10 @@
 
 {% if vm.empty %}
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <strong>No PQC telemetry available yet.</strong>
-  <p style="margin-top:0.4rem;color:var(--text-secondary);">Run at least one scan with TLS findings to populate PQC posture analytics.</p>
+  <div class="alert alert-info" style="margin-bottom:0;">
+    <strong>No PQC telemetry available yet.</strong>
+    <p style="margin-top:0.4rem;color:var(--text-secondary);">Run at least one scan with TLS findings to populate PQC posture analytics.</p>
+  </div>
 </section>
 {% endif %}
 
@@ -68,7 +70,7 @@
       <tbody>
         {% if page_data.get('items') %}
           {% for row in page_data.get('items') %}
-          <tr data-owner="{{ row.asset_name or row.target }}" data-exposure="Public" data-tls="Unknown" data-score="{{ (row.score or 0)|round|int }}" data-status="{{ row.status }}">
+          <tr data-owner="{{ row.asset_name or row.target }}" data-exposure="Public" data-tls="{{ row.tls_version or 'Unknown' }} · {{ row.cipher_suite or 'Unknown' }}" data-score="{{ (row.score or 0)|round|int }}" data-status="{{ row.status }}" data-recommendation="{{ row.recommendation or '' }}">
             <td>{{ row.asset_name or row.target }}</td>
             <td><span style="font-weight:600;">{{ row.status }}</span></td>
             <td>{{ row.readiness }} ({{ row.score }}%)</td>
@@ -110,6 +112,7 @@
       <div>TLS: <strong id="detailTls" style="color:var(--text-primary);">-</strong></div>
       <div>Score: <strong id="detailScore" style="color:var(--text-primary);">-</strong></div>
       <div>Status: <strong id="detailStatus" style="color:var(--text-primary);">-</strong></div>
+      <div>Recommendation: <strong id="detailRecommendation" style="color:var(--text-primary);">-</strong></div>
     </div>
   </div>
 </section>
@@ -123,6 +126,7 @@
     document.getElementById('detailTls').textContent = row.dataset.tls;
     document.getElementById('detailScore').textContent = row.dataset.score;
     document.getElementById('detailStatus').textContent = row.dataset.status;
+    document.getElementById('detailRecommendation').textContent = row.dataset.recommendation || '-';
   }
   document.querySelectorAll('.dyn-bar').forEach((bar) => {
     const w = Number(bar.getAttribute('data-width') || '0');

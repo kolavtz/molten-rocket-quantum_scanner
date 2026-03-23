@@ -180,17 +180,8 @@ limiter = Limiter(
 )
 
 def get_dashboard_data() -> dict:
-    """Return cached dashboard aggregation; refresh TTL for real-time updates."""
-    import time
-
-    now = time.time()
-    if _dashboard_cache["data"] is not None and now - float(typing.cast(float, _dashboard_cache["updated_at"])) < _dashboard_ttl_seconds:
-        return typing.cast(dict, _dashboard_cache["data"])
-
-    data = DashboardDataService.get_all_scans_aggregated()
-    typing.cast(dict, _dashboard_cache)["data"] = data
-    _dashboard_cache["updated_at"] = now
-    return data
+    """Return real-time dashboard aggregation totals."""
+    return DashboardDataService.get_all_scans_aggregated()
 
 
 def invalidate_dashboard_cache() -> None:
@@ -391,6 +382,22 @@ def inject_csrf_token():
         return dict(csrf_token=generate_csrf)
     except Exception:
         return dict(csrf_token=lambda: "")
+
+
+# Graceful CSRF handling
+from flask_wtf.csrf import CSRFError
+
+@app.errorhandler(CSRFError)
+def handle_csrf_error(e):
+    """Provide a helpful feedback path for missing/invalid CSRF tokens."""
+    logger.warning("CSRF validation failed: %s", str(e))
+    flash("Security check failed (CSRF token missing or invalid). Please reload the login page and try again.", "error")
+
+    # If the user was already on login page, preserve feedback and show login form.
+    if request.path == url_for('login'):
+        return render_template('login.html', locked=False), 400
+
+    return redirect(url_for('login'))
 
 
 @app.before_request
@@ -681,6 +688,34 @@ def _parse_cert_time(value: str) -> str:
     return raw[:10]
 
 
+def _parse_cert_datetime(value: str) -> datetime | None:
+    """Convert certificate time strings into naive datetimes for SQL persistence."""
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    candidates = (
+        "%b %d %H:%M:%S %Y %Z",
+        "%Y-%m-%dT%H:%M:%S%z",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d",
+    )
+    for fmt in candidates:
+        try:
+            parsed = datetime.strptime(raw, fmt)
+            if parsed.tzinfo is not None:
+                return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+            return parsed
+        except ValueError:
+            continue
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if parsed.tzinfo is not None:
+            return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        return parsed
+    except ValueError:
+        return None
+
+
 def _days_to_expiry(cert_not_after: str) -> int | None:
     """Return days until expiry from OpenSSL-style notAfter string."""
     raw = str(cert_not_after or "").strip()
@@ -694,6 +729,243 @@ def _days_to_expiry(cert_not_after: str) -> int | None:
         return None
 
 
+def _cert_component(mapping: dict[str, Any] | None, field_name: str) -> str:
+    source = mapping if isinstance(mapping, dict) else {}
+    aliases = {
+        "cn": ("CN", "commonName"),
+        "o": ("O", "organizationName"),
+        "ou": ("OU", "organizationalUnitName"),
+    }
+    for candidate in aliases.get(field_name.lower(), (field_name,)):
+        value = str(source.get(candidate) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _principal_display(cn: str, org: str, unit: str) -> str:
+    parts = [str(cn or "").strip(), str(org or "").strip(), str(unit or "").strip()]
+    return ", ".join(part for part in parts if part)
+
+
+def _json_text(value: Any) -> str | None:
+    if value in (None, "", [], {}):
+        return None
+    try:
+        return json.dumps(value, default=_json_default)
+    except Exception:
+        return None
+
+
+def _json_default(value: Any):
+    if hasattr(value, "isoformat"):
+        try:
+            return value.isoformat()
+        except Exception:
+            pass
+    return str(value)
+
+
+def _coerce_int(value: Any) -> int | None:
+    try:
+        if value is None or value == "":
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _db_table_exists(table_name: str) -> bool:
+    try:
+        from sqlalchemy import inspect
+
+        bind = db_session.get_bind()
+        return bool(bind is not None and inspect(bind).has_table(table_name))
+    except Exception:
+        return False
+
+
+def _persist_split_discovery_rows(
+    scan_pk: int | None,
+    asset_id: int,
+    target: str,
+    discovered_services: list[dict[str, Any]],
+    tls_results: list[dict[str, Any]],
+    location_points: list[dict[str, Any]],
+) -> None:
+    """Persist discovery telemetry into the live split discovery tables when present."""
+    if not scan_pk or asset_id <= 0:
+        return
+
+    from sqlalchemy import text
+
+    now = datetime.now()
+    host = _host_from_target(target).strip().lower()
+    geo_by_ip = {str(item.get("ip") or ""): item for item in (location_points or [])}
+
+    if _db_table_exists("discovery_domains"):
+        seen_domains: set[str] = set()
+        domains = [host] if host else []
+        for tls in tls_results:
+            for domain in (tls.get("san_domains") or []):
+                normalized = _host_from_target(str(domain or "")).strip().lower()
+                if normalized:
+                    domains.append(normalized)
+        for domain in domains:
+            normalized = _host_from_target(domain).strip().lower()
+            if not normalized or normalized in seen_domains:
+                continue
+            seen_domains.add(normalized)
+            db_session.execute(
+                text(
+                    """
+                    INSERT INTO discovery_domains (
+                        scan_id, asset_id, domain, status, promoted_to_inventory,
+                        promoted_at, created_at, updated_at
+                    ) VALUES (
+                        :scan_id, :asset_id, :domain, :status, :promoted_to_inventory,
+                        :promoted_at, :created_at, :updated_at
+                    )
+                    """
+                ),
+                {
+                    "scan_id": scan_pk,
+                    "asset_id": asset_id,
+                    "domain": normalized,
+                    "status": "confirmed",
+                    "promoted_to_inventory": True,
+                    "promoted_at": now,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
+    if _db_table_exists("discovery_ips"):
+        seen_ips: set[str] = set()
+        for svc in discovered_services:
+            ip_addr = str(svc.get("host") or "").strip()
+            if not ip_addr or ip_addr in seen_ips:
+                continue
+            try:
+                import ipaddress
+
+                ip_obj = ipaddress.ip_address(ip_addr)
+            except ValueError:
+                continue
+            seen_ips.add(ip_addr)
+            geo = geo_by_ip.get(ip_addr, {})
+            location = ", ".join(
+                part for part in (
+                    str(geo.get("city") or "").strip(),
+                    str(geo.get("region") or "").strip(),
+                    str(geo.get("country") or "").strip(),
+                )
+                if part
+            )
+            subnet = f"{ip_addr}/32" if ip_obj.version == 4 else f"{ip_addr}/128"
+            db_session.execute(
+                text(
+                    """
+                    INSERT INTO discovery_ips (
+                        scan_id, asset_id, ip_address, subnet, location, status,
+                        promoted_to_inventory, promoted_at, created_at, updated_at
+                    ) VALUES (
+                        :scan_id, :asset_id, :ip_address, :subnet, :location, :status,
+                        :promoted_to_inventory, :promoted_at, :created_at, :updated_at
+                    )
+                    """
+                ),
+                {
+                    "scan_id": scan_pk,
+                    "asset_id": asset_id,
+                    "ip_address": ip_addr,
+                    "subnet": subnet,
+                    "location": location or None,
+                    "status": "confirmed",
+                    "promoted_to_inventory": True,
+                    "promoted_at": now,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
+    if _db_table_exists("discovery_software"):
+        seen_software: set[tuple[str, str, str]] = set()
+        for svc in discovered_services:
+            service = str(svc.get("service") or "").strip()
+            banner = str(svc.get("banner") or "").strip()
+            raw_product = banner or service
+            if not raw_product:
+                continue
+            product = raw_product.split("/", 1)[0].strip() or service or "Unknown"
+            version = raw_product.split("/", 1)[1].strip() if "/" in raw_product else ""
+            key = (product.lower(), version.lower(), service.lower())
+            if key in seen_software:
+                continue
+            seen_software.add(key)
+            db_session.execute(
+                text(
+                    """
+                    INSERT INTO discovery_software (
+                        scan_id, asset_id, product, version, category, status,
+                        promoted_to_inventory, promoted_at, created_at, updated_at
+                    ) VALUES (
+                        :scan_id, :asset_id, :product, :version, :category, :status,
+                        :promoted_to_inventory, :promoted_at, :created_at, :updated_at
+                    )
+                    """
+                ),
+                {
+                    "scan_id": scan_pk,
+                    "asset_id": asset_id,
+                    "product": product,
+                    "version": version or None,
+                    "category": service or "software",
+                    "status": "confirmed",
+                    "promoted_to_inventory": True,
+                    "promoted_at": now,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+
+    if _db_table_exists("discovery_ssl"):
+        for tls in tls_results:
+            endpoint_host = str(tls.get("host") or host or "").strip()
+            endpoint_port = int(tls.get("port") or 443)
+            endpoint = f"{endpoint_host}:{endpoint_port}" if endpoint_host else host
+            db_session.execute(
+                text(
+                    """
+                    INSERT INTO discovery_ssl (
+                        scan_id, asset_id, endpoint, tls_version, cipher_suite, key_exchange,
+                        key_length, subject_cn, issuer, valid_until, status,
+                        promoted_to_inventory, promoted_at, created_at, updated_at
+                    ) VALUES (
+                        :scan_id, :asset_id, :endpoint, :tls_version, :cipher_suite, :key_exchange,
+                        :key_length, :subject_cn, :issuer, :valid_until, :status,
+                        :promoted_to_inventory, :promoted_at, :created_at, :updated_at
+                    )
+                    """
+                ),
+                {
+                    "scan_id": scan_pk,
+                    "asset_id": asset_id,
+                    "endpoint": endpoint or None,
+                    "tls_version": tls.get("protocol_version") or tls.get("tls_version") or "Unknown",
+                    "cipher_suite": tls.get("cipher_suite") or "Unknown",
+                    "key_exchange": tls.get("key_exchange") or "Unknown",
+                    "key_length": int(tls.get("key_length") or tls.get("key_size") or 0) or None,
+                    "subject_cn": tls.get("subject_cn") or None,
+                    "issuer": tls.get("issuer_cn") or tls.get("issuer_o") or None,
+                    "valid_until": tls.get("valid_until_dt"),
+                    "status": "confirmed",
+                    "promoted_to_inventory": True,
+                    "promoted_at": now,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
 def _normalize_tls_result(raw_result: dict) -> dict:
     """Normalize TLS analyzer output into dashboard/report-friendly schema."""
     raw = dict(raw_result or {})
@@ -724,6 +996,15 @@ def _normalize_tls_result(raw_result: dict) -> dict:
     if not isinstance(key_bits, int):
         key_bits = int(raw.get("cipher_bits") or 0)
 
+    subject_cn = str(cert.get("subject_cn") or _cert_component(subject, "cn"))
+    subject_o = str(cert.get("subject_o") or _cert_component(subject, "o"))
+    subject_ou = str(cert.get("subject_ou") or _cert_component(subject, "ou"))
+    issuer_cn = str(cert.get("issuer_cn") or _cert_component(issuer, "cn"))
+    issuer_o = str(cert.get("issuer_o") or _cert_component(issuer, "o"))
+    issuer_ou = str(cert.get("issuer_ou") or _cert_component(issuer, "ou"))
+    valid_from = _parse_cert_time(str(cert.get("not_before") or ""))
+    valid_to = _parse_cert_time(str(cert.get("not_after") or ""))
+
     return {
         "host": raw.get("host"),
         "port": raw.get("port"),
@@ -736,15 +1017,25 @@ def _normalize_tls_result(raw_result: dict) -> dict:
         "certificate_chain_length": int(raw.get("certificate_chain_length") or 0),
         "issuer": issuer,
         "subject": subject,
+        "subject_cn": subject_cn,
+        "subject_o": subject_o,
+        "subject_ou": subject_ou,
+        "issuer_cn": issuer_cn,
+        "issuer_o": issuer_o,
+        "issuer_ou": issuer_ou,
         "serial_number": str(cert.get("serial_number") or ""),
         "key_type": str(cert.get("public_key_type") or "Unknown"),
         "key_size": key_bits,
         "key_length": key_bits,
+        "public_key_type": str(cert.get("public_key_type") or "Unknown"),
+        "public_key_pem": str(cert.get("public_key_pem") or ""),
         "signature_algorithm": str(cert.get("signature_algorithm") or ""),
         "cert_sha256": str(cert.get("fingerprint_sha256") or ""),
         "san_domains": cert.get("san_domains") if isinstance(cert.get("san_domains"), list) else [],
-        "valid_from": _parse_cert_time(str(cert.get("not_before") or "")),
-        "valid_to": _parse_cert_time(str(cert.get("not_after") or "")),
+        "valid_from": valid_from,
+        "valid_to": valid_to,
+        "valid_from_dt": _parse_cert_datetime(str(cert.get("not_before") or "")),
+        "valid_until_dt": _parse_cert_datetime(str(cert.get("not_after") or "")),
         "cert_days_remaining": cert_days,
         "cert_expired": cert_expired,
         "cert_status": cert_status,
@@ -950,7 +1241,17 @@ def run_scan_pipeline(
     scan_kind: str = "manual",
     scanned_by: str | None = None,
 ) -> dict:
-    """Execute the full scan pipeline and return a report dict."""
+    """Execute the full scan pipeline and return a report dict.
+
+    Enforced workflow (no shortcuts):
+    1. User Input (inventory / API target) -> Network Scan
+    2. TLS Analysis
+    3. PQC Detection
+    4. Risk Scoring
+    5. CBOM Generation (CycloneDX)
+    6. SQL persistence (Scan/Asset/Certificate/PQC/CBOM)
+    7. Response back to frontend/dashboards
+    """
     scan_id = uuid.uuid4().hex[:8]
 
     # 1. Service Discovery (broad port sweep)
@@ -1130,7 +1431,7 @@ def run_scan_pipeline(
             quantum_safe=sum(1 for x in pqc_dicts if float(x.get("score", 0) or 0) >= 80),
             quantum_vuln=sum(1 for x in pqc_dicts if float(x.get("score", 0) or 0) < 80),
             cbom_path=cbom_path,
-            report_json=json.dumps(report),
+            report_json=json.dumps(report, default=_json_default),
             is_encrypted=False,
         )
         db_session.add(db_scan)
@@ -1184,17 +1485,15 @@ def run_scan_pipeline(
             discovery_types.add("ssl")
 
         detection_dt = datetime.now()
-        for dtype in sorted(discovery_types):
-            discovery_item = DiscoveryItem(
-                asset_id=asset_id,
-                type=dtype,
-                status="confirmed",
-                detection_date=detection_dt,
-            )
-            if hasattr(db_scan, "discovery_items"):
-                db_scan.discovery_items.append(discovery_item)
-            elif hasattr(discovery_item, "scan_id") and scan_pk is not None:
-                discovery_item.scan_id = scan_pk
+        if _db_table_exists("discovery_items"):
+            for dtype in sorted(discovery_types):
+                discovery_item = DiscoveryItem(
+                    scan_id=int(scan_pk) if scan_pk is not None else None,
+                    asset_id=asset_id,
+                    type=dtype,
+                    status="confirmed",
+                    detection_date=detection_dt,
+                )
                 db_session.add(discovery_item)
 
         for svc in discovered_services:
@@ -1203,30 +1502,67 @@ def run_scan_pipeline(
                 inventory_asset.ipv4 = host
             if host and not str(getattr(inventory_asset, "ipv6", "") or "") and host.count(":") > 1:
                 inventory_asset.ipv6 = host
+
+        _persist_split_discovery_rows(
+            scan_pk=int(scan_pk) if scan_pk is not None else None,
+            asset_id=asset_id,
+            target=canonical_target,
+            discovered_services=discovered_services,
+            tls_results=tls_results,
+            location_points=location_points,
+        )
             
         # TLS & Certificates
         for tls in tls_results:
+            subject_cn = str(tls.get("subject_cn") or "")
+            subject_o = str(tls.get("subject_o") or "")
+            subject_ou = str(tls.get("subject_ou") or "")
+            issuer_cn = str(tls.get("issuer_cn") or "")
+            issuer_o = str(tls.get("issuer_o") or "")
+            issuer_ou = str(tls.get("issuer_ou") or "")
+            subject_display = _principal_display(subject_cn, subject_o, subject_ou) or str(tls.get("subject") or "")
+            issuer_display = _principal_display(issuer_cn, issuer_o, issuer_ou) or str(tls.get("issuer") or "")
+            endpoint_host = str(tls.get("host") or canonical_target or "").strip()
+            endpoint_port = int(tls.get("port") or 443)
             cert_obj = Certificate(
+                scan_id=int(scan_pk) if scan_pk is not None else None,
                 asset_id=asset_id,
-                issuer=str(tls.get("issuer", {}).get("O", "Unknown")),
-                subject=str(tls.get("subject", {}).get("O", "Unknown")),
-                serial=tls.get("serial_number", ""),
+                endpoint=f"{endpoint_host}:{endpoint_port}" if endpoint_host else None,
+                port=endpoint_port,
+                issuer=issuer_display or "Unknown",
+                subject=subject_display or "Unknown",
+                subject_cn=subject_cn or None,
+                subject_o=subject_o or None,
+                subject_ou=subject_ou or None,
+                issuer_cn=issuer_cn or None,
+                issuer_o=issuer_o or None,
+                issuer_ou=issuer_ou or None,
+                serial=str(tls.get("serial_number", "") or ""),
+                company_name=subject_o or subject_cn or None,
                 valid_from=tls.get("valid_from_dt"),
                 valid_until=tls.get("valid_until_dt"),
+                expiry_days=_coerce_int(tls.get("cert_days_remaining")),
+                fingerprint_sha256=str(tls.get("cert_sha256", "") or "").upper() or None,
                 tls_version=tls.get("protocol_version", ""),
                 key_length=int(tls.get("key_length", 0) or tls.get("key_size", 0)),
+                key_algorithm=str(tls.get("key_type", "") or "Unknown"),
+                public_key_type=str(tls.get("public_key_type") or tls.get("key_type") or "Unknown"),
+                public_key_pem=str(tls.get("public_key_pem", "") or "") or None,
                 cipher_suite=tls.get("cipher_suite", ""),
-                ca=str(tls.get("issuer", {}).get("CN", "Unknown"))
+                signature_algorithm=str(tls.get("signature_algorithm", "") or "") or None,
+                ca=issuer_cn or issuer_o or "Unknown",
+                ca_name=issuer_o or issuer_cn or None,
+                san_domains=_json_text(tls.get("san_domains") or []),
+                cert_chain_length=_coerce_int(tls.get("certificate_chain_length")),
+                is_self_signed=bool(subject_display and issuer_display and subject_display == issuer_display),
+                is_expired=bool(tls.get("cert_expired")),
             )
-            if hasattr(db_scan, "certificates"):
-                db_scan.certificates.append(cert_obj)
-            elif hasattr(cert_obj, "scan_id") and scan_pk is not None:
-                cert_obj.scan_id = scan_pk
-                db_session.add(cert_obj)
+            db_session.add(cert_obj)
             
         # PQC
         for pq in pqc_dicts:
             pqc_obj = PQCClassification(
+                scan_id=int(scan_pk) if scan_pk is not None else None,
                 asset_id=asset_id,
                 algorithm_name=pq.get("algorithm", "Unknown"),
                 algorithm_type=pq.get("category", "Unknown"),
@@ -1234,27 +1570,22 @@ def run_scan_pipeline(
                 nist_category=pq.get("nist_status", "None"),
                 pqc_score=float(pq.get("score", 0))
             )
-            if hasattr(db_scan, "pqc_classifications"):
-                db_scan.pqc_classifications.append(pqc_obj)
-            elif hasattr(pqc_obj, "scan_id") and scan_pk is not None:
-                pqc_obj.scan_id = scan_pk
-                db_session.add(pqc_obj)
+            db_session.add(pqc_obj)
             
         # CBOM
         cbom_summary = CBOMSummary(
+            asset_id=asset_id,
+            scan_id=int(scan_pk) if scan_pk is not None else None,
             total_components=len(pqc_dicts) + len(tls_results),
             weak_crypto_count=sum(1 for tls in tls_results if tls.get("protocol_version") in ("TLS 1.0", "SSLv3")),
             cert_issues_count=0,
             json_path=cbom_path
         )
-        if hasattr(db_scan, "cbom_summary"):
-            db_scan.cbom_summary = cbom_summary
-        elif hasattr(cbom_summary, "scan_id") and scan_pk is not None:
-            cbom_summary.scan_id = scan_pk
-            db_session.add(cbom_summary)
+        db_session.add(cbom_summary)
         
         for cmp in cbom_dict.get("components", []):
             cbom_entry = CBOMEntry(
+                scan_id=int(scan_pk) if scan_pk is not None else None,
                 asset_id=asset_id,
                 algorithm_name=cmp.get("name", ""),
                 category=cmp.get("type", "crypto-asset"),
@@ -1262,11 +1593,7 @@ def run_scan_pipeline(
                 quantum_safe_flag=False,
                 hndl_level="Medium"
             )
-            if hasattr(db_scan, "cbom_entries"):
-                db_scan.cbom_entries.append(cbom_entry)
-            elif hasattr(cbom_entry, "scan_id") and scan_pk is not None:
-                cbom_entry.scan_id = scan_pk
-                db_session.add(cbom_entry)
+            db_session.add(cbom_entry)
 
         db_session.commit()
         report["orm_persisted"] = True
@@ -1447,41 +1774,78 @@ def admin_theme():
     """Admin panel to configure dynamic UI theme colors."""
     current_theme = load_theme()
     if request.method == "POST":
-        requested_theme = {
-            "mode": request.form.get("mode", current_theme.get("mode", "system")),
-            "dark": {
-                "bg_navbar": request.form.get("dark_bg_navbar", current_theme["dark"]["bg_navbar"]),
-                "bg_primary": request.form.get("dark_bg_primary", current_theme["dark"]["bg_primary"]),
-                "bg_secondary": request.form.get("dark_bg_secondary", current_theme["dark"]["bg_secondary"]),
-                "bg_card": request.form.get("dark_bg_card", current_theme["dark"]["bg_card"]),
-                "bg_input": request.form.get("dark_bg_input", current_theme["dark"]["bg_input"]),
-                "border_subtle": request.form.get("dark_border_subtle", current_theme["dark"]["border_subtle"]),
-                "border_hover": request.form.get("dark_border_hover", current_theme["dark"]["border_hover"]),
-                "text_primary": request.form.get("dark_text_primary", current_theme["dark"]["text_primary"]),
-                "text_secondary": request.form.get("dark_text_secondary", current_theme["dark"]["text_secondary"]),
-                "text_muted": request.form.get("dark_text_muted", current_theme["dark"]["text_muted"]),
-                "accent_color": request.form.get("dark_accent_color", current_theme["dark"]["accent_color"]),
-                "safe": request.form.get("dark_safe", current_theme["dark"]["safe"]),
-                "warn": request.form.get("dark_warn", current_theme["dark"]["warn"]),
-                "danger": request.form.get("dark_danger", current_theme["dark"]["danger"]),
-            },
-            "light": {
-                "bg_navbar": request.form.get("light_bg_navbar", current_theme["light"]["bg_navbar"]),
-                "bg_primary": request.form.get("light_bg_primary", current_theme["light"]["bg_primary"]),
-                "bg_secondary": request.form.get("light_bg_secondary", current_theme["light"]["bg_secondary"]),
-                "bg_card": request.form.get("light_bg_card", current_theme["light"]["bg_card"]),
-                "bg_input": request.form.get("light_bg_input", current_theme["light"]["bg_input"]),
-                "border_subtle": request.form.get("light_border_subtle", current_theme["light"]["border_subtle"]),
-                "border_hover": request.form.get("light_border_hover", current_theme["light"]["border_hover"]),
-                "text_primary": request.form.get("light_text_primary", current_theme["light"]["text_primary"]),
-                "text_secondary": request.form.get("light_text_secondary", current_theme["light"]["text_secondary"]),
-                "text_muted": request.form.get("light_text_muted", current_theme["light"]["text_muted"]),
-                "accent_color": request.form.get("light_accent_color", current_theme["light"]["accent_color"]),
-                "safe": request.form.get("light_safe", current_theme["light"]["safe"]),
-                "warn": request.form.get("light_warn", current_theme["light"]["warn"]),
-                "danger": request.form.get("light_danger", current_theme["light"]["danger"]),
-            },
-        }
+        if request.form.get("reset_colors"):
+            requested_theme = {
+                "mode": "dark",
+                "dark": {
+                    "bg_navbar": "#000000",
+                    "bg_primary": "#000000",
+                    "bg_secondary": "#000000",
+                    "bg_card": "#000000",
+                    "bg_input": "#000000",
+                    "border_subtle": "#ffffff",
+                    "border_hover": "#ffffff",
+                    "text_primary": "#ffffff",
+                    "text_secondary": "#ffffff",
+                    "text_muted": "#ffffff",
+                    "accent_color": "#ffffff",
+                    "safe": "#ffffff",
+                    "warn": "#ffffff",
+                    "danger": "#ffffff",
+                },
+                "light": {
+                    "bg_navbar": "#ffffff",
+                    "bg_primary": "#ffffff",
+                    "bg_secondary": "#ffffff",
+                    "bg_card": "#ffffff",
+                    "bg_input": "#ffffff",
+                    "border_subtle": "#000000",
+                    "border_hover": "#000000",
+                    "text_primary": "#000000",
+                    "text_secondary": "#000000",
+                    "text_muted": "#000000",
+                    "accent_color": "#000000",
+                    "safe": "#000000",
+                    "warn": "#000000",
+                    "danger": "#000000",
+                },
+            }
+        else:
+            requested_theme = {
+                "mode": request.form.get("mode", current_theme.get("mode", "system")),
+                "dark": {
+                    "bg_navbar": request.form.get("dark_bg_navbar", current_theme["dark"]["bg_navbar"]),
+                    "bg_primary": request.form.get("dark_bg_primary", current_theme["dark"]["bg_primary"]),
+                    "bg_secondary": request.form.get("dark_bg_secondary", current_theme["dark"]["bg_secondary"]),
+                    "bg_card": request.form.get("dark_bg_card", current_theme["dark"]["bg_card"]),
+                    "bg_input": request.form.get("dark_bg_input", current_theme["dark"]["bg_input"]),
+                    "border_subtle": request.form.get("dark_border_subtle", current_theme["dark"]["border_subtle"]),
+                    "border_hover": request.form.get("dark_border_hover", current_theme["dark"]["border_hover"]),
+                    "text_primary": request.form.get("dark_text_primary", current_theme["dark"]["text_primary"]),
+                    "text_secondary": request.form.get("dark_text_secondary", current_theme["dark"]["text_secondary"]),
+                    "text_muted": request.form.get("dark_text_muted", current_theme["dark"]["text_muted"]),
+                    "accent_color": request.form.get("dark_accent_color", current_theme["dark"]["accent_color"]),
+                    "safe": request.form.get("dark_safe", current_theme["dark"]["safe"]),
+                    "warn": request.form.get("dark_warn", current_theme["dark"]["warn"]),
+                    "danger": request.form.get("dark_danger", current_theme["dark"]["danger"]),
+                },
+                "light": {
+                    "bg_navbar": request.form.get("light_bg_navbar", current_theme["light"]["bg_navbar"]),
+                    "bg_primary": request.form.get("light_bg_primary", current_theme["light"]["bg_primary"]),
+                    "bg_secondary": request.form.get("light_bg_secondary", current_theme["light"]["bg_secondary"]),
+                    "bg_card": request.form.get("light_bg_card", current_theme["light"]["bg_card"]),
+                    "bg_input": request.form.get("light_bg_input", current_theme["light"]["bg_input"]),
+                    "border_subtle": request.form.get("light_border_subtle", current_theme["light"]["border_subtle"]),
+                    "border_hover": request.form.get("light_border_hover", current_theme["light"]["border_hover"]),
+                    "text_primary": request.form.get("light_text_primary", current_theme["light"]["text_primary"]),
+                    "text_secondary": request.form.get("light_text_secondary", current_theme["light"]["text_secondary"]),
+                    "text_muted": request.form.get("light_text_muted", current_theme["light"]["text_muted"]),
+                    "accent_color": request.form.get("light_accent_color", current_theme["light"]["accent_color"]),
+                    "safe": request.form.get("light_safe", current_theme["light"]["safe"]),
+                    "warn": request.form.get("light_warn", current_theme["light"]["warn"]),
+                    "danger": request.form.get("light_danger", current_theme["light"]["danger"]),
+                },
+            }
         new_theme = _sanitize_theme(requested_theme)
         try:
             with open(THEME_FILE, 'w') as f:
@@ -1808,7 +2172,12 @@ def _build_asset_inventory_view() -> dict:
     return service.get_inventory_view_model(testing_mode=app.config.get("TESTING", False))
 
 
-def _build_asset_discovery_view(include_in_progress: bool = False, page: int = 1, page_size: int = 100) -> dict:
+def _build_asset_discovery_view(
+    include_in_progress: bool = False,
+    page: int = 1,
+    page_size: int = 100,
+    search_term: str = "",
+) -> dict:
     """Build discovery view from persisted scan table data (with testing fallback)."""
     from collections import Counter
     import ipaddress
@@ -1825,6 +2194,7 @@ def _build_asset_discovery_view(include_in_progress: bool = False, page: int = 1
 
     node_ids: set[str] = set()
     edge_ids: set[str] = set()
+    normalized_search = str(search_term or "").strip().lower()
 
     try:
         known_assets = {
@@ -1949,6 +2319,16 @@ def _build_asset_discovery_view(include_in_progress: bool = False, page: int = 1
             if svc_host:
                 try:
                     parsed = ipaddress.ip_address(svc_host)
+                    geo = _geolocate_ip(svc_host) if parsed.version == 4 else {}
+                    location_text = ", ".join(
+                        part
+                        for part in (
+                            str(geo.get("city") or "").strip(),
+                            str(geo.get("region") or "").strip(),
+                            str(geo.get("country") or "").strip(),
+                        )
+                        if part
+                    )
                     subnet = f"{svc_host}/32" if parsed.version == 4 else f"{svc_host}/128"
                     ip_subnets.append(
                         {
@@ -1959,7 +2339,9 @@ def _build_asset_discovery_view(include_in_progress: bool = False, page: int = 1
                             "subnet": subnet,
                             "asn": "",
                             "netname": "",
-                            "location": "",
+                            "location": location_text,
+                            "lat": geo.get("lat"),
+                            "lon": geo.get("lon"),
                             "company": "Internal" if is_inventoried else "External",
                             "is_inventoried": is_inventoried,
                         }
@@ -2030,9 +2412,58 @@ def _build_asset_discovery_view(include_in_progress: bool = False, page: int = 1
     ip_subnets = _uniq(ip_subnets, lambda r: (r["ip"], r["ports"], r["detection_date"]))
     software = _uniq(software, lambda r: (r["host"], r["product"], r["port"], r["detection_date"]))
 
+    if normalized_search:
+        domains = [
+            r for r in domains
+            if normalized_search in str(r.get("domain_name", "")).lower()
+            or normalized_search in str(r.get("registrar", "")).lower()
+            or normalized_search in str(r.get("company", "")).lower()
+        ]
+        ssl = [
+            r for r in ssl
+            if normalized_search in str(r.get("common_name", "")).lower()
+            or normalized_search in str(r.get("ca", "")).lower()
+            or normalized_search in str(r.get("fingerprint", "")).lower()
+            or normalized_search in str(r.get("company", "")).lower()
+        ]
+        ip_subnets = [
+            r for r in ip_subnets
+            if normalized_search in str(r.get("ip", "")).lower()
+            or normalized_search in str(r.get("subnet", "")).lower()
+            or normalized_search in str(r.get("location", "")).lower()
+            or normalized_search in str(r.get("company", "")).lower()
+        ]
+        software = [
+            r for r in software
+            if normalized_search in str(r.get("product", "")).lower()
+            or normalized_search in str(r.get("version", "")).lower()
+            or normalized_search in str(r.get("host", "")).lower()
+            or normalized_search in str(r.get("company", "")).lower()
+        ]
+
     status_counts = Counter(
         [r.get("status", "") for r in domains + ssl + ip_subnets + software if r.get("status")]
     )
+
+    asset_locations = []
+    seen_locations: set[tuple[Any, Any, str]] = set()
+    for row in ip_subnets:
+        lat = row.get("lat")
+        lon = row.get("lon")
+        if lat is None or lon is None:
+            continue
+        key = (lat, lon, str(row.get("ip") or ""))
+        if key in seen_locations:
+            continue
+        seen_locations.add(key)
+        asset_locations.append(
+            {
+                "ip": str(row.get("ip") or ""),
+                "lat": lat,
+                "lon": lon,
+                "location": str(row.get("location") or ""),
+            }
+        )
 
     return {
         "empty": not (domains or ssl or ip_subnets or software),
@@ -2052,6 +2483,7 @@ def _build_asset_discovery_view(include_in_progress: bool = False, page: int = 1
         "ssl": ssl,
         "ip_subnets": ip_subnets,
         "software": software,
+        "asset_locations": asset_locations,
         "graph_payload": {
             "nodes": nodes,
             "edges": edges,
@@ -2100,13 +2532,14 @@ def asset_discovery():
     
     page = int(request.args.get("page", 1) or 1)
     page_size = min(int(request.args.get("page_size", 100) or 100), 250)
+    search_term = str(request.args.get("q", "") or "").strip()
 
     # We will use 'tab' parameter to define which model to paginate in future revisions
     # For now, we will pass an empty page_data to avoid crashing the macro injection UI until Discovery DB tables operate
     page_data: typing.Dict[str, typing.Any] = {"items": [], "total_count": 0, "has_next": False, "has_prev": False}
 
     try:
-        vm = _build_asset_discovery_view(page=page, page_size=page_size)
+        vm = _build_asset_discovery_view(page=page, page_size=page_size, search_term=search_term)
     except Exception:
         vm = {
             "empty": True,

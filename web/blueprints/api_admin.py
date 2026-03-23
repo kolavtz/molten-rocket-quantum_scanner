@@ -5,7 +5,7 @@ Admin-only endpoints for API key management, metrics, and cache control.
 
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
-from src.db import SessionLocal
+from src.db import db_session as SessionLocal
 from src.models import User
 from middleware.api_auth import APIKey
 from utils.api_helper import api_response, format_datetime

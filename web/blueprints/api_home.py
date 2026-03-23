@@ -5,7 +5,7 @@ Returns KPIs for the home dashboard.
 
 from flask import Blueprint, request, jsonify
 from flask_login import login_required
-from src.db import SessionLocal
+from src.db import db_session as SessionLocal
 from src.models import Asset, Scan
 from utils.api_helper import (
     paginated_response, api_response, apply_soft_delete_filter,

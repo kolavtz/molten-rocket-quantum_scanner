@@ -12,17 +12,27 @@ API_ENDPOINTS = [
 
 
 def test_api_endpoints_return_standard_envelope(app_client):
-    expected_keys = {"items", "total", "page", "page_size", "total_pages", "kpis"}
+    expected_top_level_keys = {"success", "data", "filters"}
+    expected_data_keys = {"items", "total", "page", "page_size", "total_pages"}
+    
     for path in API_ENDPOINTS:
         resp = app_client.get(path)
         assert resp.status_code == 200, f"{path} returned {resp.status_code}"
         payload = json.loads(resp.data)
-        assert expected_keys.issubset(set(payload.keys())), f"{path} missing keys"
+        
+        # Verify top-level structure
+        assert expected_top_level_keys.issubset(set(payload.keys())), f"{path} missing top-level keys"
+        
+        # Verify data structure
+        data = payload.get("data", {})
+        assert expected_data_keys.issubset(set(data.keys())), f"{path} data missing keys"
 
 
 def test_api_assets_accepts_query_params(app_client):
     resp = app_client.get("/api/assets?page=1&page_size=10&sort=name&order=asc&q=test")
     assert resp.status_code == 200
     payload = json.loads(resp.data)
-    assert payload["page"] == 1
-    assert payload["page_size"] == 10
+    assert payload["success"] is True
+    data = payload["data"]
+    assert data["page"] == 1
+    assert data["page_size"] == 10

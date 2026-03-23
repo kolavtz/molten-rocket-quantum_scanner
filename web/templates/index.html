@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}DASHBOARD // QUANTUMSHIELD{% endblock %}
+{% block title %}Dashboard | QuantumShield{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
@@ -23,12 +23,12 @@
 <section class="glass-card" style="padding:1rem;margin-bottom:1.2rem;">
     <h3 style="margin-bottom:0.7rem;text-transform:uppercase;">Module Quick Access</h3>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.7rem;">
-        <a href="/asset-inventory" class="glass-card" style="padding:0.8rem;display:block;">Asset Inventory</a>
-        <a href="/asset-discovery" class="glass-card" style="padding:0.8rem;display:block;">Asset Discovery</a>
-        <a href="/cbom-dashboard" class="glass-card" style="padding:0.8rem;display:block;">CBOM</a>
-        <a href="/pqc-posture" class="glass-card" style="padding:0.8rem;display:block;">Posture of PQC</a>
-        <a href="/cyber-rating" class="glass-card" style="padding:0.8rem;display:block;">Cyber Rating</a>
-        <a href="/reporting" class="glass-card" style="padding:0.8rem;display:block;">Reporting</a>
+        <a href="/asset-inventory" class="glass-card" style="padding:0.8rem;display:block;"><i class="fa-solid fa-boxes-stacked" style="margin-right:0.35rem;"></i>Asset Inventory</a>
+        <a href="/asset-discovery" class="glass-card" style="padding:0.8rem;display:block;"><i class="fa-solid fa-satellite-dish" style="margin-right:0.35rem;"></i>Asset Discovery</a>
+        <a href="/cbom-dashboard" class="glass-card" style="padding:0.8rem;display:block;"><i class="fa-solid fa-cubes" style="margin-right:0.35rem;"></i>CBOM</a>
+        <a href="/pqc-posture" class="glass-card" style="padding:0.8rem;display:block;"><i class="fa-solid fa-shield-halved" style="margin-right:0.35rem;"></i>Posture of PQC</a>
+        <a href="/cyber-rating" class="glass-card" style="padding:0.8rem;display:block;"><i class="fa-solid fa-chart-line" style="margin-right:0.35rem;"></i>Cyber Rating</a>
+        <a href="/reporting" class="glass-card" style="padding:0.8rem;display:block;"><i class="fa-solid fa-file-waveform" style="margin-right:0.35rem;"></i>Reporting</a>
     </div>
 </section>
 
@@ -192,7 +192,7 @@
         <div style="font-size:0.8rem;color:var(--text-secondary);">Dashboard remains analytics-first. Start scans from dedicated workflow page.</div>
     </div>
     {% if current_user.role in ['Admin', 'Manager', 'SingleScan'] %}
-    <a href="/scan-center" class="scan-button" style="padding:0.6rem 1rem;">OPEN_SCAN_CENTER</a>
+    <a href="/scan-center" class="scan-button" style="padding:0.6rem 1rem;"><i class="fa-solid fa-radar" style="margin-right:0.35rem;"></i>Open Scan Center</a>
     {% else %}
     <div style="font-size:0.8rem;color:var(--text-secondary);">Read-only role</div>
     {% endif %}

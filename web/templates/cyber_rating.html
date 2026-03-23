@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% import "macros/table_macros.html" as tb %}
-{% block title %}Cyber Rating | PNB Cyber Observability{% endblock %}
+{% block title %}Cyber Rating | QuantumShield{% endblock %}
 {% block content %}
 <section class="hero" style="padding-bottom:1rem;">
   <h2 class="hero-title" style="font-size:2rem;">CYBER RATING</h2>
@@ -9,8 +9,10 @@
 
 {% if vm.empty %}
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <strong>No cyber score data yet.</strong>
-  <p style="margin-top:0.4rem;color:var(--text-secondary);">Run complete scans to generate normalized enterprise scores and tier mapping.</p>
+  <div class="alert alert-info" style="margin-bottom:0;">
+    <strong>No cyber score data yet.</strong>
+    <p style="margin-top:0.4rem;color:var(--text-secondary);">Run complete scans to generate normalized enterprise scores and tier mapping.</p>
+  </div>
 </section>
 {% endif %}
 

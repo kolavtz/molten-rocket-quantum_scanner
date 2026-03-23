@@ -5,7 +5,7 @@ Returns CBOM metrics and entries.
 
 from flask import Blueprint, request, jsonify
 from flask_login import login_required
-from src.db import SessionLocal
+from src.db import db_session as SessionLocal
 from src.models import CBOMEntry, Certificate, Asset
 from utils.api_helper import (
     paginated_response, api_response, extract_pagination_params,

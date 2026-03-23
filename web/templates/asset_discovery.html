@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Asset Discovery | PNB Cyber Observability{% endblock %}
+{% block title %}Asset Discovery | QuantumShield{% endblock %}
 {% block content %}
 <section class="hero" style="padding-bottom:1rem;">
   <h2 class="hero-title" style="font-size:2rem;">ASSET DISCOVERY</h2>
@@ -29,7 +29,7 @@
   </div>
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0.7rem;margin-bottom:0.8rem;">
-    <input id="globalSearch" placeholder="Search domain, URL, contact, IoC or other" style="background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.45rem 0.6rem;border-radius:6px;" />
+    <input id="globalSearch" value="{{ request.args.get('q', '') }}" placeholder="Search domain, URL, contact, IoC or other" style="background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.45rem 0.6rem;border-radius:6px;" />
     <div style="display:flex;gap:0.5rem;">
       <input id="startDate" type="date" style="flex:1;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.45rem 0.6rem;border-radius:6px;" />
       <input id="endDate" type="date" style="flex:1;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.45rem 0.6rem;border-radius:6px;" />
@@ -101,7 +101,7 @@
       <button id="graphBtnService" class="scan-button graphFilter" data-type="service" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Services</button>
       <button id="graphBtnAsset" class="scan-button graphFilter" data-type="asset" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Assets</button>
       <button id="graphBtnAll" class="scan-button graphFilter" data-type="all" style="padding:0.3rem 0.6rem;font-size:0.75rem;">All</button>
-      <button id="graphResetBtn" class="scan-button" style="padding:0.3rem 0.6rem;font-size:0.75rem;background:var(--bg-secondary);">⟳ Reset</button>
+      <button id="graphResetBtn" class="scan-button" style="padding:0.3rem 0.6rem;font-size:0.75rem;background:var(--bg-secondary);"><i class="fa-solid fa-rotate-right" style="margin-right:0.25rem;"></i>Reset</button>
     </div>
   </div>
   <div id="networkGraph" style="height:420px;background:var(--bg-secondary);border:1px solid var(--border-subtle);border-radius:8px;"></div>

@@ -4,6 +4,7 @@ Unit tests for the Flask web application routes.
 import json
 import pytest
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from uuid import uuid4
 
 import sys, os
@@ -11,9 +12,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from web.app import app
 import web.app as web_app_module
-from web.routes.assets import build_assets_page_context
+from web.routes.assets import build_asset_detail_api_response, build_assets_page_context
 from src.db import db_session
-from src.models import Asset, User
+from src.models import Asset, Certificate, Scan, User
+from sqlalchemy import text
 
 
 from unittest.mock import patch
@@ -131,6 +133,7 @@ class TestModulePages:
         assert b'data-table-mode="server"' in resp.data
         assert b'data-table-shell' in resp.data
         assert b'data-bulk-form' in resp.data
+        assert b'data-open-asset-details' in resp.data
 
     def test_asset_inventory_context_excludes_deleted_assets(self, client, mock_admin):
         active = Asset(target=_new_target('inventory-active'), asset_type='Web App', is_deleted=False)
@@ -196,6 +199,130 @@ class TestModulePages:
         
         # Verify count decreased by 1
         assert data_after['total'] == initial_total - 1, f"Expected total={initial_total - 1}, got {data_after['total']}"
+
+    def test_api_asset_scans_returns_paginated_history(self, client, mock_admin):
+        target = _new_target('asset-scan-history')
+        asset = Asset(target=target, asset_type='Web App', is_deleted=False)
+        db_session.add(asset)
+        db_session.flush()
+
+        scan = Scan(
+            scan_id=f"scan-{uuid4().hex[:12]}",
+            target=target,
+            status='completed',
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+            report_json='{}',
+            overall_pqc_score=72.5,
+            is_deleted=False,
+        )
+        db_session.add(scan)
+        db_session.commit()
+
+        resp = client.get(f'/api/assets/{asset.id}/scans?page=1&page_size=10')
+        assert resp.status_code == 200
+        payload = json.loads(resp.data)
+
+        assert payload.get('success') is True
+        data = payload.get('data', {})
+        assert data.get('page') == 1
+        assert data.get('page_size') == 10
+        assert data.get('total', 0) >= 1
+        assert isinstance(data.get('items'), list)
+        assert data['items'][0].get('scan_id')
+
+    def test_api_asset_create_runs_scan_pipeline(self, client, mock_admin):
+        target = _new_target('api-create-scan')
+
+        def fake_runner(scan_target, scan_kind="manual", scanned_by=None):
+            started_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            report = {
+                'scan_id': f"scan-{uuid4().hex[:8]}",
+                'target': scan_target,
+                'status': 'complete',
+                'overview': {'average_compliance_score': 88.5},
+                'discovered_services': [{'host': '203.0.113.10', 'port': 443, 'service': 'https', 'is_tls': True}],
+                'tls_results': [{'host': '203.0.113.10', 'port': 443, 'protocol_version': 'TLS 1.3'}],
+                'pqc_assessments': [{'algorithm': 'ML-KEM', 'status': 'safe', 'score': 88.5}],
+                'cbom_path': 'results/test_cbom.json',
+            }
+            scan = Scan(
+                scan_id=report['scan_id'],
+                target=scan_target,
+                status='complete',
+                started_at=started_at,
+                completed_at=started_at,
+                scanned_at=started_at,
+                report_json=json.dumps(report),
+                overall_pqc_score=88.5,
+                quantum_safe=1,
+                is_deleted=False,
+            )
+            db_session.add(scan)
+            db_session.commit()
+            return report
+
+        with patch.dict(app.config, {'RUN_SCAN_PIPELINE_FUNC': fake_runner}, clear=False):
+            resp = client.post(
+                '/api/assets',
+                data=json.dumps({
+                    'target': target,
+                    'type': 'Web App',
+                    'owner': 'Infra Team',
+                    'risk_level': 'Medium',
+                }),
+                content_type='application/json',
+                headers={'Accept': 'application/json'},
+            )
+
+        assert resp.status_code == 201
+        payload = json.loads(resp.data)
+        assert payload.get('success') is True
+        assert payload.get('data', {}).get('scan', {}).get('status') == 'complete'
+        workflow = payload.get('data', {}).get('workflow', {})
+        assert workflow.get('status') == 'complete'
+        assert len(workflow.get('stages', [])) == 7
+
+        created = db_session.query(Asset).filter(Asset.target == target).first()
+        assert created is not None
+        assert created.is_deleted is False
+        assert created.last_scan_id is not None
+
+    def test_api_asset_detail_returns_workflow(self, client, mock_admin):
+        target = _new_target('api-detail-workflow')
+        asset = Asset(target=target, asset_type='Web App', owner='Ops', risk_level='High', is_deleted=False)
+        db_session.add(asset)
+        db_session.flush()
+
+        scan = Scan(
+            scan_id=f"scan-{uuid4().hex[:8]}",
+            target=target,
+            status='complete',
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+            report_json=json.dumps({
+                'discovered_services': [{'host': '203.0.113.11', 'port': 443, 'service': 'https', 'is_tls': True}],
+                'tls_results': [{'host': '203.0.113.11', 'port': 443, 'protocol_version': 'TLS 1.3'}],
+                'pqc_assessments': [{'algorithm': 'ML-KEM', 'status': 'safe', 'score': 91.0}],
+            }),
+            overall_pqc_score=91.0,
+            quantum_safe=1,
+            is_deleted=False,
+        )
+        db_session.add(scan)
+        db_session.commit()
+
+        asset.last_scan_id = scan.id
+        db_session.commit()
+
+        resp = client.get(f'/api/assets/{asset.id}')
+        assert resp.status_code == 200
+        payload = json.loads(resp.data)
+        assert payload.get('success') is True
+        data = payload.get('data', {})
+        assert data.get('asset_name') == target
+        assert data.get('workflow', {}).get('status') == 'complete'
+        assert len(data.get('workflow', {}).get('stages', [])) == 7
 
     def test_asset_discovery_page(self, client, mock_admin):
         resp = client.get('/asset-discovery')
@@ -338,6 +465,162 @@ class TestUnifiedDashboardApi:
         data = json.loads(resp.data)
         assert data.get('status') == 'success'
         assert isinstance(data.get('data'), dict)
+
+
+class TestScanPipelinePersistence:
+    def test_run_scan_pipeline_persists_rich_certificate_and_discovery_rows(self, mock_admin):
+        target = _new_target('pipeline-rich-cert')
+        fingerprint = (uuid4().hex + uuid4().hex).upper()
+        fake_service = SimpleNamespace(
+            host='203.0.113.10',
+            port=443,
+            service='https',
+            is_tls=True,
+            banner='nginx/1.25.5',
+        )
+        fake_tls_result = {
+            'host': '203.0.113.10',
+            'port': 443,
+            'protocol_version': 'TLS 1.3',
+            'cipher_suite': 'TLS_AES_256_GCM_SHA384',
+            'cipher_bits': 256,
+            'key_exchange': 'TLS1.3-ECDHE',
+            'certificate_chain_length': 2,
+            'certificate': {
+                'subject': {
+                    'commonName': target,
+                    'organizationName': 'Example Corp',
+                    'organizationalUnitName': 'Security',
+                },
+                'issuer': {
+                    'commonName': 'Test Root CA',
+                    'organizationName': 'Test PKI',
+                    'organizationalUnitName': 'Issuing',
+                },
+                'subject_cn': target,
+                'subject_o': 'Example Corp',
+                'subject_ou': 'Security',
+                'issuer_cn': 'Test Root CA',
+                'issuer_o': 'Test PKI',
+                'issuer_ou': 'Issuing',
+                'serial_number': f'{uuid4().hex[:16]}',
+                'not_before': 'Mar 01 00:00:00 2026 GMT',
+                'not_after': 'Mar 01 00:00:00 2027 GMT',
+                'signature_algorithm': 'sha256WithRSAEncryption',
+                'public_key_type': 'RSA',
+                'public_key_bits': 2048,
+                'public_key_pem': '-----BEGIN PUBLIC KEY-----\\nMIIBIjANBgkqh\\n-----END PUBLIC KEY-----',
+                'san_domains': [target, f'www.{target}'],
+                'is_expired': False,
+                'days_until_expiry': 365,
+                'fingerprint_sha256': fingerprint,
+            },
+        }
+
+        with patch('web.app.NetworkScanner') as scanner_cls, \
+             patch('web.app.TLSAnalyzer') as analyzer_cls, \
+             patch('web.app.PQCDetector') as detector_cls, \
+             patch('web.app.CBOMBuilder') as builder_cls, \
+             patch('web.app.QuantumSafeChecker') as checker_cls, \
+             patch('web.app.CertificateIssuer') as issuer_cls, \
+             patch('web.app.RecommendationEngine') as rec_engine_cls, \
+             patch('web.app.ReportGenerator') as reporter_cls, \
+             patch('web.app.CycloneDXGenerator') as cdx_cls, \
+             patch('web.app._collect_dns_records', return_value=[{'record_type': 'A', 'record_value': '203.0.113.10'}]), \
+             patch('web.app._geolocate_ip', return_value={'ip': '203.0.113.10', 'lat': 12.9, 'lon': 77.6, 'city': 'Bengaluru', 'region': 'KA', 'country': 'India'}):
+            scanner = scanner_cls.return_value
+            scanner.discover_services.return_value = [fake_service]
+            scanner.discover_targets.return_value = []
+
+            analyzer = analyzer_cls.return_value
+            analyzer.analyze_endpoint.return_value = SimpleNamespace(is_successful=True, to_dict=lambda: fake_tls_result)
+
+            detector = detector_cls.return_value
+            detector.assess_endpoint.return_value = SimpleNamespace(
+                to_dict=lambda: {
+                    'algorithm': 'ML-KEM-768',
+                    'category': 'key_exchange',
+                    'status': 'safe',
+                    'nist_status': 'approved',
+                    'score': 92.0,
+                    'overall_status': 'quantum_safe',
+                    'is_quantum_safe': True,
+                    'risk_level': 'LOW',
+                }
+            )
+
+            builder = builder_cls.return_value
+            builder.build.return_value = SimpleNamespace(
+                to_dict=lambda: {
+                    'components': [{'name': 'TLS_AES_256_GCM_SHA384', 'type': 'algorithm'}]
+                }
+            )
+
+            checker = checker_cls.return_value
+            checker.validate.return_value = SimpleNamespace(
+                to_dict=lambda: {
+                    'label': 'Needs Upgrade',
+                    'findings': [{'category': 'protocol', 'severity': 'MEDIUM'}],
+                }
+            )
+
+            issuer = issuer_cls.return_value
+            issuer.issue_labels.return_value = [SimpleNamespace(to_dict=lambda: {'label': 'watch'})]
+
+            rec_engine = rec_engine_cls.return_value
+            rec_engine.get_recommendations.return_value = [
+                {'title': 'Upgrade to TLS 1.3', 'description': 'Keep TLS modern', 'impact': 'High'}
+            ]
+
+            reporter = reporter_cls.return_value
+            reporter.generate_summary.return_value = {
+                'timestamp': '2026-03-23T00:00:00+00:00',
+                'overview': {
+                    'average_compliance_score': 92,
+                    'total_assets': 1,
+                    'quantum_safe': 1,
+                    'quantum_vulnerable': 0,
+                },
+            }
+
+            report = web_app_module.run_scan_pipeline(target, scan_kind='asset_inventory_api', scanned_by='tester')
+
+        assert report['status'] == 'complete'
+        assert report['orm_persisted'] is True
+
+        asset = db_session.query(Asset).filter(Asset.target == target).order_by(Asset.id.desc()).first()
+        assert asset is not None
+
+        cert = (
+            db_session.query(Certificate)
+            .filter(Certificate.asset_id == asset.id, Certificate.is_deleted == False)
+            .order_by(Certificate.id.desc())
+            .first()
+        )
+        assert cert is not None
+        assert cert.subject_cn == target
+        assert cert.subject_o == 'Example Corp'
+        assert cert.subject_ou == 'Security'
+        assert cert.issuer_cn == 'Test Root CA'
+        assert cert.issuer_o == 'Test PKI'
+        assert cert.issuer_ou == 'Issuing'
+        assert cert.valid_from is not None
+        assert cert.valid_until is not None
+        assert cert.fingerprint_sha256 == fingerprint
+        assert cert.public_key_pem and 'BEGIN PUBLIC KEY' in cert.public_key_pem
+        assert cert.endpoint == '203.0.113.10:443'
+
+        detail_resp = db_session.execute(
+            text("SELECT COUNT(*) FROM discovery_ssl WHERE asset_id = :asset_id"),
+            {"asset_id": int(asset.id)},
+        ).scalar()
+        assert int(detail_resp or 0) >= 1
+
+        asset_detail = build_asset_detail_api_response(int(asset.id))
+        latest_cert = (asset_detail or {}).get('latest_certificate') or {}
+        assert latest_cert.get('subject_o') == 'Example Corp'
+        assert latest_cert.get('issuer_cn') == 'Test Root CA'
+        assert latest_cert.get('fingerprint_sha256') == fingerprint
 
 
 class TestAssetDeletionRoutes:

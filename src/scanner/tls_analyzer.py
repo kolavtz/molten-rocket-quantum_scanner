@@ -52,6 +52,7 @@ class CertificateInfo:
     signature_algorithm: str = ""
     public_key_type: str = ""
     public_key_bits: int = 0
+    public_key_pem: str = ""
     san_domains: List[str] = field(default_factory=list)
     is_expired: bool = False
     days_until_expiry: int = 0
@@ -73,6 +74,7 @@ class CertificateInfo:
             "signature_algorithm": self.signature_algorithm,
             "public_key_type": self.public_key_type,
             "public_key_bits": self.public_key_bits,
+            "public_key_pem": self.public_key_pem,
             "san_domains": self.san_domains,
             "is_expired": self.is_expired,
             "days_until_expiry": self.days_until_expiry,
@@ -288,6 +290,7 @@ class TLSAnalyzer:
         if cert_der:
             try:
                 from cryptography import x509
+                from cryptography.hazmat.primitives import serialization
                 from cryptography.hazmat.primitives.asymmetric import (
                     rsa, ec, dsa, ed25519, ed448,
                 )
@@ -320,6 +323,10 @@ class TLSAnalyzer:
                 info.fingerprint_sha256 = hashlib.sha256(
                     cert_der
                 ).hexdigest().upper()
+                info.public_key_pem = pub.public_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PublicFormat.SubjectPublicKeyInfo,
+                ).decode("utf-8", errors="ignore")
 
             except Exception:
                 pass

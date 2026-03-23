@@ -16,7 +16,7 @@ def main():
     admin_username = os.environ.get("QSS_ADMIN_USERNAME", "admin")
     admin_email = os.environ.get("QSS_ADMIN_EMAIL", "admin@localhost")
     admin_employee_id = os.environ.get("QSS_ADMIN_EMPLOYEE_ID", "ADMIN-001")
-    admin_pass = os.environ.get("QSS_ADMIN_PASSWORD", "admin123")
+    admin_pass = os.environ.get("QSS_ADMIN_PASSWORD", "Admin@12345678")
     
     print(f"[*] Admin Username: {admin_username}")
     print(f"[*] Admin Email: {admin_email}")

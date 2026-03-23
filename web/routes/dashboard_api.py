@@ -5,7 +5,7 @@ from typing import Any
 
 from flask import Blueprint, request
 from flask_login import login_required
-from sqlalchemy import func, or_
+from sqlalchemy import func, inspect, or_, text
 
 from middleware.api_auth import api_guard
 from src import database as db
@@ -16,16 +16,14 @@ from src.models import (
     CBOMSummary,
     Certificate,
     ComplianceScore,
-    CyberRating,
-    DiscoveryItem,
     PQCClassification,
     Scan,
 )
 from src.services.cbom_service import CbomService
+from src.services.cyber_reporting_service import CyberReportingService
 from src.services.pqc_service import PQCService
 from utils.api_helper import (
     apply_sort,
-    apply_text_search,
     build_data_envelope,
     error_response,
     parse_paging_args,
@@ -51,6 +49,275 @@ def _filters_payload(params: dict[str, Any], extra: dict[str, Any] | None = None
     if extra:
         payload.update(extra)
     return payload
+
+
+def _table_exists(table_name: str) -> bool:
+    try:
+        bind = db_session.get_bind()
+        return bool(bind is not None and inspect(bind).has_table(table_name))
+    except Exception:
+        return False
+
+
+def _coerce_int(value: Any) -> int | None:
+    try:
+        if value is None:
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
+    config = {
+        "domains": {
+            "table": "discovery_domains",
+            "value_col": "domain",
+            "name_expr": "d.domain",
+            "search_cols": ["d.domain", "a.target", "a.owner"],
+            "sort_map": {
+                "id": "d.id",
+                "name": "d.domain",
+                "detection_date": "COALESCE(d.updated_at, d.created_at)",
+                "status": "d.status",
+            },
+        },
+        "ips": {
+            "table": "discovery_ips",
+            "value_col": "ip_address",
+            "name_expr": "d.ip_address",
+            "search_cols": ["d.ip_address", "d.location", "a.target", "a.owner"],
+            "sort_map": {
+                "id": "d.id",
+                "name": "d.ip_address",
+                "detection_date": "COALESCE(d.updated_at, d.created_at)",
+                "status": "d.status",
+            },
+        },
+        "software": {
+            "table": "discovery_software",
+            "value_col": "product",
+            "name_expr": "CONCAT(COALESCE(d.product, ''), CASE WHEN COALESCE(d.version, '') = '' THEN '' ELSE CONCAT(' ', d.version) END)",
+            "search_cols": ["d.product", "d.version", "d.category", "a.target", "a.owner"],
+            "sort_map": {
+                "id": "d.id",
+                "name": "d.product",
+                "detection_date": "COALESCE(d.updated_at, d.created_at)",
+                "status": "d.status",
+            },
+        },
+    }.get(tab)
+    if not config or not _table_exists(config["table"]):
+        return [], 0
+
+    like = f"%{params['search']}%" if params.get("search") else None
+    where_parts = ["COALESCE(d.is_deleted, 0) = 0"]
+    sql_params: dict[str, Any] = {
+        "limit": params["page_size"],
+        "offset": (params["page"] - 1) * params["page_size"],
+    }
+    if like:
+        search_clauses = []
+        for idx, column_name in enumerate(config["search_cols"]):
+            key = f"search_{idx}"
+            sql_params[key] = like
+            search_clauses.append(f"{column_name} LIKE :{key}")
+        where_parts.append("(" + " OR ".join(search_clauses) + ")")
+
+    where_sql = " AND ".join(where_parts)
+    sort_sql = config["sort_map"].get(params.get("sort") or "", config["sort_map"]["detection_date"])
+    order_sql = "DESC" if str(params.get("order", "asc")).lower() == "desc" else "ASC"
+    query_sql = f"""
+        SELECT
+            d.id,
+            {config["name_expr"]} AS name,
+            d.status,
+            COALESCE(d.updated_at, d.created_at) AS detection_date,
+            a.id AS asset_id,
+            a.target AS asset_name,
+            a.owner AS owner
+        FROM {config["table"]} d
+        LEFT JOIN assets a
+            ON a.id = d.asset_id
+           AND COALESCE(a.is_deleted, 0) = 0
+        WHERE {where_sql}
+        ORDER BY {sort_sql} {order_sql}, d.id DESC
+        LIMIT :limit OFFSET :offset
+    """
+    count_sql = f"SELECT COUNT(*) FROM {config['table']} d LEFT JOIN assets a ON a.id = d.asset_id AND COALESCE(a.is_deleted, 0) = 0 WHERE {where_sql}"
+
+    rows = db_session.execute(text(query_sql), sql_params).mappings().all()
+    total = int(db_session.execute(text(count_sql), sql_params).scalar() or 0)
+    items = [
+        {
+            "id": _coerce_int(row.get("id")) or 0,
+            "tab": tab,
+            "detection_date": to_iso(row.get("detection_date")),
+            "name": str(row.get("name") or "").strip() or None,
+            "status": row.get("status"),
+            "asset_id": _coerce_int(row.get("asset_id")),
+            "asset_name": row.get("asset_name"),
+            "owner": row.get("owner"),
+        }
+        for row in rows
+    ]
+    return items, total
+
+
+def _ssl_discovery_query(params: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
+    # Prefer the canonical certificate table for SSL discovery and only fallback to legacy view.
+    base = (
+        db_session.query(Certificate, Asset)
+        .join(Asset, Certificate.asset_id == Asset.id)
+        .filter(Certificate.is_deleted == False, Asset.is_deleted == False)
+    )
+
+    if params.get("search"):
+        q = params.get("search")
+        like = f"%{q}%"
+        base = base.filter(
+            or_(
+                Asset.target.ilike(like),
+                Certificate.issuer.ilike(like),
+                Certificate.cipher_suite.ilike(like),
+                Certificate.subject_cn.ilike(like),
+            )
+        )
+
+    sort_map = {
+        "id": Certificate.id,
+        "name": Asset.target,
+        "valid_until": Certificate.valid_until,
+        "issuer": Certificate.issuer,
+        "key_length": Certificate.key_length,
+    }
+    base = apply_sort(base, params["sort"], params["order"], sort_map, Certificate.id)
+    total = int(base.count())
+    rows = base.offset((params["page"] - 1) * params["page_size"]).limit(params["page_size"]).all()
+
+    if rows:
+        return (
+            [
+                {
+                    "id": int(cert.id),
+                    "tab": "ssl",
+                    "name": str(asset.target),
+                    "issuer": cert.issuer,
+                    "subject_cn": cert.subject_cn,
+                    "valid_until": to_iso(cert.valid_until),
+                    "key_length": cert.key_length,
+                    "tls_version": cert.tls_version,
+                    "cipher_suite": cert.cipher_suite,
+                    "status": "Expired" if cert.is_expired else "Valid",
+                    "asset_id": int(asset.id) if asset else None,
+                    "owner": asset.owner if asset else None,
+                }
+                for cert, asset in rows
+            ],
+            total,
+        )
+
+    # Legacy fallback for mixed-schema environments
+    if _table_exists("discovery_ssl"):
+        like = f"%{params['search']}%" if params.get("search") else None
+        where_parts = ["COALESCE(d.is_deleted, 0) = 0"]
+        sql_params: dict[str, Any] = {
+            "limit": params["page_size"],
+            "offset": (params["page"] - 1) * params["page_size"],
+        }
+        if like:
+            for idx, column_name in enumerate(("d.endpoint", "d.issuer", "d.subject_cn", "d.cipher_suite", "a.target", "a.owner")):
+                key = f"search_{idx}"
+                sql_params[key] = like
+            search_clauses = [f"{column_name} LIKE :search_{idx}" for idx, column_name in enumerate(("d.endpoint", "d.issuer", "d.subject_cn", "d.cipher_suite", "a.target", "a.owner"))]
+            where_parts.append("(" + " OR ".join(search_clauses) + ")")
+        where_sql = " AND ".join(where_parts)
+        sort_sql = {
+            "id": "d.id",
+            "name": "d.endpoint",
+            "valid_until": "d.valid_until",
+            "issuer": "d.issuer",
+            "key_length": "d.key_length",
+        }.get(params.get("sort") or "", "COALESCE(d.updated_at, d.created_at)")
+        order_sql = "DESC" if str(params.get("order", "asc")).lower() == "desc" else "ASC"
+        query_sql = f"""
+            SELECT
+                d.id,
+                d.endpoint AS name,
+                d.issuer,
+                d.subject_cn,
+                d.valid_until,
+                d.key_length,
+                d.tls_version,
+                d.cipher_suite,
+                d.status,
+                a.id AS asset_id,
+                a.owner AS owner
+            FROM discovery_ssl d
+            LEFT JOIN assets a
+                ON a.id = d.asset_id
+               AND COALESCE(a.is_deleted, 0) = 0
+            WHERE {where_sql}
+            ORDER BY {sort_sql} {order_sql}, d.id DESC
+            LIMIT :limit OFFSET :offset
+        """
+        count_sql = f"SELECT COUNT(*) FROM discovery_ssl d LEFT JOIN assets a ON a.id = d.asset_id AND COALESCE(a.is_deleted, 0) = 0 WHERE {where_sql}"
+        rows = db_session.execute(text(query_sql), sql_params).mappings().all()
+        total = int(db_session.execute(text(count_sql), sql_params).scalar() or 0)
+        return (
+            [
+                {
+                    "id": _coerce_int(row.get("id")) or 0,
+                    "tab": "ssl",
+                    "name": row.get("name"),
+                    "issuer": row.get("issuer"),
+                    "subject_cn": row.get("subject_cn"),
+                    "valid_until": to_iso(row.get("valid_until")),
+                    "key_length": _coerce_int(row.get("key_length")) or 0,
+                    "tls_version": row.get("tls_version"),
+                    "cipher_suite": row.get("cipher_suite"),
+                    "status": row.get("status"),
+                    "asset_id": _coerce_int(row.get("asset_id")),
+                    "owner": row.get("owner"),
+                }
+                for row in rows
+            ],
+            total,
+        )
+
+    return [], 0
+
+
+def _discovery_kpis() -> dict[str, int]:
+    table_counts = {}
+    for table_name, key in (
+        ("discovery_domains", "domains"),
+        ("discovery_ips", "ips"),
+        ("discovery_software", "software"),
+        ("discovery_ssl", "ssl"),
+    ):
+        if _table_exists(table_name):
+            count_sql = text(f"SELECT COUNT(*) FROM {table_name} WHERE COALESCE(is_deleted, 0) = 0")
+            table_counts[key] = int(db_session.execute(count_sql).scalar() or 0)
+        else:
+            table_counts[key] = 0
+
+    if table_counts["ssl"] == 0:
+        table_counts["ssl"] = int(
+            db_session.query(func.count(Certificate.id))
+            .join(Asset, Certificate.asset_id == Asset.id)
+            .filter(Certificate.is_deleted == False, Asset.is_deleted == False)
+            .scalar()
+            or 0
+        )
+
+    return {
+        "total_discovery_records": int(sum(table_counts.values())),
+        "domains": int(table_counts["domains"]),
+        "ssl": int(table_counts["ssl"]),
+        "ips": int(table_counts["ips"]),
+        "software": int(table_counts["software"]),
+    }
 
 
 @api_dashboards_bp.app_errorhandler(404)
@@ -124,92 +391,24 @@ def api_home_metrics():
 @login_required
 @api_guard
 def api_assets():
-    params = parse_paging_args(default_sort="risk_level")
+    from web.routes.assets import build_assets_api_response
 
-    base = db_session.query(Asset).filter(Asset.is_deleted == False)
-    base = apply_text_search(base, params["search"], [Asset.target, Asset.url, Asset.asset_type, Asset.owner, Asset.risk_level])
-
-    sort_map = {
-        "id": Asset.id,
-        "asset_name": Asset.target,
-        "name": Asset.target,
-        "url": Asset.url,
-        "type": Asset.asset_type,
-        "owner": Asset.owner,
-        "risk_level": Asset.risk_level,
-        "last_scan": Asset.last_scan_id,
+    params = parse_paging_args(default_sort="name")
+    data, filters = build_assets_api_response(
+        page=params["page"],
+        page_size=params["page_size"],
+        sort=params["sort"] or "name",
+        order=params["order"],
+        search=params["search"],
+    )
+    payload = {
+        "success": True,
+        "data": data,
+        "filters": filters,
     }
-    base = apply_sort(base, params["sort"], params["order"], sort_map, Asset.id)
-
-    total = int(base.count())
-    rows = base.offset((params["page"] - 1) * params["page_size"]).limit(params["page_size"]).all()
-
-    items: list[dict[str, Any]] = []
-    for row in rows:
-        row_id = getattr(row, "id", None)
-        last_scan_id = getattr(row, "last_scan_id", None)
-        cert = (
-            db_session.query(Certificate)
-            .filter(Certificate.asset_id == row_id, Certificate.is_deleted == False)
-            .order_by(Certificate.valid_until.is_(None).asc(), Certificate.valid_until.desc(), Certificate.id.desc())
-            .first()
-        )
-        cert_status = "Not Scanned"
-        cert_valid_until = getattr(cert, "valid_until", None) if cert else None
-        cert_key_length = getattr(cert, "key_length", None) if cert else None
-        if cert_valid_until is not None:
-            cert_status = "Expired" if cert_valid_until < datetime.now() else "Valid"
-
-        scan_date = None
-        if last_scan_id:
-            scan = db_session.query(Scan).filter(Scan.id == last_scan_id).first()
-            if scan:
-                scan_date = scan.completed_at or scan.scanned_at or scan.started_at
-
-        items.append(
-            {
-                "id": int(row_id or 0),
-                "asset_name": getattr(row, "target", None),
-                "url": getattr(row, "url", None),
-                "type": getattr(row, "asset_type", None),
-                "owner": getattr(row, "owner", None),
-                "risk_level": getattr(row, "risk_level", None),
-                "cert_status": cert_status,
-                "key_length": int(cert_key_length) if cert_key_length else None,
-                "last_scan": to_iso(scan_date),
-            }
-        )
-
-    now = datetime.now()
-    expiring_cutoff = now + timedelta(days=30)
-    kpis = {
-        "total_assets": int(db_session.query(func.count(Asset.id)).filter(Asset.is_deleted == False).scalar() or 0),
-        "web_apps": int(db_session.query(func.count(Asset.id)).filter(Asset.is_deleted == False, func.lower(Asset.asset_type) == "web app").scalar() or 0),
-        "apis": int(db_session.query(func.count(Asset.id)).filter(Asset.is_deleted == False, func.lower(Asset.asset_type) == "api").scalar() or 0),
-        "servers": int(db_session.query(func.count(Asset.id)).filter(Asset.is_deleted == False, func.lower(Asset.asset_type) == "server").scalar() or 0),
-        "expiring_certificates": int(
-            db_session.query(func.count(Certificate.id))
-            .join(Asset, Certificate.asset_id == Asset.id)
-            .filter(
-                Certificate.is_deleted == False,
-                Asset.is_deleted == False,
-                Certificate.valid_until != None,
-                Certificate.valid_until >= now,
-                Certificate.valid_until <= expiring_cutoff,
-            )
-            .scalar()
-            or 0
-        ),
-        "high_risk_assets": int(
-            db_session.query(func.count(Asset.id))
-            .filter(Asset.is_deleted == False, func.lower(Asset.risk_level).in_(("high", "critical")))
-            .scalar()
-            or 0
-        ),
-    }
-
-    data = build_data_envelope(items, total, params, kpis)
-    return success_response(data, filters=_filters_payload(params))
+    if isinstance(data, dict):
+        payload.update(data)
+    return payload, 200
 
 
 @api_dashboards_bp.route("/api/discovery", methods=["GET"])
@@ -220,109 +419,13 @@ def api_discovery():
     tab = str(request.args.get("tab", "domains") or "domains").strip().lower()
 
     if tab in ("domains", "ips", "software"):
-        type_map = {"domains": "domain", "ips": "ip", "software": "software"}
-        dtype = type_map[tab]
-        base = (
-            db_session.query(DiscoveryItem, Asset)
-            .outerjoin(Asset, DiscoveryItem.asset_id == Asset.id)
-            .filter(DiscoveryItem.is_deleted == False, DiscoveryItem.type == dtype)
-        )
-
-        if params["search"]:
-            q = params["search"]
-            base = base.filter(
-                or_(
-                    DiscoveryItem.status.ilike(f"%{q}%"),
-                    Asset.target.ilike(f"%{q}%"),
-                    Asset.owner.ilike(f"%{q}%"),
-                )
-            )
-
-        sort_map = {
-            "id": DiscoveryItem.id,
-            "name": Asset.target,
-            "detection_date": DiscoveryItem.detection_date,
-            "status": DiscoveryItem.status,
-        }
-        base = apply_sort(base, params["sort"], params["order"], sort_map, DiscoveryItem.id)
-        total = int(base.count())
-        rows = base.offset((params["page"] - 1) * params["page_size"]).limit(params["page_size"]).all()
-        items = [
-            {
-                "id": int(item.id),
-                "tab": tab,
-                "detection_date": to_iso(item.detection_date),
-                "name": asset.target if asset else None,
-                "status": item.status,
-                "asset_id": int(asset.id) if asset else None,
-                "owner": asset.owner if asset else None,
-            }
-            for item, asset in rows
-        ]
+        items, total = _split_discovery_tab_query(tab, params)
     elif tab == "ssl":
-        base = (
-            db_session.query(Certificate, Asset)
-            .join(Asset, Certificate.asset_id == Asset.id)
-            .filter(Certificate.is_deleted == False, Asset.is_deleted == False)
-        )
-        if params["search"]:
-            q = params["search"]
-            base = base.filter(
-                or_(
-                    Asset.target.ilike(f"%{q}%"),
-                    Certificate.issuer.ilike(f"%{q}%"),
-                    Certificate.cipher_suite.ilike(f"%{q}%"),
-                )
-            )
-        sort_map = {
-            "id": Certificate.id,
-            "name": Asset.target,
-            "valid_until": Certificate.valid_until,
-            "issuer": Certificate.issuer,
-            "key_length": Certificate.key_length,
-        }
-        base = apply_sort(base, params["sort"], params["order"], sort_map, Certificate.id)
-        total = int(base.count())
-        rows = base.offset((params["page"] - 1) * params["page_size"]).limit(params["page_size"]).all()
-        items = [
-            {
-                "id": int(cert.id),
-                "tab": "ssl",
-                "name": asset.target,
-                "issuer": cert.issuer,
-                "subject_cn": cert.subject_cn,
-                "valid_until": to_iso(cert.valid_until),
-                "key_length": cert.key_length,
-                "tls_version": cert.tls_version,
-                "cipher_suite": cert.cipher_suite,
-            }
-            for cert, asset in rows
-        ]
+        items, total = _ssl_discovery_query(params)
     else:
         return error_response("Invalid discovery tab. Use domains|ssl|ips|software.", 400)
 
-    by_type = (
-        db_session.query(DiscoveryItem.type, func.count(DiscoveryItem.id))
-        .filter(DiscoveryItem.is_deleted == False)
-        .group_by(DiscoveryItem.type)
-        .all()
-    )
-    type_counts = {str(k or "unknown"): int(v or 0) for k, v in by_type}
-
-    kpis = {
-        "total_discovery_records": int(sum(type_counts.values())),
-        "domains": int(type_counts.get("domain", 0)),
-        "ssl": int(
-            db_session.query(func.count(Certificate.id))
-            .join(Asset, Certificate.asset_id == Asset.id)
-            .filter(Certificate.is_deleted == False, Asset.is_deleted == False)
-            .scalar()
-            or 0
-        ),
-        "ips": int(type_counts.get("ip", 0)),
-        "software": int(type_counts.get("software", 0)),
-    }
-
+    kpis = _discovery_kpis()
     data = build_data_envelope(items, total, params, kpis)
     return success_response(data, filters=_filters_payload(params, {"tab": tab}))
 
@@ -396,7 +499,12 @@ def api_cbom_summary():
         )
 
     params = {"page": 1, "page_size": 25}
-    data = build_data_envelope(items, len(items), params, {})
+    kpis = {
+        "total_components": int(items[0]["total_components"]) if items else 0,
+        "weak_crypto_count": int(items[0]["weak_crypto_count"]) if items else 0,
+        "cert_issues_count": int(items[0]["cert_issues_count"]) if items else 0,
+    }
+    data = build_data_envelope(items, len(items), params, kpis)
     return success_response(data, filters={"scan_id": scan_id})
 
 
@@ -500,59 +608,57 @@ def api_pqc_alias():
 @api_guard
 def api_cyber_rating():
     params = parse_paging_args(default_sort="generated_at")
-
-    base = (
-        db_session.query(CyberRating, Scan)
-        .join(Scan, CyberRating.scan_id == Scan.id)
-        .filter(CyberRating.is_deleted == False, Scan.is_deleted == False)
-    )
-    if params["search"]:
-        q = params["search"]
-        base = base.filter(or_(Scan.target.ilike(f"%{q}%"), CyberRating.rating_tier.ilike(f"%{q}%")))
-
-    sort_map = {
-        "target": Scan.target,
-        "score": CyberRating.enterprise_score,
-        "tier": CyberRating.rating_tier,
-        "generated_at": CyberRating.generated_at,
-        "id": CyberRating.id,
-    }
-    base = apply_sort(base, params["sort"], params["order"], sort_map, CyberRating.id)
-
-    total = int(base.count())
-    rows = base.offset((params["page"] - 1) * params["page_size"]).limit(params["page_size"]).all()
-
-    items = [
+    cyber = CyberReportingService.get_cyber_rating_data(limit=1000)
+    rows = [
         {
-            "id": int(getattr(r, "id", 0) or 0),
-            "url": getattr(s, "target", None),
-            "enterprise_score": float(getattr(r, "enterprise_score", 0) or 0),
-            "tier": getattr(r, "rating_tier", None),
-            "scan_id": getattr(s, "scan_id", None),
-            "generated_at": to_iso(getattr(r, "generated_at", None)),
+            "id": int(row.get("asset_id") or 0),
+            "url": row.get("target"),
+            "enterprise_score": float(row.get("score") or 0),
+            "tier": row.get("tier"),
+            "generated_at": to_iso(row.get("last_seen")),
         }
-        for r, s in rows
+        for row in cyber.get("applications", [])
     ]
+    q = str(params.get("search", "") or "").strip().lower()
+    if q:
+        rows = [
+            row
+            for row in rows
+            if q in str(row.get("url") or "").lower()
+            or q in str(row.get("tier") or "").lower()
+        ]
+    sort_field = str(params.get("sort") or "generated_at").lower()
+    sort_map = {
+        "id": lambda row: int(row.get("id") or 0),
+        "target": lambda row: str(row.get("url") or "").lower(),
+        "score": lambda row: float(row.get("enterprise_score") or 0),
+        "tier": lambda row: str(row.get("tier") or "").lower(),
+        "generated_at": lambda row: str(row.get("generated_at") or ""),
+    }
+    rows = sorted(rows, key=sort_map.get(sort_field, sort_map["generated_at"]), reverse=params["order"] == "desc")
+    total = len(rows)
+    start = (params["page"] - 1) * params["page_size"]
+    end = start + params["page_size"]
+    items = rows[start:end]
 
-    avg_score = (
-        db_session.query(func.avg(CyberRating.enterprise_score))
-        .filter(CyberRating.is_deleted == False)
-        .scalar()
-        or 0
-    )
-    if avg_score >= 800:
+    avg_score = float(cyber.get("kpis", {}).get("avg_score", 0) or 0)
+    if avg_score >= 80:
         tier = "Elite-PQC"
-    elif avg_score >= 650:
+    elif avg_score >= 60:
         tier = "Advanced"
-    elif avg_score >= 500:
+    elif avg_score >= 40:
         tier = "Standard"
     else:
         tier = "Legacy"
 
     kpis = {
-        "enterprise_score": round(float(avg_score), 1),
+        "enterprise_score": round(avg_score, 1),
         "tier": tier,
-        "total_urls": int(total),
+        "total_urls": int(cyber.get("meta", {}).get("total_assets", total) or total),
+        "elite_pct": float(cyber.get("kpis", {}).get("elite_pct", 0) or 0),
+        "standard_pct": float(cyber.get("kpis", {}).get("standard_pct", 0) or 0),
+        "legacy_pct": float(cyber.get("kpis", {}).get("legacy_pct", 0) or 0),
+        "critical_count": int(cyber.get("kpis", {}).get("critical_count", 0) or 0),
     }
     data = build_data_envelope(items, total, params, kpis)
     return success_response(data, filters=_filters_payload(params))

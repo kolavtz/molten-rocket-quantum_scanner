@@ -326,13 +326,24 @@ def _ensure_assets_name_and_target_columns(cur) -> None:
 def _ensure_certificates_compat_columns(cur) -> None:
     """Ensure legacy certificates table has columns expected by current ORM model."""
     wanted_columns = {
+        "endpoint": "VARCHAR(512) NULL",
+        "port": "INT NULL",
         "subject_cn": "VARCHAR(255) NULL",
+        "subject_o": "VARCHAR(255) NULL",
+        "subject_ou": "VARCHAR(255) NULL",
+        "issuer_cn": "VARCHAR(255) NULL",
+        "issuer_o": "VARCHAR(255) NULL",
+        "issuer_ou": "VARCHAR(255) NULL",
         "company_name": "VARCHAR(255) NULL",
         "expiry_days": "INT NULL",
         "fingerprint_sha256": "VARCHAR(64) NULL",
         "key_algorithm": "VARCHAR(100) NULL",
+        "public_key_type": "VARCHAR(100) NULL",
+        "public_key_pem": "LONGTEXT NULL",
         "signature_algorithm": "VARCHAR(100) NULL",
         "ca_name": "VARCHAR(255) NULL",
+        "san_domains": "LONGTEXT NULL",
+        "cert_chain_length": "INT NULL",
         "is_self_signed": "BOOLEAN DEFAULT FALSE",
         "is_expired": "BOOLEAN DEFAULT FALSE",
         "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
@@ -363,6 +374,130 @@ def _ensure_certificates_compat_columns(cur) -> None:
         except Exception as e:
             logger.warning("Could not add certificates.%s compatibility column: %s", col_name, e)
 
+
+def _table_columns(cur, table_name: str) -> set[str]:
+    """Return the current column names for *table_name*."""
+    try:
+        cur.execute(
+            """
+            SELECT COLUMN_NAME
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = %s
+              AND TABLE_NAME = %s
+            """,
+            (MYSQL_DATABASE, table_name),
+        )
+        return {str(row[0]) for row in (cur.fetchall() or [])}
+    except Exception as exc:
+        logger.warning("Could not inspect %s schema: %s", table_name, exc)
+        return set()
+
+
+def _ensure_table_columns(cur, table_name: str, wanted_columns: dict[str, str]) -> None:
+    """Add missing columns on legacy MySQL installs without relying on IF NOT EXISTS support."""
+    existing = _table_columns(cur, table_name)
+    if not existing:
+        return
+
+    for col_name, col_def in wanted_columns.items():
+        if col_name in existing:
+            continue
+        try:
+            cur.execute(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_def}")
+            logger.info("Added %s.%s column for legacy compatibility", table_name, col_name)
+        except Exception as exc:
+            logger.warning("Could not add %s.%s compatibility column: %s", table_name, col_name, exc)
+
+
+def _ensure_scans_compat_columns(cur) -> None:
+    """Repair legacy/canonical scans table variants to match the ORM/query contract."""
+    existing = _table_columns(cur, "scans")
+    if not existing:
+        return
+
+    wanted_columns = {
+        "scan_id": "VARCHAR(36) NULL",
+        "target": "VARCHAR(512) NULL",
+        "asset_class": "VARCHAR(64) NULL",
+        "total_assets": "INT DEFAULT 0",
+        "compliance_score": "INT DEFAULT 0",
+        "overall_pqc_score": "DOUBLE NULL",
+        "quantum_safe": "INT DEFAULT 0",
+        "quantum_vuln": "INT DEFAULT 0",
+        "is_encrypted": "BOOLEAN DEFAULT FALSE",
+    }
+    _ensure_table_columns(cur, "scans", wanted_columns)
+
+    refreshed = _table_columns(cur, "scans")
+    if "scan_id" in refreshed:
+        try:
+            if "scan_uid" in refreshed:
+                cur.execute(
+                    """
+                    UPDATE scans
+                    SET scan_id = scan_uid
+                    WHERE (scan_id IS NULL OR scan_id = '')
+                      AND scan_uid IS NOT NULL
+                      AND scan_uid <> ''
+                    """
+                )
+            cur.execute("UPDATE scans SET scan_id = UUID() WHERE scan_id IS NULL OR scan_id = ''")
+            cur.execute("ALTER TABLE scans MODIFY COLUMN scan_id VARCHAR(36) NOT NULL")
+        except Exception as exc:
+            logger.warning("Could not normalize scans.scan_id compatibility column: %s", exc)
+
+        try:
+            cur.execute("CREATE UNIQUE INDEX uq_scans_scan_id ON scans(scan_id)")
+        except Exception:
+            pass
+
+    if "target" in refreshed:
+        try:
+            target_parts = []
+            if "normalized_target" in refreshed:
+                target_parts.append("NULLIF(normalized_target, '')")
+            if "requested_target" in refreshed:
+                target_parts.append("NULLIF(requested_target, '')")
+            if target_parts:
+                coalesce_expr = ", ".join(target_parts)
+                cur.execute(
+                    f"""
+                    UPDATE scans
+                    SET target = COALESCE({coalesce_expr})
+                    WHERE target IS NULL OR target = ''
+                    """
+                )
+        except Exception as exc:
+            logger.warning("Could not backfill scans.target compatibility column: %s", exc)
+
+
+def _ensure_compliance_scores_compat_columns(cur) -> None:
+    """Ensure compliance scores expose the canonical score_type column used by the ORM."""
+    existing = _table_columns(cur, "compliance_scores")
+    if not existing:
+        return
+
+    _ensure_table_columns(
+        cur,
+        "compliance_scores",
+        {
+            "score_type": "VARCHAR(50) NULL",
+        },
+    )
+    refreshed = _table_columns(cur, "compliance_scores")
+    if "score_type" in refreshed and "type" in refreshed:
+        try:
+            cur.execute(
+                """
+                UPDATE compliance_scores
+                SET score_type = type
+                WHERE (score_type IS NULL OR score_type = '')
+                  AND type IS NOT NULL
+                  AND type <> ''
+                """
+            )
+        except Exception as exc:
+            logger.warning("Could not backfill compliance_scores.score_type from type: %s", exc)
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -720,13 +855,24 @@ def init_db() -> bool:
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS deleted_at DATETIME",
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS deleted_by_user_id BIGINT",
             # Certificate schema compatibility for legacy deployments.
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS endpoint VARCHAR(512)",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS port INT",
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS subject_cn VARCHAR(255)",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS subject_o VARCHAR(255)",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS subject_ou VARCHAR(255)",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS issuer_cn VARCHAR(255)",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS issuer_o VARCHAR(255)",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS issuer_ou VARCHAR(255)",
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS company_name VARCHAR(255)",
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS expiry_days INT",
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS fingerprint_sha256 VARCHAR(64)",
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS key_algorithm VARCHAR(100)",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS public_key_type VARCHAR(100)",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS public_key_pem LONGTEXT",
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS signature_algorithm VARCHAR(100)",
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS ca_name VARCHAR(255)",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS san_domains LONGTEXT",
+            "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS cert_chain_length INT",
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS is_self_signed BOOLEAN DEFAULT FALSE",
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS is_expired BOOLEAN DEFAULT FALSE",
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
@@ -792,6 +938,10 @@ def init_db() -> bool:
             _ensure_scans_id_column(cur)
         except Exception as e:
             logger.warning("Failed to enforce scans.id compatibility: %s", e)
+        try:
+            _ensure_scans_compat_columns(cur)
+        except Exception as e:
+            logger.warning("Failed to enforce scans compatibility columns: %s", e)
 
         # Backfill/repair legacy assets schema for SQLAlchemy compatibility.
         try:
@@ -804,6 +954,93 @@ def init_db() -> bool:
             _ensure_certificates_compat_columns(cur)
         except Exception as e:
             logger.warning("Failed to enforce certificates compatibility columns: %s", e)
+        try:
+            _ensure_compliance_scores_compat_columns(cur)
+        except Exception as e:
+            logger.warning("Failed to enforce compliance_scores compatibility columns: %s", e)
+
+        # MySQL 5.x / older MariaDB may ignore or reject `ADD COLUMN IF NOT EXISTS`.
+        # Re-check core soft-delete columns explicitly so ORM queries stay usable.
+        for table_name, wanted_columns in {
+            "assets": {
+                "asset_key": "VARCHAR(255) NULL",
+                "is_deleted": "BOOLEAN DEFAULT FALSE",
+                "deleted_at": "DATETIME NULL",
+                "deleted_by_user_id": "BIGINT NULL",
+            },
+            "scans": {
+                "scan_id": "VARCHAR(36) NULL",
+                "target": "VARCHAR(512) NULL",
+                "asset_class": "VARCHAR(64) NULL",
+                "total_assets": "INT DEFAULT 0",
+                "compliance_score": "INT DEFAULT 0",
+                "overall_pqc_score": "DOUBLE NULL",
+                "quantum_safe": "INT DEFAULT 0",
+                "quantum_vuln": "INT DEFAULT 0",
+                "is_encrypted": "BOOLEAN DEFAULT FALSE",
+                "is_deleted": "BOOLEAN DEFAULT FALSE",
+                "deleted_at": "DATETIME NULL",
+                "deleted_by_user_id": "BIGINT NULL",
+            },
+            "discovery_items": {
+                "is_deleted": "BOOLEAN DEFAULT FALSE",
+                "deleted_at": "DATETIME NULL",
+                "deleted_by_user_id": "BIGINT NULL",
+            },
+            "certificates": {
+                "endpoint": "VARCHAR(512) NULL",
+                "port": "INT NULL",
+                "subject_cn": "VARCHAR(255) NULL",
+                "subject_o": "VARCHAR(255) NULL",
+                "subject_ou": "VARCHAR(255) NULL",
+                "issuer_cn": "VARCHAR(255) NULL",
+                "issuer_o": "VARCHAR(255) NULL",
+                "issuer_ou": "VARCHAR(255) NULL",
+                "company_name": "VARCHAR(255) NULL",
+                "expiry_days": "INT NULL",
+                "fingerprint_sha256": "VARCHAR(64) NULL",
+                "key_algorithm": "VARCHAR(100) NULL",
+                "public_key_type": "VARCHAR(100) NULL",
+                "public_key_pem": "LONGTEXT NULL",
+                "signature_algorithm": "VARCHAR(100) NULL",
+                "ca_name": "VARCHAR(255) NULL",
+                "san_domains": "LONGTEXT NULL",
+                "cert_chain_length": "INT NULL",
+                "is_deleted": "BOOLEAN DEFAULT FALSE",
+                "deleted_at": "DATETIME NULL",
+                "deleted_by_user_id": "BIGINT NULL",
+            },
+            "pqc_classification": {
+                "is_deleted": "BOOLEAN DEFAULT FALSE",
+                "deleted_at": "DATETIME NULL",
+                "deleted_by_user_id": "BIGINT NULL",
+            },
+            "cbom_summary": {
+                "is_deleted": "BOOLEAN DEFAULT FALSE",
+                "deleted_at": "DATETIME NULL",
+                "deleted_by_user_id": "BIGINT NULL",
+            },
+            "cbom_entries": {
+                "is_deleted": "BOOLEAN DEFAULT FALSE",
+                "deleted_at": "DATETIME NULL",
+                "deleted_by_user_id": "BIGINT NULL",
+            },
+            "compliance_scores": {
+                "score_type": "VARCHAR(50) NULL",
+                "is_deleted": "BOOLEAN DEFAULT FALSE",
+                "deleted_at": "DATETIME NULL",
+                "deleted_by_user_id": "BIGINT NULL",
+            },
+            "cyber_rating": {
+                "is_deleted": "BOOLEAN DEFAULT FALSE",
+                "deleted_at": "DATETIME NULL",
+                "deleted_by_user_id": "BIGINT NULL",
+            },
+        }.items():
+            try:
+                _ensure_table_columns(cur, table_name, wanted_columns)
+            except Exception as e:
+                logger.warning("Failed to enforce %s soft-delete compatibility columns: %s", table_name, e)
 
         # Align report_schedules FK type with users.id type for mixed legacy installs.
         try:
@@ -879,7 +1116,7 @@ def init_db() -> bool:
                 admin_username = os.environ.get("QSS_ADMIN_USERNAME", "admin")
                 admin_email = os.environ.get("QSS_ADMIN_EMAIL", "admin@localhost")
                 admin_employee_id = os.environ.get("QSS_ADMIN_EMPLOYEE_ID", "ADMIN-001")
-                admin_pass = os.environ.get("QSS_ADMIN_PASSWORD", "admin123")
+                admin_pass = os.environ.get("QSS_ADMIN_PASSWORD", "Admin@12345678")
                 cur.execute(
                     """
                     INSERT INTO users

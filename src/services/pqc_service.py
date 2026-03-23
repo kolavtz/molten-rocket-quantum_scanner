@@ -15,7 +15,7 @@ from datetime import datetime
 import json
 
 from src.db import db_session
-from src.models import Asset, PQCClassification, Scan
+from src.models import Asset, PQCClassification, Scan, Certificate
 
 
 class PQCService:
@@ -352,11 +352,31 @@ class PQCService:
                 if t and t not in latest_scan_by_target:
                     latest_scan_by_target[t] = s
 
+        # Preload latest certificate per asset for TLS/cipher context on posture cards.
+        latest_cert_by_asset: Dict[int, Certificate] = {}
+        asset_ids = [int(getattr(a, "id", 0) or 0) for a in assets if int(getattr(a, "id", 0) or 0) > 0]
+        if asset_ids:
+            try:
+                cert_rows = (
+                    db_session.query(Certificate)
+                    .filter(Certificate.is_deleted == False, Certificate.asset_id.in_(asset_ids))
+                    .order_by(Certificate.asset_id.asc(), Certificate.valid_until.desc(), Certificate.id.desc())
+                    .all()
+                )
+            except Exception:
+                cert_rows = []
+
+            for cert in cert_rows:
+                aid = int(getattr(cert, "asset_id", 0) or 0)
+                if aid > 0 and aid not in latest_cert_by_asset:
+                    latest_cert_by_asset[aid] = cert
+
         for asset in assets[:limit]:
             asset_id = int(getattr(asset, "id", 0) or 0)
             tier, score = asset_tier_map.get(asset_id, ("Unknown", 0))
             target_key = str(getattr(asset, "target", "") or "").strip().lower()
             latest_scan = latest_scan_by_target.get(target_key)
+            latest_cert = latest_cert_by_asset.get(asset_id)
             last_scan = None
             scan_kind = "N/A"
             if latest_scan is not None:
@@ -385,6 +405,17 @@ class PQCService:
                 if str(getattr(c, "quantum_safe_status", "") or "") == "quantum_vulnerable"
             )
 
+            tls_version = str(getattr(latest_cert, "tls_version", "") or "Unknown") if latest_cert else "Unknown"
+            cipher_suite = str(getattr(latest_cert, "cipher_suite", "") or "Unknown") if latest_cert else "Unknown"
+            if score >= 80:
+                recommendation = "Maintain current posture; keep cert and cipher baselines patched."
+            elif score >= 60:
+                recommendation = "Prioritize migration to NIST-approved PQC where feasible."
+            elif score >= 40:
+                recommendation = "Upgrade weak TLS/cipher suites and begin staged PQC rollout."
+            else:
+                recommendation = "Immediate remediation required: replace vulnerable algorithms and legacy TLS."
+
             rows.append({
                 "target": asset.target,
                 "asset_name": asset.name or asset.target,
@@ -394,6 +425,9 @@ class PQCService:
                 "readiness": "YES" if score >= 70 else "NO",  # >=70 considered ready
                 "quantum_safe_algorithms": safe_count,
                 "quantum_vulnerable_algorithms": vulnerable_count,
+                "tls_version": tls_version,
+                "cipher_suite": cipher_suite,
+                "recommendation": recommendation,
                 "last_scan": last_scan.isoformat() if hasattr(last_scan, "isoformat") and last_scan else "",
                 "scan_kind": scan_kind,
                 "asset_id": asset_id,

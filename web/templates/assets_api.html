@@ -10,7 +10,7 @@
 <div class="container mt-lg">
     <!-- Page Header -->
     <div class="page-header">
-        <h1>🏢 Asset Inventory</h1>
+        <h1><i class="fa-solid fa-building-shield" style="margin-right:0.5rem;"></i>Asset Inventory</h1>
         <p class="subtitle">Manage and monitor all discovered assets and their security posture</p>
     </div>
 
@@ -132,6 +132,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 .subtitle {
     color: #94a3b8;
     font-size: 1.1em;
+}
+
+.page-header h1 {
+    display: flex;
+    align-items: center;
 }
 </style>
 {% endblock %}

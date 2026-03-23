@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const THEME_KEY = 'qss_theme';
     const root = document.documentElement;
     const toggle = document.getElementById('themeToggle');
+    const reset = document.getElementById('themeReset');
     const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
 
     function resolveTheme(pref) {
@@ -33,6 +34,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const next = current === 'dark' ? 'light' : 'dark';
             localStorage.setItem(THEME_KEY, next);
             applyTheme(next);
+        });
+    }
+
+    if (reset) {
+        reset.addEventListener('click', () => {
+            // Reset to strict monochrome dark mode (black BG / white text)
+            localStorage.setItem(THEME_KEY, 'dark');
+            applyTheme('dark');
         });
     }
 

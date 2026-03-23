@@ -1,0 +1,46 @@
+[2026-03-22 14:59:48,367] INFO in app: QuantumShield application starting up...
+[2026-03-22 14:59:48,368] INFO in app: Initializing database connectivity...
+[2026-03-22 14:59:48,368] INFO in app: Database bootstrap deferred until runtime startup hook.
+  ΓÜÖ∩╕Å Waiting for runtime DB bootstrap...
+Γ¥î Failed to register API blueprints: cannot import name 'SessionLocal' from 'src.db' (C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\web\..\src\db.py)
+[2026-03-22 14:59:48,446] INFO in app: Automated scheduler disabled.
+[2026-03-22 14:59:48,446] INFO in app: Initializing database connectivity at runtime (attempt 1/3)...
+[2026-03-22 14:59:48,460] INFO in database: Database 'quantumshield' already exists, selected successfully
+[2026-03-22 14:59:48,769] INFO in database: MySQL database 'quantumshield' initialised successfully.
+  ≡ƒÆ╛ MySQL connected ΓÇö loaded 10 scans from database
+[2026-03-22 14:59:48,779] INFO in app: Database initialization complete. Available=True
+
+============================================================
+  [QuantumShield] __main__ - Quantum-Safe TLS Scanner
+  Running on https://127.0.0.1:5000
+============================================================
+
+  Γå⌐∩╕Å  HTTP redirect active  http://0.0.0.0:5080 ΓåÆ HTTPS :5000
+  [OK] Using mkcert trusted SSL certificate (no browser warnings)
+ * Serving Flask app 'app'
+ * Debug mode: on
+[2026-03-22 14:59:48,901] INFO in _internal: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on https://127.0.0.1:5000
+[2026-03-22 14:59:48,901] INFO in _internal: [33mPress CTRL+C to quit[0m
+[2026-03-22 14:59:48,905] INFO in _internal:  * Restarting with stat
+[2026-03-22 14:59:50,271] INFO in app: QuantumShield application starting up...
+[2026-03-22 14:59:50,271] INFO in app: Initializing database connectivity...
+[2026-03-22 14:59:50,271] INFO in app: Database bootstrap deferred until runtime startup hook.
+  ΓÜÖ∩╕Å Waiting for runtime DB bootstrap...
+Γ¥î Failed to register API blueprints: cannot import name 'SessionLocal' from 'src.db' (C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\web\..\src\db.py)
+[2026-03-22 14:59:50,332] INFO in app: Automated scheduler disabled.
+[2026-03-22 14:59:50,332] INFO in app: Initializing database connectivity at runtime (attempt 1/3)...
+[2026-03-22 14:59:50,339] INFO in database: Database 'quantumshield' already exists, selected successfully
+[2026-03-22 14:59:50,468] INFO in database: MySQL database 'quantumshield' initialised successfully.
+  ≡ƒÆ╛ MySQL connected ΓÇö loaded 10 scans from database
+[2026-03-22 14:59:50,488] INFO in app: Database initialization complete. Available=True
+
+============================================================
+  [QuantumShield] __main__ - Quantum-Safe TLS Scanner
+  Running on https://127.0.0.1:5000
+============================================================
+
+  Γå⌐∩╕Å  HTTP redirect active  http://0.0.0.0:5080 ΓåÆ HTTPS :5000
+  [OK] Using mkcert trusted SSL certificate (no browser warnings)
+[2026-03-22 14:59:50,529] WARNING in _internal:  * Debugger is active!
+[2026-03-22 14:59:50,538] INFO in _internal:  * Debugger PIN: 483-781-071
