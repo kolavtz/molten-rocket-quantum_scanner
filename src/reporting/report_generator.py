@@ -12,13 +12,19 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Dict, List
 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from config import APP_NAME, APP_VERSION
+
+
+def _json_default(value: Any):
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    return str(value)
 
 
 class ReportGenerator:
@@ -96,4 +102,4 @@ class ReportGenerator:
     def export_json(self, report: Dict[str, Any], path: str) -> None:
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         with open(path, "w", encoding="utf-8") as fh:
-            json.dump(report, fh, indent=2, ensure_ascii=False)
+            json.dump(report, fh, indent=2, ensure_ascii=False, default=_json_default)

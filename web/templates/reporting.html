@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Reporting | PNB Cyber Observability{% endblock %}
+{% block title %}Reporting | QuantumShield{% endblock %}
 {% block content %}
 <section class="hero" style="padding-bottom:1rem;">
   <h2 class="hero-title" style="font-size:2rem;">REPORTING</h2>
@@ -8,8 +8,10 @@
 
 {% if vm.empty %}
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <strong>No live reporting data yet.</strong>
-  <p style="margin-top:0.4rem;color:var(--text-secondary);">You can still schedule report jobs, but summary metrics will remain zero until scans are completed.</p>
+  <div class="alert info" style="margin:0;">
+    <div class="alert-title">No live reporting data yet</div>
+    <div class="alert-message">You can still schedule report jobs, but summary metrics remain zero until scans complete.</div>
+  </div>
 </section>
 {% endif %}
 
@@ -19,19 +21,19 @@
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.8rem;">
     <button onclick="document.getElementById('schedSection').scrollIntoView({behavior:'smooth'})"
       class="glass-card" style="padding:1rem;cursor:pointer;text-align:left;border-color:var(--accent);">
-      <div style="font-size:1.3rem;margin-bottom:0.3rem;">📅</div>
+      <div style="font-size:1.3rem;margin-bottom:0.3rem;"><i class="fa-solid fa-calendar-days"></i></div>
       <div style="font-weight:700;font-size:0.9rem;">Scheduled Reporting</div>
       <div style="font-size:0.75rem;color:var(--text-secondary);">Automate periodic delivery to email or file</div>
     </button>
     <button onclick="document.getElementById('ondemandSection').scrollIntoView({behavior:'smooth'})"
       class="glass-card" style="padding:1rem;cursor:pointer;text-align:left;border-color:var(--safe);">
-      <div style="font-size:1.3rem;margin-bottom:0.3rem;">⚡</div>
+      <div style="font-size:1.3rem;margin-bottom:0.3rem;"><i class="fa-solid fa-bolt"></i></div>
       <div style="font-weight:700;font-size:0.9rem;">On-Demand Reporting</div>
       <div style="font-size:0.75rem;color:var(--text-secondary);">Generate and download a report right now</div>
     </button>
     <button onclick="document.getElementById('summarySection').scrollIntoView({behavior:'smooth'})"
       class="glass-card" style="padding:1rem;cursor:pointer;text-align:left;border-color:var(--warn);">
-      <div style="font-size:1.3rem;margin-bottom:0.3rem;">📊</div>
+      <div style="font-size:1.3rem;margin-bottom:0.3rem;"><i class="fa-solid fa-chart-column"></i></div>
       <div style="font-weight:700;font-size:0.9rem;">Executives Reporting</div>
       <div style="font-size:0.75rem;color:var(--text-secondary);">Summary metrics for executive stakeholders</div>
     </button>
@@ -84,7 +86,7 @@
     <div id="schedPasswordFields" style="display:none;">
       <label style="font-size:0.82rem;">PDF Password <input type="password" name="password" id="schedPassword" placeholder="Enter PDF password" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
     </div>
-    <button type="button" id="schedBtn" class="scan-button" style="padding:0.45rem 0.8rem;">📅 Schedule Report</button>
+    <button type="button" id="schedBtn" class="button" style="padding:0.45rem 0.8rem;"><i class="fa-solid fa-calendar-check"></i> Schedule Report</button>
     <div id="schedStatus" style="font-size:0.78rem;"></div>
   </form>
 
@@ -123,7 +125,7 @@
         <label style="font-size:0.82rem;">PDF Password <input type="password" name="password" id="odPassword" placeholder="Enter PDF password" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
       </div>
     </fieldset>
-    <button type="button" id="generateBtn" class="scan-button" style="padding:0.45rem 0.8rem;">⚡ Generate Report</button>
+    <button type="button" id="generateBtn" class="button" style="padding:0.45rem 0.8rem;"><i class="fa-solid fa-file-arrow-down"></i> Generate Report</button>
     <div id="generateStatus" style="font-size:0.78rem;"></div>
   </form>
 </section>

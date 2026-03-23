@@ -19,7 +19,7 @@ def register_api_blueprints(app: Flask):
         from web.blueprints.api_pqc import api_pqc
         from web.blueprints.api_cyber import api_cyber
         from web.blueprints.api_reports import api_reports
-        from web.blueprints.api_admin import api_admin
+        # from web.blueprints.api_admin import api_admin  # TODO: APIKey model not yet implemented
         from web.blueprints.api_docs import api_docs
         
         # Register all blueprints
@@ -29,7 +29,7 @@ def register_api_blueprints(app: Flask):
         app.register_blueprint(api_pqc)
         app.register_blueprint(api_cyber)
         app.register_blueprint(api_reports)
-        app.register_blueprint(api_admin)
+        # app.register_blueprint(api_admin)  # TODO: APIKey model not yet implemented
         app.register_blueprint(api_docs)
         
         print("✅ All API blueprints registered successfully")

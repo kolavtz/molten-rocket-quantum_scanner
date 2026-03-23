@@ -241,15 +241,29 @@ class CbomService:
                 rows = []
         applications = []
         for cert, asset, scan in rows:
+            valid_from = getattr(cert, "valid_from", None)
+            valid_until = getattr(cert, "valid_until", None)
             applications.append(
                 {
                     "asset_id": int(getattr(asset, "id", 0) or 0),
                     "asset_name": str(getattr(asset, "target", "") or "Unknown Asset"),
+                    "endpoint": str(getattr(cert, "endpoint", "") or ""),
+                    "serial": str(getattr(cert, "serial", "") or ""),
                     "key_length": int(getattr(cert, "key_length", 0) or 0),
+                    "public_key_type": str(getattr(cert, "public_key_type", "") or getattr(cert, "key_algorithm", "") or "Unknown"),
+                    "public_key_pem": str(getattr(cert, "public_key_pem", "") or ""),
                     "cipher_suite": str(getattr(cert, "cipher_suite", "") or "Unknown"),
                     "ca": str(getattr(cert, "ca", "") or getattr(cert, "issuer", "") or "Unknown"),
                     "tls_version": str(getattr(cert, "tls_version", "") or "Unknown"),
-                    "valid_until": getattr(cert, "valid_until", None),
+                    "subject_cn": str(getattr(cert, "subject_cn", "") or ""),
+                    "subject_o": str(getattr(cert, "subject_o", "") or ""),
+                    "subject_ou": str(getattr(cert, "subject_ou", "") or ""),
+                    "issuer_cn": str(getattr(cert, "issuer_cn", "") or ""),
+                    "issuer_o": str(getattr(cert, "issuer_o", "") or ""),
+                    "issuer_ou": str(getattr(cert, "issuer_ou", "") or ""),
+                    "valid_from": valid_from.isoformat() if hasattr(valid_from, "isoformat") and valid_from else None,
+                    "valid_until": valid_until.isoformat() if hasattr(valid_until, "isoformat") and valid_until else None,
+                    "fingerprint_sha256": str(getattr(cert, "fingerprint_sha256", "") or ""),
                     "last_scan": (
                         getattr(scan, "scanned_at", None)
                         or getattr(scan, "completed_at", None)
@@ -280,8 +294,11 @@ class CbomService:
             },
             "key_length_distribution": key_length_dist,
             "cipher_usage": cipher_dist,
+            "cipher_suite_usage": cipher_dist,
             "top_cas": ca_dist,
+            "ca_distribution": ca_dist,
             "protocols": tls_dist,
+            "protocol_distribution": tls_dist,
             "weakness_heatmap": weakness_heatmap,
             "applications": applications,
             "page_data": {

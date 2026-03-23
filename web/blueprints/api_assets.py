@@ -3,9 +3,10 @@ API Assets - /api/assets and /api/discovery endpoints
 Paginated, sortable, searchable asset and discovery data.
 """
 
+import json
 from flask import Blueprint, request, jsonify
 from flask_login import login_required
-from src.db import SessionLocal
+from src.db import db_session as SessionLocal
 from src.models import Asset, Certificate, DiscoveryItem
 from utils.api_helper import (
     paginated_response, api_response, apply_soft_delete_filter,
@@ -15,6 +16,52 @@ from utils.api_helper import (
 from sqlalchemy import func, or_, and_
 
 api_assets = Blueprint("api_assets", __name__, url_prefix="/api")
+
+
+@api_assets.route("/assets/<int:asset_id>/scans", methods=["GET"])
+@login_required
+def get_asset_scans(asset_id):
+    """
+    GET /api/assets/{asset_id}/scans?page=1&page_size=10
+    
+    Returns scan history for a specific asset.
+    
+    Query Parameters:
+        page (int): Page number, default 1
+        page_size (int): Records per page, default 10, max 50
+    
+    Response:
+    {
+        "success": true,
+        "data": {
+            "asset_id": 1,
+            "asset_name": "example.com",
+            "items": [
+                {
+                    "scan_id": "abc123",
+                    "status": "completed",
+                    "started_at": "2026-03-22T10:30:00Z",
+                    "completed_at": "2026-03-22T10:35:00Z",
+                    "quantum_safe": true,
+                    "pqc_score": 85.5,
+                    "total_certificates": 3
+                }
+            ],
+            "total": 5,
+            "page": 1,
+            "page_size": 10,
+            "total_pages": 1
+        }
+    }
+    """
+    from web.routes.assets import build_asset_scans_api_response
+
+    params = extract_pagination_params()
+    page, page_size = validate_pagination_params(params["page"], min(params["page_size"], 50))
+    data = build_asset_scans_api_response(asset_id, page=page, page_size=page_size)
+    if data is None:
+        return api_response(success=False, message="Asset not found", status_code=404)
+    return api_response(success=True, data=data)[0], 200
 
 
 @api_assets.route("/assets", methods=["GET"])
@@ -61,66 +108,25 @@ def get_assets():
         }
     }
     """
-    try:
-        db = SessionLocal()
-        params = extract_pagination_params()
-        page, page_size = validate_pagination_params(params["page"], params["page_size"])
-        
-        # Build base query
-        query = db.query(Asset).filter(Asset.is_deleted == False)
-        
-        # Apply search filter
-        if params["search"]:
-            search_cond = or_(
-                Asset.target.ilike(f"%{params['search']}%"),
-                Asset.url.ilike(f"%{params['search']}%")
-            )
-            query = query.filter(search_cond)
-        
-        # Get total before pagination
-        total = query.count()
-        
-        # Apply sorting
-        allowed_sorts = {
-            "asset_name": Asset.target,
-            "risk_level": Asset.risk_level,
-            "created_at": Asset.created_at,
-            "updated_at": Asset.updated_at,
-            "owner": Asset.owner,
-            "type": Asset.asset_type
-        }
-        
-        sort_field = params["sort"] or "created_at"
-        if sort_field in allowed_sorts:
-            sort_col = allowed_sorts[sort_field]
-            if params["order"].lower() == "desc":
-                query = query.order_by(sort_col.desc())
-            else:
-                query = query.order_by(sort_col.asc())
-        
-        # Apply pagination
-        offset = (page - 1) * page_size
-        items = query.offset(offset).limit(page_size).all()
-        
-        # Format response
-        items_data = [format_asset_row(asset) for asset in items]
-        
-        db.close()
-        
-        return paginated_response(
-            items=items_data,
-            total=total,
-            page=page,
-            page_size=page_size,
-            filters={
-                "sort": params["sort"] or "created_at",
-                "order": params["order"],
-                "search": params["search"]
-            }
-        )[0], 200
-    
-    except Exception as e:
-        return api_response(success=False, message=str(e), status_code=500)[0], 500
+    from web.routes.assets import build_assets_api_response
+
+    params = extract_pagination_params()
+    page, page_size = validate_pagination_params(params["page"], params["page_size"])
+    data, filters = build_assets_api_response(
+        page=page,
+        page_size=page_size,
+        sort=params["sort"] or "name",
+        order=params["order"],
+        search=params["search"],
+    )
+    payload = {
+        "success": True,
+        "data": data,
+        "filters": filters,
+    }
+    if isinstance(data, dict):
+        payload.update(data)
+    return payload, 200
 
 
 @api_assets.route("/discovery", methods=["GET"])
@@ -226,43 +232,16 @@ def get_asset_detail(asset_id):
     GET /api/assets/<asset_id>
     Returns detailed information about a specific asset.
     """
-    try:
-        db = SessionLocal()
-        
-        asset = db.query(Asset).filter(
-            Asset.id == asset_id,
-            Asset.is_deleted == False
-        ).first()
-        
-        if not asset:
-            return api_response(
-                success=False,
-                message="Asset not found",
-                status_code=404
-            )[0], 404
-        
-        # Get certificates for this asset
-        certs = db.query(Certificate).filter(
-            Certificate.asset_id == asset_id,
-            Certificate.is_deleted == False
-        ).all()
-        
-        asset_data = format_asset_row(asset)
-        asset_data["certificates_count"] = len(certs)
-        asset_data["discovery_count"] = db.query(func.count(DiscoveryItem.id)).filter(
-            DiscoveryItem.asset_id == asset_id,
-            DiscoveryItem.is_deleted == False
-        ).scalar() or 0
-        
-        db.close()
-        
+    from web.routes.assets import build_asset_detail_api_response
+
+    asset_data = build_asset_detail_api_response(asset_id)
+    if asset_data is None:
         return api_response(
-            success=True,
-            data=asset_data
-        )[0], 200
-    
-    except Exception as e:
-        return api_response(success=False, message=str(e), status_code=500)[0], 500
+            success=False,
+            message="Asset not found",
+            status_code=404
+        )[0], 404
+    return api_response(success=True, data=asset_data)[0], 200
 
 
 @api_assets.route("/assets", methods=["POST"])
@@ -282,96 +261,11 @@ def create_asset():
     
     Response: 201 or 400 on validation error
     """
-    try:
-        from flask_login import current_user
-        import re
-        from urllib.parse import urlparse
-        import ipaddress
-        
-        db = SessionLocal()
-        
-        # Parse request
-        payload = request.get_json(silent=True) or request.form or {}
-        target = str(payload.get("target") or "").strip()
-        asset_type = str(payload.get("type") or payload.get("asset_type") or "Web App").strip()[:100]
-        owner = str(payload.get("owner") or getattr(current_user, "username", "Unassigned") or "Unassigned").strip()[:100]
-        risk_level = str(payload.get("risk_level") or "Medium").strip()[:20]
-        
-        # Validate target
-        if not target or len(target) > 255:
-            db.close()
-            return api_response(success=False, message="target is required and must be <= 255 chars", status_code=400)[0], 400
-        
-        # Normalize target (remove protocol, port)
-        if target.startswith(("http://", "https://", "ftp://")):
-            try:
-                parsed = urlparse(target)
-                target = parsed.netloc or parsed.path
-            except:
-                pass
-        
-        if ":" in target:
-            target = target.split(":")[0]
-        
-        target = target.strip().lower()
-        
-        # Try to parse as IP or validate as hostname
-        valid = False
-        try:
-            ipaddress.ip_address(target)
-            valid = True
-        except ValueError:
-            if re.match(r"^[a-z0-9][a-z0-9.-]*[a-z0-9]$|^[a-z0-9]$", target, re.I):
-                valid = True
-        
-        if not valid:
-            db.close()
-            return api_response(success=False, message="target must be valid hostname or IP", status_code=400)[0], 400
-        
-        # Check if asset exists
-        asset = db.query(Asset).filter(
-            Asset.target == target
-        ).first()
-        
-        if asset:
-            # Restore if soft-deleted
-            created = False
-            if asset.is_deleted:
-                asset.is_deleted = False
-                asset.deleted_at = None
-                asset.deleted_by_user_id = None
-            else:
-                created = False  # Already exists
-        else:
-            # Create new asset
-            asset = Asset(
-                target=target,
-                url=f"https://{target}",
-                asset_type=asset_type,
-                owner=owner,
-                risk_level=risk_level,
-                is_deleted=False
-            )
-            db.add(asset)
-            created = True
-        
-        db.commit()
-        asset_id = asset.id
-        db.close()
-        
-        return api_response(
-            success=True,
-            data={
-                "id": asset_id,
-                "target": target,
-                "created": created,
-                "restored": asset and asset.is_deleted == False and not created
-            },
-            status_code=201 if created else 200
-        )[0], (201 if created else 200)
-    
-    except Exception as e:
-        return api_response(success=False, message=str(e), status_code=500)[0], 500
+    from web.routes.assets import create_or_scan_asset_api
+
+    payload = request.get_json(silent=True) or request.form.to_dict(flat=False)
+    response, status_code = create_or_scan_asset_api(payload)
+    return response, status_code
 
 
 @api_assets.route("/discovery/promote", methods=["POST"])
@@ -400,7 +294,7 @@ def promote_discovery_to_asset():
         
         if not discovery_id:
             db.close()
-            return api_response(success=False, message="discovery_id is required", status_code=400)[0], 400
+            return api_response(success=False, message="discovery_id is required", status_code=400)
         
         # Get discovery item
         discovery = db.query(DiscoveryItem).filter(
@@ -410,13 +304,13 @@ def promote_discovery_to_asset():
         
         if not discovery:
             db.close()
-            return api_response(success=False, message="Discovery item not found", status_code=404)[0], 404
+            return api_response(success=False, message="Discovery item not found", status_code=404)
         
         # Get or create asset
         target = str(discovery.domain_name or discovery.ip or discovery.common_name or "").strip().lower()
         if not target:
             db.close()
-            return api_response(success=False, message="Cannot infer target from discovery", status_code=400)[0], 400
+            return api_response(success=False, message="Cannot infer target from discovery", status_code=400)
         
         asset = db.query(Asset).filter(Asset.target == target).first()
         if not asset:
@@ -443,7 +337,7 @@ def promote_discovery_to_asset():
         return api_response(
             success=True,
             data={"asset_id": asset.id, "discovery_id": discovery_id}
-        )[0], 200
+        )
     
     except Exception as e:
-        return api_response(success=False, message=str(e), status_code=500)[0], 500
+        return api_response(success=False, message=str(e), status_code=500)

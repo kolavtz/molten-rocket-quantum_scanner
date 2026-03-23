@@ -1,9 +1,10 @@
 # pyre-ignore-all-errors
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float, Text
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float, Text, event
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.orm import declarative_base, relationship, synonym
 from sqlalchemy.sql import func
 import datetime
+import uuid
 
 Base = declarative_base()
 
@@ -51,6 +52,7 @@ class User(Base):
 class Asset(Base, SoftDeleteMixin):
     __tablename__ = 'assets'
     id = Column(Integer, primary_key=True)
+    asset_key = Column(String(255), unique=True, nullable=True, index=True)
     target = Column(String(255), nullable=False, unique=True, index=True)
     name = synonym('target')
     url = Column(String(255), nullable=True)
@@ -72,13 +74,27 @@ class Asset(Base, SoftDeleteMixin):
     cbom_entries = relationship("CBOMEntry", back_populates="asset", cascade="all, delete-orphan", passive_deletes=True)
     compliance_scores = relationship("ComplianceScore", back_populates="asset", cascade="all, delete-orphan", passive_deletes=True)
 
+
+@event.listens_for(Asset, "before_insert")
+def _asset_before_insert(_mapper, _connection, target):
+    canonical = str(getattr(target, "target", "") or "").strip().lower()
+    if canonical and not str(getattr(target, "asset_key", "") or "").strip():
+        target.asset_key = canonical
+    elif not str(getattr(target, "asset_key", "") or "").strip():
+        target.asset_key = f"asset-{uuid.uuid4().hex}"
+
 class Scan(Base, SoftDeleteMixin):
     __tablename__ = 'scans'
     id = Column(Integer, primary_key=True)
+    scan_uid = Column(String(36), unique=True, nullable=True, index=True)
     scan_id = Column(String(36), unique=True, nullable=False, index=True)
+    requested_target = Column(String(512), nullable=True)
+    normalized_target = Column(String(512), nullable=True, index=True)
     target = Column(String(255), nullable=False, index=True)
     asset_class = Column(String(64), nullable=True)
     status = Column(String(50), nullable=False)
+    scan_kind = Column(String(32), nullable=True)
+    initiated_by = Column(String(36), nullable=True)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     scanned_at = Column(DateTime, nullable=True)
@@ -88,9 +104,14 @@ class Scan(Base, SoftDeleteMixin):
     quantum_safe = Column(Integer, default=0)
     quantum_vuln = Column(Integer, default=0)
     cbom_path = Column(String(500), nullable=True)
+    error_message = Column(Text, nullable=True)
     report_json = Column(Text, nullable=False)
     is_encrypted = Column(Boolean, default=False)
+    total_discovered = Column(Integer, default=0)
+    total_promoted = Column(Integer, default=0)
     created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    deleted_by = Column(String(36), nullable=True)
     
     # Relationships
     cbom_summary = relationship("CBOMSummary", back_populates="scan", uselist=False, cascade="all, delete-orphan", passive_deletes=True)
@@ -98,6 +119,34 @@ class Scan(Base, SoftDeleteMixin):
     cbom_entries = relationship("CBOMEntry", back_populates="scan", cascade="all, delete-orphan", passive_deletes=True)
     certificates = relationship("Certificate", back_populates="scan", cascade="all, delete-orphan", passive_deletes=True)
     pqc_classifications = relationship("PQCClassification", back_populates="scan", cascade="all, delete-orphan", passive_deletes=True)
+
+
+def _normalize_scan_status(value):
+    text = str(value or "").strip().lower()
+    aliases = {
+        "completed": "complete",
+        "in_progress": "running",
+        "in-progress": "running",
+    }
+    return aliases.get(text, text or "queued")
+
+
+@event.listens_for(Scan, "before_insert")
+@event.listens_for(Scan, "before_update")
+def _scan_before_save(_mapper, _connection, target):
+    scan_id = str(getattr(target, "scan_id", "") or "").strip()
+    scan_uid = str(getattr(target, "scan_uid", "") or "").strip()
+    canonical_scan_id = scan_id or scan_uid or f"scan-{uuid.uuid4().hex[:12]}"
+    target.scan_id = canonical_scan_id
+    target.scan_uid = canonical_scan_id
+
+    requested_target = str(getattr(target, "requested_target", "") or "").strip()
+    canonical_target = str(getattr(target, "target", "") or requested_target).strip()
+    target.target = canonical_target
+    target.requested_target = requested_target or canonical_target
+    target.normalized_target = str(getattr(target, "normalized_target", "") or canonical_target).strip().lower()
+    target.status = _normalize_scan_status(getattr(target, "status", None))
+    target.scan_kind = str(getattr(target, "scan_kind", "") or "manual").strip().lower() or "manual"
 
 
 class DiscoveryItem(Base, SoftDeleteMixin):
@@ -117,11 +166,18 @@ class Certificate(Base, SoftDeleteMixin):
     id = Column(Integer, primary_key=True)
     asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
     scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
+    endpoint = Column(String(512), nullable=True, index=True)
+    port = Column(Integer, nullable=True)
     
     # Certificate identifying fields
     issuer = Column(String(500), nullable=True, index=True)
     subject = Column(String(500), nullable=True)
     subject_cn = Column(String(255), nullable=True, index=True)  # Common Name from subject
+    subject_o = Column(String(255), nullable=True)
+    subject_ou = Column(String(255), nullable=True)
+    issuer_cn = Column(String(255), nullable=True, index=True)
+    issuer_o = Column(String(255), nullable=True)
+    issuer_ou = Column(String(255), nullable=True)
     serial = Column(String(255), nullable=True, unique=True, index=True)
     company_name = Column(String(255), nullable=True, index=True)  # Organization name
     
@@ -135,10 +191,14 @@ class Certificate(Base, SoftDeleteMixin):
     tls_version = Column(String(50), nullable=True, index=True)
     key_length = Column(Integer, nullable=True)
     key_algorithm = Column(String(100), nullable=True)
+    public_key_type = Column(String(100), nullable=True)
+    public_key_pem = Column(Text, nullable=True)
     cipher_suite = Column(String(255), nullable=True)
     signature_algorithm = Column(String(100), nullable=True)
     ca = Column(String(255), nullable=True, index=True)
     ca_name = Column(String(255), nullable=True)
+    san_domains = Column(Text, nullable=True)
+    cert_chain_length = Column(Integer, nullable=True)
     
     # Status tracking
     is_self_signed = Column(Boolean, default=False)
@@ -181,6 +241,7 @@ class PQCClassification(Base, SoftDeleteMixin):
 class CBOMSummary(Base, SoftDeleteMixin):
     __tablename__ = 'cbom_summary'
     id = Column(Integer, primary_key=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
     scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, unique=True)
     total_components = Column(Integer, default=0)
     weak_crypto_count = Column(Integer, default=0)
@@ -208,7 +269,8 @@ class ComplianceScore(Base, SoftDeleteMixin):
     id = Column(Integer, primary_key=True)
     asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False)
     scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
-    type = Column(String(50)) # pqc, tls, overall
+    score_type = Column("score_type", String(50)) # pqc, tls, overall
+    type = synonym("score_type")
     score_value = Column(Float)
     tier = Column(String(50)) # elite, standard, legacy, critical
     asset = relationship("Asset", back_populates="compliance_scores")
@@ -216,7 +278,8 @@ class ComplianceScore(Base, SoftDeleteMixin):
 class CyberRating(Base, SoftDeleteMixin):
     __tablename__ = 'cyber_rating'
     id = Column(Integer, primary_key=True)
-    organization_id = Column(String(100))
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
+    organization_id = synonym("asset_id")
     scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
     enterprise_score = Column(Float)
     rating_tier = Column(String(50))

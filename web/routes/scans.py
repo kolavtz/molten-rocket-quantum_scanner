@@ -80,13 +80,20 @@ def _build_scan_item_from_report(report: dict[str, Any]) -> dict[str, Any]:
         assets_found = len(report.get("discovered_services") or [])
 
     scan_id = str(report.get("scan_id") or "")
+    
+    # Extract timestamps
+    started_at = str(report.get("started_at") or report.get("timestamp") or "")
+    completed_at = str(report.get("completed_at") or report.get("generated_at") or "")
+    
     return {
         "scan_id": scan_id,
         "target": str(report.get("target") or ""),
         "status": _normalize_status(report.get("status") or "completed"),
         "assets_found": int(assets_found or 0),
         "pqc_score": round(float(pqc_score or 0), 2),
-        "date": str(report.get("generated_at") or report.get("timestamp") or ""),
+        "started_at": started_at,
+        "completed_at": completed_at,
+        "date": started_at or completed_at or "",
         "actions": f"/results/{scan_id}" if scan_id else "",
     }
 
@@ -364,11 +371,36 @@ def api_scan_single():
     payload = request.get_json(silent=True) or {}
     target = str(payload.get("target") or "").strip()
     ports = _parse_ports(payload.get("ports"))
+    
+    # Inventory metadata
+    add_to_inventory = payload.get("add_to_inventory", False)
+    inv_owner = str(payload.get("owner") or "").strip() or None
+    inv_risk = str(payload.get("risk_level") or "Medium").strip()
+    inv_notes = str(payload.get("notes") or "").strip() or None
+    asset_type = str(payload.get("asset_type") or "Web App").strip()
+    
     if not target:
         return jsonify({"status": "error", "message": "Missing 'target'."}), 400
 
     job = _start_job([target], ports)
-    return jsonify({"status": "accepted", "scan_id": job["scan_ids"][0], "job_id": job["job_id"]}), 202
+    scan_id = job["scan_ids"][0]
+    
+    # Store inventory metadata for post-scan processing
+    if add_to_inventory:
+        try:
+            _scan_jobs_lock.acquire()
+            if scan_id in _scan_jobs:
+                _scan_jobs[scan_id]["inventory_meta"] = {
+                    "add_to_inventory": True,
+                    "owner": inv_owner,
+                    "risk_level": inv_risk,
+                    "notes": inv_notes,
+                    "asset_type": asset_type
+                }
+        finally:
+            _scan_jobs_lock.release()
+    
+    return jsonify({"status": "accepted", "scan_id": scan_id, "job_id": job["job_id"]}), 202
 
 
 @scans_bp.route("/api/scans/bulk", methods=["POST"])
@@ -430,3 +462,62 @@ def api_scan_status(scan_id: str):
         ), 200
 
     return jsonify({"status": "error", "message": "Scan status not found."}), 404
+
+
+# ── Scan Scheduling Endpoints ──
+
+_scan_schedules_in_memory: dict[str, dict[str, Any]] = {}
+
+
+@scans_bp.route("/api/scan-schedules", methods=["GET"])
+@login_required
+def list_scan_schedules():
+    """List all active scan schedules."""
+    schedules = list(_scan_schedules_in_memory.values())
+    return jsonify({"data": schedules, "schedules": schedules, "total": len(schedules)}), 200
+
+
+@scans_bp.route("/api/scan-schedules", methods=["POST"])
+@login_required
+def create_scan_schedule():
+    """Create a new scan schedule."""
+    if not _can_scan():
+        return jsonify({"status": "error", "message": "Insufficient role for scan scheduling."}), 403
+
+    payload = request.get_json(silent=True) or {}
+    target = str(payload.get("target") or "").strip()
+    frequency = str(payload.get("frequency") or "daily").strip().lower()
+    scheduled_time = str(payload.get("scheduled_time") or "12:00").strip()
+    timezone_val = str(payload.get("timezone") or "UTC").strip()
+    auto_add = payload.get("auto_add_to_inventory", False)
+
+    if not target or frequency not in {"daily", "weekly", "monthly"}:
+        return jsonify({"status": "error", "message": "Missing or invalid target/frequency."}), 400
+
+    schedule_id = f"sched_{uuid.uuid4().hex[:8]}"
+    schedule = {
+        "id": schedule_id,
+        "target": target,
+        "frequency": frequency,
+        "scheduled_time": scheduled_time,
+        "timezone": timezone_val,
+        "auto_add_to_inventory": auto_add,
+        "created_by": str(getattr(current_user, "username", "anonymous")),
+        "created_at": _now_iso(),
+    }
+
+    _scan_schedules_in_memory[schedule_id] = schedule
+
+    # TODO: Persist to database table scan_schedules
+    return jsonify({"status": "created", "data": schedule, "message": "Schedule created successfully."}), 201
+
+
+@scans_bp.route("/api/scan-schedules/<schedule_id>", methods=["DELETE"])
+@login_required
+def delete_scan_schedule(schedule_id: str):
+    """Delete a scan schedule."""
+    if schedule_id in _scan_schedules_in_memory:
+        del _scan_schedules_in_memory[schedule_id]
+        return jsonify({"status": "deleted", "message": "Schedule deleted successfully."}), 200
+
+    return jsonify({"status": "error", "message": "Schedule not found."}), 404

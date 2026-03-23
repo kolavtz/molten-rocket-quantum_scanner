@@ -5,7 +5,7 @@ Returns scheduled and on-demand report information.
 
 from flask import Blueprint, request, jsonify
 from flask_login import login_required
-from src.db import SessionLocal
+from src.db import db_session as SessionLocal
 from src.models import Scan
 from utils.api_helper import (
     api_response, paginated_response, extract_pagination_params,

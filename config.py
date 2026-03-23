@@ -531,7 +531,7 @@ AUDIT_LOG_PAGE_SIZE = int(os.environ.get("QSS_AUDIT_LOG_PAGE_SIZE", "100"))
 QSS_ADMIN_USERNAME = os.environ.get("QSS_ADMIN_USERNAME", "admin")
 QSS_ADMIN_EMAIL = os.environ.get("QSS_ADMIN_EMAIL", "admin@localhost")
 QSS_ADMIN_EMPLOYEE_ID = os.environ.get("QSS_ADMIN_EMPLOYEE_ID", "ADMIN-001")
-QSS_ADMIN_PASSWORD = os.environ.get("QSS_ADMIN_PASSWORD", "admin123")
+QSS_ADMIN_PASSWORD = os.environ.get("QSS_ADMIN_PASSWORD", "Admin@12345678")
 
 # ---------------------------------------------------------------------------
 # Data Security (Encryption at Rest)

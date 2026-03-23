@@ -1,200 +1,407 @@
 {% extends "base.html" %}
-{% block title %}Scan Center | PNB Cyber Observability{% endblock %}
+{% block title %}Scan Center | QuantumShield Scanner{% endblock %}
 {% block content %}
-<section class="hero" style="padding-bottom:1rem;">
-  <h2 class="hero-title" style="font-size:2rem;">SCAN CENTER</h2>
-  <p class="hero-subtitle">Dedicated workflow for single and bulk scan operations</p>
+<section class="hero" style="padding-bottom:0.75rem;">
+  <h1 class="hero-title" style="font-size:2.5rem; margin-bottom:0.5rem;">SCAN CENTER</h1>
+  <p class="hero-subtitle">Dedicated workflow for single and bulk scan operations with comprehensive crypto asset discovery</p>
 </section>
 
-<section class="glass-card" style="padding: 1.2rem; margin-bottom: 1rem;">
-  <h3 style="margin-bottom:0.5rem; text-transform: uppercase;">Operational Notes</h3>
-  <ul style="padding-left:1.1rem; color:var(--text-secondary); font-size:0.8rem; display:grid; gap:0.3rem;">
-    <li>Use auto-discovery only for assets you are authorized to probe.</li>
-    <li>Select manual asset class when policy or ownership requires strict categorization.</li>
-    <li>For bulk mode, upload CSV with columns like ip/host/target and optional port.</li>
-  </ul>
+<!-- Information Alert -->
+<section class="alert alert.info" style="margin: 1rem 0;">
+  <div class="alert-title">🔒 Operational Guidelines</div>
+  <div class="alert-message" style="display:grid; gap:0.5rem; font-size:0.85rem;">
+    <span>✓ Use auto-discovery only for assets you are authorized to probe</span>
+    <span>✓ Select manual asset class when policy or ownership requires strict categorization</span>
+    <span>✓ For bulk mode, upload CSV with columns: ip/host/target and optional port</span>
+  </div>
 </section>
 
 <section class="scan-section">
-  <div class="glass-card" style="padding: 2rem;">
-    <div class="scan-header">
-      <h2 class="scan-title" style="text-transform: uppercase;">INITIALIZE_SCAN</h2>
-      <p class="scan-description">discover crypto assets // generate cbom</p>
+  <div class="glass-card scan-card">
+    <div class="card-header">
+      <div>
+        <h2 style="margin:0; font-size:1.5rem; letter-spacing:0.05em;">INITIALIZE SCAN</h2>
+        <p style="margin:0.25rem 0 0 0; color:var(--text-secondary); font-size:0.85rem;">Discover crypto assets & generate CBOM</p>
+      </div>
     </div>
 
-    <div class="scan-tabs" style="display:flex; gap:1.5rem; margin-bottom:1.5rem; border-bottom: 1px solid var(--text-muted);">
-      <button type="button" id="tabSingle" class="scan-tab scan-tab-active" onclick="switchTab('single')">SINGLE_TARGET</button>
+    <!-- Tab Navigation -->
+    <div role="tablist" style="display:flex; gap:1.5rem; margin-bottom:1.5rem; border-bottom:1px solid var(--border-subtle); padding-bottom:0.75rem;">
+      <button role="tab" aria-selected="true" aria-controls="tabpanel-single" id="tabSingle" class="scan-tab scan-tab-active" onclick="switchTab('single')" style="padding:0.5rem 0; border-bottom:2px solid transparent; color:var(--accent); font-weight:700; transition:all 0.2s;">◆ SINGLE_TARGET</button>
       {% if current_user.role in ['Admin', 'Manager'] %}
-      <button type="button" id="tabBulk" class="scan-tab" onclick="switchTab('bulk')">BULK_RECIPIENT_SET</button>
+      <button role="tab" aria-selected="false" aria-controls="tabpanel-bulk" id="tabBulk" class="scan-tab" onclick="switchTab('bulk')" style="padding:0.5rem 0; border-bottom:2px solid transparent; color:var(--text-secondary); font-weight:700; transition:all 0.2s;">◆ BULK_RECIPIENT_SET</button>
       {% endif %}
     </div>
 
     <form action="/scan" method="POST" class="scan-form" id="scanForm" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-      <div id="modeSingle">
-        <div style="display:flex; gap:1rem; align-items: stretch; margin-bottom: 1rem;">
-          <input type="text" name="target" id="scanTargetSingle" placeholder="HOST / IP_ADDR / URL" class="scan-input" style="flex:1;">
-          <button type="submit" class="scan-button" id="scanBtnSingle">
-            <span class="btn-text">RUN_SCAN</span>
-            <span class="btn-loading" style="display:none;">PENDING...</span>
-          </button>
-        </div>
-
-        <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
-          <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
-            <input type="checkbox" name="autodiscovery" id="autodiscoveryToggle" style="accent-color:var(--accent);">
-            <span style="font-weight:700; color:var(--accent);">AUTODISCOVERY</span>
-          </label>
-          <p style="margin: 0.4rem 0 0 0; font-size: 0.7rem; color: var(--text-secondary);">DEEP SCAN // 65+ PORTS // INTRA_NETWORK_ONLY</p>
-        </div>
-
-        <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
-          <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
-            <input type="checkbox" name="add_to_inventory" id="addToInventoryToggle" style="accent-color:#10b981;" onchange="toggleInventoryFields('single')">
-            <span style="font-weight:700; color:#10b981;">ADD TO INVENTORY</span>
-          </label>
-        </div>
-        
-        <!-- Inventory Fields (Hidden by default) -->
-        <div id="inventoryFieldsSingle" style="display:none; margin-bottom: 1rem; border: 1px dashed var(--text-muted); padding: 0.75rem; background: rgba(0,0,0,0.15);">
-          <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:0.4rem;">Inventory Options</div>
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.5rem; margin-bottom:0.5rem;">
-            <div>
-              <label style="font-size:0.68rem; color:var(--text-secondary);">Owner</label>
-              <input type="text" name="inv_owner" placeholder="Support Team" class="scan-input" style="width:100%; font-size:0.75rem; padding:0.4rem;">
-            </div>
-            <div>
-              <label style="font-size:0.68rem; color:var(--text-secondary);">Risk Override</label>
-              <select name="inv_risk" class="scan-input" style="width:100%; font-size:0.75rem; padding:0.4rem;">
-                <option value="Low">Low</option>
-                <option value="Medium" selected>Medium</option>
-                <option value="High">High</option>
-                <option value="Critical">Critical</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label style="font-size:0.68rem; color:var(--text-secondary);">Notes</label>
-            <input type="text" name="inv_notes" placeholder="e.g. Production URL" class="scan-input" style="width:100%; font-size:0.75rem; padding:0.4rem;">
+      <!-- SINGLE TARGET MODE -->
+      <div id="modeSingle" role="tabpanel" id="tabpanel-single">
+        <!-- Input Row -->
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label for="scanTargetSingle" style="margin-bottom:0.5rem;">Target Host / IP Address / URL <span style="color:var(--danger);">*</span></label>
+          <div style="display:flex; gap:0.75rem;">
+            <input 
+              type="text" 
+              name="target" 
+              id="scanTargetSingle" 
+              required
+              placeholder="example.com, 192.168.1.1, or https://api.example.com" 
+              class="scan-input" 
+              style="flex:1; font-size:0.95rem;">
+            <button type="submit" class="button button.primary" id="scanBtnSingle" style="flex-shrink:0; white-space:nowrap;">
+              <i class="fas fa-play"></i>
+              <span class="btn-text">RUN_SCAN</span>
+              <span class="btn-loading" style="display:none;">
+                <i class="fas fa-spinner fa-spin"></i> PENDING
+              </span>
+            </button>
           </div>
         </div>
 
-
-        <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
-          <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:0.5rem;">Asset Classification</div>
-          <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:0.6rem;">
-            <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
-              <input type="radio" name="asset_class_mode" value="auto" checked style="accent-color:var(--accent);">
-              <span style="font-size:0.74rem;">AUTO_DETECT</span>
+        <!-- Options Grid -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+          <!-- Autodiscovery Option -->
+          <div class="glass-card" style="padding:1rem;">
+            <label class="checkbox" style="margin-bottom:0.5rem; font-weight:700; color:var(--accent);">
+              <input type="checkbox" name="autodiscovery" id="autodiscoveryToggle" style="accent-color:var(--accent); width:18px; height:18px;">
+              AUTODISCOVERY
             </label>
-            <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
-              <input type="radio" name="asset_class_mode" value="manual" style="accent-color:var(--accent);">
-              <span style="font-size:0.74rem;">MANUAL_OVERRIDE</span>
-            </label>
+            <p style="margin:0; font-size:0.75rem; color:var(--text-secondary); line-height:1.4;">Deep scan across 65+ ports • Intra-network only • Authorized assets only</p>
           </div>
-          <select name="asset_class_value" class="scan-input" style="width:100%;">
-            <option value="Banking Server">Banking Server</option>
-            <option value="Core Banking API">Core Banking API</option>
-            <option value="Payment Gateway">Payment Gateway</option>
-            <option value="ATM Network Node">ATM Network Node</option>
-            <option value="Internal Admin Portal">Internal Admin Portal</option>
-            <option value="Public Web Application">Public Web Application</option>
-            <option value="Database Server">Database Server</option>
-            <option value="Security Gateway">Security Gateway</option>
-            <option value="Corporate VPN">Corporate VPN</option>
-            <option value="Consumer App">Consumer App</option>
-          </select>
+
+          <!-- Add to Inventory Option -->
+          <div class="glass-card" style="padding:1rem;">
+            <label class="checkbox" style="margin-bottom:0.5rem; font-weight:700; color:var(--safe);">
+              <input type="checkbox" name="add_to_inventory" id="addToInventoryToggle" style="accent-color:var(--safe); width:18px; height:18px;" onchange="toggleInventoryFields('single')">
+              ADD TO INVENTORY
+            </label>
+            <p style="margin:0; font-size:0.75rem; color:var(--text-secondary); line-height:1.4;">Track asset • Set ownership • Configure risk level</p>
+          </div>
         </div>
 
-        <input type="text" name="ports" id="scanPorts" placeholder="PORTS (OPTIONAL: 443, 8443...)" class="scan-input" style="width: 100%;">
+        <!-- Inventory Options (Conditional) -->
+        <div id="inventoryFieldsSingle" style="display:none; margin-bottom:1rem;">
+          <div class="glass-card" style="padding:1.25rem; border:1px dashed var(--border-subtle); background:var(--bg-secondary);">
+            <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:1rem; letter-spacing:0.05em;">Inventory Options</div>
+            
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+              <div class="form-group">
+                <label for="inv_owner" style="margin-bottom:0.4rem; font-size:0.85rem;">Owner / Team</label>
+                <input type="text" name="inv_owner" id="inv_owner" placeholder="e.g., Security Team" class="form-input" style="width:100%;">
+              </div>
+              <div class="form-group">
+                <label for="inv_risk" style="margin-bottom:0.4rem; font-size:0.85rem;">Risk Level</label>
+                <select name="inv_risk" id="inv_risk" class="form-input" style="width:100%;">
+                  <option value="Low">Low</option>
+                  <option value="Medium" selected>Medium</option>
+                  <option value="High">High</option>
+                  <option value="Critical">Critical</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="inv_notes" style="margin-bottom:0.4rem; font-size:0.85rem;">Notes</label>
+              <input type="text" name="inv_notes" id="inv_notes" placeholder="Optional notes for tracking" class="form-input" style="width:100%;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Asset Classification -->
+        <div class="glass-card" style="padding:1.25rem; margin-bottom:1rem;">
+          <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:1rem; letter-spacing:0.05em;">Asset Classification</div>
+          
+          <div class="form-group" style="margin-bottom:1rem;">
+            <label style="margin-bottom:0.75rem; display:flex; gap:1rem; flex-wrap:wrap;">
+              <span class="radio" style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
+                <input type="radio" name="asset_class_mode" value="auto" checked style="accent-color:var(--accent);">
+                <span style="font-weight:600; font-size:0.85rem;">AUTO_DETECT</span>
+              </span>
+              <span class="radio" style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
+                <input type="radio" name="asset_class_mode" value="manual" style="accent-color:var(--accent);">
+                <span style="font-weight:600; font-size:0.85rem;">MANUAL_OVERRIDE</span>
+              </span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label for="asset_class_value" style="margin-bottom:0.4rem; font-size:0.85rem;">Asset Type</label>
+            <select name="asset_class_value" id="asset_class_value" class="form-input" style="width:100%;">
+              <option value="">-- Select Classification --</option>
+              <option value="Banking Server">Banking Server</option>
+              <option value="Core Banking API">Core Banking API</option>
+              <option value="Payment Gateway">Payment Gateway</option>
+              <option value="ATM Network Node">ATM Network Node</option>
+              <option value="Internal Admin Portal">Internal Admin Portal</option>
+              <option value="Public Web Application">Public Web Application</option>
+              <option value="Database Server">Database Server</option>
+              <option value="Security Gateway">Security Gateway</option>
+              <option value="Corporate VPN">Corporate VPN</option>
+              <option value="Consumer App">Consumer App</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Advanced Options -->
+        <div class="form-group">
+          <label for="scanPorts" style="margin-bottom:0.4rem; font-size:0.85rem;">Ports (Optional)</label>
+          <input 
+            type="text" 
+            name="ports" 
+            id="scanPorts" 
+            placeholder="443, 8443, 5000 (comma-separated)" 
+            class="form-input" 
+            style="width:100%; font-size:0.9rem;">
+          <div class="help-text" style="margin-top:0.4rem;">Leave blank to scan default HTTPS ports</div>
+        </div>
       </div>
 
+      <!-- BULK MODE -->
       <div id="modeBulk" style="display:none;">
-        <textarea name="target" id="scanTargetBulk" placeholder="TARGET_LIST (NEWLINE_SEP)" class="scan-input" style="min-height:100px; margin-bottom: 1rem; width: 100%;"></textarea>
-
-        <div style="border: 1px dashed var(--text-muted); padding: 1rem; text-align: center; margin-bottom: 1rem;" onclick="document.getElementById('csvFile').click()">
-          <span id="csvLabel" style="font-size:0.8rem;">UPLOAD CSV (IP,PORT)</span>
-          <input type="file" name="csv_file" id="csvFile" accept=".csv" style="display:none;" onchange="document.getElementById('csvLabel').textContent = 'FILE_LOADED: ' + this.files[0].name">
+        <!-- Target List Input -->
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label for="scanTargetBulk" style="margin-bottom:0.5rem;">Target List <span style="color:var(--danger);">*</span></label>
+          <textarea 
+            name="target" 
+            id="scanTargetBulk" 
+            placeholder="Enter targets separated by newline&#10;example1.com&#10;192.168.1.0/24&#10;api.example.com:8443" 
+            class="form-input" 
+            style="min-height:120px; width:100%; font-family:var(--font-mono); font-size:0.9rem;"></textarea>
+          <div class="help-text" style="margin-top:0.4rem;">One target per line: hostname, IP, IP/CIDR, or URL with optional :port</div>
         </div>
 
-        <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
-          <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
-            <input type="checkbox" name="autodiscovery" id="autodiscoveryBulk" style="accent-color:var(--accent);">
-            <span style="font-weight:700; color:var(--accent);">AUTODISCOVERY_BULK</span>
-          </label>
-        </div>
-
-        <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
-          <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
-            <input type="checkbox" name="add_to_inventory" id="addToInventoryBulk" style="accent-color:#10b981;" onchange="toggleInventoryFields('bulk')">
-            <span style="font-weight:700; color:#10b981;">ADD TO INVENTORY</span>
-          </label>
-        </div>
-        
-        <!-- Inventory Fields Bulk (Hidden by default) -->
-        <div id="inventoryFieldsBulk" style="display:none; margin-bottom: 1rem; border: 1px dashed var(--text-muted); padding: 0.75rem; background: rgba(0,0,0,0.15);">
-          <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:0.4rem;">Inventory Options</div>
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.5rem; margin-bottom:0.5rem;">
-            <div>
-              <label style="font-size:0.68rem; color:var(--text-secondary);">Owner</label>
-              <input type="text" name="inv_owner_bulk" placeholder="Support Team" class="scan-input" style="width:100%; font-size:0.75rem; padding:0.4rem;">
-            </div>
-            <div>
-              <label style="font-size:0.68rem; color:var(--text-secondary);">Risk Override</label>
-              <select name="inv_risk_bulk" class="scan-input" style="width:100%; font-size:0.75rem; padding:0.4rem;">
-                <option value="Low">Low</option>
-                <option value="Medium" selected>Medium</option>
-                <option value="High">High</option>
-                <option value="Critical">Critical</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label style="font-size:0.68rem; color:var(--text-secondary);">Notes</label>
-            <input type="text" name="inv_notes_bulk" placeholder="e.g. Bulk Import" class="scan-input" style="width:100%; font-size:0.75rem; padding:0.4rem;">
+        <!-- CSV Upload -->
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label style="margin-bottom:0.5rem; font-weight:600;">Or Upload CSV File</label>
+          <div 
+            style="border:2px dashed var(--border-subtle); border-radius:var(--radius-md); padding:2rem; text-align:center; cursor:pointer; background:var(--bg-secondary); transition:all 0.2s;" 
+            onclick="document.getElementById('csvFile').click()"
+            onmouseover="this.style.borderColor='var(--accent)'"
+            onmouseout="this.style.borderColor='var(--border-subtle)'">
+            <i class="fas fa-cloud-upload-alt" style="font-size:1.5rem; color:var(--accent); margin-bottom:0.5rem;"></i>
+            <p style="margin:0; font-weight:600; color:var(--text-primary); margin-bottom:0.25rem;">Click to upload CSV</p>
+            <p id="csvLabel" style="margin:0; font-size:0.85rem; color:var(--text-secondary);">Format: ip/host, port (one per row)</p>
+            <input type="file" name="csv_file" id="csvFile" accept=".csv" style="display:none;" onchange="document.getElementById('csvLabel').textContent = '✓ FILE_LOADED: ' + this.files[0].name">
           </div>
         </div>
 
-
-        <div style="margin-bottom: 1rem; border: 1px solid var(--text-muted); padding: 0.75rem;">
-          <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-secondary); margin-bottom:0.5rem;">Asset Classification</div>
-          <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:0.6rem;">
-            <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
-              <input type="radio" name="asset_class_mode_bulk" value="auto" checked style="accent-color:var(--accent);">
-              <span style="font-size:0.74rem;">AUTO_DETECT</span>
+        <!-- Bulk Options Grid -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+          <div class="glass-card" style="padding:1rem;">
+            <label class="checkbox" style="margin-bottom:0.5rem; font-weight:700; color:var(--accent);">
+              <input type="checkbox" name="autodiscovery" id="autodiscoveryBulk" style="accent-color:var(--accent); width:18px; height:18px;">
+              AUTODISCOVERY
             </label>
-            <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
-              <input type="radio" name="asset_class_mode_bulk" value="manual" style="accent-color:var(--accent);">
-              <span style="font-size:0.74rem;">MANUAL_OVERRIDE</span>
-            </label>
+            <p style="margin:0; font-size:0.75rem; color:var(--text-secondary); line-height:1.4;">Enable deep scanning for bulk targets</p>
           </div>
-          <select name="asset_class_value_bulk" class="scan-input" style="width:100%;">
-            <option value="Banking Server">Banking Server</option>
-            <option value="Core Banking API">Core Banking API</option>
-            <option value="Payment Gateway">Payment Gateway</option>
-            <option value="ATM Network Node">ATM Network Node</option>
-            <option value="Internal Admin Portal">Internal Admin Portal</option>
-            <option value="Public Web Application">Public Web Application</option>
-            <option value="Database Server">Database Server</option>
-            <option value="Security Gateway">Security Gateway</option>
-            <option value="Corporate VPN">Corporate VPN</option>
-            <option value="Consumer App">Consumer App</option>
-          </select>
+
+          <div class="glass-card" style="padding:1rem;">
+            <label class="checkbox" style="margin-bottom:0.5rem; font-weight:700; color:var(--safe);">
+              <input type="checkbox" name="add_to_inventory" id="addToInventoryBulk" style="accent-color:var(--safe); width:18px; height:18px;" onchange="toggleInventoryFields('bulk')">
+              ADD TO INVENTORY
+            </label>
+            <p style="margin:0; font-size:0.75rem; color:var(--text-secondary); line-height:1.4;">Track all results in inventory</p>
+          </div>
         </div>
 
-        <button type="submit" class="scan-button" id="scanBtnBulk" style="width:100%;">
+        <!-- Bulk Inventory Options -->
+        <div id="inventoryFieldsBulk" style="display:none; margin-bottom:1rem;">
+          <div class="glass-card" style="padding:1.25rem; border:1px dashed var(--border-subtle); background:var(--bg-secondary);">
+            <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:1rem; letter-spacing:0.05em;">Bulk Inventory Options</div>
+            
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+              <div class="form-group">
+                <label for="inv_owner_bulk" style="margin-bottom:0.4rem; font-size:0.85rem;">Owner / Team</label>
+                <input type="text" name="inv_owner_bulk" id="inv_owner_bulk" placeholder="e.g., Infrastructure Team" class="form-input" style="width:100%;">
+              </div>
+              <div class="form-group">
+                <label for="inv_risk_bulk" style="margin-bottom:0.4rem; font-size:0.85rem;">Risk Level</label>
+                <select name="inv_risk_bulk" id="inv_risk_bulk" class="form-input" style="width:100%;">
+                  <option value="Low">Low</option>
+                  <option value="Medium" selected>Medium</option>
+                  <option value="High">High</option>
+                  <option value="Critical">Critical</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="inv_notes_bulk" style="margin-bottom:0.4rem; font-size:0.85rem;">Notes</label>
+              <input type="text" name="inv_notes_bulk" id="inv_notes_bulk" placeholder="e.g., Data Center Bulk Scan" class="form-input" style="width:100%;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Bulk Asset Classification -->
+        <div class="glass-card" style="padding:1.25rem; margin-bottom:1.5rem;">
+          <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:1rem; letter-spacing:0.05em;">Bulk Asset Classification</div>
+          
+          <div class="form-group" style="margin-bottom:1rem;">
+            <label style="margin-bottom:0.75rem; display:flex; gap:1rem; flex-wrap:wrap;">
+              <span class="radio" style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
+                <input type="radio" name="asset_class_mode_bulk" value="auto" checked style="accent-color:var(--accent);">
+                <span style="font-weight:600; font-size:0.85rem;">AUTO_DETECT</span>
+              </span>
+              <span class="radio" style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
+                <input type="radio" name="asset_class_mode_bulk" value="manual" style="accent-color:var(--accent);">
+                <span style="font-weight:600; font-size:0.85rem;">MANUAL_OVERRIDE</span>
+              </span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label for="asset_class_value_bulk" style="margin-bottom:0.4rem; font-size:0.85rem;">Asset Type</label>
+            <select name="asset_class_value_bulk" id="asset_class_value_bulk" class="form-input" style="width:100%;">
+              <option value="">-- Select Classification --</option>
+              <option value="Banking Server">Banking Server</option>
+              <option value="Core Banking API">Core Banking API</option>
+              <option value="Payment Gateway">Payment Gateway</option>
+              <option value="ATM Network Node">ATM Network Node</option>
+              <option value="Internal Admin Portal">Internal Admin Portal</option>
+              <option value="Public Web Application">Public Web Application</option>
+              <option value="Database Server">Database Server</option>
+              <option value="Security Gateway">Security Gateway</option>
+              <option value="Corporate VPN">Corporate VPN</option>
+              <option value="Consumer App">Consumer App</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="button button.primary button.fullwidth" id="scanBtnBulk" style="padding:1rem; font-size:1rem;">
+          <i class="fas fa-play"></i>
           <span class="btn-text">RUN_BULK_PROCESS</span>
-          <span class="btn-loading" style="display:none;">PENDING...</span>
+          <span class="btn-loading" style="display:none;">
+            <i class="fas fa-spinner fa-spin"></i> PROCESSING
+          </span>
         </button>
       </div>
     </form>
 
-    <div class="quick-targets" id="quickTargets" style="margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
-      <span style="font-size: 0.7rem; color: var(--text-muted); align-self: center;">QUICK_HOOKS:</span>
-      <button class="quick-btn" onclick="setTarget('google.com')">GOOGLE</button>
-      <button class="quick-btn" onclick="setTarget('test.openquantumsafe.org')">OQS_TEST</button>
-      <button class="quick-btn" onclick="setTarget('pnbnet.pnb.bank.in')">PNBNET</button>
+    <!-- Quick Links / Presets -->
+    <div style="margin-top:2rem; padding-top:1.5rem; border-top:1px solid var(--border-subtle);">
+      <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.75rem; letter-spacing:0.05em;">Quick Test Targets</div>
+      <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button type="button" class="button button.ghost button.sm" onclick="setTarget('google.com')" style="cursor:pointer;">Google.com</button>
+        <button type="button" class="button button.ghost button.sm" onclick="setTarget('test.openquantumsafe.org')" style="cursor:pointer;">OQS Test</button>
+        <button type="button" class="button button.ghost button.sm" onclick="setTarget('pnbnet.pnb.bank.in')" style="cursor:pointer;">PNBNET</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ACTIVE SCANS / PROGRESS SECTION -->
+<section class="glass-card" style="padding: 2rem; margin-bottom: 1rem;">
+  <div class="scan-header">
+    <h2 class="scan-title" style="text-transform: uppercase;">ACTIVE_SCANS</h2>
+    <p class="scan-description">real-time progress tracking</p>
+  </div>
+  <div id="scanProgress" style="display:grid; gap:0.6rem; font-size:0.85rem; min-height:60px;">
+    <div style="color:var(--text-secondary); padding:1rem; text-align:center;">No active scans.</div>
+  </div>
+</section>
+
+<!-- SCAN HISTORY SECTION -->
+<section class="glass-card" style="padding: 2rem; margin-bottom: 1rem;">
+  <div class="scan-header" style="margin-bottom:1.5rem;">
+    <h2 class="scan-title" style="text-transform: uppercase;">SCAN_HISTORY</h2>
+    <p class="scan-description">recent and past scan results // export & schedule</p>
+  </div>
+
+  <div style="display:flex; gap:0.6rem; margin-bottom:1rem;">
+    <input id="scanHistorySearch" type="text" placeholder="Search scan ID / target / status" class="scan-input" style="flex:1;">
+    <button id="scanHistorySearchBtn" class="scan-button" type="button">SEARCH</button>
+    <button id="scanHistoryRefreshBtn" class="scan-button" type="button">REFRESH</button>
+  </div>
+
+  <div style="overflow-x:auto;">
+    <table style="width:100%; font-size:0.85rem; border-collapse:collapse;">
+      <thead style="border-bottom:2px solid var(--text-muted);">
+        <tr>
+          <th style="padding:0.6rem; text-align:left; color:var(--text-muted);">SCAN_ID</th>
+          <th style="padding:0.6rem; text-align:left; color:var(--text-muted);">TARGET</th>
+          <th style="padding:0.6rem; text-align:left; color:var(--text-muted);">STATUS</th>
+          <th style="padding:0.6rem; text-align:left; color:var(--text-muted);">STARTED</th>
+          <th style="padding:0.6rem; text-align:left; color:var(--text-muted);">COMPLETED</th>
+          <th style="padding:0.6rem; text-align:center; color:var(--text-muted);">ACTIONS</th>
+        </tr>
+      </thead>
+      <tbody id="scanHistoryTable"></tbody>
+    </table>
+  </div>
+
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem; font-size:0.8rem; color:var(--text-secondary);">
+    <div>Total: <strong id="scanHistoryTotal">0</strong></div>
+    <div style="display:flex; gap:0.6rem;">
+      <button id="scanHistoryPrev" class="scan-button" type="button" disabled>PREV</button>
+      <span id="scanHistoryPageInfo">Page 1/1</span>
+      <button id="scanHistoryNext" class="scan-button" type="button" disabled>NEXT</button>
+    </div>
+  </div>
+</section>
+
+<!-- SCAN SCHEDULING SECTION -->
+<section class="glass-card" style="padding: 2rem; margin-bottom: 1rem;">
+  <div class="scan-header">
+    <h2 class="scan-title" style="text-transform: uppercase;">SCHEDULED_SCANS</h2>
+    <p class="scan-description">set up recurring scans for continuous monitoring</p>
+  </div>
+
+  <div style="display:grid; gap:1rem;">
+    <div style="border: 1px solid var(--text-muted); padding: 1rem; border-radius: 0.4rem;">
+      <h3 style="margin:0 0 0.8rem 0; font-size:0.9rem; text-transform:uppercase;">CREATE_SCHEDULE</h3>
+      
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem; margin-bottom:0.8rem;">
+        <div>
+          <label style="display:block; font-size:0.8rem; margin-bottom:0.3rem; color:var(--text-secondary);">Target</label>
+          <input id="scheduleTarget" type="text" placeholder="example.com" class="scan-input" style="width:100%;">
+        </div>
+        <div>
+          <label style="display:block; font-size:0.8rem; margin-bottom:0.3rem; color:var(--text-secondary);">Frequency</label>
+          <select id="scheduleFrequency" class="scan-input" style="width:100%;">
+            <option value="daily">DAILY</option>
+            <option value="weekly">WEEKLY</option>
+            <option value="monthly">MONTHLY</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem; margin-bottom:0.8rem;">
+        <div>
+          <label style="display:block; font-size:0.8rem; margin-bottom:0.3rem; color:var(--text-secondary);">Time</label>
+          <input id="scheduleTime" type="time" class="scan-input" style="width:100%;">
+        </div>
+        <div>
+          <label style="display:block; font-size:0.8rem; margin-bottom:0.3rem; color:var(--text-secondary);">Timezone</label>
+          <select id="scheduleTimezone" class="scan-input" style="width:100%;">
+            <option value="UTC">UTC</option>
+            <option value="America/New_York">Eastern</option>
+            <option value="America/Chicago">Central</option>
+            <option value="America/Denver">Mountain</option>
+            <option value="America/Los_Angeles">Pacific</option>
+            <option value="Europe/London">UTC+0 (London)</option>
+            <option value="Asia/Kolkata">UTC+5:30 (India)</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-bottom:0.8rem;">
+        <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer;">
+          <input id="scheduleAutoAdd" type="checkbox" style="accent-color:#10b981;">
+          <span style="font-size:0.85rem;">Auto-add discovered assets to inventory</span>
+        </label>
+      </div>
+
+      <button id="scheduleCreateBtn" class="scan-button" type="button" style="width:100%;">CREATE_SCHEDULE</button>
+    </div>
+
+    <div>
+      <h3 style="margin:1rem 0 0.8rem 0; font-size:0.9rem; text-transform:uppercase;">EXISTING_SCHEDULES</h3>
+      <div id="schedulesList" style="display:grid; gap:0.6rem;">
+        <div style="color:var(--text-secondary); text-align:center; padding:1rem;">No schedules yet.</div>
+      </div>
     </div>
   </div>
 </section>
@@ -244,6 +451,358 @@ document.getElementById('scanForm').addEventListener('submit', function () {
   }
   activeBtn.disabled = true;
 });
+
+// ── Scan History & Progress Management ──
+let scanHistoryPage = 1;
+let scanHistoryPageSize = 10;
+let scanHistorySearch = '';
+let activeScansMap = {};
+let pollTimer = null;
+
+function getCsrfToken() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute('content') : '';
+}
+
+function formatDateTime(isoString) {
+  if (!isoString) return '—';
+  const date = new Date(isoString);
+  return date.toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function renderProgressRows(scanMap) {
+  const holder = document.getElementById('scanProgress');
+  if (!holder) return;
+  const ids = Object.keys(scanMap || {});
+  if (!ids.length) {
+    holder.innerHTML = '<div style="color:var(--text-secondary); padding:1rem; text-align:center;">No active scans.</div>';
+    return;
+  }
+
+  holder.innerHTML = ids.map(scanId => {
+    const row = scanMap[scanId] || {};
+    const target = String(row.target || '');
+    const status = String(row.status || 'unknown');
+    let statusColor = 'var(--text-secondary)';
+    if (status === 'completed') statusColor = '#10b981';
+    if (status === 'running') statusColor = '#f59e0b';
+    if (status === 'error') statusColor = '#f87171';
+
+    return `
+      <div class="glass-card" style="padding:0.7rem 1rem; border-left:3px solid ${statusColor};">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <strong>${scanId}</strong> · ${target}
+            <span style="color:${statusColor}; text-transform:uppercase; font-weight:700; margin-left:0.6rem;">${status}</span>
+          </div>
+          ${row.error ? `<div style="color:#f87171; font-size:0.8rem;">${row.error}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function fetchScanHistory() {
+  try {
+    const params = new URLSearchParams({
+      page: scanHistoryPage,
+      page_size: scanHistoryPageSize
+    });
+    if (scanHistorySearch) {
+      params.append('q', scanHistorySearch);
+    }
+
+    const resp = await fetch(`/api/scans?${params}`, {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json', 'X-CSRFToken': getCsrfToken() }
+    });
+
+    if (!resp.ok) throw new Error(`Failed to fetch scans: ${resp.status}`);
+    const data = await resp.json();
+
+    // Update active scans for progress tracking
+    if (data.data && data.data.items) {
+      data.data.items.forEach(scan => {
+        if (scan.status === 'running' || scan.status === 'queued') {
+          activeScansMap[scan.scan_id] = scan;
+        }
+      });
+    }
+
+    renderScanHistoryTable(data);
+    renderProgressRows(activeScansMap);
+  } catch (err) {
+    console.error('Error fetching scan history:', err);
+  }
+}
+
+function renderScanHistoryTable(data) {
+  const tbody = document.getElementById('scanHistoryTable');
+  if (!tbody) return;
+
+  const items = (data.data && data.data.items) || [];
+  const total = (data.data && data.data.total) || 0;
+  const totalPages = (data.data && data.data.total_pages) || 1;
+
+  if (!items.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:1rem; text-align:center; color:var(--text-secondary);">No scans yet.</td></tr>';
+  } else {
+    tbody.innerHTML = items.map(scan => {
+      let statusColor = 'var(--text-secondary)';
+      if (scan.status === 'completed') statusColor = '#10b981';
+      if (scan.status === 'running') statusColor = '#f59e0b';
+      if (scan.status === 'error') statusColor = '#f87171';
+
+      return `
+        <tr style="border-bottom:1px solid var(--text-muted); hover">
+          <td style="padding:0.6rem;"><code style="font-size:0.75rem;">${scan.scan_id || '—'}</code></td>
+          <td style="padding:0.6rem;">${scan.target || '—'}</td>
+          <td style="padding:0.6rem; color:${statusColor}; font-weight:700;">${(scan.status || 'unknown').toUpperCase()}</td>
+          <td style="padding:0.6rem; font-size:0.8rem;">${formatDateTime(scan.started_at)}</td>
+          <td style="padding:0.6rem; font-size:0.8rem;">${formatDateTime(scan.completed_at)}</td>
+          <td style="padding:0.6rem; text-align:center;">
+            <div style="display:flex; gap:0.3rem; justify-content:center;">
+              <button class="quick-btn" onclick="viewScanResult('${scan.scan_id}')" title="View Results">VIEW</button>
+              <button class="quick-btn" onclick="downloadScanResult('${scan.scan_id}')" title="Download CBOM">CBOM</button>
+              <button class="quick-btn" onclick="addScanToInventory('${scan.target}')" title="Add to Inventory">ADD</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  document.getElementById('scanHistoryTotal').textContent = total;
+  document.getElementById('scanHistoryPageInfo').textContent = `Page ${scanHistoryPage}/${totalPages}`;
+  document.getElementById('scanHistoryPrev').disabled = scanHistoryPage <= 1;
+  document.getElementById('scanHistoryNext').disabled = scanHistoryPage >= totalPages;
+}
+
+function viewScanResult(scanId) {
+  window.location.href = `/results/${scanId}`;
+}
+
+async function downloadScanResult(scanId) {
+  try {
+    const win = window.open(`/cbom/${scanId}`, '_blank');
+    if (!win) alert('Please allow pop-ups to download CBOM');
+  } catch (err) {
+    alert(`Failed to download: ${err.message}`);
+  }
+}
+
+async function addScanToInventory(target) {
+  const owner = prompt('Owner name (optional):', '');
+  const riskLevel = prompt('Risk level (Low/Medium/High/Critical):', 'Medium');
+  if (!riskLevel) return;
+
+  try {
+    const resp = await fetch('/api/assets', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      },
+      body: JSON.stringify({
+        target,
+        owner: owner || undefined,
+        type: 'domain',
+        risk_level: riskLevel
+      })
+    });
+
+    const result = await resp.json();
+    if (result.success) {
+      alert(`Asset "${target}" added to inventory!`);
+      fetchScanHistory();
+    } else {
+      alert(`Failed to add asset: ${result.error || result.message}`);
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+}
+
+function startProgressPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  
+  pollTimer = setInterval(async () => {
+    const activeIds = Object.keys(activeScansMap);
+    if (!activeIds.length) {
+      fetchScanHistory();
+      return;
+    }
+
+    for (const scanId of activeIds) {
+      try {
+        const resp = await fetch(`/api/scans/${encodeURIComponent(scanId)}/status`, {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: { 'Accept': 'application/json' }
+        });
+        const status = await resp.json();
+        
+        if (status.status === 'completed' || status.status === 'error') {
+          delete activeScansMap[scanId];
+        } else {
+          activeScansMap[scanId] = status;
+        }
+      } catch (err) {
+        console.error(`Failed to poll status for ${scanId}:`, err);
+      }
+    }
+
+    renderProgressRows(activeScansMap);
+    
+    if (!Object.keys(activeScansMap).length) {
+      fetchScanHistory();
+    }
+  }, 2000);
+}
+
+// Event handlers
+document.getElementById('scanHistorySearchBtn').addEventListener('click', () => {
+  scanHistorySearch = document.getElementById('scanHistorySearch').value;
+  scanHistoryPage = 1;
+  fetchScanHistory();
+});
+
+document.getElementById('scanHistoryRefreshBtn').addEventListener('click', () => {
+  scanHistoryPage = 1;
+  fetchScanHistory();
+});
+
+document.getElementById('scanHistorySearch').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    document.getElementById('scanHistorySearchBtn').click();
+  }
+});
+
+document.getElementById('scanHistoryPrev').addEventListener('click', () => {
+  if (scanHistoryPage > 1) {
+    scanHistoryPage--;
+    fetchScanHistory();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+});
+
+document.getElementById('scanHistoryNext').addEventListener('click', () => {
+  scanHistoryPage++;
+  fetchScanHistory();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  fetchScanHistory();
+  startProgressPolling();
+  loadSchedules();
+  
+  // Schedule create button
+  document.getElementById('scheduleCreateBtn').addEventListener('click', createScanSchedule);
+});
+
+// Scan Scheduling Functions
+async function createScanSchedule() {
+  const target = document.getElementById('scheduleTarget').value.trim();
+  const frequency = document.getElementById('scheduleFrequency').value;
+  const time = document.getElementById('scheduleTime').value;
+  const timezone = document.getElementById('scheduleTimezone').value;
+  const autoAdd = document.getElementById('scheduleAutoAdd').checked;
+
+  if (!target || !time) {
+    alert('Please fill in all required fields');
+    return;
+  }
+
+  try {
+    const resp = await fetch('/api/scan-schedules', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+      },
+      body: JSON.stringify({
+        target,
+        frequency,
+        scheduled_time: time,
+        timezone,
+        auto_add_to_inventory: autoAdd
+      })
+    });
+
+    const result = await resp.json();
+    if (resp.ok || result.success) {
+      alert('Schedule created successfully!');
+      document.getElementById('scheduleTarget').value = '';
+      document.getElementById('scheduleTime').value = '';
+      document.getElementById('scheduleAutoAdd').checked = false;
+      loadSchedules();
+    } else {
+      alert(`Failed to create schedule: ${result.error || result.message}`);
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+}
+
+async function loadSchedules() {
+  try {
+    const resp = await fetch('/api/scan-schedules', {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (!resp.ok) return;
+    const result = await resp.json();
+    const schedules = result.data || result.schedules || [];
+
+    const container = document.getElementById('schedulesList');
+    if (!schedules.length) {
+      container.innerHTML = '<div style="color:var(--text-secondary); text-align:center; padding:1rem;">No schedules yet.</div>';
+      return;
+    }
+
+    container.innerHTML = schedules.map(schedule => `
+      <div class="glass-card" style="padding:0.8rem; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-weight:700;">${schedule.target}</div>
+          <div style="font-size:0.8rem; color:var(--text-secondary);">${schedule.frequency} at ${schedule.scheduled_time} (${schedule.timezone})</div>
+          ${schedule.auto_add_to_inventory ? '<div style="font-size:0.75rem; color:#10b981;">✓ Auto-add to inventory</div>' : ''}
+        </div>
+        <button class="quick-btn" onclick="deleteScanSchedule(${schedule.id})">DELETE</button>
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('Error loading schedules:', err);
+  }
+}
+
+async function deleteScanSchedule(scheduleId) {
+  if (!confirm('Delete this schedule?')) return;
+
+  try {
+    const resp = await fetch(`/api/scan-schedules/${scheduleId}`, {
+      method: 'DELETE',
+      credentials: 'same-origin',
+      headers: { 'X-CSRFToken': getCsrfToken() }
+    });
+
+    if (resp.ok) {
+      alert('Schedule deleted!');
+      loadSchedules();
+    } else {
+      alert('Failed to delete schedule');
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+}
 </script>
 
 <style>

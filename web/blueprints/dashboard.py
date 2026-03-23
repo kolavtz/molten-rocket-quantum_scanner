@@ -23,16 +23,8 @@ _dashboard_data_ttl = 30
 
 
 def get_dashboard_data_cached():
-    import time
-
-    now = time.time()
-    if _dashboard_data_cache["data"] is not None and now - _dashboard_data_cache["updated_at"] < _dashboard_data_ttl:
-        return _dashboard_data_cache["data"]
-
-    data = DashboardDataService.get_all_scans_aggregated()
-    _dashboard_data_cache["data"] = data
-    _dashboard_data_cache["updated_at"] = now
-    return data
+    """Fetches real-time dashboard scan aggregates directly."""
+    return DashboardDataService.get_all_scans_aggregated()
 
 
 def _inventory_scan_service():

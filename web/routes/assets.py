@@ -9,6 +9,7 @@ import logging
 import re
 from datetime import datetime, timezone
 from types import SimpleNamespace
+from typing import Any
 from urllib.parse import urlparse
 
 from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
@@ -20,6 +21,7 @@ from sqlalchemy import func, text
 from src.db import db_session
 from src.models import Asset, CBOMEntry, CBOMSummary, CyberRating, Certificate, ComplianceScore, DiscoveryItem, PQCClassification, Scan
 from src.services.asset_service import AssetService
+from src.services.certificate_telemetry_service import CertificateTelemetryService
 from src.services.inventory_scan_service import InventoryScanService
 from utils.table_helper import paginate_query
 
@@ -166,6 +168,7 @@ def _get_inventory_kpis() -> dict:
 
 def _make_action_html(asset: dict, csrf_token: str) -> str:
     asset_id = int(asset.get("id") or 0)
+    asset_name = escape(str(asset.get("name") or ""))
     edit_data = {
         "asset_id": asset_id,
         "name": asset.get("name") or "",
@@ -181,13 +184,29 @@ def _make_action_html(asset: dict, csrf_token: str) -> str:
     scan_target = escape(str(asset.get("name") or ""))
 
     return f"""
-    <div class="row-actions">
+    <div class="row-actions" style="display:flex;gap:0.4rem;flex-wrap:wrap;">
       <button
         type="button"
         class="btn-mini btn-edit"
         {data_attrs}
         data-open-asset-edit
       >Edit</button>
+            <button
+                type="button"
+                class="btn-mini btn-view"
+                data-open-asset-details
+                data-asset-id="{asset_id}"
+                data-asset-name="{asset_name}"
+                title="View asset details"
+            >Details</button>
+            <button
+                type="button"
+                class="btn-mini btn-view"
+                data-open-asset-scan
+                data-asset-id="{asset_id}"
+                data-asset-name="{asset_name}"
+                title="View scan history"
+            >Scans</button>
       <form action="{url_for('assets.asset_scan')}" method="post" class="inline-form">
         <input type="hidden" name="csrf_token" value="{csrf_token}">
         <input type="hidden" name="asset_id" value="{asset_id}">
@@ -261,7 +280,7 @@ def build_assets_page_context():
 
     service = AssetService()
     try:
-        vm = service.get_inventory_view_model(testing_mode=current_app.config.get("TESTING", False))
+        vm = service.get_inventory_view_model(testing_mode=False)
     except Exception as exc:
         logger.exception("Asset inventory view model build failed")
         vm = {
@@ -309,6 +328,402 @@ def build_assets_page_context():
         "headers": _build_headers(),
         "asset_csrf_token": asset_csrf_token,
     }
+
+
+def _serialize_asset_api_row(row: dict[str, Any]) -> dict[str, Any]:
+    name = str(row.get("name") or row.get("asset_name") or row.get("target") or "").strip()
+    asset_type = str(row.get("asset_type") or row.get("type") or "Web App").strip() or "Web App"
+    risk_level = str(row.get("risk_level") or row.get("risk") or "Medium").strip() or "Medium"
+    return {
+        "id": int(row.get("id") or 0),
+        "name": name,
+        "asset_name": name,
+        "target": name,
+        "url": str(row.get("url") or ""),
+        "asset_type": asset_type,
+        "type": asset_type,
+        "owner": str(row.get("owner") or "Unassigned"),
+        "risk_level": risk_level,
+        "risk": risk_level,
+        "cert_status": str(row.get("cert_status") or "Not Scanned"),
+        "key_length": row.get("key_length") or None,
+        "last_scan": str(row.get("last_scan") or "Never"),
+        "last_scan_id": row.get("last_scan_id"),
+        "scan_status": str(row.get("scan_status") or "Never"),
+        "scan_kind": str(row.get("scan_kind") or "N/A"),
+        "scanned_by": str(row.get("scanned_by") or "N/A"),
+        "ipv4": str(row.get("ipv4") or ""),
+        "ipv6": str(row.get("ipv6") or ""),
+        "tls_version": str(row.get("tls_version") or "Unknown"),
+        "cipher_suite": str(row.get("cipher_suite") or "Unknown"),
+        "ca": str(row.get("ca") or "Unknown"),
+        "cert_days": row.get("cert_days"),
+        "notes": str(row.get("notes") or ""),
+    }
+
+
+def _inventory_assets_vm() -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    service = AssetService()
+    vm = service.get_inventory_view_model(testing_mode=False)
+    vm["kpis"] = {**vm.get("kpis", {}), **_get_inventory_kpis()}
+    assets = [_serialize_asset_api_row(asset) for asset in list(vm.get("assets", [])) if not asset.get("is_deleted")]
+    return vm, assets
+
+
+def build_assets_api_response(
+    page: int = 1,
+    page_size: int = 25,
+    sort: str = "name",
+    order: str = "asc",
+    search: str = "",
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    vm, assets = _inventory_assets_vm()
+    page_data = paginate_query(
+        assets,
+        page=page,
+        page_size=page_size,
+        sort=sort,
+        order=order,
+        search=search,
+        searchable_columns=[
+            "name",
+            "url",
+            "asset_type",
+            "owner",
+            "risk_level",
+            "cert_status",
+            "last_scan",
+            "scan_status",
+        ],
+    )
+    data = {
+        "items": list(page_data["items"]),
+        "total": int(page_data["total"]),
+        "page": int(page_data["page"]),
+        "page_size": int(page_data["page_size"]),
+        "total_pages": int(page_data["total_pages"]),
+        "kpis": {
+            "total_assets": int(page_data["total"]),
+            "assets_in_view": int(page_data["total"]),
+            "total_scans": int(vm.get("kpis", {}).get("total_scans") or 0),
+            "quantum_safe_percent": float(vm.get("kpis", {}).get("quantum_safe_percent") or 0),
+            "vulnerable_assets": int(vm.get("kpis", {}).get("vulnerable_assets") or 0),
+            "avg_pqc_score": float(vm.get("kpis", {}).get("avg_pqc_score") or 0),
+            "high_risk_assets": int(vm.get("kpis", {}).get("high_risk_assets") or 0),
+        },
+    }
+    filters = {
+        "sort": page_data.get("sort") or sort,
+        "order": page_data.get("order") or order,
+        "search": page_data.get("search") or search,
+    }
+    return data, filters
+
+
+def _latest_asset_scan(asset: Asset) -> Scan | None:
+    canonical_target = _normalize_target(asset.target or asset.name or asset.url or "")
+    if not canonical_target:
+        return None
+    return (
+        db_session.query(Scan)
+        .filter(
+            func.lower(Scan.target) == canonical_target,
+            Scan.is_deleted == False,
+            Scan.deleted_at.is_(None),
+        )
+        .order_by(Scan.completed_at.desc(), Scan.started_at.desc(), Scan.id.desc())
+        .first()
+    )
+
+
+def _scan_report_payload(scan: Scan | None) -> dict[str, Any]:
+    if not scan:
+        return {}
+    raw = getattr(scan, "report_json", None)
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        text_payload = raw.strip()
+        if not text_payload:
+            return {}
+        try:
+            parsed = json.loads(text_payload)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+def _safe_count(query_factory) -> int:
+    """Return a count or zero when a legacy table/schema is unavailable."""
+    try:
+        return int(query_factory() or 0)
+    except Exception as exc:
+        logger.warning("Inventory count fallback due to schema/query error: %s", exc)
+        return 0
+
+
+def _build_workflow_payload(asset: Asset, scan: Scan | None, scan_result: dict[str, Any] | None = None) -> dict[str, Any]:
+    report = _scan_report_payload(scan)
+    discovered_services = list(report.get("discovered_services") or [])
+    tls_results = list(report.get("tls_results") or [])
+    pqc_assessments = list(report.get("pqc_assessments") or [])
+    cbom_component_count = 0
+    if scan:
+        cbom_component_count = _safe_count(
+            lambda: db_session.query(func.count(CBOMEntry.id))
+            .filter(CBOMEntry.scan_id == scan.id, CBOMEntry.is_deleted == False, CBOMEntry.deleted_at.is_(None))
+            .scalar()
+        )
+    risk_score = None
+    if scan is not None and getattr(scan, "overall_pqc_score", None) is not None:
+        risk_score = round(float(scan.overall_pqc_score or 0), 2)
+    elif scan_result and scan_result.get("status") == "complete":
+        risk_score = 0.0
+
+    status = "failed" if scan_result and scan_result.get("status") == "failed" else ("complete" if scan else "idle")
+    stages = [
+        {
+            "key": "input",
+            "label": "User Input",
+            "status": "complete" if str(asset.target or "").strip() else "idle",
+            "meta": str(asset.target or ""),
+        },
+        {
+            "key": "network_scan",
+            "label": "Network Scan",
+            "status": "complete" if discovered_services else status,
+            "meta": f"{len(discovered_services)} services",
+        },
+        {
+            "key": "tls_analysis",
+            "label": "TLS Analysis",
+            "status": "complete" if tls_results else status,
+            "meta": f"{len(tls_results)} TLS endpoints",
+        },
+        {
+            "key": "pqc_detection",
+            "label": "PQC Detection",
+            "status": "complete" if pqc_assessments else status,
+            "meta": f"{len(pqc_assessments)} PQC assessments",
+        },
+        {
+            "key": "risk_scoring",
+            "label": "Risk Scoring",
+            "status": "complete" if risk_score is not None else status,
+            "meta": f"{risk_score if risk_score is not None else 'Pending'} score",
+        },
+        {
+            "key": "cbom_generation",
+            "label": "CBOM Generation",
+            "status": "complete" if cbom_component_count else status,
+            "meta": f"{int(cbom_component_count)} components",
+        },
+        {
+            "key": "dashboard_output",
+            "label": "Dashboard Output",
+            "status": "complete" if scan is not None else status,
+            "meta": "Persisted to inventory telemetry" if scan is not None else "Awaiting persisted scan",
+        },
+    ]
+    return {
+        "target": str(asset.target or ""),
+        "scan_id": str(getattr(scan, "scan_id", "") or ""),
+        "status": status,
+        "stages": stages,
+        "errors": list((scan_result or {}).get("errors") or []),
+    }
+
+
+def build_asset_detail_api_response(asset_id: int) -> dict[str, Any] | None:
+    asset = (
+        db_session.query(Asset)
+        .filter(Asset.id == asset_id, Asset.is_deleted == False, Asset.deleted_at.is_(None))
+        .first()
+    )
+    if not asset:
+        return None
+
+    vm, assets = _inventory_assets_vm()
+    row = next((candidate for candidate in assets if int(candidate.get("id") or 0) == int(asset_id)), None)
+    row = row or _serialize_asset_api_row(
+        {
+            "id": asset.id,
+            "name": asset.target,
+            "url": asset.url,
+            "asset_type": asset.asset_type,
+            "owner": asset.owner,
+            "risk_level": asset.risk_level,
+            "notes": getattr(asset, "notes", ""),
+        }
+    )
+    scan = _latest_asset_scan(asset)
+    row["certificates_count"] = _safe_count(
+        lambda: db_session.query(func.count(Certificate.id))
+        .filter(Certificate.asset_id == asset.id, Certificate.is_deleted == False, Certificate.deleted_at.is_(None))
+        .scalar()
+    )
+    row["discovery_count"] = _safe_count(
+        lambda: db_session.query(func.count(DiscoveryItem.id))
+        .filter(DiscoveryItem.asset_id == asset.id, DiscoveryItem.is_deleted == False, DiscoveryItem.deleted_at.is_(None))
+        .scalar()
+    )
+    row["scan_count"] = _safe_count(
+        lambda: db_session.query(func.count(Scan.id))
+        .filter(
+            func.lower(Scan.target) == _normalize_target(asset.target or ""),
+            Scan.is_deleted == False,
+            Scan.deleted_at.is_(None),
+        )
+        .scalar()
+    )
+    row["pqc_findings_count"] = _safe_count(
+        lambda: db_session.query(func.count(PQCClassification.id))
+        .filter(PQCClassification.asset_id == asset.id, PQCClassification.is_deleted == False, PQCClassification.deleted_at.is_(None))
+        .scalar()
+    )
+    cert_service = CertificateTelemetryService()
+    row["latest_certificate"] = cert_service.get_latest_certificate_for_asset(int(asset.id))
+    report = _scan_report_payload(scan)
+    row["discovered_services"] = report.get("discovered_services") or []
+    row["asset_locations"] = report.get("asset_locations") or []
+    row["dns_records"] = report.get("dns_records") or []
+    row["recommendations"] = report.get("recommendations_detailed") or []
+    row["workflow"] = _build_workflow_payload(asset, scan)
+    row["kpis"] = vm.get("kpis", {})
+    return row
+
+
+def build_asset_scans_api_response(asset_id: int, page: int = 1, page_size: int = 20) -> dict[str, Any] | None:
+    asset = (
+        db_session.query(Asset)
+        .filter(Asset.id == asset_id, Asset.is_deleted == False, Asset.deleted_at.is_(None))
+        .first()
+    )
+    if not asset:
+        return None
+
+    canonical_target = _normalize_target(asset.target or asset.name or asset.url or "")
+    query = (
+        db_session.query(Scan)
+        .filter(
+            func.lower(Scan.target) == canonical_target,
+            Scan.is_deleted == False,
+            Scan.deleted_at.is_(None),
+        )
+        .order_by(Scan.completed_at.desc(), Scan.started_at.desc(), Scan.id.desc())
+    )
+    page_data = paginate_query(query, page=page, page_size=min(page_size, 50))
+    items: list[dict[str, Any]] = []
+    for scan in page_data["items"]:
+        report = _scan_report_payload(scan)
+        items.append(
+            {
+                "scan_id": str(getattr(scan, "scan_id", "") or getattr(scan, "id", "")),
+                "status": "completed" if str(getattr(scan, "status", "") or "").lower() == "complete" else str(getattr(scan, "status", "") or "unknown"),
+                "started_at": getattr(scan, "started_at", None).isoformat() if getattr(scan, "started_at", None) else None,
+                "completed_at": getattr(scan, "completed_at", None).isoformat() if getattr(scan, "completed_at", None) else None,
+                "quantum_safe": bool(getattr(scan, "quantum_safe", 0) or report.get("quantum_safe")),
+                "pqc_score": float(getattr(scan, "overall_pqc_score", 0) or 0),
+                "total_certificates": _safe_count(
+                    lambda: db_session.query(func.count(Certificate.id))
+                    .filter(Certificate.scan_id == scan.id, Certificate.is_deleted == False, Certificate.deleted_at.is_(None))
+                    .scalar()
+                ),
+                "services_discovered": len(report.get("discovered_services") or []),
+                "tls_endpoints": len(report.get("tls_results") or []),
+                "cbom_components": _safe_count(
+                    lambda: db_session.query(func.count(CBOMEntry.id))
+                    .filter(CBOMEntry.scan_id == scan.id, CBOMEntry.is_deleted == False, CBOMEntry.deleted_at.is_(None))
+                    .scalar()
+                ),
+            }
+        )
+    return {
+        "asset_id": int(asset.id),
+        "asset_name": str(asset.target or ""),
+        "items": items,
+        "total": int(page_data["total"]),
+        "page": int(page_data["page"]),
+        "page_size": int(page_data["page_size"]),
+        "total_pages": int(page_data["total_pages"]),
+    }
+
+
+def create_or_scan_asset_api(payload: dict[str, Any]) -> tuple[dict[str, Any], int]:
+    target = _normalize_target(_payload_value(payload, "target", "") or "")
+    asset_type = (_payload_value(payload, "asset_type") or _payload_value(payload, "type") or "Web App").strip() or "Web App"
+    owner = (_payload_value(payload, "owner") or getattr(current_user, "username", "Unassigned") or "Unassigned").strip() or "Unassigned"
+    risk_level = (_payload_value(payload, "risk_level") or "Medium").strip() or "Medium"
+
+    if not _validate_target(target):
+        return {
+            "success": False,
+            "error": {"status": 400, "message": "Provide a valid target URL, hostname, or IP address."},
+        }, 400
+
+    created = False
+    restored = False
+    try:
+        asset = db_session.query(Asset).filter(func.lower(Asset.target) == target).first()
+        if asset and getattr(asset, "is_deleted", False):
+            asset.is_deleted = False
+            asset.deleted_at = None
+            asset.deleted_by_user_id = None
+            restored = True
+
+        if not asset:
+            asset = Asset(
+                target=target,
+                url=f"https://{target}",
+                asset_type=asset_type,
+                owner=owner,
+                risk_level=risk_level,
+                notes="Auto-created from inventory scan",
+                is_deleted=False,
+            )
+            db_session.add(asset)
+            db_session.flush()
+            created = True
+
+        asset.asset_type = asset_type or asset.asset_type or "Web App"
+        asset.owner = owner or asset.owner or "Unassigned"
+        asset.risk_level = risk_level or asset.risk_level or "Medium"
+        if not str(getattr(asset, "url", "") or ""):
+            asset.url = f"https://{target}"
+
+        db_session.commit()
+
+        scan_service = InventoryScanService(scan_runner=current_app.config.get("RUN_SCAN_PIPELINE_FUNC"))
+        scan_result = scan_service.scan_asset(asset, scan_kind="asset_inventory_api")
+        db_session.commit()
+        _invalidate_caches()
+
+        asset = db_session.query(Asset).filter(Asset.id == asset.id).first() or asset
+        detail = build_asset_detail_api_response(int(asset.id)) or {}
+        detail["created"] = created
+        detail["restored"] = restored
+        detail["scan"] = scan_result
+        detail["workflow"] = _build_workflow_payload(asset, _latest_asset_scan(asset), scan_result=scan_result)
+
+        if scan_result.get("status") == "complete":
+            message = f"Scan completed for {target}."
+        else:
+            message = f"Asset saved for {target}, but the scan did not complete."
+
+        return {
+            "success": True,
+            "message": message,
+            "data": detail,
+            "filters": {},
+        }, 201 if created else 200
+    except Exception as exc:
+        db_session.rollback()
+        logger.exception("Asset create/scan failed")
+        return {
+            "success": False,
+            "error": {"status": 500, "message": str(exc)},
+        }, 500
 
 
 def render_assets_inventory_page():

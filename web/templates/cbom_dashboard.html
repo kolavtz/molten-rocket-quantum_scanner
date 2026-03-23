@@ -1,16 +1,18 @@
 {% extends "base.html" %}
 {% import "macros/table_macros.html" as tb %}
-{% block title %}CBOM | PNB Cyber Observability{% endblock %}
+{% block title %}CBOM Dashboard | QuantumShield{% endblock %}
 {% block content %}
 <section class="hero" style="padding-bottom:1rem;">
-  <h2 class="hero-title" style="font-size:2rem;">CBOM</h2>
+  <h2 class="hero-title" style="font-size:2.25rem;">CBOM</h2>
   <p class="hero-subtitle">Cryptographic bill of materials and weakness visibility</p>
 </section>
 
 {% if vm.empty %}
 <section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <strong>No CBOM telemetry available yet.</strong>
-  <p style="margin-top:0.4rem;color:var(--text-secondary);">Run a scan to populate keys, ciphers, protocols, and CA usage.</p>
+  <div class="alert info" style="margin:0;">
+    <div class="alert-title">No CBOM telemetry available yet</div>
+    <div class="alert-message">Run a scan to populate keys, ciphers, protocols, and certificate authority usage.</div>
+  </div>
 </section>
 {% endif %}
 
@@ -22,38 +24,38 @@
   <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.certificate_issues }}</div><div class="overview-label">CERTIFICATE ISSUES</div></div>
 </section>
 
-<section class="glass-card" style="padding:1rem;margin-bottom:1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;">
+<section class="glass-card" style="padding:1.25rem;margin-bottom:1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;">
   <div>
-    <h3 style="margin-bottom:0.6rem;">Key Length Distribution</h3>
+    <h3 style="margin-bottom:0.75rem; font-size:0.9rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">Key Length Distribution</h3>
     {% for k,v in vm.key_length_distribution.items() %}
     <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.4rem;"><span style="width:60px;color:var(--text-secondary);font-size:0.75rem;">{{ k }}</span><div style="height:8px;flex:1;background:var(--bg-secondary);border-radius:999px;"><div class="dyn-bar" data-width="{{ (v*4)|int }}" style="height:100%;background:var(--accent);"></div></div><span style="font-size:0.74rem;">{{ v }}</span></div>
     {% endfor %}
   </div>
   <div>
-    <h3 style="margin-bottom:0.6rem;">Cipher Usage</h3>
+    <h3 style="margin-bottom:0.75rem; font-size:0.9rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">Cipher Usage</h3>
     {% for k,v in vm.cipher_usage.items() %}
     <div style="display:flex;justify-content:space-between;gap:0.5rem;padding:0.32rem 0;border-bottom:1px solid var(--border-subtle);font-size:0.73rem;"><span>{{ k }}</span><strong>{{ v }}</strong></div>
     {% endfor %}
   </div>
   <div>
-    <h3 style="margin-bottom:0.6rem;">Top Certificate Authorities</h3>
+    <h3 style="margin-bottom:0.75rem; font-size:0.9rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">Top Certificate Authorities</h3>
     {% for k,v in vm.top_cas.items() %}
     <div style="display:flex;justify-content:space-between;padding:0.32rem 0;border-bottom:1px solid var(--border-subtle);font-size:0.75rem;"><span>{{ k }}</span><strong>{{ v }}</strong></div>
     {% endfor %}
   </div>
   <div>
-    <h3 style="margin-bottom:0.6rem;">Encryption Protocols</h3>
+    <h3 style="margin-bottom:0.75rem; font-size:0.9rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">Encryption Protocols</h3>
     {% for k,v in vm.protocols.items() %}
     <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.45rem;"><span style="width:72px;font-size:0.75rem;color:var(--text-secondary);">{{ k }}</span><div style="height:8px;flex:1;background:var(--bg-secondary);border-radius:999px;overflow:hidden;"><div class="dyn-bar" data-width="{{ v }}" style="height:100%;background:var(--safe);"></div></div><span style="font-size:0.74rem;">{{ v }}</span></div>
     {% endfor %}
   </div>
 </section>
 
-<section class="glass-card" style="padding:1rem;">
-  <h3 style="margin-bottom:0.7rem;">Weakness Heatmap</h3>
+<section class="glass-card" style="padding:1.25rem;">
+  <h3 style="margin-bottom:0.85rem; font-size:0.95rem;">Weakness Heatmap</h3>
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-bottom:1rem;">
     {% for cell in vm.weakness_heatmap %}
-    <div style="background:var(--bg-secondary);border:1px solid var(--border-subtle);border-radius:6px;padding:0.55rem;">
+    <div class="card" style="background:var(--bg-secondary);padding:0.65rem;border-radius:var(--radius-md);">
       <div style="font-size:0.68rem;color:var(--text-secondary);">{{ cell.x }} · {{ cell.y }}</div>
       <div style="font-size:1rem;font-weight:700;">{{ cell.value }}</div>
     </div>
@@ -61,7 +63,7 @@
   </div>
 
   <div style="display:flex;justify-content:space-between;align-items:center;">
-    <h3 style="margin-bottom:0;">Applications Crypto Table</h3>
+    <h3 style="margin-bottom:0; font-size:1rem;">Applications Crypto Table</h3>
   </div>
 
   {{ tb.search_form('cbom_dashboard', request.args.get('q', ''), request.args.get('page_size', page_data.page_size if page_data else 25), {}) }}
@@ -71,6 +73,12 @@
       <thead>
         <tr>
           {{ tb.sortable_th('Application', 'asset_name', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
+          <th>Issued To (CN/O/OU)</th>
+          <th>Issued By (CN/O/OU)</th>
+          <th>Issued On</th>
+          {{ tb.sortable_th('Expires On', 'valid_until', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
+          <th>SHA-256 Fingerprint</th>
+          <th>Certificate Public Key</th>
           {{ tb.sortable_th('Key Length', 'key_length', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
           {{ tb.sortable_th('Cipher', 'cipher_suite', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
           {{ tb.sortable_th('Certificate Authority', 'ca', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
@@ -81,13 +89,29 @@
           {% for row in page_data.get('items') %}
           <tr>
             <td>{{ row.asset_name or 'Unknown Asset' }}</td>
+            <td>
+              {{ row.subject_cn or '-' }}{% if row.subject_o %}, {{ row.subject_o }}{% endif %}{% if row.subject_ou %}, {{ row.subject_ou }}{% endif %}
+            </td>
+            <td>
+              {{ row.issuer_cn or '-' }}{% if row.issuer_o %}, {{ row.issuer_o }}{% endif %}{% if row.issuer_ou %}, {{ row.issuer_ou }}{% endif %}
+            </td>
+            <td>{{ (row.valid_from or '-')[:10] if row.valid_from else '-' }}</td>
+            <td>{{ (row.valid_until or '-')[:10] if row.valid_until else '-' }}</td>
+            <td>
+              {% if row.fingerprint_sha256 %}
+                <span title="{{ row.fingerprint_sha256 }}">{{ row.fingerprint_sha256[:16] }}...</span>
+              {% else %}
+                -
+              {% endif %}
+            </td>
+            <td>{{ row.public_key_type or 'Unknown' }}</td>
             <td>{{ row.key_length or 0 }}</td>
             <td>{{ row.cipher_suite or 'Unknown' }}</td>
             <td>{{ row.ca or 'Unknown' }}</td>
           </tr>
           {% endfor %}
         {% else %}
-          <tr><td colspan="4" style="padding:2rem;">{{ tb.empty_state("No CBOM rows matched criteria.") }}</td></tr>
+          <tr><td colspan="10" style="padding:2rem;">{{ tb.empty_state("No CBOM rows matched criteria.") }}</td></tr>
         {% endif %}
       </tbody>
     </table>

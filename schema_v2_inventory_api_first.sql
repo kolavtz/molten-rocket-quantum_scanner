@@ -7,6 +7,41 @@ CREATE DATABASE IF NOT EXISTS `quantumshield`
   COLLATE utf8mb4_unicode_ci;
 USE `quantumshield`;
 
+-- Full canonical reset for deterministic restores on legacy/drifted databases.
+-- WARNING: This removes existing schema objects (structure + data) listed below.
+SET FOREIGN_KEY_CHECKS = 0;
+DROP VIEW IF EXISTS v_inventory_cyber_rating;
+DROP VIEW IF EXISTS v_inventory_compliance;
+DROP VIEW IF EXISTS v_inventory_cbom_entries;
+DROP VIEW IF EXISTS v_inventory_pqc;
+DROP VIEW IF EXISTS v_inventory_certificates;
+DROP VIEW IF EXISTS v_inventory_assets;
+
+DROP TABLE IF EXISTS report_request_assets;
+DROP TABLE IF EXISTS report_schedule_assets;
+DROP TABLE IF EXISTS report_requests;
+DROP TABLE IF EXISTS report_schedule;
+DROP TABLE IF EXISTS report_schedules;
+DROP TABLE IF EXISTS cyber_rating;
+DROP TABLE IF EXISTS compliance_scores;
+DROP TABLE IF EXISTS cbom_entries;
+DROP TABLE IF EXISTS cbom_summary;
+DROP TABLE IF EXISTS cbom_reports;
+DROP TABLE IF EXISTS pqc_classification;
+DROP TABLE IF EXISTS certificates;
+DROP TABLE IF EXISTS discovery_items;
+DROP TABLE IF EXISTS discovery_software;
+DROP TABLE IF EXISTS discovery_ips;
+DROP TABLE IF EXISTS discovery_ssl;
+DROP TABLE IF EXISTS discovery_domains;
+DROP TABLE IF EXISTS asset_dns_records;
+DROP TABLE IF EXISTS audit_log_chain;
+DROP TABLE IF EXISTS scans;
+DROP TABLE IF EXISTS assets;
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS users;
+SET FOREIGN_KEY_CHECKS = 1;
+
 -- ------------------------------------------------------------
 -- Core identity and auditing
 -- ------------------------------------------------------------

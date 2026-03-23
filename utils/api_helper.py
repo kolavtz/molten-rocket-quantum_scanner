@@ -319,12 +319,10 @@ def build_data_envelope(items: List[Any], total: int, params: Dict[str, Any], kp
         "total": total,
         "page": page,
         "page_size": page_size,
-        "total_pages": total_pages
+        "total_pages": total_pages,
+        "kpis": kpis or {},
     }
-    
-    if kpis:
-        envelope["kpis"] = kpis
-    
+
     return envelope
 
 

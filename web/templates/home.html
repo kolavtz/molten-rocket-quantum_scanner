@@ -217,16 +217,16 @@
             </div>
             <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: flex-end;">
                 <button onclick="location.href='{{ url_for('asset_inventory_page') }}'" class="btn-small" style="background: rgba(139,92,246,0.1); border-color: var(--accent-primary);">
-                    📊 Full Inventory
+                    <i class="fa-solid fa-chart-column" style="margin-right:0.35rem;"></i>Full Inventory
                 </button>
                 <button onclick="openAddModal()" class="btn-small" style="background: var(--accent-primary); border-color: var(--accent-primary); font-weight: 700;">
-                    ⊕ Add Asset
+                    <i class="fa-solid fa-plus" style="margin-right:0.35rem;"></i>Add Asset
                 </button>
             </div>
         </div>
         <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.75rem; display: flex; gap: 2rem;">
-            <span>🕐 Last sync: <span id="lastUpdated">--:--:--</span></span>
-            <span>✓ Status: <span style="color: #10b981;">Operational</span></span>
+            <span><i class="fa-regular fa-clock" style="margin-right:0.25rem;"></i>Last sync: <span id="lastUpdated">--:--:--</span></span>
+            <span><i class="fa-solid fa-circle-check" style="margin-right:0.25rem;"></i>Status: <span style="color: #10b981;">Operational</span></span>
         </div>
     </div>
 
@@ -236,7 +236,7 @@
     <div class="kpi-critical">
         <!-- Total Assets: Entry point, most visually prominent -->
         <div class="glass-card kpi-card">
-            <div class="kpi-label">🔍 Total Scanned Assets</div>
+            <div class="kpi-label"><i class="fa-solid fa-magnifying-glass-chart" style="margin-right:0.35rem;"></i>Total Scanned Assets</div>
             <div class="kpi-value">
                 <span>{{ summary.scanned_assets if summary.scanned_assets is defined else (summary.total_assets or 0) }}</span>
             </div>
@@ -247,7 +247,7 @@
         
         <!-- Expiring Certificates: Critical security issue -->
         <div class="glass-card kpi-card kpi-warning">
-            <div class="kpi-label">⚠️  Expiring Certificates (≤30 days)</div>
+            <div class="kpi-label"><i class="fa-solid fa-triangle-exclamation" style="margin-right:0.35rem;"></i>Expiring Certificates (≤30 days)</div>
             <div class="kpi-value">
                 <span>{{ summary.expiring_certs or 0 }}</span>
             </div>
@@ -258,7 +258,7 @@
         
         <!-- Overall Risk Score: Enterprise health indicator -->
         <div class="glass-card kpi-card {% if (summary.overall_risk_score or 0) > 50 %}kpi-danger{% elif (summary.overall_risk_score or 0) > 25 %}kpi-warning{% else %}kpi-success{% endif %}">
-            <div class="kpi-label">📈 Enterprise Risk Weight</div>
+            <div class="kpi-label"><i class="fa-solid fa-chart-line" style="margin-right:0.35rem;"></i>Enterprise Risk Weight</div>
             <div class="kpi-value">
                 <span>{{ summary.overall_risk_score or 0 }}%</span>
             </div>
@@ -324,10 +324,10 @@
             </h3>
             <div class="asset-actions">
                 <button onclick="document.getElementById('tableSearchInput').focus()" class="btn-small">
-                    🔍 Search
+                    <i class="fa-solid fa-magnifying-glass" style="margin-right:0.25rem;"></i>Search
                 </button>
                 <button onclick="location.href='{{ url_for('asset_discovery') }}'" class="btn-small">
-                    → Discover
+                    <i class="fa-solid fa-arrow-right" style="margin-right:0.25rem;"></i>Discover
                 </button>
             </div>
         </div>
@@ -387,11 +387,11 @@
         </div>
         {% else %}
         <div class="empty-state">
-            <div class="empty-state-icon">📭</div>
+            <div class="empty-state-icon"><i class="fa-regular fa-envelope-open"></i></div>
             <p><strong>No assets discovered yet</strong></p>
             <p style="font-size: 0.8rem; margin-top: 0.5rem;">Start by running a scan or adding assets manually to populate this dashboard.</p>
             <button onclick="openAddModal()" class="btn-small" style="margin-top: 1rem; background: var(--accent-primary); border-color: var(--accent-primary);">
-                ⊕ Add Your First Asset
+                <i class="fa-solid fa-plus" style="margin-right:0.25rem;"></i>Add Your First Asset
             </button>
         </div>
         {% endif %}

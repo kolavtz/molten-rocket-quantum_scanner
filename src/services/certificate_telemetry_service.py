@@ -16,6 +16,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Tuple
 from sqlalchemy import func, and_, or_
 from collections import Counter
+import json
 
 from src.models import Certificate, Asset, Scan
 
@@ -25,6 +26,21 @@ class CertificateTelemetryService:
     
     def __init__(self):
         pass
+
+    @staticmethod
+    def _load_json_list(value) -> List[str]:
+        if isinstance(value, list):
+            return [str(item) for item in value if str(item or "").strip()]
+        raw = str(value or "").strip()
+        if not raw:
+            return []
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                return [str(item) for item in parsed if str(item or "").strip()]
+        except Exception:
+            pass
+        return []
     
     def _get_db_session(self):
         """Get SQLAlchemy session from app context."""
@@ -186,9 +202,18 @@ class CertificateTelemetryService:
             inventory.append({
                 "certificate_id": cert.id,
                 "asset": asset_name,
+                "endpoint": str(cert.endpoint or ""),
                 "issuer": str(issuer),
                 "subject": str(cert.subject or ""),
+                "subject_cn": str(cert.subject_cn or ""),
+                "subject_o": str(cert.subject_o or cert.company_name or ""),
+                "subject_ou": str(cert.subject_ou or ""),
+                "issuer_cn": str(cert.issuer_cn or cert.ca or ""),
+                "issuer_o": str(cert.issuer_o or cert.ca_name or ""),
+                "issuer_ou": str(cert.issuer_ou or ""),
                 "key_length": key_length,
+                "public_key_type": str(cert.public_key_type or cert.key_algorithm or ""),
+                "public_key_pem": str(cert.public_key_pem or ""),
                 "cipher_suite": str(cipher_suite),
                 "tls_version": str(tls_version),
                 "ca": str(ca),
@@ -198,6 +223,9 @@ class CertificateTelemetryService:
                 "days_remaining": days_remaining,
                 "status": status,
                 "fingerprint": fingerprint,
+                "fingerprint_sha256": str(cert.fingerprint_sha256 or ""),
+                "san_domains": self._load_json_list(cert.san_domains),
+                "cert_chain_length": int(cert.cert_chain_length or 0),
             })
         
         return inventory
@@ -482,10 +510,19 @@ class CertificateTelemetryService:
         
         return {
             "certificate_id": cert.id,
+            "endpoint": str(cert.endpoint or ""),
             "issuer": str(cert.issuer or cert.ca or "Unknown"),
             "subject": str(cert.subject or ""),
+            "subject_cn": str(cert.subject_cn or ""),
+            "subject_o": str(cert.subject_o or cert.company_name or ""),
+            "subject_ou": str(cert.subject_ou or ""),
+            "issuer_cn": str(cert.issuer_cn or cert.ca or ""),
+            "issuer_o": str(cert.issuer_o or cert.ca_name or ""),
+            "issuer_ou": str(cert.issuer_ou or ""),
             "serial": str(cert.serial or ""),
             "key_length": int(cert.key_length or 0),
+            "public_key_type": str(cert.public_key_type or cert.key_algorithm or ""),
+            "public_key_pem": str(cert.public_key_pem or ""),
             "tls_version": str(cert.tls_version or "Unknown"),
             "cipher_suite": str(cert.cipher_suite or "Unknown"),
             "ca": str(cert.ca or "Unknown"),
@@ -494,6 +531,9 @@ class CertificateTelemetryService:
             "days_remaining": days_remaining,
             "status": status,
             "fingerprint": str(cert.fingerprint_sha256 or "")[:16] + "..." if cert.fingerprint_sha256 else "N/A",
+            "fingerprint_sha256": str(cert.fingerprint_sha256 or ""),
+            "san_domains": self._load_json_list(cert.san_domains),
+            "cert_chain_length": int(cert.cert_chain_length or 0),
         }
     
     # ════════════════════════════════════════════════════════════════════

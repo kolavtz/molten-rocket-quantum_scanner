@@ -11,7 +11,7 @@
 
 {% if vm.empty %}
 <section class="glass-card" style="padding:1.5rem; text-align:center; margin-bottom: 2rem;">
-  <div style="font-size: 3rem; color: #6b7280; margin-bottom: 1rem;"><i class="fa-solid fa-folder-open"></i></div>
+  <div style="font-size: 3rem; color: #6b7280; margin-bottom: 1rem;"><i class="fa-regular fa-folder-open"></i></div>
   <strong style="font-size:1.1rem;">Your Recycle Bin is empty.</strong>
   <p style="margin-top:0.5rem; color:var(--text-secondary);">Deleted scans and assets will appear here for 30 days before permanent purging.</p>
 </section>
@@ -32,7 +32,7 @@
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
         <h3 style="margin-bottom:0;">Asset Inventory (Deleted)</h3>
         <div>
-          <button type="submit" class="btn btn-sm btn-outline-success" id="btnRestoreAssets" disabled>
+          <button type="submit" class="button secondary sm" id="btnRestoreAssets" disabled>
             <i class="fa-solid fa-trash-can-arrow-up"></i> Restore Selected
           </button>
         </div>
@@ -72,7 +72,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="delete_assets">
     <div style="display:flex;justify-content:flex-end;">
-      <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Permanently destroy selected deleted assets? This cannot be undone.');">
+      <button type="submit" class="button danger sm" onclick="return confirm('Permanently destroy selected deleted assets? This cannot be undone.');">
         <i class="fa-solid fa-skull-crossbones"></i> Destroy Selected Permanently
       </button>
     </div>
@@ -91,7 +91,7 @@
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
         <h3 style="margin-bottom:0;">Scan History (Deleted)</h3>
         <div>
-          <button type="submit" class="btn btn-sm btn-outline-success" id="btnRestoreScans" disabled>
+          <button type="submit" class="button secondary sm" id="btnRestoreScans" disabled>
             <i class="fa-solid fa-trash-can-arrow-up"></i> Restore Selected
           </button>
         </div>
@@ -131,7 +131,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="delete_scans">
     <div style="display:flex;justify-content:flex-end;">
-      <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Permanently destroy selected deleted scans? This cannot be undone.');">
+      <button type="submit" class="button danger sm" onclick="return confirm('Permanently destroy selected deleted scans? This cannot be undone.');">
         <i class="fa-solid fa-skull-crossbones"></i> Destroy Selected Permanently
       </button>
     </div>
