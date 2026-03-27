@@ -76,7 +76,29 @@
     return normalizeEnvelope(data);
   }
 
-  function renderTable(tableBody, columns, items) {
+  function renderCell(col, item, rowIndex, options) {
+    var raw = item[col.field];
+    var value = raw == null ? '' : raw;
+
+    if (typeof col.render === 'function') {
+      return col.render(raw, item, rowIndex, options);
+    }
+
+    if (col.field === 'actions' && value) {
+      var href = String(value);
+      var label = col.actionLabel || 'View details';
+      if (href.indexOf('/status') !== -1) {
+        label = 'View status';
+      } else if (href.indexOf('/results/') !== -1) {
+        label = col.actionLabel || 'Open result';
+      }
+      return '<a class="scan-button scan-button-secondary" href="' + escapeHtml(href) + '">' + escapeHtml(label) + '</a>';
+    }
+
+    return escapeHtml(value);
+  }
+
+  function renderTable(tableBody, columns, items, options) {
     if (window.QuantumShieldUniversalTable && typeof window.QuantumShieldUniversalTable.renderBody === 'function') {
       window.QuantumShieldUniversalTable.renderBody(tableBody, columns, items);
       return;
@@ -88,13 +110,11 @@
       return;
     }
 
-    var rows = items.map(function (item) {
+    var rows = items.map(function (item, rowIndex) {
       var tds = columns.map(function (col) {
-        var raw = item[col.field];
-        var value = raw == null ? '' : raw;
-        return '<td>' + escapeHtml(value) + '</td>';
+        return '<td>' + renderCell(col, item, rowIndex, options) + '</td>';
       }).join('');
-      return '<tr>' + tds + '</tr>';
+      return '<tr class="api-table-row" data-api-row-index="' + rowIndex + '">' + tds + '</tr>';
     }).join('');
 
     tableBody.innerHTML = rows;
@@ -160,6 +180,7 @@
     var searchBtn = qs('[data-api-search-btn]', root);
     var prevBtn = qs('[data-api-prev]', root);
     var nextBtn = qs('[data-api-next]', root);
+    var lastItems = [];
 
     renderHeaders(headerRow, config.columns || []);
 
@@ -167,7 +188,8 @@
       setError('', root);
       try {
         var payload = await fetchDashboardPage(config.apiUrl, Object.assign({}, state, config.extraParams || {}));
-        renderTable(body, config.columns || [], payload.items || []);
+        lastItems = payload.items || [];
+        renderTable(body, config.columns || [], lastItems, config);
         renderKpis(payload.kpis || {}, root);
         setText('[data-api-total]', payload.total || 0, root);
         setText('[data-api-page]', payload.page || 1, root);
@@ -177,6 +199,19 @@
         var totalPages = Number(payload.total_pages || 1);
         if (prevBtn) prevBtn.disabled = currentPage <= 1;
         if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
+
+        if (typeof config.onRowClick === 'function' && body) {
+          body.querySelectorAll('tr[data-api-row-index]').forEach(function (row) {
+            row.style.cursor = 'pointer';
+            row.addEventListener('click', function (evt) {
+              if (evt.target && evt.target.closest('a,button,input,label')) return;
+              var idx = Number(row.getAttribute('data-api-row-index'));
+              if (!Number.isNaN(idx) && lastItems[idx]) {
+                config.onRowClick(lastItems[idx], row);
+              }
+            });
+          });
+        }
       } catch (err) {
         setError(err.message || 'Failed to load dashboard data. Please try again.', root);
       }

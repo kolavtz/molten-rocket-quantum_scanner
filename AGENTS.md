@@ -27,13 +27,23 @@ Follow this workflow unless the user explicitly overrides it:
 
 1. Clarify the task in 1–3 bullet points.
 2. Plan changes as small, testable steps.
-3. Implement in baby steps, editing the minimum number of files.
-4. Run or describe targeted tests for changed code only.
-5. Summarize what you changed and why.
+3. For API work, define or confirm endpoint contract first (inputs, outputs, status codes, persistence impact).
+4. Implement in baby steps, editing the minimum number of files.
+5. Run targeted tests for changed behavior (validation, success, empty state, failure paths, RBAC if applicable).
+6. Summarize what changed, why, and what was validated.
 
 Always:
 - Prefer small, composable functions over large ones.
 - Keep diffs focused and avoid drive-by refactors.
+- Keep controllers thin and move business logic into services.
+- Enforce "real data only" behavior (no seeded/fabricated API responses).
+
+API implementation guardrails:
+- All new/changed endpoints must be backed by persisted DB state.
+- Validate and sanitize all external/user inputs.
+- Use parameterized SQLAlchemy patterns (avoid string-built SQL).
+- Maintain backward compatibility unless user explicitly requests a breaking change.
+- Update relevant API docs when endpoint contracts change.
 
 ## 4. Memory (MANDATORY – UPDATE AS YOU GO)
 

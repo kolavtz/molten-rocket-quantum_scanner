@@ -565,3 +565,140 @@ CSP_CONFIG = {
 # ---------------------------------------------------------------------------
 AUTOMATED_SCAN_ENABLED = os.environ.get("AUTOMATED_SCAN_ENABLED", "false").lower() == "true"
 AUTOMATED_SCAN_INTERVAL_HOURS = int(os.environ.get("AUTOMATED_SCAN_INTERVAL_HOURS", "24"))
+
+# ===============================================
+# PHASE 1: MATH-BASED KPI SYSTEM CONFIGURATION
+# ===============================================
+# All constants used in PQC scoring, risk calculations, and digital label assignments
+# Based on math-definition-for-quantumshield-app.md
+
+# ---------------------------------------------------------------------------
+# Risk Penalty Calculation (Math Section 5.1)
+# ---------------------------------------------------------------------------
+# Weight per finding severity: Σ(severity × weight)
+RISK_WEIGHTS = {
+    'critical': float(os.environ.get('RISK_WEIGHT_CRITICAL', '10.0')),
+    'high': float(os.environ.get('RISK_WEIGHT_HIGH', '5.0')),
+    'medium': float(os.environ.get('RISK_WEIGHT_MEDIUM', '2.0')),
+    'low': float(os.environ.get('RISK_WEIGHT_LOW', '0.5')),
+}
+
+# Alpha scaling factor for risk penalty impact on cyber score
+# Formula: max(0, pqc_score - PENALTY_ALPHA * risk_penalty)
+PENALTY_ALPHA = float(os.environ.get('PENALTY_ALPHA', '0.5'))
+
+# ---------------------------------------------------------------------------
+# PQC Score Thresholds (Math Section 3.3 - Asset Classification)
+# ---------------------------------------------------------------------------
+# Classification tiers based on PQC score ranges
+PQC_THRESHOLDS = {
+    'elite': int(os.environ.get('PQC_THRESHOLD_ELITE', '90')),        # ≥ 90
+    'standard': int(os.environ.get('PQC_THRESHOLD_STANDARD', '70')),  # 70-89
+    'legacy': int(os.environ.get('PQC_THRESHOLD_LEGACY', '40')),      # 40-69
+    'critical': int(os.environ.get('PQC_THRESHOLD_CRITICAL', '0')),   # < 40
+}
+
+# ---------------------------------------------------------------------------
+# Cyber Rating Tiers (Math Section 5.4 - Enterprise Score 0-1000)
+# ---------------------------------------------------------------------------
+# Enterprise-level tiers based on average asset cyber scores
+CYBER_RATING_TIERS = {
+    'tier1_elite': int(os.environ.get('CYBER_TIER_ELITE', '700')),       # ≥ 700
+    'tier2_standard': int(os.environ.get('CYBER_TIER_STANDARD', '400')), # 400-699
+    'tier3_legacy': int(os.environ.get('CYBER_TIER_LEGACY', '0')),       # 0-399
+}
+
+# ---------------------------------------------------------------------------
+# Cryptographic Weakness Thresholds
+# ---------------------------------------------------------------------------
+# Weak key length threshold (bits) - RFC 3394, NIST guidelines
+WEAK_KEY_LENGTH_BITS = int(os.environ.get('WEAK_KEY_LENGTH_BITS', '2048'))
+
+# Weak TLS versions (version < this value is considered weak)
+WEAK_TLS_VERSIONS = [
+    'SSLv2', 'SSLv3', 'TLS 1.0', 'TLS 1.1'
+]
+
+# Expired certificate threshold (days) - auto-flag if expiring within this period
+EXPIRING_CERT_THRESHOLD_DAYS = int(os.environ.get('EXPIRING_CERT_THRESHOLD', '30'))
+
+# ---------------------------------------------------------------------------
+# Certificate Expiry Buckets (Math Section 2.5 - Distribution)
+# ---------------------------------------------------------------------------
+# Defines ranges for certificate expiry timeline visualization
+CERT_EXPIRY_BUCKETS = {
+    'bucket_0_30_days': (0, 30),           # Expiring soon - alert
+    'bucket_31_60_days': (31, 60),         # Expiring soon - caution
+    'bucket_61_90_days': (61, 90),         # Expiring - plan renewal
+    'bucket_greater_90_days': (91, 36500), # Safe - no action
+}
+
+# ---------------------------------------------------------------------------
+# Digital Label Classification (Feature: Asset Labels)
+# ---------------------------------------------------------------------------
+# Asset classification labels based on PQC score + findings + enterprise score
+# Used in inventory and home dashboards
+
+DIGITAL_LABELS_CONFIG = {
+    'Quantum-Safe': {
+        'description': 'Fully quantum-safe with no critical findings',
+        'min_pqc_score': 90,
+        'max_critical_findings': 0,
+        'confidence_weight': 1.0,
+    },
+    'PQC Ready': {
+        'description': 'Post-quantum cryptography ready, minimal findings',
+        'min_pqc_score': 70,
+        'max_findings': 3,
+        'max_critical_findings': 0,
+        'confidence_weight': 0.8,
+    },
+    'Fully Quantum Safe': {
+        'description': 'Quantum-safe with zero findings and high enterprise score',
+        'min_pqc_score': 90,
+        'max_findings': 0,
+        'max_critical_findings': 0,
+        'min_enterprise_score': 700,
+        'confidence_weight': 1.0,
+    },
+    'At Risk': {
+        'description': 'Non-compliant with PQC standards or contains critical findings',
+        'max_pqc_score': 40,
+        'min_critical_findings': 1,
+        'confidence_weight': 0.9,
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Finding Severity Mapping (Math Section 5.1 - Findings & Issues)
+# ---------------------------------------------------------------------------
+# Maps issue types to default severity levels
+FINDING_SEVERITY_MAP = {
+    'weak_tls_version': 'high',             # TLS < 1.2
+    'weak_cipher': 'high',                  # Deprecated ciphers (SSLv3, RC4, etc.)
+    'weak_key_length': 'high',              # Key < WEAK_KEY_LENGTH_BITS
+    'expiring_certificate': 'medium',       # Expires within EXPIRING_CERT_THRESHOLD
+    'expired_certificate': 'critical',      # Already expired
+    'self_signed_cert': 'medium',           # Public endpoint with self-signed cert
+    'mismatched_hostname': 'high',          # Cert CN doesn't match domain
+    'weak_signature_algorithm': 'medium',   # MD5, SHA1 signatures
+}
+
+# ---------------------------------------------------------------------------
+# Dashboard Metric Refresh Intervals (Background Jobs)
+# ---------------------------------------------------------------------------
+# How often to refresh various summary metrics (in hours)
+ORG_PQC_METRICS_REFRESH_HOURS = int(os.environ.get('ORG_METRICS_REFRESH_HOURS', '24'))  # Daily snapshot
+CERT_EXPIRY_BUCKETS_REFRESH_HOURS = int(os.environ.get('CERT_EXPIRY_REFRESH_HOURS', '24'))  # Daily
+ASSET_METRICS_REFRESH_POST_SCAN = os.environ.get('ASSET_METRICS_REFRESH_POST_SCAN', 'true').lower() == 'true'  # After each scan
+DIGITAL_LABELS_REFRESH_POST_SCAN = os.environ.get('DIGITAL_LABELS_REFRESH_POST_SCAN', 'true').lower() == 'true'  # After each scan
+
+# ---------------------------------------------------------------------------
+# API Response Configuration
+# ---------------------------------------------------------------------------
+# Pagination defaults for dashboard APIs
+DEFAULT_PAGE_SIZE = int(os.environ.get('DEFAULT_PAGE_SIZE', '50'))
+MAX_PAGE_SIZE = int(os.environ.get('MAX_PAGE_SIZE', '500'))
+
+# Trend chart history depth (days)
+TREND_HISTORY_DAYS = int(os.environ.get('TREND_HISTORY_DAYS', '90'))

@@ -192,7 +192,7 @@
         <div style="font-size:0.8rem;color:var(--text-secondary);">Dashboard remains analytics-first. Start scans from dedicated workflow page.</div>
     </div>
     {% if current_user.role in ['Admin', 'Manager', 'SingleScan'] %}
-    <a href="/scan-center" class="scan-button" style="padding:0.6rem 1rem;"><i class="fa-solid fa-radar" style="margin-right:0.35rem;"></i>Open Scan Center</a>
+    <a href="/scans" class="scan-button" style="padding:0.6rem 1rem;"><i class="fa-solid fa-radar" style="margin-right:0.35rem;"></i>Open Scan Center</a>
     {% else %}
     <div style="font-size:0.8rem;color:var(--text-secondary);">Read-only role</div>
     {% endif %}

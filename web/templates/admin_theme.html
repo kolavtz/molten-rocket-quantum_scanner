@@ -54,7 +54,7 @@
 
                 <!-- Tab: Global Mode -->
                 <div id="tab-content-global" class="tab-view d-none">
-                    <h5 class="tab-title">Global Setting</h5>
+                    <h5 class="tab-title">Theme Mode</h5>
                     <div class="form-group mb-3">
                         <label class="theme-label" for="mode">STARTUP MODE</label>
                         <select id="mode" name="mode" class="theme-text-input">
@@ -62,7 +62,7 @@
                             <option value="dark" {% if theme.mode == 'dark' %}selected{% endif %}>FORCE NIGHT MODE</option>
                             <option value="light" {% if theme.mode == 'light' %}selected{% endif %}>FORCE DAY MODE</option>
                         </select>
-                        <small class="text-muted d-block mt-1">Users can change nodes at runtime; this triggers default boot defaults.</small>
+                        <small class="text-muted d-block mt-1">Use this to control the app's light/dark behavior from Admin → Theme Settings.</small>
                     </div>
                 </div>
 
@@ -186,22 +186,22 @@
 <!-- Stylings Overhaul -->
 <style>
     :root {
-        --glass-card: rgba(30, 41, 59, 0.4);
+        --glass-card: color-mix(in srgb, var(--bg-card) 90%, transparent);
     }
     .glass-card {
         background: var(--glass-card) !important;
         backdrop-filter: blur(12px) !important;
-        border: 1.5px solid rgba(255, 255, 255, 0.04) !important;
+        border: 1.5px solid color-mix(in srgb, var(--border-subtle) 78%, transparent) !important;
         border-radius: 12px !important;
     }
     .theme-tabs {
         display: flex;
         gap: 0.35rem;
-        background: rgba(15, 23, 42, 0.3);
+        background: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
         padding: 0.3rem;
         border-radius: 8px;
         margin-bottom: 1.5rem;
-        border: 1px solid rgba(255,255,255,0.02);
+        border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
     }
     .tab-btn {
         flex: 1;
@@ -216,15 +216,15 @@
         transition: all 0.2s ease;
     }
     .tab-btn.active {
-        background: rgba(255, 255, 255, 0.05);
+        background: color-mix(in srgb, var(--accent) 14%, var(--bg-card) 86%);
         color: var(--text-primary, #f8fafc);
-        border: 1px solid rgba(255,255,255,0.06);
+        border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
     }
     .tab-title {
         font-size: 0.95rem;
         text-transform: uppercase;
         font-weight: 600;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
+        border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
         padding-bottom: 0.4rem;
         margin-bottom: 1.25rem;
         letter-spacing: 0.5px;
@@ -244,21 +244,21 @@
     .theme-label { display: block; font-size: 0.7rem; color: var(--text-secondary, #94a3b8); margin-bottom: 0.3rem; }
     .theme-input-row { display: flex; gap: 0.4rem; }
     .theme-color-picker {
-        width: 32px; height: 32px; padding: 0; background: transparent; border-radius: 4px; border: 1px solid rgba(255,255,255,0.08); cursor: pointer;
+        width: 32px; height: 32px; padding: 0; background: transparent; border-radius: 4px; border: 1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent); cursor: pointer;
     }
     .theme-text-input {
-        flex: 1; background: rgba(15, 23, 42, 0.3); color: var(--text-primary, #f8fafc); border: 1px solid rgba(255,255,255,0.06); border-radius: 4px; padding: 0.35rem 0.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
+        flex: 1; background: color-mix(in srgb, var(--bg-input) 88%, var(--bg-card) 12%); color: var(--text-primary, #f8fafc); border: 1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent); border-radius: 4px; padding: 0.35rem 0.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
     }
-    .theme-text-input:focus { outline: none; border-color: #38bdf8; }
+    .theme-text-input:focus { outline: none; border-color: var(--accent); }
 
     /* Sandbox Mockup layout scope variables overrides */
     .sandbox-mockup {
         border-radius: 8px; overflow: hidden; height: 320px;
         background: var(--bg-primary); color: var(--text-primary);
         border: 1.5px solid var(--border-subtle); display: flex; flex-direction: column;
-        --accent: #0ea5e9; --bg-card: #1e293b; --bg-navbar: #0f172a; --bg-input: rgba(15,23,42,0.4);
-        --text-secondary: #94a3b8; --border-subtle: rgba(255,255,255,0.04);
-        --safe: #10b981; --warn: #f59e0b; --danger: #ef4444;
+        --accent: var(--accent); --bg-card: color-mix(in srgb, var(--bg-card) 92%, transparent); --bg-navbar: var(--bg-navbar); --bg-input: color-mix(in srgb, var(--bg-input) 88%, transparent);
+        --text-secondary: var(--text-secondary); --border-subtle: color-mix(in srgb, var(--border-subtle) 80%, transparent);
+        --safe: var(--safe); --warn: var(--warn); --danger: var(--danger);
     }
     .mock-nav { background: var(--bg-navbar); padding: 0.6rem 0.8rem; border-bottom: 2px solid var(--accent); position: relative; }
     .mock-nav-logo { font-size: 0.8rem; font-weight: bold; color: var(--text-primary); }
@@ -268,15 +268,15 @@
     .mock-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.6rem; margin-bottom:0.6rem; }
     .mock-card-header { font-size: 0.65rem; color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.3rem; margin-bottom: 0.4rem; font-family: 'JetBrains Mono', monospace;}
     .mock-kpi-row { display: flex; gap: 0.5rem; }
-    .mock-kpi { flex: 1; padding: 0.4rem; border-radius: 4px; border: 1px solid var(--border-subtle); background: rgba(0,0,0,0.1); }
+    .mock-kpi { flex: 1; padding: 0.4rem; border-radius: 4px; border: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--bg-input) 86%, var(--bg-card) 14%); }
     .mock-kpi-val { font-size: 0.88rem; font-weight: bold; display: block; }
     .mock-kpi-cap { font-size: 0.55rem; color: var(--text-secondary); }
     .mock-badge-row { display: flex; gap: 0.3rem; }
-    .mock-badge { font-size: 0.55rem; padding: 0.15rem 0.35rem; border-radius: 3px; font-weight:600; text-shadow:0 1px 1px rgba(0,0,0,0.2); }
-    .bg-safe { background: var(--safe); color:#fff; } .bg-warn { background: var(--warn); color:#fff; } .bg-danger { background: var(--danger); color:#fff; }
+    .mock-badge { font-size: 0.55rem; padding: 0.15rem 0.35rem; border-radius: 3px; font-weight:600; text-shadow:0 1px 1px color-mix(in srgb, var(--bg-primary) 72%, transparent); }
+    .bg-safe { background: var(--safe); color: var(--bg-primary); } .bg-warn { background: var(--warn); color: var(--bg-primary); } .bg-danger { background: var(--danger); color: var(--bg-primary); }
     .mock-form { padding-top: 0.4rem; border-top: 1px solid var(--border-subtle); }
     .mock-input { width: 100%; background: var(--bg-input); border: 1px solid var(--border-subtle); color: var(--text-primary); font-size: 0.65rem; padding: 0.3rem; border-radius: 4px; }
-    .mock-btn { background: var(--accent); color: #fff; border: none; font-size: 0.65rem; font-weight: bold; padding: 0.3rem 0.6rem; border-radius: 4px; width: 100%; text-shadow:0 1px 1px rgba(0,0,0,0.2); }
+    .mock-btn { background: var(--accent); color: var(--text-on-accent); border: none; font-size: 0.65rem; font-weight: bold; padding: 0.3rem 0.6rem; border-radius: 4px; width: 100%; text-shadow:0 1px 1px color-mix(in srgb, var(--bg-primary) 72%, transparent); }
 </style>
 
 <script>

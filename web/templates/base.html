@@ -13,6 +13,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/table.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/quantum_ui_refresh.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/asset_modal.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/global_responsive.css') }}">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     {% block head %}{% endblock %}
     <style>
         :root {
@@ -29,6 +33,7 @@
             --text-muted: {{ theme.active.text_muted }} !important;
             --accent: {{ theme.active.accent_color }} !important;
             --accent-hover: {{ theme.active.accent_color }}ee !important;
+            --text-on-accent: {{ theme.active.text_on_accent | default('#ffffff') }} !important;
             --safe: {{ theme.active.safe }} !important;
             --warn: {{ theme.active.warn }} !important;
             --danger: {{ theme.active.danger }} !important;
@@ -38,7 +43,7 @@
         .navbar {
             background-color: {{ theme.bg_navbar or 'rgba(15, 18, 25, 0.95)' }} !important;
         }
-        @media (max-width: 768px) {
+        @media (max-width: 900px) {
             .nav-links {
                 background-color: {{ theme.bg_navbar or 'rgba(15, 18, 25, 0.98)' }} !important;
                 animation: none !important;
@@ -84,6 +89,7 @@
             --accent: {{ theme.dark.accent_color }} !important;
             --accent-hover: {{ theme.dark.accent_color }}ee !important;
             --accent-primary: {{ theme.dark.accent_color }} !important;
+            --text-on-accent: {{ theme.dark.text_on_accent | default('#f9fafb') }} !important;
             --safe: {{ theme.dark.safe }} !important;
             --warn: {{ theme.dark.warn }} !important;
             --danger: {{ theme.dark.danger }} !important;
@@ -103,6 +109,7 @@
             --accent: {{ theme.light.accent_color }} !important;
             --accent-hover: {{ theme.light.accent_color }}ee !important;
             --accent-primary: {{ theme.light.accent_color }} !important;
+            --text-on-accent: {{ theme.light.text_on_accent | default('#ffffff') }} !important;
             --safe: {{ theme.light.safe }} !important;
             --warn: {{ theme.light.warn }} !important;
             --danger: {{ theme.light.danger }} !important;
@@ -113,7 +120,7 @@
         html[data-theme='light'] .navbar {
             background-color: {{ theme.light.bg_navbar }} !important;
         }
-        @media (max-width: 768px) {
+        @media (max-width: 900px) {
             html[data-theme='dark'] .nav-links {
                 background-color: {{ theme.dark.bg_navbar }} !important;
                 animation: none !important;
@@ -127,12 +134,196 @@
         .scans-table th::after {
             content: none !important;
         }
+
+        body.dashboard-auth {
+            min-height: 100dvh;
+        }
+
+        @media (min-width: 1100px) {
+            body.dashboard-auth .navbar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                width: 248px;
+                border-right: 1px solid var(--border-subtle);
+                border-bottom: none;
+                box-shadow: 0 20px 45px color-mix(in srgb, var(--bg-primary) 78%, transparent);
+                z-index: 120;
+                overflow-y: auto;
+            }
+
+            body.dashboard-auth .nav-container {
+                flex-direction: column;
+                align-items: stretch;
+                justify-content: flex-start;
+                gap: 0.95rem;
+                min-height: 100%;
+                padding: 0.95rem 0.8rem;
+            }
+
+            body.dashboard-auth .nav-brand {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.12rem;
+                padding: 0.45rem 0.35rem;
+            }
+
+            body.dashboard-auth .brand-sep {
+                display: none;
+            }
+
+            body.dashboard-auth .brand-sub {
+                font-size: 0.62rem;
+                letter-spacing: 0.22em;
+                text-transform: uppercase;
+                color: var(--accent);
+            }
+
+            body.dashboard-auth .nav-hamburger {
+                display: none;
+            }
+
+            body.dashboard-auth .nav-links {
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.28rem;
+                width: 100%;
+                margin-top: 0.35rem;
+            }
+
+            body.dashboard-auth .nav-link,
+            body.dashboard-auth .nav-dropdown-trigger {
+                width: 100%;
+                justify-content: flex-start;
+                border-radius: 10px;
+                padding: 0.62rem 0.74rem;
+                min-height: 42px;
+            }
+
+            body.dashboard-auth .nav-link .nav-text,
+            body.dashboard-auth .nav-dropdown-trigger .nav-text {
+                margin-left: 0.5rem;
+                font-size: 0.72rem;
+                letter-spacing: 0.08em;
+            }
+
+            body.dashboard-auth .nav-dropdown {
+                width: 100%;
+            }
+
+            body.dashboard-auth .nav-dropdown-menu {
+                left: 0;
+                transform: translateX(0) translateY(6px);
+                min-width: 100%;
+            }
+
+            body.dashboard-auth .nav-dropdown:hover .nav-dropdown-menu,
+            body.dashboard-auth .nav-dropdown-menu:hover {
+                transform: translateX(0) translateY(4px);
+            }
+
+            body.dashboard-auth .dropdown-link {
+                font-size: 0.76rem;
+            }
+
+            body.dashboard-auth .user-profile {
+                margin-top: auto;
+                border-left: none;
+                border-top: 1px solid var(--border-subtle);
+                padding: 0.75rem 0.2rem 0.25rem;
+                display: grid;
+                gap: 0.35rem;
+            }
+
+            body.dashboard-auth .user-info {
+                align-items: flex-start;
+                padding: 0 0.5rem;
+            }
+
+            body.dashboard-auth .main-content,
+            body.dashboard-auth .footer {
+                margin-left: 248px;
+            }
+
+            body.dashboard-auth .main-content {
+                padding-top: 0.35rem;
+            }
+        }
+
+        .dashboard-topbar {
+            display: grid;
+            gap: 0.75rem;
+            margin: 0 auto 1rem;
+            max-width: 1480px;
+        }
+
+        .dashboard-topbar .topbar-shell {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            padding: 0.75rem 0.95rem;
+        }
+
+        .dashboard-search {
+            min-width: min(360px, 100%);
+            flex: 1;
+            max-width: 440px;
+        }
+
+        .dashboard-search input {
+            min-height: 40px;
+            border-radius: 10px;
+            font-size: 0.84rem;
+            padding-left: 0.85rem;
+        }
+
+        .dashboard-tabs {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            background: color-mix(in srgb, var(--bg-secondary) 78%, transparent);
+            border: 1px solid color-mix(in srgb, var(--border-subtle) 72%, transparent);
+            border-radius: 10px;
+            padding: 0.2rem;
+        }
+
+        .dashboard-tabs a {
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            padding: 0.38rem 0.62rem;
+            border-radius: 7px;
+            font-weight: 700;
+        }
+
+        .dashboard-tabs a.active,
+        .dashboard-tabs a:hover {
+            color: var(--text-primary);
+            background: color-mix(in srgb, var(--accent) 18%, transparent);
+        }
+
+        .system-badge {
+            border: 1px solid color-mix(in srgb, var(--safe) 35%, transparent);
+            background: color-mix(in srgb, var(--safe) 12%, transparent);
+            color: var(--safe);
+            border-radius: 999px;
+            padding: 0.28rem 0.62rem;
+            font-size: 0.68rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
     </style>
 </head>
-<body>
+<body class="{% if current_user.is_authenticated %}dashboard-auth{% endif %}">
     {% set section_map = {
         '/': 'Home',
-        '/scans': 'Scans',
+        '/scans': 'Scan Center',
         '/scan-center': 'Scan Center',
         '/asset-inventory': 'Asset Inventory',
         '/asset-discovery': 'Asset Discovery',
@@ -160,7 +351,7 @@
                 </a>
                 
                 {% if current_user.is_authenticated %}
-                    {% if current_user.role in ['Admin', 'Manager', 'SingleScan'] %}
+                    {% if current_user.role in ['Admin', 'Manager', 'SingleScan', 'Viewer'] %}
                     <a href="/scans" class="nav-link {% if request.path in ['/scans', '/scan-center'] %}active{% endif %}" title="Scan Center">
                         <i class="fa-solid fa-shield-halved"></i> <span class="nav-text">SCAN</span>
                     </a>
@@ -168,10 +359,10 @@
 
                     <!-- Assets Dropdown -->
                     <div class="nav-dropdown">
-                        <button class="nav-dropdown-trigger" title="Assets">
+                        <button class="nav-dropdown-trigger" title="Assets" aria-haspopup="true" aria-expanded="false" aria-controls="assetsMenu">
                             <i class="fa-solid fa-boxes-stacked"></i> <span class="nav-text">ASSETS</span> <span class="arrow">▾</span>
                         </button>
-                        <div class="nav-dropdown-menu">
+                        <div class="nav-dropdown-menu" id="assetsMenu">
                             <a href="/asset-inventory" class="dropdown-link {% if request.path == '/asset-inventory' %}active{% endif %}">
                                 <i class="fa-solid fa-list-check"></i> Inventory
                             </a>
@@ -183,10 +374,10 @@
 
                     <!-- Posture Dropdown -->
                     <div class="nav-dropdown">
-                        <button class="nav-dropdown-trigger" title="Posture">
+                        <button class="nav-dropdown-trigger" title="Posture" aria-haspopup="true" aria-expanded="false" aria-controls="postureMenu">
                             <i class="fa-solid fa-chart-line"></i> <span class="nav-text">POSTURE</span> <span class="arrow">▾</span>
                         </button>
-                        <div class="nav-dropdown-menu">
+                        <div class="nav-dropdown-menu" id="postureMenu">
                             <a href="/cbom-dashboard" class="dropdown-link {% if request.path == '/cbom-dashboard' %}active{% endif %}">
                                 <i class="fa-solid fa-cubes"></i> CBOM Dashboard
                             </a>
@@ -209,10 +400,10 @@
                     <!-- Admin Dropdown -->
                     {% if current_user.role|lower == 'admin' %}
                     <div class="nav-dropdown">
-                        <button class="nav-dropdown-trigger" title="Admin">
+                        <button class="nav-dropdown-trigger" title="Admin" aria-haspopup="true" aria-expanded="false" aria-controls="adminMenu">
                             <i class="fa-solid fa-user-gear"></i> <span class="nav-text">ADMIN</span> <span class="arrow">▾</span>
                         </button>
-                        <div class="nav-dropdown-menu">
+                        <div class="nav-dropdown-menu" id="adminMenu">
                             <a href="/admin/users" class="dropdown-link {% if request.path == '/admin/users' %}active{% endif %}">
                                 <i class="fa-solid fa-users"></i> User Management
                             </a>
@@ -228,13 +419,6 @@
                         </div>
                     </div>
                     {% endif %}
-
-                    <button id="themeToggle" class="nav-link" type="button" aria-label="Toggle light and night mode" title="Theme">
-                        <i class="fa-solid fa-circle-half-stroke"></i> <span class="nav-text">THEME</span>
-                    </button>
-                    <button id="themeReset" class="nav-link" type="button" aria-label="Reset theme to monochrome" title="Reset theme">
-                        <i class="fa-solid fa-rotate-right"></i> <span class="nav-text">RESET</span>
-                    </button>
 
                     <div class="user-profile">
                         <span class="user-info">
@@ -276,10 +460,21 @@
     </script>
 
     {% if current_user.is_authenticated %}
-    <section style="max-width:100%;margin:0 auto;padding:1rem 1.5rem 0.25rem;">
-        <div class="glass-card" style="padding:0.75rem 1rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;">
-            <h1 style="font-size:1rem;letter-spacing:0.08em;text-transform:uppercase;">{{ section_title }}</h1>
-            <div style="font-size:0.78rem;color:var(--text-secondary);">Welcome User: {{ current_user.username }}..!</div>
+    <section class="dashboard-topbar">
+        <div class="glass-card topbar-shell">
+            <div class="dashboard-search">
+                <input type="search" placeholder="Search resources..." aria-label="Search resources">
+            </div>
+            <div class="dashboard-tabs" role="navigation" aria-label="Dashboard view modes">
+                <a href="/" class="{% if request.path == '/' %}active{% endif %}">Global View</a>
+                <a href="{{ request.path }}" class="active">Analytics</a>
+                <a href="/asset-discovery">Network</a>
+            </div>
+            <span class="system-badge">System Status: Optimal</span>
+        </div>
+        <div class="glass-card" style="padding:0.62rem 0.95rem;display:flex;justify-content:space-between;align-items:center;gap:0.7rem;flex-wrap:wrap;">
+            <h1 style="font-size:0.9rem;letter-spacing:0.08em;text-transform:uppercase;margin:0;">{{ section_title }}</h1>
+            <div style="font-size:0.76rem;color:var(--text-secondary);">User: {{ current_user.username }} | Role: {{ current_user.role }}</div>
         </div>
     </section>
     {% endif %}
@@ -288,6 +483,8 @@
     <main class="main-content">
         {% block content %}{% endblock %}
     </main>
+
+    {% include 'common/asset_detail_modal.html' %}
 
     <!-- Footer -->
     <footer class="footer">
@@ -301,9 +498,13 @@
         </div>
     </footer>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/scans-table.js') }}"></script>
     <script src="{{ url_for('static', filename='js/table.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/asset_modal.js') }}"></script>
     <script>
         (function () {
             const now = new Date();

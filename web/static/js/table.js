@@ -1,10 +1,10 @@
 /**
  * Shared inventory table interactions.
- *
+ * 
  * Handles:
  * - page-size submission
  * - go-to-page clamping
- * - select-all / selection count
+ * - select-all / selection count (using event delegation for reliability)
  * - bulk action payload preparation
  */
 (function () {
@@ -18,8 +18,8 @@
     return Array.from(root.querySelectorAll(selector));
   }
 
-  function updateSelectionSummary(tableRoot) {
-    const scopeRoot = tableRoot.closest('[data-table-shell]') || tableRoot;
+  function updateSelectionSummary(tableComponent) {
+    const scopeRoot = tableComponent.closest('[data-table-shell]') || tableComponent;
     const selected = qsa(scopeRoot, '[data-row-checkbox]:checked');
     const summary = qs(scopeRoot, '[data-selected-count]');
     if (summary) {
@@ -34,8 +34,8 @@
     }
   }
 
-  function prepareBulkPayload(tableRoot) {
-    const scopeRoot = tableRoot.closest('[data-table-shell]') || tableRoot;
+  function prepareBulkPayload(tableComponent) {
+    const scopeRoot = tableComponent.closest('[data-table-shell]') || tableComponent;
     const bulkInput = qs(scopeRoot, '[data-bulk-ids]');
     if (!bulkInput) return [];
     const ids = qsa(scopeRoot, '[data-row-checkbox]:checked').map((input) => input.value).filter(Boolean);
@@ -43,16 +43,14 @@
     return ids;
   }
 
-  function initTableComponent(tableRoot) {
-    const scopeRoot = tableRoot.closest('[data-table-shell]') || tableRoot;
-    const searchForm = qs(tableRoot, '[data-table-search]');
-    const pageSizeSelect = qs(tableRoot, '[data-page-size]');
-    const gotoForm = qs(tableRoot, '.goto-page-form');
-    const gotoInput = qs(tableRoot, '.goto-page-input');
-    const selectAll = qs(scopeRoot, '[data-select-all]');
+  function initTableComponent(tableComponent) {
+    const scopeRoot = tableComponent.closest('[data-table-shell]') || tableComponent;
+    const searchForm = qs(tableComponent, '[data-table-search]');
+    const pageSizeSelect = qs(tableComponent, '[data-page-size]');
+    const gotoForm = qs(tableComponent, '.goto-page-form');
+    const gotoInput = qs(tableComponent, '.goto-page-input');
     const bulkForm = qs(scopeRoot, '[data-bulk-form]');
     const bulkAction = qs(scopeRoot, '[data-bulk-action]');
-    const table = qs(tableRoot, 'table');
 
     if (pageSizeSelect && searchForm) {
       pageSizeSelect.addEventListener('change', () => searchForm.submit());
@@ -73,24 +71,46 @@
       });
     }
 
-    if (selectAll) {
-      selectAll.addEventListener('change', () => {
-        qsa(scopeRoot, '[data-row-checkbox]').forEach((checkbox) => {
-          checkbox.checked = selectAll.checked;
-        });
-        updateSelectionSummary(tableRoot);
-      });
-    }
+    // Unified Asset Detail Popup Trigger
+    tableComponent.addEventListener('click', (event) => {
+        const row = event.target.closest('tr[data-asset-id]');
+        if (!row) return;
 
-    qsa(scopeRoot, '[data-row-checkbox]').forEach((checkbox) => {
-      checkbox.addEventListener('change', () => updateSelectionSummary(tableRoot));
+        // Ignore clicks on interactive elements (checkboxes, actions, links)
+        if (event.target.closest('input, button, a, .qs-table-action')) return;
+
+        if (window.AssetDetailModal) {
+            window.AssetDetailModal.open(row.dataset.assetId);
+        }
+    });
+
+    // Use Event Delegation for checkboxes and "Select All"
+    tableComponent.addEventListener('change', (event) => {
+      const target = event.target;
+      
+      // Handle Select All
+      if (target.matches('[data-select-all]')) {
+        const isChecked = target.checked;
+        qsa(scopeRoot, '[data-row-checkbox]').forEach((checkbox) => {
+          checkbox.checked = isChecked;
+        });
+        updateSelectionSummary(tableComponent);
+        return;
+      }
+
+      // Handle individual row checkbox
+      if (target.matches('[data-row-checkbox]')) {
+        updateSelectionSummary(tableComponent);
+        return;
+      }
     });
 
     if (bulkForm && bulkAction) {
       bulkForm.addEventListener('submit', (event) => {
-        const ids = prepareBulkPayload(tableRoot);
+        const ids = prepareBulkPayload(tableComponent);
         if (!ids.length) {
           event.preventDefault();
+          alert('Please select at least one item.');
           return;
         }
         const action = bulkAction.value;
@@ -102,16 +122,13 @@
       });
     }
 
-    if (table) {
-      const currentSort = new URLSearchParams(window.location.search).get('sort');
-      qsa(tableRoot, '[data-sort-field]').forEach((header) => {
-        if (header.dataset.sortField === currentSort) {
-          header.classList.add('sort-active');
-        }
-      });
-    }
+    // Initial sync
+    updateSelectionSummary(tableComponent);
 
-    updateSelectionSummary(tableRoot);
+    // Listen for manual update triggers
+    tableComponent.addEventListener('qs:table:update', () => {
+      updateSelectionSummary(tableComponent);
+    });
   }
 
   document.addEventListener('DOMContentLoaded', () => {

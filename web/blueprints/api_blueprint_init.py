@@ -15,6 +15,7 @@ def register_api_blueprints(app: Flask):
     try:
         from web.blueprints.api_home import api_home
         from web.blueprints.api_assets import api_assets
+        from web.blueprints.api_incidents import api_incidents
         from web.blueprints.api_cbom import api_cbom
         from web.blueprints.api_pqc import api_pqc
         from web.blueprints.api_cyber import api_cyber
@@ -25,6 +26,7 @@ def register_api_blueprints(app: Flask):
         # Register all blueprints
         app.register_blueprint(api_home)
         app.register_blueprint(api_assets)
+        app.register_blueprint(api_incidents)
         app.register_blueprint(api_cbom)
         app.register_blueprint(api_pqc)
         app.register_blueprint(api_cyber)

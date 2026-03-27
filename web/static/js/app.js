@@ -4,9 +4,8 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     const THEME_KEY = 'qss_theme';
+    const MOBILE_NAV_BREAKPOINT = 900;
     const root = document.documentElement;
-    const toggle = document.getElementById('themeToggle');
-    const reset = document.getElementById('themeReset');
     const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
 
     function resolveTheme(pref) {
@@ -19,31 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function applyTheme(pref) {
         const mode = resolveTheme(pref);
         root.setAttribute('data-theme', mode);
-        if (toggle) {
-            toggle.textContent = mode === 'dark' ? 'LIGHT MODE' : 'NIGHT MODE';
-            toggle.setAttribute('aria-pressed', mode === 'dark' ? 'true' : 'false');
-        }
     }
 
     const saved = localStorage.getItem(THEME_KEY) || root.getAttribute('data-theme') || 'system';
     applyTheme(saved);
-
-    if (toggle) {
-        toggle.addEventListener('click', () => {
-            const current = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-            const next = current === 'dark' ? 'light' : 'dark';
-            localStorage.setItem(THEME_KEY, next);
-            applyTheme(next);
-        });
-    }
-
-    if (reset) {
-        reset.addEventListener('click', () => {
-            // Reset to strict monochrome dark mode (black BG / white text)
-            localStorage.setItem(THEME_KEY, 'dark');
-            applyTheme('dark');
-        });
-    }
 
     if (systemPrefersDark && systemPrefersDark.addEventListener) {
         systemPrefersDark.addEventListener('change', () => {
@@ -58,14 +36,51 @@ document.addEventListener('DOMContentLoaded', () => {
     const navBtn = document.getElementById('navHamburger');
     const navLinks = document.getElementById('navLinks');
     if (navBtn && navLinks) {
+        const dropdowns = Array.from(navLinks.querySelectorAll('.nav-dropdown'));
+
+        const closeDropdowns = () => {
+            dropdowns.forEach((dropdown) => {
+                dropdown.classList.remove('mobile-open');
+                const trigger = dropdown.querySelector('.nav-dropdown-trigger');
+                if (trigger) {
+                    trigger.setAttribute('aria-expanded', 'false');
+                }
+            });
+        };
+
         const closeNav = () => {
             navLinks.classList.remove('nav-open');
             navBtn.setAttribute('aria-expanded', 'false');
+            closeDropdowns();
         };
 
-        navLinks.querySelectorAll('a, button').forEach((el) => {
+        dropdowns.forEach((dropdown) => {
+            const trigger = dropdown.querySelector('.nav-dropdown-trigger');
+            if (!trigger) {
+                return;
+            }
+
+            trigger.setAttribute('aria-expanded', 'false');
+
+            trigger.addEventListener('click', (evt) => {
+                if (window.innerWidth > MOBILE_NAV_BREAKPOINT) {
+                    return;
+                }
+                evt.preventDefault();
+                evt.stopPropagation();
+
+                const isOpen = dropdown.classList.contains('mobile-open');
+                closeDropdowns();
+                if (!isOpen) {
+                    dropdown.classList.add('mobile-open');
+                    trigger.setAttribute('aria-expanded', 'true');
+                }
+            });
+        });
+
+        navLinks.querySelectorAll('a, button:not(.nav-dropdown-trigger)').forEach((el) => {
             el.addEventListener('click', () => {
-                if (window.innerWidth <= 768) {
+                if (window.innerWidth <= MOBILE_NAV_BREAKPOINT) {
                     closeNav();
                 }
             });
@@ -82,10 +97,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!(target instanceof Element)) {
                 return;
             }
-            if (window.innerWidth <= 768 && navLinks.classList.contains('nav-open')) {
+            if (window.innerWidth <= MOBILE_NAV_BREAKPOINT && navLinks.classList.contains('nav-open')) {
                 if (!navLinks.contains(target) && !navBtn.contains(target)) {
                     closeNav();
                 }
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > MOBILE_NAV_BREAKPOINT) {
+                closeNav();
             }
         });
     }

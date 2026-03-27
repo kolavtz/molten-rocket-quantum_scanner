@@ -220,7 +220,7 @@ def _start_scheduler_if_enabled() -> None:
         app.logger.error("Failed to start automated scan scheduler: %s", e)
 
 
-SCAN_ROLES = {"Admin", "Manager", "SingleScan"}
+SCAN_ROLES = {"Admin", "Manager", "SingleScan", "Viewer"}
 BULK_SCAN_ROLES = {"Admin", "Manager"}
 ADMIN_PANEL_ROLES = {"Admin"}
 ALL_APP_ROLES = {"Admin", "Manager", "SingleScan", "Viewer"}
@@ -233,36 +233,38 @@ _HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 THEME_DEFAULTS = {
     "dark": {
-        "bg_navbar": "#0f1219",
-        "bg_primary": "#0f1219",
-        "bg_secondary": "#161b26",
-        "bg_card": "#1a2030",
-        "bg_input": "#141924",
-        "border_subtle": "#2a3245",
-        "border_hover": "#4a9ead",
-        "text_primary": "#e8ecf1",
-        "text_secondary": "#94a3b8",
-        "text_muted": "#64748b",
-        "accent_color": "#4a9ead",
-        "safe": "#34d399",
-        "warn": "#fbbf24",
-        "danger": "#f87171",
+        "bg_navbar": "#0f172a",
+        "bg_primary": "#020617",
+        "bg_secondary": "#0b1120",
+        "bg_card": "#0f172a",
+        "bg_input": "#111827",
+        "border_subtle": "#334155",
+        "border_hover": "#60a5fa",
+        "text_primary": "#e5e7eb",
+        "text_secondary": "#9ca3af",
+        "text_muted": "#6b7280",
+        "accent_color": "#2563eb",
+        "text_on_accent": "#f9fafb",
+        "safe": "#22c55e",
+        "warn": "#f59e0b",
+        "danger": "#ef4444",
     },
     "light": {
-        "bg_navbar": "#edf2f7",
-        "bg_primary": "#f5f7fb",
-        "bg_secondary": "#e8edf5",
+        "bg_navbar": "#ffffff",
+        "bg_primary": "#f3f4f6",
+        "bg_secondary": "#ffffff",
         "bg_card": "#ffffff",
-        "bg_input": "#f4f7fc",
-        "border_subtle": "#d5deeb",
-        "border_hover": "#2f6f8d",
-        "text_primary": "#1c2430",
-        "text_secondary": "#4f6177",
-        "text_muted": "#73839a",
-        "accent_color": "#2f6f8d",
-        "safe": "#0f8c5f",
-        "warn": "#c57d00",
-        "danger": "#c43b3b",
+        "bg_input": "#ffffff",
+        "border_subtle": "#cbd5f5",
+        "border_hover": "#2563eb",
+        "text_primary": "#0f172a",
+        "text_secondary": "#475569",
+        "text_muted": "#9ca3af",
+        "accent_color": "#2563eb",
+        "text_on_accent": "#ffffff",
+        "safe": "#22c55e",
+        "warn": "#f59e0b",
+        "danger": "#ef4444",
     },
 }
 
@@ -314,6 +316,7 @@ def _sanitize_theme_palette(raw_palette: dict | None, defaults: dict) -> dict:
         "text_secondary": _normalize_hex_color(raw_palette.get("text_secondary"), defaults["text_secondary"]),
         "text_muted": _normalize_hex_color(raw_palette.get("text_muted"), defaults["text_muted"]),
         "accent_color": _normalize_hex_color(raw_palette.get("accent_color"), defaults["accent_color"]),
+        "text_on_accent": _normalize_hex_color(raw_palette.get("text_on_accent"), defaults.get("text_on_accent", "#ffffff")),
         "safe": _normalize_hex_color(raw_palette.get("safe"), defaults["safe"]),
         "warn": _normalize_hex_color(raw_palette.get("warn"), defaults["warn"]),
         "danger": _normalize_hex_color(raw_palette.get("danger"), defaults["danger"]),
@@ -1582,18 +1585,260 @@ def run_scan_pipeline(
             json_path=cbom_path
         )
         db_session.add(cbom_summary)
+
+        def _component_properties(component: dict[str, Any]) -> dict[str, str]:
+            props: dict[str, str] = {}
+            for item in component.get("properties", []) or []:
+                if not isinstance(item, dict):
+                    continue
+                key = str(item.get("name") or "").strip()
+                if not key:
+                    continue
+                props[key] = str(item.get("value") or "").strip()
+            return props
+
+        def _boolish(value: Any) -> bool:
+            text_value = str(value or "").strip().lower()
+            return text_value in {"1", "true", "yes", "safe", "quantum-safe"}
+
+        def _first_non_empty(*values: Any, default: str = "") -> str:
+            for value in values:
+                text_value = str(value or "").strip()
+                if text_value:
+                    return text_value
+            return default
+
+        def _first_int(*values: Any, default: int | None = None) -> int | None:
+            for value in values:
+                parsed = _coerce_int(value)
+                if parsed is not None:
+                    return parsed
+            return default
+
+        def _first_dt(*values: Any):
+            for value in values:
+                parsed = _parse_cert_datetime(str(value or ""))
+                if parsed is not None:
+                    return parsed
+            return None
+
+        fallback_tls = tls_results[0] if tls_results else {}
+        fallback_protocol_name = _first_non_empty(
+            fallback_tls.get("protocol_name"),
+            "TLS",
+            default="TLS",
+        )
+        fallback_protocol_version = _first_non_empty(
+            fallback_tls.get("protocol_version"),
+            fallback_tls.get("tls_version"),
+        )
+        fallback_cipher_suites_raw = fallback_tls.get("cipher_suites")
+        fallback_cipher_suites = fallback_cipher_suites_raw if isinstance(fallback_cipher_suites_raw, list) else []
+        fallback_cipher_text = ", ".join(str(v) for v in fallback_cipher_suites if str(v or "").strip())
+        if not fallback_cipher_text:
+            fallback_cipher_text = _first_non_empty(fallback_tls.get("cipher_suite"))
+
+        components = cbom_dict.get("components") or []
+        if not isinstance(components, list):
+            components = []
+        if not components and tls_results:
+            for tls in tls_results:
+                components.append(
+                    {
+                        "name": _first_non_empty(tls.get("cipher_suite"), tls.get("protocol_version"), "Unknown Crypto Element"),
+                        "type": "algorithm",
+                        "properties": [],
+                    }
+                )
         
-        for cmp in cbom_dict.get("components", []):
+        for cmp in components:
+            props = _component_properties(cmp)
+            asset_type_raw = _first_non_empty(
+                props.get("cert-in:asset_type"),
+                props.get("asset_type"),
+                cmp.get("type"),
+                "algorithm",
+            ).lower()
+            if asset_type_raw not in {"algorithm", "key", "protocol", "certificate"}:
+                if "cert" in asset_type_raw:
+                    asset_type_raw = "certificate"
+                elif "protocol" in asset_type_raw or "tls" in asset_type_raw:
+                    asset_type_raw = "protocol"
+                elif "key" in asset_type_raw:
+                    asset_type_raw = "key"
+                else:
+                    asset_type_raw = "algorithm"
+            asset_type = asset_type_raw
+
+            key_size_value = _first_int(
+                props.get("cert-in:size"),
+                props.get("key_size"),
+                props.get("quantum-safe:cert_public_key_bits"),
+                props.get("quantum-safe:cipher_bits"),
+                fallback_tls.get("key_size"),
+                fallback_tls.get("key_length"),
+            )
+            key_length_value = key_size_value
+
+            protocol_name_value = _first_non_empty(
+                props.get("cert-in:protocols_name"),
+                props.get("cert-in:protocol_name"),
+                props.get("protocol_name"),
+                fallback_protocol_name,
+            )
+            protocol_version_value = _first_non_empty(
+                props.get("cert-in:version"),
+                props.get("protocol_version_name"),
+                props.get("quantum-safe:protocol"),
+                fallback_protocol_version,
+            )
+
+            oid_value = _first_non_empty(
+                props.get("cert-in:oid"),
+                props.get("oid"),
+                props.get("cert-in:signature_algorithm_oid"),
+            )
+
+            cipher_suites_value = _first_non_empty(
+                props.get("cert-in:cipher_suites"),
+                props.get("cipher_suites"),
+                fallback_cipher_text,
+            )
+
+            crypto_functions_value = props.get("cert-in:crypto_functions") or props.get("crypto_functions")
+            if isinstance(crypto_functions_value, list):
+                crypto_functions_value = _json_text(crypto_functions_value)
+            crypto_functions_text = str(crypto_functions_value or "")
+
+            cert_extension_value = _first_non_empty(
+                props.get("cert-in:extension"),
+                props.get("certificate_extension"),
+                ".crt" if asset_type == "certificate" else "",
+            )
+            if cert_extension_value and not cert_extension_value.startswith("."):
+                cert_extension_value = f".{cert_extension_value}"
+
+            signature_ref = _first_non_empty(
+                props.get("cert-in:signature_algorithm_ref"),
+                props.get("signature_algorithm_reference"),
+                fallback_tls.get("signature_algorithm"),
+            )
+            public_key_ref = _first_non_empty(
+                props.get("cert-in:subject_public_key_ref"),
+                props.get("subject_public_key_reference"),
+                fallback_tls.get("public_key_type"),
+            )
+            element_name_value = _first_non_empty(
+                props.get("cert-in:name"),
+                props.get("name"),
+                cmp.get("name"),
+            )
+            element_list_value = props.get("cert-in:list") or props.get("element_list")
+            if isinstance(element_list_value, list):
+                element_list_value = _json_text(element_list_value)
+            if not str(element_list_value or "").strip() and element_name_value:
+                element_list_value = _json_text([element_name_value])
+
             cbom_entry = CBOMEntry(
                 scan_id=int(scan_pk) if scan_pk is not None else None,
                 asset_id=asset_id,
-                algorithm_name=cmp.get("name", ""),
+                algorithm_name=element_name_value,
                 category=cmp.get("type", "crypto-asset"),
-                nist_status="Unknown",
-                quantum_safe_flag=False,
-                hndl_level="Medium"
+                asset_type=asset_type,
+                element_name=element_name_value,
+                primitive=_first_non_empty(props.get("cert-in:primitive"), props.get("primitive")),
+                mode=_first_non_empty(props.get("cert-in:mode"), props.get("mode")),
+                crypto_functions=crypto_functions_text,
+                classical_security_level=_first_int(props.get("cert-in:classical_security_level"), props.get("classical_security_level")),
+                oid=oid_value,
+                element_list=str(element_list_value or ""),
+                key_id=_first_non_empty(props.get("cert-in:id"), props.get("key_id")),
+                key_state=_first_non_empty(props.get("cert-in:state"), props.get("key_state")),
+                key_size=key_size_value,
+                key_creation_date=_first_dt(props.get("cert-in:creation_date"), props.get("key_creation_date")),
+                key_activation_date=_first_dt(props.get("cert-in:activation_date"), props.get("key_activation_date")),
+                protocol_name=protocol_name_value,
+                protocol_version_name=protocol_version_value,
+                cipher_suites=cipher_suites_value,
+                subject_name=_first_non_empty(props.get("cert-in:subject_name"), props.get("subject_name"), fallback_tls.get("subject_cn")),
+                issuer_name=_first_non_empty(props.get("cert-in:issuer_name"), props.get("issuer_name"), fallback_tls.get("issuer_cn"), fallback_tls.get("issuer_o")),
+                not_valid_before=_first_dt(props.get("cert-in:not_valid_before"), props.get("not_valid_before"), fallback_tls.get("valid_from")),
+                not_valid_after=_first_dt(props.get("cert-in:not_valid_after"), props.get("not_valid_after"), fallback_tls.get("valid_to")),
+                signature_algorithm_reference=signature_ref,
+                subject_public_key_reference=public_key_ref,
+                certificate_format=_first_non_empty(props.get("cert-in:format"), props.get("certificate_format"), "X.509" if asset_type == "certificate" else ""),
+                certificate_extension=cert_extension_value,
+                key_length=key_length_value,
+                protocol_version=protocol_version_value,
+                nist_status=_first_non_empty(props.get("cert-in:quantum_safe_status"), props.get("quantum_safe_status"), "Unknown"),
+                quantum_safe_flag=_boolish(props.get("cert-in:quantum_safe_status") or props.get("quantum-safe:is_quantum_safe")),
+                hndl_level=props.get("quantum-safe:risk_level", "Medium")
             )
             db_session.add(cbom_entry)
+
+        if _db_table_exists("findings") and scan_pk is not None:
+            db_session.flush()
+            try:
+                from src.services.finding_detection_service import FindingDetectionService
+
+                finding_result = FindingDetectionService.detect_and_store_findings(
+                    asset_id=asset_id,
+                    scan_id=int(scan_pk),
+                )
+                report["finding_summary"] = finding_result
+            except Exception as finding_exc:
+                report["finding_summary"] = {
+                    "created": 0,
+                    "error": str(finding_exc),
+                }
+
+        if _db_table_exists("asset_metrics") and scan_pk is not None:
+            try:
+                from src.services.pqc_calculation_service import PQCCalculationService
+
+                metric = PQCCalculationService.calculate_and_store_pqc_metrics(
+                    asset_id=asset_id,
+                    scan_id=int(scan_pk),
+                    auto_commit=False,
+                )
+                report["pqc_metrics"] = {
+                    "pqc_score": float(getattr(metric, "pqc_score", 0) or 0),
+                    "pqc_class_tier": str(getattr(metric, "pqc_class_tier", "") or ""),
+                    "asset_cyber_score": float(getattr(metric, "asset_cyber_score", 0) or 0),
+                }
+            except Exception as pqc_exc:
+                report["pqc_metrics"] = {
+                    "error": str(pqc_exc),
+                }
+
+            try:
+                from src.services.risk_calculation_service import RiskCalculationService
+
+                risk_result = RiskCalculationService.calculate_and_store_risk_metrics(
+                    asset_id=asset_id,
+                    scan_id=int(scan_pk),
+                    auto_commit=False,
+                )
+                report["risk_metrics"] = risk_result
+            except Exception as risk_exc:
+                report["risk_metrics"] = {
+                    "error": str(risk_exc),
+                }
+
+        if _db_table_exists("digital_labels") and scan_pk is not None:
+            try:
+                from src.services.digital_label_service import DigitalLabelService
+
+                label_result = DigitalLabelService.calculate_and_store_digital_label(
+                    asset_id=asset_id,
+                    scan_id=int(scan_pk),
+                    auto_commit=False,
+                )
+                report["digital_label"] = label_result
+            except Exception as label_exc:
+                report["digital_label"] = {
+                    "error": str(label_exc),
+                }
 
         db_session.commit()
         report["orm_persisted"] = True
@@ -1776,39 +2021,9 @@ def admin_theme():
     if request.method == "POST":
         if request.form.get("reset_colors"):
             requested_theme = {
-                "mode": "dark",
-                "dark": {
-                    "bg_navbar": "#000000",
-                    "bg_primary": "#000000",
-                    "bg_secondary": "#000000",
-                    "bg_card": "#000000",
-                    "bg_input": "#000000",
-                    "border_subtle": "#ffffff",
-                    "border_hover": "#ffffff",
-                    "text_primary": "#ffffff",
-                    "text_secondary": "#ffffff",
-                    "text_muted": "#ffffff",
-                    "accent_color": "#ffffff",
-                    "safe": "#ffffff",
-                    "warn": "#ffffff",
-                    "danger": "#ffffff",
-                },
-                "light": {
-                    "bg_navbar": "#ffffff",
-                    "bg_primary": "#ffffff",
-                    "bg_secondary": "#ffffff",
-                    "bg_card": "#ffffff",
-                    "bg_input": "#ffffff",
-                    "border_subtle": "#000000",
-                    "border_hover": "#000000",
-                    "text_primary": "#000000",
-                    "text_secondary": "#000000",
-                    "text_muted": "#000000",
-                    "accent_color": "#000000",
-                    "safe": "#000000",
-                    "warn": "#000000",
-                    "danger": "#000000",
-                },
+                "mode": "system",
+                "dark": dict(THEME_DEFAULTS["dark"]),
+                "light": dict(THEME_DEFAULTS["light"]),
             }
         else:
             requested_theme = {
@@ -2135,8 +2350,14 @@ if "quantumshield_dashboard.inventory_scan_status" in app.view_functions:
 @app.route("/scan-center")
 @role_required(list(SCAN_ROLES))
 def scan_center():
-    """Dedicated page for scan initiation workflows."""
-    return render_template("scan_center.html")
+    """Legacy scan center route preserved for compatibility tests/links."""
+    user_role = str(getattr(current_user, "role", "") or "").strip().title()
+    can_bulk_scan = user_role in {r.strip().title() for r in BULK_SCAN_ROLES}
+    return render_template(
+        "scans.html",
+        can_single_scan=True,
+        can_bulk_scan=can_bulk_scan,
+    )
 
 
 def _score_to_risk(score: float) -> str:
@@ -3012,6 +3233,7 @@ def cbom_dashboard():
             "cipher_usage": cbom_data.get("cipher_usage", {"No Data": 0}),
             "top_cas": cbom_data.get("top_cas", {"No Data": 0}),
             "protocols": cbom_data.get("protocols", {"No Data": 0}),
+            "minimum_elements": cbom_data.get("minimum_elements", {"total_entries": 0, "asset_type_distribution": {}, "field_coverage": {}, "items": []}),
             "rows": [],
             "weakness_heatmap": cbom_data.get("weakness_heatmap", []),
         }
@@ -3058,6 +3280,7 @@ def cbom_dashboard():
             "cipher_usage": {"No Data": 0},
             "top_cas": {"No Data": 0},
             "protocols": {"No Data": 0},
+            "minimum_elements": {"total_entries": 0, "asset_type_distribution": {}, "field_coverage": {}, "items": []},
             "rows": [],
             "weakness_heatmap": [],
         }

@@ -46,6 +46,80 @@ API_ENDPOINTS_SPEC = {
             ]
         },
         {
+            "path": "/scans",
+            "method": "GET",
+            "description": "Scan history with pagination/search/sort for scan center",
+            "auth": "Flask-Login",
+            "parameters": [
+                {"name": "page", "type": "integer", "default": 1},
+                {"name": "page_size", "type": "integer", "default": 25},
+                {"name": "q", "type": "string", "description": "Search in scan_id/target/status"},
+                {"name": "status", "type": "string", "enum": ["running", "completed", "failed"]},
+                {"name": "sort", "type": "string", "enum": ["scan_id", "target", "status", "assets_found", "pqc_score", "date"]},
+                {"name": "order", "type": "string", "enum": ["asc", "desc"]}
+            ]
+        },
+        {
+            "path": "/scans",
+            "method": "POST",
+            "description": "Queue single scan (supports autodiscovery/inventory metadata)",
+            "auth": "Flask-Login",
+            "parameters": [
+                {"name": "target", "type": "string", "in": "body", "required": True},
+                {"name": "ports", "type": "array|string", "in": "body"},
+                {"name": "autodiscovery", "type": "boolean", "in": "body"},
+                {"name": "add_to_inventory", "type": "boolean", "in": "body"}
+            ]
+        },
+        {
+            "path": "/scans/bulk",
+            "method": "POST",
+            "description": "Queue sequential bulk scan (Admin/Manager)",
+            "auth": "Flask-Login + Admin/Manager Role",
+            "parameters": [
+                {"name": "targets", "type": "array", "in": "body", "required": True},
+                {"name": "ports", "type": "array|string", "in": "body"},
+                {"name": "autodiscovery", "type": "boolean", "in": "body"}
+            ]
+        },
+        {
+            "path": "/scans/{scan_id}/status",
+            "method": "GET",
+            "description": "Get live scan status",
+            "auth": "Flask-Login",
+            "parameters": [
+                {"name": "scan_id", "type": "string", "in": "path", "required": True}
+            ]
+        },
+        {
+            "path": "/scan-schedules",
+            "method": "GET",
+            "description": "List recurring scan schedules (Admin/Manager)",
+            "auth": "Flask-Login + Admin/Manager Role",
+            "parameters": []
+        },
+        {
+            "path": "/scan-schedules",
+            "method": "POST",
+            "description": "Create recurring scan schedule (Admin/Manager)",
+            "auth": "Flask-Login + Admin/Manager Role",
+            "parameters": [
+                {"name": "target", "type": "string", "in": "body", "required": True},
+                {"name": "frequency", "type": "string", "in": "body", "enum": ["daily", "weekly", "monthly"]},
+                {"name": "scheduled_time", "type": "string", "in": "body"},
+                {"name": "timezone", "type": "string", "in": "body"}
+            ]
+        },
+        {
+            "path": "/scan-schedules/{id}",
+            "method": "DELETE",
+            "description": "Delete recurring scan schedule (Admin/Manager)",
+            "auth": "Flask-Login + Admin/Manager Role",
+            "parameters": [
+                {"name": "id", "type": "string", "in": "path", "required": True}
+            ]
+        },
+        {
             "path": "/discovery",
             "method": "GET",
             "description": "Asset discovery items (domains, SSL certs, IPs, software)",
@@ -349,6 +423,48 @@ DOCS_HTML = """
                 <div class="path">/api/assets</div>
                 <div class="description">Paginated list of assets with sorting and search</div>
                 <div class="auth">Auth: Flask-Login</div>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="method GET">GET</span>
+                <div class="path">/api/scans</div>
+                <div class="description">Scan center history API (pagination/search/sort)</div>
+                <div class="auth">Auth: Flask-Login</div>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="method POST">POST</span>
+                <div class="path">/api/scans</div>
+                <div class="description">Queue single scan (supports autodiscovery + inventory metadata)</div>
+                <div class="auth">Auth: Flask-Login</div>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="method POST">POST</span>
+                <div class="path">/api/scans/bulk</div>
+                <div class="description">Queue sequential bulk scan (Admin/Manager)</div>
+                <div class="auth">Auth: Flask-Login + Admin/Manager</div>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="method GET">GET</span>
+                <div class="path">/api/scans/{scan_id}/status</div>
+                <div class="description">Live status polling for scan jobs</div>
+                <div class="auth">Auth: Flask-Login</div>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="method GET">GET</span>
+                <div class="path">/api/scan-schedules</div>
+                <div class="description">List recurring scan schedules (Admin/Manager)</div>
+                <div class="auth">Auth: Flask-Login + Admin/Manager</div>
+            </div>
+
+            <div class="endpoint-card">
+                <span class="method POST">POST</span>
+                <div class="path">/api/scan-schedules</div>
+                <div class="description">Create recurring scan schedule (Admin/Manager)</div>
+                <div class="auth">Auth: Flask-Login + Admin/Manager</div>
             </div>
             
             <div class="endpoint-card">

@@ -75,6 +75,80 @@ The following still work, but are deprecated and return deprecation metadata/hea
 
 ---
 
+### Scan Center (API-first)
+
+**Canonical UI route:** `GET /scans`  
+**Legacy compatibility route:** `GET /scan-center` (same scan center view)
+
+Role access:
+- Single scan: `Admin`, `Manager`, `SingleScan`, `Viewer`
+- Bulk scan and scheduling: `Admin`, `Manager`
+
+#### `GET /api/scans`
+
+Returns scan history (paginated mode) and supports filtering/sorting.
+
+Query params:
+- `page` (default `1`)
+- `page_size` (default `25`, max `250`)
+- `q` (search in scan_id, target, status)
+- `status` (`running|completed|failed`)
+- `sort` (`scan_id|target|status|assets_found|pqc_score|date`)
+- `order` (`asc|desc`)
+
+#### `POST /api/scans`
+
+Queue a single scan.
+
+Body fields:
+- `target` (required)
+- `ports` (optional list or comma-string)
+- `autodiscovery` (optional bool)
+- `add_to_inventory` (optional bool)
+- `owner`, `risk_level`, `notes` (optional inventory metadata)
+- `asset_class_mode` (`auto|manual`)
+- `asset_class_value` (required when manual mode)
+
+#### `POST /api/scans/bulk`
+
+Queue sequential bulk scans (Admin/Manager only).
+
+Body fields:
+- `targets` (required array)
+- `ports` (optional list/comma-string)
+- `autodiscovery` (optional bool)
+- `add_to_inventory` (optional bool)
+- `owner`, `risk_level`, `notes` (optional inventory metadata)
+- `asset_class_mode` (`auto|manual`)
+- `asset_class_value` (manual override)
+
+#### `GET /api/scans/<scan_id>/status`
+
+Live status for queued/running/completed/failed scan jobs.
+
+#### `GET /api/scans/metrics`
+
+Operational scan center KPIs (total/completed/running/failed, recent activity, success rate, PQC average).
+
+#### `GET /api/scans/<scan_id>/certificates`
+
+Detailed SSL/TLS certificate inventory for a scan result.
+
+Query params:
+- `page` (default `1`)
+- `page_size` (default `25`, max `200`)
+- `q` or `search` (issuer/subject/endpoint/fingerprint match)
+- `sort` (`valid_until|issuer|subject_cn|tls_version|key_length|endpoint|status`)
+- `order` (`asc|desc`)
+
+#### Scan schedules
+
+- `GET /api/scan-schedules` (Admin/Manager)
+- `POST /api/scan-schedules` (Admin/Manager)
+- `DELETE /api/scan-schedules/<schedule_id>` (Admin/Manager)
+
+---
+
 ### Recycle Bin & Asset Deletion
 
 **All inventory deletions use soft deletes** — deleted assets, scans, and related records are marked as deleted without physical removal. This allows recovery via the Recycle Bin.
@@ -265,23 +339,38 @@ curl -X POST http://127.0.0.1:5000/api/scan \
 
 ### `GET /api/scans`
 
-**List all stored scan results (CI/CD/automation).**
+**List stored scan results (scan center / automation).**
 
 ```bash
-curl http://127.0.0.1:5000/api/scans
+curl "http://127.0.0.1:5000/api/scans?page=1&page_size=25&sort=date&order=desc"
 ```
 
-**Response (200):**
+**Response (200, paginated mode):**
 ```json
-[
-  {
-    "scan_id": "abc12345",
-    "target": "google.com",
-    "status": "complete",
-    "generated_at": "2026-03-02T04:49:48+00:00",
-    "overview": { "total_assets": 1, "quantum_safe": 0, "quantum_vulnerable": 1 }
+{
+  "items": [
+    {
+      "scan_id": "abc12345",
+      "target": "google.com",
+      "status": "completed",
+      "assets_found": 1,
+      "pqc_score": 83.5,
+      "started_at": "2026-03-02T04:49:48+00:00",
+      "completed_at": "2026-03-02T04:50:02+00:00",
+      "date": "2026-03-02T04:49:48+00:00",
+      "actions": "/results/abc12345"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "page_size": 25,
+  "total_pages": 1,
+  "kpis": {
+    "total_scans": 1,
+    "completed": 1,
+    "running": 0
   }
-]
+}
 ```
 
 ---

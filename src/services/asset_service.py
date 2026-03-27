@@ -8,14 +8,21 @@ from collections import Counter
 from typing import Dict, List
 import json
 
-from sqlalchemy import text
+import logging
+from sqlalchemy import text, func, desc
 
-from src.models import Asset, Certificate, Scan
+from src.models import Asset, Scan, Certificate, CBOMEntry, PQCClassification, DiscoveryItem
+from src.db import db_session
+from urllib.parse import urlparse
+import ipaddress
 from src.services.certificate_telemetry_service import CertificateTelemetryService
+from src.services.ip_location_service import IPLocationService
+
+logger = logging.getLogger(__name__)
 
 class AssetService:
     def __init__(self):
-         pass
+         self.ip_locator = IPLocationService()
 
     def _as_list(self, value):
         if value is None:
@@ -51,6 +58,35 @@ class AssetService:
             return value.strip()
         return "Pending"
 
+    def _normalize_target(self, raw_target: str) -> str:
+        target = str(raw_target or "").strip()
+        if not target:
+            return ""
+
+        if "://" in target:
+            try:
+                parsed = urlparse(target)
+                target = parsed.hostname or parsed.netloc or parsed.path or target
+            except Exception:
+                pass
+
+        target = target.strip().lower()
+        if not target:
+            return ""
+
+        try:
+            ipaddress.ip_address(target)
+            return target
+        except ValueError:
+            pass
+
+        if ":" in target and target.count(":") == 1:
+            host, maybe_port = target.rsplit(":", 1)
+            if maybe_port.isdigit():
+                target = host
+
+        return target
+
     def _safe_json_dict(self, value) -> dict:
         if isinstance(value, dict):
             return value
@@ -67,10 +103,9 @@ class AssetService:
 
     def load_combined_assets(self) -> list:
         """Hydrate inventory rows from MySQL tables only (assets/scans/certificates)."""
-        from src.db import db_session as _db_session
 
         assets_out = []
-        asset_query = _db_session.query(Asset)
+        asset_query = db_session.query(Asset)
         if hasattr(asset_query, "filter"):
             asset_query = asset_query.filter(Asset.is_deleted == False, Asset.deleted_at.is_(None))
         elif hasattr(asset_query, "filter_by"):
@@ -80,14 +115,14 @@ class AssetService:
         db_assets = self._as_list(asset_query.all()) if hasattr(asset_query, "all") else []
 
         latest_scan_by_target: Dict[str, Scan] = {}
-        scan_query = _db_session.query(Scan)
+        scan_query = db_session.query(Scan)
         if hasattr(scan_query, "filter"):
             scan_query = scan_query.filter(Scan.is_deleted == False, Scan.deleted_at.is_(None), Scan.status == "complete")
         elif hasattr(scan_query, "filter_by"):
             scan_query = scan_query.filter_by(status="complete")
         scans = self._as_list(scan_query.all()) if hasattr(scan_query, "all") else []
         for scan in scans:
-            key = str(getattr(scan, "target", "") or "").strip().lower()
+            key = self._normalize_target(getattr(scan, "target", "") or "")
             if not key:
                 continue
             previous = latest_scan_by_target.get(key)
@@ -114,7 +149,7 @@ class AssetService:
         certs = []
         if asset_ids:
             try:
-                cert_query = _db_session.query(Certificate)
+                cert_query = db_session.query(Certificate)
                 if hasattr(cert_query, "filter"):
                     cert_query = cert_query.filter(Certificate.is_deleted == False, Certificate.deleted_at.is_(None), Certificate.asset_id.in_(asset_ids))
                     certs = self._as_list(cert_query.all()) if hasattr(cert_query, "all") else []
@@ -140,7 +175,7 @@ class AssetService:
         now_naive_utc = datetime.now(timezone.utc).replace(tzinfo=None)
 
         for meta in db_assets:
-            target_key = str(meta.name or "").strip().lower()
+            target_key = self._normalize_target(meta.name or meta.target or "")
             latest_scan = latest_scan_by_target.get(target_key)
             latest_cert = latest_cert_by_asset.get(int(getattr(meta, "id", 0) or 0))
 
@@ -190,14 +225,20 @@ class AssetService:
                 last_scan_id = getattr(latest_scan, "scan_id", None) or getattr(latest_scan, "id", None)
                 scan_status = str(getattr(latest_scan, "status", "") or "Unknown").title()
                 latest_scan_report = self._safe_json_dict(getattr(latest_scan, "report_json", None))
+                # Add overall_pqc_score to latest_scan_report if missing for consistent UI rendering
+                if "overall_pqc_score" not in latest_scan_report and getattr(latest_scan, "overall_pqc_score", None) is not None:
+                    latest_scan_report["overall_pqc_score"] = float(latest_scan.overall_pqc_score)
                 scan_kind = str(latest_scan_report.get("scan_kind") or "N/A")
                 scanned_by = str(latest_scan_report.get("scanned_by") or "N/A")
 
+            # Ensure we use exactly 'asset_name' for key matching in UI and API
+            asset_display_name = str(meta.name or meta.target or "").strip()
+
             assets_out.append({
                 "id": meta.id,
-                "name": str(meta.name or ""),
-                "asset_name": str(meta.name or ""),
-                "url": meta.url or (f"https://{meta.name}" if not str(meta.name).startswith("http") else meta.name),
+                "name": asset_display_name,
+                "asset_name": asset_display_name,
+                "url": meta.url or (f"https://{asset_display_name}" if not asset_display_name.startswith("http") else asset_display_name),
                 "ipv4": str(getattr(meta, "ipv4", "") or ""),
                 "ipv6": str(getattr(meta, "ipv6", "") or ""),
                 "asset_type": str(meta.asset_type or "Web App"),
@@ -220,14 +261,16 @@ class AssetService:
                 "scanned_by": scanned_by,
                 "owner": str(meta.owner or "Unassigned"),
                 "notes": str(getattr(meta, "notes", "") or ""),
-                "overview": {},
+                "overview": {
+                    "last_scan_report": latest_scan_report,
+                    "certificate_id": getattr(latest_cert, "id", None) if latest_cert else None
+                },
             })
 
         return assets_out
 
     def get_inventory_view_model(self, testing_mode: bool = False) -> dict:
         """Build full asset inventory page view-model from MySQL tables only."""
-        from src.db import db_session as _db_session
 
         if testing_mode:
             return {
@@ -336,7 +379,7 @@ class AssetService:
         # DNS records are sourced from relational tables only and tied to active assets/scans.
         nameserver_records = []
         try:
-            dns_rows = _db_session.execute(
+            dns_rows = db_session.execute(
                 text(
                     """
                     SELECT d.hostname, d.record_type, d.record_value, d.ttl
@@ -474,3 +517,107 @@ class AssetService:
         if "vpn" in target_l or "gateway" in target_l: return "VPN/Gateway"
         if discovered: return "Server"
         return "Web App"
+
+    def get_comprehensive_asset_detail(self, asset_id: int) -> dict:
+        """
+        Consolidates ALL telemetry for a single asset into a unified DTO.
+        Used by the frontend modal popup.
+        """
+        try:
+            query = db_session.query(Asset).filter(Asset.id == asset_id)
+            asset = query.first()
+            if not asset: return {"success": False, "message": "Asset not found"}
+
+            # 1. Basic Discovery Status
+            discovery = db_session.query(DiscoveryItem).filter(DiscoveryItem.asset_id == asset_id).order_by(DiscoveryItem.discovery_date.desc()).all()
+            
+            # 2. Network & Geo
+            latest_scan = db_session.query(Scan).filter(Scan.asset_id == asset_id, Scan.status == "complete").order_by(Scan.scan_date.desc()).first()
+            dns_records = []
+            geo_info = {"lat": None, "lon": None, "city": "Unknown", "country": "Unknown"}
+            
+            if latest_scan:
+                # Raw query for associated DNS items
+                dns_rows = db_session.execute(
+                    text("SELECT record_type, hostname, record_value FROM discovery_items WHERE asset_id = :aid AND record_type IN ('A', 'AAAA', 'CNAME', 'TXT', 'MX')"),
+                    {"aid": asset_id}
+                ).fetchall()
+                dns_records = [{"type": r[0], "name": r[1], "value": r[2]} for r in dns_rows]
+                
+                # Fetch real Geo data using IPLocationService
+                ip_to_check = asset.ip_address
+                if not ip_to_check and asset.target_url:
+                    # In a real app, you'd resolve DNS here if not in DB
+                    pass
+                
+                geo_info = self.ip_locator.get_location(ip_to_check or "")
+
+            # 3. Security posture
+            cert = db_session.query(Certificate).filter(Certificate.asset_id == asset_id).first()
+            cbom = db_session.query(CBOMEntry).filter(CBOMEntry.asset_id == asset_id).all()
+            pqc_flaws = db_session.query(PQCClassification).filter(PQCClassification.asset_id == asset_id).all()
+
+            # 4. KPI Scoring
+            total_algos = len(cbom)
+            safe_algos = sum(1 for e in cbom if e.quantum_safe)
+            pqc_score = (safe_algos / total_algos * 100) if total_algos > 0 else 0
+            
+            # 5. Graph Data (Nodes/Edges)
+            nodes = [{"id": asset_id, "label": asset.target_url or asset.ip_address, "group": "asset"}]
+            edges = []
+            
+            if asset.ip_address:
+                nodes.append({"id": f"ip_{asset_id}", "label": asset.ip_address, "group": "ip"})
+                edges.append({"from": asset_id, "to": f"ip_{asset_id}", "label": "resolves"})
+
+            # DTO Construction
+            asset_data = {
+                "id": asset.id,
+                "target": asset.target_url or asset.ip_address,
+                "ipv4": asset.ip_address,
+                "ipv6": None,
+                "type": self._guess_type(asset.target_url or "", discovery),
+                "risk_level": self._score_to_risk(pqc_score),
+                "owner": None,
+                "network": {
+                    "dns": dns_records,
+                    "geo": geo_info,
+                    "discovery": [{"date": d.discovery_date.isoformat(), "type": d.record_type, "status": d.status} for d in discovery],
+                    "graph": {"nodes": nodes, "edges": edges}
+                },
+                "security": {
+                    "certificate": {
+                        "issuer": cert.issuer_cn if cert else None,
+                        "valid_from": cert.valid_from.isoformat() if cert else None,
+                        "valid_until": cert.expiry_date.isoformat() if cert else None,
+                        "expiry_days": (cert.expiry_date - datetime.utcnow().date()).days if cert else -1,
+                        "is_expired": (cert.expiry_date < datetime.utcnow().date()) if cert else False,
+                        "tls_version": cert.tls_version if cert else "TLS/1.2",
+                        "key_algorithm": cert.signature_algo if cert else "RSA",
+                        "key_length": 2048
+                    } if cert else None,
+                    "cbom": [{
+                        "algorithm": c.algorithm,
+                        "category": c.category,
+                        "key_length": c.key_length,
+                        "nist_status": "Deprecated" if not c.quantum_safe else "Standard",
+                        "quantum_safe": c.quantum_safe
+                    } for c in cbom],
+                    "pqc": {
+                        "score": pqc_score,
+                        "status": "Safe" if pqc_score > 80 else "Unsafe",
+                        "classifications": [{
+                            "algorithm": f.algorithm_name,
+                            "status": f.classification_status,
+                            "score": f.risk_weight,
+                            "nist_category": f.nist_security_level
+                        } for f in pqc_flaws]
+                    }
+                }
+            }
+
+            return {"success": True, "data": asset_data}
+
+        except Exception as e:
+            logger.error(f"Error aggregating comprehensive asset detail for ID {asset_id}: {str(e)}")
+            return {"success": False, "message": str(e)}

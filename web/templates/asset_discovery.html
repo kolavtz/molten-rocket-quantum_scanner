@@ -85,7 +85,7 @@
         {% if r.is_inventoried %}
           <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
         {% else %}
-          <button class="scan-button js-add-discovery" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);" data-target="{{ r.host }}" data-type="Web App">+ Add</button>
+          <button class="scan-button js-add-discovery" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);min-height:44px;" data-target="{{ r.host }}" data-type="Web App">+ Add</button>
         {% endif %}
       </td></tr>{% endfor %}
     </tbody></table>
@@ -96,18 +96,18 @@
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.6rem;">
     <h3>Network Graph View</h3>
     <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
-      <button id="graphBtnDomain" class="scan-button graphFilter" data-type="domain" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Domains</button>
-      <button id="graphBtnIp" class="scan-button graphFilter" data-type="ip" style="padding:0.3rem 0.6rem;font-size:0.75rem;">IPs</button>
-      <button id="graphBtnService" class="scan-button graphFilter" data-type="service" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Services</button>
-      <button id="graphBtnAsset" class="scan-button graphFilter" data-type="asset" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Assets</button>
-      <button id="graphBtnAll" class="scan-button graphFilter" data-type="all" style="padding:0.3rem 0.6rem;font-size:0.75rem;">All</button>
-      <button id="graphResetBtn" class="scan-button" style="padding:0.3rem 0.6rem;font-size:0.75rem;background:var(--bg-secondary);"><i class="fa-solid fa-rotate-right" style="margin-right:0.25rem;"></i>Reset</button>
+      <button id="graphBtnDomain" class="scan-button graphFilter" data-type="domain" style="padding:0.3rem 0.6rem;font-size:0.75rem;min-height:44px;">Domains</button>
+      <button id="graphBtnIp" class="scan-button graphFilter" data-type="ip" style="padding:0.3rem 0.6rem;font-size:0.75rem;min-height:44px;">IPs</button>
+      <button id="graphBtnService" class="scan-button graphFilter" data-type="service" style="padding:0.3rem 0.6rem;font-size:0.75rem;min-height:44px;">Services</button>
+      <button id="graphBtnAsset" class="scan-button graphFilter" data-type="asset" style="padding:0.3rem 0.6rem;font-size:0.75rem;min-height:44px;">Assets</button>
+      <button id="graphBtnAll" class="scan-button graphFilter" data-type="all" style="padding:0.3rem 0.6rem;font-size:0.75rem;min-height:44px;">All</button>
+      <button id="graphResetBtn" class="scan-button" style="padding:0.3rem 0.6rem;font-size:0.75rem;min-height:44px;background:var(--bg-secondary);"><i class="fa-solid fa-rotate-right" style="margin-right:0.25rem;"></i>Reset</button>
     </div>
   </div>
   <div id="networkGraph" style="height:420px;background:var(--bg-secondary);border:1px solid var(--border-subtle);border-radius:8px;"></div>
   <div id="graphTooltip" style="display:none;position:fixed;background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;padding:0.5rem 0.75rem;font-size:0.78rem;color:var(--text-primary);pointer-events:none;z-index:9999;max-width:280px;"></div>
   <div style="margin-top:0.5rem;display:flex;gap:1rem;flex-wrap:wrap;">
-    <span style="font-size:0.72rem;color:var(--text-muted);">● <span style="color:#4a9ead;">Domains</span> &nbsp; ● <span style="color:#34d399;">IPs</span> &nbsp; ● <span style="color:#fbbf24;">Services</span> &nbsp; ● <span style="color:#a78bfa;">Assets</span></span>
+    <span style="font-size:0.72rem;color:var(--text-muted);">● <span style="color:var(--accent);">Domains</span> &nbsp; ● <span style="color:var(--safe);">IPs</span> &nbsp; ● <span style="color:var(--warn);">Services</span> &nbsp; ● <span style="color:var(--danger);">Assets</span></span>
     <span style="font-size:0.72rem;color:var(--text-muted);">Scroll to zoom · Drag to pan · Click node to highlight connections</span>
   </div>
 </section>
@@ -116,7 +116,13 @@
 <script id="graphPayload" type="application/json">{{ vm.graph_payload|tojson }}</script>
 <script>
 (function () {
-  const COLOR = { domain: '#4a9ead', ip: '#34d399', service: '#fbbf24', asset: '#a78bfa' };
+  const css = getComputedStyle(document.documentElement);
+  const COLOR = {
+    domain: css.getPropertyValue('--accent').trim() || 'var(--accent)',
+    ip: css.getPropertyValue('--safe').trim() || 'var(--safe)',
+    service: css.getPropertyValue('--warn').trim() || 'var(--warn)',
+    asset: css.getPropertyValue('--danger').trim() || 'var(--danger)'
+  };
   const payloadRaw = document.getElementById('graphPayload');
   const initialPayload = payloadRaw ? JSON.parse(payloadRaw.textContent || '{}') : { nodes: [], edges: [] };
 
@@ -128,8 +134,8 @@
       label: node.label,
       group,
       title: node.title || node.label,
-      color: { background: 'rgba(148,163,184,0.12)', border },
-      font: { color: '#e8ecf1', size: 12 }
+      color: { background: 'color-mix(in srgb, var(--bg-card) 90%, transparent)', border },
+      font: { color: css.getPropertyValue('--text-primary').trim() || 'var(--text-primary)', size: 12 }
     };
   };
 

@@ -1,153 +1,237 @@
 {% extends "base.html" %}
 {% block title %}Reporting | QuantumShield{% endblock %}
+{% block head %}
+<style>
+  .report-shell { max-width: 1480px; margin: 0 auto; display:grid; gap:1rem; }
+  .report-head { display:flex; justify-content:space-between; align-items:flex-end; gap:0.8rem; flex-wrap:wrap; }
+  .report-head h2 { margin:0; font-size:clamp(1.6rem,2.7vw,2.2rem); text-transform:uppercase; }
+  .report-head p { margin:0.35rem 0 0; color:var(--text-secondary); }
+  .report-api { border:1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent); border-radius:10px; padding:0.72rem 0.9rem; color:var(--text-secondary); font-size:0.78rem; }
+  .report-api.error { color:var(--danger); border-color: color-mix(in srgb, var(--danger) 44%, transparent); }
+  .report-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:0.85rem; }
+  .report-nav { cursor:pointer; text-align:left; border-color:var(--border-subtle); }
+  .report-nav:hover { transform:translateY(-2px); }
+  .report-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:0.75rem; }
+  .report-kpi { padding:0.95rem; border-left:3px solid var(--accent); }
+  .report-kpi.warn { border-left-color:var(--warn); }
+  .report-kpi.safe { border-left-color:var(--safe); }
+  .report-kpi .label { font-size:0.65rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.12em; }
+  .report-kpi .value { margin-top:0.3rem; font-size:1.6rem; font-weight:800; line-height:1; }
+  .reporting-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  .report-form { padding:1rem; display:grid; gap:0.6rem; }
+  .report-form h3 { margin-bottom:0.2rem; }
+  .report-form label { font-size:0.82rem; }
+  .report-form input[type="text"],
+  .report-form input[type="password"],
+  .report-form input[type="date"],
+  .report-form input[type="time"],
+  .report-form select {
+    width:100%; margin-top:0.2rem; background:var(--bg-input);
+    border:1px solid var(--border-subtle); color:var(--text-primary);
+    padding:0.35rem 0.5rem; border-radius:6px;
+  }
+  .report-table-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  .report-title { margin:0 0 0.65rem; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-secondary); }
+  @media (max-width: 1180px) { .reporting-grid, .report-table-grid { grid-template-columns:1fr; } }
+</style>
+{% endblock %}
 {% block content %}
-<section class="hero" style="padding-bottom:1rem;">
-  <h2 class="hero-title" style="font-size:2rem;">REPORTING</h2>
-  <p class="hero-subtitle">Executive, scheduled, and on-demand reporting workflows</p>
-</section>
-
-{% if vm.empty %}
-<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <div class="alert info" style="margin:0;">
-    <div class="alert-title">No live reporting data yet</div>
-    <div class="alert-message">You can still schedule report jobs, but summary metrics remain zero until scans complete.</div>
+<section class="report-shell">
+  <div class="report-head">
+    <div>
+      <h2>Reporting Center</h2>
+      <p>Executive, scheduled, and on-demand reporting workflows powered by live backend endpoints.</p>
+    </div>
+    <a href="/" class="button secondary">Back to Home</a>
   </div>
-</section>
-{% endif %}
 
-<!-- ── Reporting Landing Cards ─── -->
-<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <h3 style="margin-bottom:0.6rem;">Reporting Options</h3>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.8rem;">
-    <button onclick="document.getElementById('schedSection').scrollIntoView({behavior:'smooth'})"
-      class="glass-card" style="padding:1rem;cursor:pointer;text-align:left;border-color:var(--accent);">
-      <div style="font-size:1.3rem;margin-bottom:0.3rem;"><i class="fa-solid fa-calendar-days"></i></div>
-      <div style="font-weight:700;font-size:0.9rem;">Scheduled Reporting</div>
-      <div style="font-size:0.75rem;color:var(--text-secondary);">Automate periodic delivery to email or file</div>
-    </button>
-    <button onclick="document.getElementById('ondemandSection').scrollIntoView({behavior:'smooth'})"
-      class="glass-card" style="padding:1rem;cursor:pointer;text-align:left;border-color:var(--safe);">
-      <div style="font-size:1.3rem;margin-bottom:0.3rem;"><i class="fa-solid fa-bolt"></i></div>
-      <div style="font-weight:700;font-size:0.9rem;">On-Demand Reporting</div>
-      <div style="font-size:0.75rem;color:var(--text-secondary);">Generate and download a report right now</div>
-    </button>
-    <button onclick="document.getElementById('summarySection').scrollIntoView({behavior:'smooth'})"
-      class="glass-card" style="padding:1rem;cursor:pointer;text-align:left;border-color:var(--warn);">
-      <div style="font-size:1.3rem;margin-bottom:0.3rem;"><i class="fa-solid fa-chart-column"></i></div>
-      <div style="font-weight:700;font-size:0.9rem;">Executives Reporting</div>
-      <div style="font-size:0.75rem;color:var(--text-secondary);">Summary metrics for executive stakeholders</div>
-    </button>
-  </div>
-</section>
+  <div id="reportApiState" class="report-api" role="status" aria-live="polite">Syncing reporting datasets from API…</div>
 
-<div id="reportMsg" style="display:none;padding:0.6rem 1rem;border-radius:8px;margin-bottom:0.8rem;font-size:0.85rem;"></div>
-
-<!-- ── Scheduled + On-Demand Forms ─── -->
-<section id="schedSection" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;" class="reporting-grid">
-  <form id="schedForm" class="glass-card" style="padding:1rem;display:grid;gap:0.6rem;">
-    <h3>Scheduled Reporting</h3>
-    <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;">
-      <input type="checkbox" id="schedEnabled" name="enabled" checked /> Enable schedule
-    </label>
-    <label style="font-size:0.82rem;">Report Type
-      <select name="report_type" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;">
-        <option>Executive Summary Report</option><option>Asset Inventory Report</option><option>PQC Posture Report</option><option>CBOM Report</option><option>Cyber Rating Report</option>
-      </select>
-    </label>
-    <label style="font-size:0.82rem;">Frequency
-      <select name="frequency" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;">
-        <option>Weekly</option><option>Monthly</option><option>Daily</option><option>Quarterly</option>
-      </select>
-    </label>
-    <label style="font-size:0.82rem;">Select Assets
-      <select name="assets" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;">
-        <option>All Assets</option><option>Internet-Facing Only</option><option>Critical Assets</option>
-      </select>
-    </label>
-    <fieldset style="border:1px solid var(--border-subtle);border-radius:6px;padding:0.5rem 0.7rem;">
-      <legend style="font-size:0.78rem;color:var(--text-secondary);padding:0 0.3rem;">Include Sections</legend>
-      <label style="font-size:0.82rem;display:block;"><input type="checkbox" name="sections" value="Asset Discovery" checked /> Discovery</label>
-      <label style="font-size:0.82rem;display:block;"><input type="checkbox" name="sections" value="Asset Inventory" checked /> Inventory</label>
-      <label style="font-size:0.82rem;display:block;"><input type="checkbox" name="sections" value="CBOM" checked /> CBOM</label>
-      <label style="font-size:0.82rem;display:block;"><input type="checkbox" name="sections" value="PQC Posture" checked /> PQC Posture</label>
-      <label style="font-size:0.82rem;display:block;"><input type="checkbox" name="sections" value="Cyber Rating" checked /> Cyber Rating</label>
-    </fieldset>
-    <label style="font-size:0.82rem;">Date <input type="date" name="schedule_date" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
-    <label style="font-size:0.82rem;">Time <input type="time" name="schedule_time" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
-    <label style="font-size:0.82rem;">Time Zone
-      <select name="timezone" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;">
-        <option>UTC</option><option>Asia/Kolkata</option><option>Asia/Kuala_Lumpur</option><option>America/New_York</option><option>Europe/London</option>
-      </select>
-    </label>
-    <label style="font-size:0.82rem;">Email list <input type="text" name="email_list" placeholder="ciso@pnb.example;soc@pnb.example" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
-    <label style="font-size:0.82rem;">Save to location <input type="text" name="save_path" placeholder="/reports/executive" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
-    <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="download_link" /> Include download link</label>
-    <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="password_protect" id="schedPasswordProtect" /> Password Protect PDF</label>
-    <div id="schedPasswordFields" style="display:none;">
-      <label style="font-size:0.82rem;">PDF Password <input type="password" name="password" id="schedPassword" placeholder="Enter PDF password" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
+  {% if vm.empty %}
+  <section class="glass-card" style="padding:1rem;">
+    <div class="alert info" style="margin:0;">
+      <div class="alert-title">No live reporting data yet</div>
+      <div class="alert-message">You can still schedule report jobs, but summary metrics remain zero until scans complete.</div>
     </div>
-    <button type="button" id="schedBtn" class="button" style="padding:0.45rem 0.8rem;"><i class="fa-solid fa-calendar-check"></i> Schedule Report</button>
-    <div id="schedStatus" style="font-size:0.78rem;"></div>
-  </form>
+  </section>
+  {% endif %}
 
-  <form id="ondemandSection" class="glass-card" style="padding:1rem;display:grid;gap:0.6rem;">
-    <h3>On-Demand Reporting</h3>
-    <label style="font-size:0.82rem;">Report Type
-      <select id="odReportType" name="report_type" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;">
-        <option>Executive Reporting</option>
-        <option>Assets Discovery</option>
-        <option>Assets Inventory</option>
-        <option>CBOM</option>
-        <option>Posture of PQC</option>
-        <option>Cyber Rating (Tiers 1-4)</option>
-      </select>
-    </label>
-    <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="email_enabled" id="odEmail" /> Send via Email</label>
-    <div id="odEmailFields" style="display:none;">
-      <label style="font-size:0.82rem;">Email list <input type="text" name="email_list" placeholder="risk@pnb.example;cto@pnb.example" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
+  <section class="report-kpis">
+    <article class="glass-card report-kpi"><div class="label">Scheduled Reports</div><div class="value" id="kpiScheduled" data-fallback="0">0</div></article>
+    <article class="glass-card report-kpi safe"><div class="label">Enabled Schedules</div><div class="value" id="kpiEnabled" data-fallback="0">0</div></article>
+    <article class="glass-card report-kpi warn"><div class="label">On-demand Reports</div><div class="value" id="kpiOndemand" data-fallback="0">0</div></article>
+    <article class="glass-card report-kpi"><div class="label">Completed On-demand</div><div class="value" id="kpiCompleted" data-fallback="0">0</div></article>
+  </section>
+
+  <section class="glass-card" style="padding:1rem;">
+    <h3 style="margin-bottom:0.6rem;">Reporting Options</h3>
+    <div class="report-cards">
+      <button onclick="document.getElementById('schedSection').scrollIntoView({behavior:'smooth'})"
+        class="glass-card report-nav" style="padding:1rem;border-color:var(--accent);">
+        <div style="font-size:1.3rem;margin-bottom:0.3rem;"><i class="fa-solid fa-calendar-days"></i></div>
+        <div style="font-weight:700;font-size:0.9rem;">Scheduled Reporting</div>
+        <div style="font-size:0.75rem;color:var(--text-secondary);">Automate periodic delivery to email or file</div>
+      </button>
+      <button onclick="document.getElementById('ondemandSection').scrollIntoView({behavior:'smooth'})"
+        class="glass-card report-nav" style="padding:1rem;border-color:var(--safe);">
+        <div style="font-size:1.3rem;margin-bottom:0.3rem;"><i class="fa-solid fa-bolt"></i></div>
+        <div style="font-weight:700;font-size:0.9rem;">On-Demand Reporting</div>
+        <div style="font-size:0.75rem;color:var(--text-secondary);">Generate and download a report right now</div>
+      </button>
+      <button onclick="document.getElementById('summarySection').scrollIntoView({behavior:'smooth'})"
+        class="glass-card report-nav" style="padding:1rem;border-color:var(--warn);">
+        <div style="font-size:1.3rem;margin-bottom:0.3rem;"><i class="fa-solid fa-chart-column"></i></div>
+        <div style="font-weight:700;font-size:0.9rem;">Executives Reporting</div>
+        <div style="font-size:0.75rem;color:var(--text-secondary);">Summary metrics for executive stakeholders</div>
+      </button>
     </div>
-    <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="save_enabled" id="odSave" /> Save to Location</label>
-    <div id="odSaveFields" style="display:none;">
-      <label style="font-size:0.82rem;">Folder path <input type="text" name="save_path" placeholder="/reports/ondemand" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
-    </div>
-    <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="download_link" /> Optional Download Link</label>
-    <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="slack" /> Slack Notification</label>
-    <fieldset style="border:1px solid var(--border-subtle);border-radius:6px;padding:0.5rem 0.7rem;">
-      <legend style="font-size:0.78rem;color:var(--text-secondary);padding:0 0.3rem;">Advanced Settings</legend>
-      <label style="font-size:0.82rem;">File Format
-        <select name="format" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.3rem 0.5rem;border-radius:6px;">
-          <option>PDF</option><option>CSV</option>
+  </section>
+
+  <div id="reportMsg" style="display:none;padding:0.6rem 1rem;border-radius:8px;font-size:0.85rem;"></div>
+
+  <section id="schedSection" class="reporting-grid">
+    <form id="schedForm" class="glass-card report-form">
+      <h3>Scheduled Reporting</h3>
+      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;">
+        <input type="checkbox" id="schedEnabled" name="enabled" checked /> Enable schedule
+      </label>
+      <label>Report Type
+        <select name="report_type">
+          <option>Executive Summary Report</option><option>Asset Inventory Report</option><option>PQC Posture Report</option><option>CBOM Report</option><option>Cyber Rating Report</option>
         </select>
       </label>
-      <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;margin-top:0.4rem;"><input type="checkbox" name="include_charts" checked /> Include Charts</label>
-      <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="password_protect" id="odPasswordProtect" /> Password Protect</label>
-      <div id="odPasswordFields" style="display:none;">
-        <label style="font-size:0.82rem;">PDF Password <input type="password" name="password" id="odPassword" placeholder="Enter PDF password" style="width:100%;margin-top:0.2rem;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.35rem 0.5rem;border-radius:6px;" /></label>
+      <label>Frequency
+        <select name="frequency">
+          <option>Weekly</option><option>Monthly</option><option>Daily</option><option>Quarterly</option>
+        </select>
+      </label>
+      <label>Select Assets
+        <select name="assets">
+          <option>All Assets</option><option>Internet-Facing Only</option><option>Critical Assets</option>
+        </select>
+      </label>
+      <fieldset style="border:1px solid var(--border-subtle);border-radius:6px;padding:0.5rem 0.7rem;">
+        <legend style="font-size:0.78rem;color:var(--text-secondary);padding:0 0.3rem;">Include Sections</legend>
+        <label style="font-size:0.82rem;display:block;"><input type="checkbox" name="sections" value="Asset Discovery" checked /> Discovery</label>
+        <label style="font-size:0.82rem;display:block;"><input type="checkbox" name="sections" value="Asset Inventory" checked /> Inventory</label>
+        <label style="font-size:0.82rem;display:block;"><input type="checkbox" name="sections" value="CBOM" checked /> CBOM</label>
+        <label style="font-size:0.82rem;display:block;"><input type="checkbox" name="sections" value="PQC Posture" checked /> PQC Posture</label>
+        <label style="font-size:0.82rem;display:block;"><input type="checkbox" name="sections" value="Cyber Rating" checked /> Cyber Rating</label>
+      </fieldset>
+      <label>Date <input type="date" name="schedule_date" /></label>
+      <label>Time <input type="time" name="schedule_time" /></label>
+      <label>Time Zone
+        <select name="timezone">
+          <option>UTC</option><option>Asia/Kolkata</option><option>Asia/Kuala_Lumpur</option><option>America/New_York</option><option>Europe/London</option>
+        </select>
+      </label>
+      <label>Email list <input type="text" name="email_list" placeholder="ciso@pnb.example;soc@pnb.example" /></label>
+      <label>Save to location <input type="text" name="save_path" placeholder="/reports/executive" /></label>
+      <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="download_link" /> Include download link</label>
+      <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="password_protect" id="schedPasswordProtect" /> Password Protect PDF</label>
+      <div id="schedPasswordFields" style="display:none;">
+        <label>PDF Password <input type="password" name="password" id="schedPassword" placeholder="Enter PDF password" /></label>
       </div>
-    </fieldset>
-    <button type="button" id="generateBtn" class="button" style="padding:0.45rem 0.8rem;"><i class="fa-solid fa-file-arrow-down"></i> Generate Report</button>
-    <div id="generateStatus" style="font-size:0.78rem;"></div>
-  </form>
-</section>
+      <button type="button" id="schedBtn" class="button" style="padding:0.45rem 0.8rem;"><i class="fa-solid fa-calendar-check"></i> Schedule Report</button>
+      <div id="schedStatus" style="font-size:0.78rem;"></div>
+    </form>
 
-<!-- ── Summary Metrics ─── -->
-<section id="summarySection" class="glass-card" style="padding:1rem;">
-  <h3 style="margin-bottom:0.8rem;">Reporting Summary Metrics</h3>
-  <table class="scans-table">
-    <thead><tr><th data-key="module">Module</th><th data-key="summary">Summary</th></tr></thead>
-    <tbody>
-      <tr><td>Assets Discovery</td><td>{{ vm.summary.discovery }}</td></tr>
-      <tr><td>Posture of PQC</td><td>{{ vm.summary.pqc }}</td></tr>
-      <tr><td>CBOM</td><td>{{ vm.summary.cbom }}</td></tr>
-      <tr><td>Cyber Rating</td><td>{{ vm.summary.cyber_rating }}</td></tr>
-      <tr><td>Assets Inventory</td><td>{{ vm.summary.inventory }}</td></tr>
-    </tbody>
-  </table>
+    <form id="ondemandSection" class="glass-card report-form">
+      <h3>On-Demand Reporting</h3>
+      <label>Report Type
+        <select id="odReportType" name="report_type">
+          <option>Executive Reporting</option>
+          <option>Assets Discovery</option>
+          <option>Assets Inventory</option>
+          <option>CBOM</option>
+          <option>Posture of PQC</option>
+          <option>Cyber Rating (Tiers 1-4)</option>
+        </select>
+      </label>
+      <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="email_enabled" id="odEmail" /> Send via Email</label>
+      <div id="odEmailFields" style="display:none;">
+        <label>Email list <input type="text" name="email_list" placeholder="risk@pnb.example;cto@pnb.example" /></label>
+      </div>
+      <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="save_enabled" id="odSave" /> Save to Location</label>
+      <div id="odSaveFields" style="display:none;">
+        <label>Folder path <input type="text" name="save_path" placeholder="/reports/ondemand" /></label>
+      </div>
+      <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="download_link" /> Optional Download Link</label>
+      <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="slack" /> Slack Notification</label>
+      <fieldset style="border:1px solid var(--border-subtle);border-radius:6px;padding:0.5rem 0.7rem;">
+        <legend style="font-size:0.78rem;color:var(--text-secondary);padding:0 0.3rem;">Advanced Settings</legend>
+        <label>File Format
+          <select name="format">
+            <option>PDF</option><option>CSV</option>
+          </select>
+        </label>
+        <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;margin-top:0.4rem;"><input type="checkbox" name="include_charts" checked /> Include Charts</label>
+        <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.5rem;"><input type="checkbox" name="password_protect" id="odPasswordProtect" /> Password Protect</label>
+        <div id="odPasswordFields" style="display:none;">
+          <label>PDF Password <input type="password" name="password" id="odPassword" placeholder="Enter PDF password" /></label>
+        </div>
+      </fieldset>
+      <button type="button" id="generateBtn" class="button" style="padding:0.45rem 0.8rem;"><i class="fa-solid fa-file-arrow-down"></i> Generate Report</button>
+      <div id="generateStatus" style="font-size:0.78rem;"></div>
+    </form>
+  </section>
+
+  <section class="report-table-grid">
+    <article class="glass-card" style="padding:1rem;">
+      <h3 class="report-title">Scheduled reports (live)</h3>
+      <div class="scans-table-wrapper">
+        <table class="scans-table">
+          <thead><tr><th>ID</th><th>Type</th><th>Frequency</th><th>Status</th><th>Created By</th></tr></thead>
+          <tbody id="scheduledTableBody">
+            <tr><td colspan="5" style="padding:1rem;color:var(--text-secondary);">Loading scheduled reports…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+    <article class="glass-card" style="padding:1rem;">
+      <h3 class="report-title">On-demand reports (live)</h3>
+      <div class="scans-table-wrapper">
+        <table class="scans-table">
+          <thead><tr><th>ID</th><th>Target</th><th>Scan ID</th><th>Status</th><th>Generated At</th></tr></thead>
+          <tbody id="ondemandTableBody">
+            <tr><td colspan="5" style="padding:1rem;color:var(--text-secondary);">Loading on-demand reports…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+  </section>
+
+  <section id="summarySection" class="glass-card" style="padding:1rem;">
+    <h3 style="margin-bottom:0.8rem;">Reporting Summary Metrics</h3>
+    <table class="scans-table">
+      <thead><tr><th data-key="module">Module</th><th data-key="summary">Summary</th></tr></thead>
+      <tbody>
+        <tr><td>Assets Discovery</td><td>{{ vm.summary.discovery }}</td></tr>
+        <tr><td>Posture of PQC</td><td>{{ vm.summary.pqc }}</td></tr>
+        <tr><td>CBOM</td><td>{{ vm.summary.cbom }}</td></tr>
+        <tr><td>Cyber Rating</td><td>{{ vm.summary.cyber_rating }}</td></tr>
+        <tr><td>Assets Inventory</td><td>{{ vm.summary.inventory }}</td></tr>
+      </tbody>
+    </table>
+  </section>
 </section>
 
 <script>
 (function(){
-  // ── Toggle conditional fields ──────────────────────────────────
+  const apiState = document.getElementById('reportApiState');
+
+  function setApiState(msg, isError){
+    if(!apiState) return;
+    apiState.textContent = msg;
+    apiState.classList.toggle('error', !!isError);
+  }
+
+  function setText(id, value){
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.textContent = value;
+  }
+
   document.getElementById('odEmail').addEventListener('change', function(){
     document.getElementById('odEmailFields').style.display = this.checked ? 'block' : 'none';
   });
@@ -161,12 +245,10 @@
     document.getElementById('odPasswordFields').style.display = this.checked ? 'block' : 'none';
   });
 
-  // ── Schedule report ────────────────────────────────────────────
   document.getElementById('schedBtn').addEventListener('click', function(){
     const form = document.getElementById('schedForm');
     const status = document.getElementById('schedStatus');
     const fd = new FormData(form);
-    // Collect checkbox array for sections
     const sections = Array.from(form.querySelectorAll('input[name="sections"]:checked')).map(c => c.value);
     const body = {};
     fd.forEach((v, k) => { if(k !== 'sections') body[k] = v; });
@@ -186,6 +268,7 @@
       if(data.status === 'ok'){
         status.textContent = '✓ ' + data.message + ' (ID: ' + data.id + ')';
         status.style.color = 'var(--safe)';
+        syncReportingData();
       } else {
         status.textContent = '✗ ' + (data.error || 'Error saving schedule');
         status.style.color = 'var(--danger)';
@@ -197,7 +280,6 @@
     });
   });
 
-  // ── Generate on-demand report (PDF download) ──────────────────
   document.getElementById('generateBtn').addEventListener('click', function(){
     const reportType = document.getElementById('odReportType').value;
     const genStatus = document.getElementById('generateStatus');
@@ -245,6 +327,7 @@
       setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
       genStatus.textContent = '✓ Report downloaded successfully.';
       genStatus.style.color = 'var(--safe)';
+      syncReportingData();
     })
     .catch(err => {
       genStatus.textContent = '✗ Generation failed: ' + err.message;
@@ -252,13 +335,80 @@
     });
   });
 
-  // ── CSRF helper ───────────────────────────────────────────────
+  async function fetchJson(url){
+    const resp = await fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    return resp.json();
+  }
+
+  function renderScheduled(items){
+    const body = document.getElementById('scheduledTableBody');
+    if(!body) return;
+    if(!items || !items.length){
+      body.innerHTML = '<tr><td colspan="5" style="padding:1rem;color:var(--text-secondary);">No scheduled reports found.</td></tr>';
+      return;
+    }
+    body.innerHTML = items.map((it) => `
+      <tr>
+        <td>${it.id ?? '-'}</td>
+        <td>${String(it.report_type || '-')}</td>
+        <td>${String(it.frequency || '-')}</td>
+        <td>${String(it.status || (it.enabled ? 'enabled' : 'disabled') || '-')}</td>
+        <td>${String(it.created_by_name || '-')}</td>
+      </tr>
+    `).join('');
+  }
+
+  function renderOndemand(items){
+    const body = document.getElementById('ondemandTableBody');
+    if(!body) return;
+    if(!items || !items.length){
+      body.innerHTML = '<tr><td colspan="5" style="padding:1rem;color:var(--text-secondary);">No on-demand reports found.</td></tr>';
+      return;
+    }
+    body.innerHTML = items.map((it) => `
+      <tr>
+        <td>${it.id ?? '-'}</td>
+        <td>${String(it.target || '-')}</td>
+        <td>${String(it.scan_id || '-')}</td>
+        <td>${String(it.status || '-')}</td>
+        <td>${String(it.generated_at || '-')}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function syncReportingData(){
+    try {
+      setApiState('Syncing reporting datasets from API…');
+      const [scheduled, ondemand] = await Promise.all([
+        fetchJson('/api/reports/scheduled?page=1&page_size=8'),
+        fetchJson('/api/reports/ondemand?page=1&page_size=8')
+      ]);
+
+      const sk = scheduled?.data?.kpis || {};
+      const ok = ondemand?.data?.kpis || {};
+
+      setText('kpiScheduled', Number(sk.total_scheduled || 0).toLocaleString());
+      setText('kpiEnabled', Number(sk.enabled || 0).toLocaleString());
+      setText('kpiOndemand', Number(ok.total_ondemand || 0).toLocaleString());
+      setText('kpiCompleted', Number(ok.completed || 0).toLocaleString());
+
+      renderScheduled(scheduled?.data?.items || []);
+      renderOndemand(ondemand?.data?.items || []);
+      setApiState('Reporting datasets synced successfully.');
+    } catch (_e) {
+      setApiState('Live reporting sync failed. Showing existing server-rendered metrics.', true);
+    }
+  }
+
   function getCsrf(){
     const meta = document.querySelector('meta[name="csrf-token"]');
     if(meta) return meta.content;
     const m = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
     return m ? decodeURIComponent(m[1]) : '';
   }
+
+  syncReportingData();
 })();
 </script>
 {% endblock %}

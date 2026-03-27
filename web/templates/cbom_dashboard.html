@@ -1,130 +1,316 @@
 {% extends "base.html" %}
 {% import "macros/table_macros.html" as tb %}
 {% block title %}CBOM Dashboard | QuantumShield{% endblock %}
+
+{% block head %}
+<style>
+  .cbom-shell { max-width: 1480px; margin: 0 auto; }
+  .cbom-header { display:flex; justify-content:space-between; align-items:flex-end; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
+  .cbom-title { margin:0; font-size: clamp(1.75rem, 2.8vw, 2.55rem); letter-spacing: -0.01em; text-transform: uppercase; }
+  .cbom-subtitle { margin:0.3rem 0 0; color:var(--text-secondary); font-size:0.88rem; }
+  .cbom-actions { display:flex; gap:0.6rem; flex-wrap:wrap; }
+
+  .cbom-kpis { display:grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap:0.75rem; margin-bottom:1rem; }
+  .cbom-kpi { border:1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent); background:linear-gradient(170deg, color-mix(in srgb, var(--bg-card) 95%, transparent), color-mix(in srgb, var(--bg-primary) 96%, transparent)); padding:0.95rem; border-left:3px solid var(--accent); }
+  .cbom-kpi.alert { border-left-color: var(--danger); }
+  .cbom-kpi.safe { border-left-color: var(--safe); }
+  .cbom-kpi .label { font-size:0.66rem; letter-spacing:0.14em; color:var(--text-secondary); text-transform:uppercase; margin-bottom:0.35rem; }
+  .cbom-kpi .value { font-size:2rem; line-height:1; font-weight:800; }
+
+  .cbom-grid { display:grid; grid-template-columns: 2fr 1.2fr 1.45fr; gap:1rem; margin-bottom:1rem; }
+  .cbom-card { border:1px solid color-mix(in srgb, var(--border-subtle) 82%, transparent); background:radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 10%, transparent), transparent 38%), linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 95%, transparent), color-mix(in srgb, var(--bg-primary) 96%, transparent)); padding:1rem; }
+  .cbom-card h3 { margin:0 0 0.85rem; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.12em; }
+
+  .bar-line { margin-bottom:0.7rem; }
+  .bar-line .meta { display:flex; justify-content:space-between; gap:0.6rem; font-size:0.69rem; margin-bottom:0.3rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.08em; }
+  .bar-track { height:8px; background:var(--bg-secondary); border-radius:999px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:999px; background:var(--accent); }
+
+  .donut-wrap { width:180px; height:180px; border-radius:50%; margin:0 auto 0.9rem; position:relative; background: conic-gradient(var(--accent) 0 var(--tls13, 50%), var(--safe) var(--tls13, 50%) var(--tls12stop, 80%), var(--danger) var(--tls12stop, 80%) 100%); }
+  .donut-wrap::after { content:''; position:absolute; inset:18px; border-radius:50%; background:var(--bg-card); border:1px solid var(--border-subtle); }
+  .donut-center { position:absolute; inset:0; display:grid; place-items:center; text-align:center; z-index:2; }
+
+  .cipher-list { display:grid; gap:0.5rem; }
+  .cipher-item { display:flex; justify-content:space-between; align-items:center; gap:0.7rem; padding:0.55rem; background:color-mix(in srgb, var(--bg-secondary) 70%, transparent); border:1px solid color-mix(in srgb, var(--border-subtle) 82%, transparent); }
+  .cipher-item .name { font-size:0.72rem; font-weight:700; }
+  .cipher-item .meta { font-size:0.62rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.07em; }
+  .tag { border:1px solid color-mix(in srgb, var(--accent) 40%, transparent); color:var(--accent); background:color-mix(in srgb, var(--accent) 11%, transparent); border-radius:999px; padding:0.2rem 0.52rem; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.09em; font-weight:700; white-space:nowrap; }
+
+  .cbom-table-card { border:1px solid color-mix(in srgb, var(--border-subtle) 82%, transparent); background:linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 96%, transparent), color-mix(in srgb, var(--bg-primary) 97%, transparent)); padding:0.9rem; }
+  .cbom-row-actions { display:flex; gap:0.4rem; justify-content:flex-end; }
+  .cbom-row-actions .btn-mini { padding:0.28rem 0.52rem; font-size:0.68rem; }
+
+  @media (max-width: 1220px) { .cbom-grid { grid-template-columns:1fr; } }
+</style>
+{% endblock %}
+
 {% block content %}
-<section class="hero" style="padding-bottom:1rem;">
-  <h2 class="hero-title" style="font-size:2.25rem;">CBOM</h2>
-  <p class="hero-subtitle">Cryptographic bill of materials and weakness visibility</p>
-</section>
-
-{% if vm.empty %}
-<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <div class="alert info" style="margin:0;">
-    <div class="alert-title">No CBOM telemetry available yet</div>
-    <div class="alert-message">Run a scan to populate keys, ciphers, protocols, and certificate authority usage.</div>
-  </div>
-</section>
-{% endif %}
-
-<section class="overview-grid" style="margin-bottom:1rem;">
-  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.total_applications }}</div><div class="overview-label">TOTAL APPLICATIONS</div></div>
-  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.sites_surveyed }}</div><div class="overview-label">SITES SURVEYED</div></div>
-  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.active_certificates }}</div><div class="overview-label">ACTIVE CERTIFICATES</div></div>
-  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.weak_cryptography }}</div><div class="overview-label">WEAK CRYPTOGRAPHY</div></div>
-  <div class="overview-card glass-card"><div class="overview-value">{{ vm.kpis.certificate_issues }}</div><div class="overview-label">CERTIFICATE ISSUES</div></div>
-</section>
-
-<section class="glass-card" style="padding:1.25rem;margin-bottom:1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;">
-  <div>
-    <h3 style="margin-bottom:0.75rem; font-size:0.9rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">Key Length Distribution</h3>
-    {% for k,v in vm.key_length_distribution.items() %}
-    <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.4rem;"><span style="width:60px;color:var(--text-secondary);font-size:0.75rem;">{{ k }}</span><div style="height:8px;flex:1;background:var(--bg-secondary);border-radius:999px;"><div class="dyn-bar" data-width="{{ (v*4)|int }}" style="height:100%;background:var(--accent);"></div></div><span style="font-size:0.74rem;">{{ v }}</span></div>
-    {% endfor %}
-  </div>
-  <div>
-    <h3 style="margin-bottom:0.75rem; font-size:0.9rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">Cipher Usage</h3>
-    {% for k,v in vm.cipher_usage.items() %}
-    <div style="display:flex;justify-content:space-between;gap:0.5rem;padding:0.32rem 0;border-bottom:1px solid var(--border-subtle);font-size:0.73rem;"><span>{{ k }}</span><strong>{{ v }}</strong></div>
-    {% endfor %}
-  </div>
-  <div>
-    <h3 style="margin-bottom:0.75rem; font-size:0.9rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">Top Certificate Authorities</h3>
-    {% for k,v in vm.top_cas.items() %}
-    <div style="display:flex;justify-content:space-between;padding:0.32rem 0;border-bottom:1px solid var(--border-subtle);font-size:0.75rem;"><span>{{ k }}</span><strong>{{ v }}</strong></div>
-    {% endfor %}
-  </div>
-  <div>
-    <h3 style="margin-bottom:0.75rem; font-size:0.9rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">Encryption Protocols</h3>
-    {% for k,v in vm.protocols.items() %}
-    <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.45rem;"><span style="width:72px;font-size:0.75rem;color:var(--text-secondary);">{{ k }}</span><div style="height:8px;flex:1;background:var(--bg-secondary);border-radius:999px;overflow:hidden;"><div class="dyn-bar" data-width="{{ v }}" style="height:100%;background:var(--safe);"></div></div><span style="font-size:0.74rem;">{{ v }}</span></div>
-    {% endfor %}
-  </div>
-</section>
-
-<section class="glass-card" style="padding:1.25rem;">
-  <h3 style="margin-bottom:0.85rem; font-size:0.95rem;">Weakness Heatmap</h3>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-bottom:1rem;">
-    {% for cell in vm.weakness_heatmap %}
-    <div class="card" style="background:var(--bg-secondary);padding:0.65rem;border-radius:var(--radius-md);">
-      <div style="font-size:0.68rem;color:var(--text-secondary);">{{ cell.x }} · {{ cell.y }}</div>
-      <div style="font-size:1rem;font-weight:700;">{{ cell.value }}</div>
+<section class="cbom-shell">
+  <div class="cbom-header">
+    <div>
+      <h1 class="cbom-title">Cryptographic Bill of Materials</h1>
+      <p class="cbom-subtitle">System-wide cryptographic inventory and compliance monitoring from live MySQL telemetry.</p>
     </div>
-    {% endfor %}
+    <div class="cbom-actions">
+      <button id="exportCbomBtn" class="button secondary" type="button">Export CBOM CSV</button>
+      <a href="{{ url_for('scans.scans_page') }}" class="button">Initiate Global Scan</a>
+    </div>
   </div>
 
-  <div style="display:flex;justify-content:space-between;align-items:center;">
-    <h3 style="margin-bottom:0; font-size:1rem;">Applications Crypto Table</h3>
-  </div>
+  {% if vm.empty %}
+  <section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+    <div class="alert info" style="margin:0;">
+      <div class="alert-title">No CBOM telemetry available yet</div>
+      <div class="alert-message">Run a scan to populate keys, ciphers, protocols, and certificate authority usage.</div>
+    </div>
+  </section>
+  {% endif %}
 
-  {{ tb.search_form('cbom_dashboard', request.args.get('q', ''), request.args.get('page_size', page_data.page_size if page_data else 25), {}) }}
-  
-  <div class="scans-table-wrapper" style="margin-top: 0.8rem;">
-    <table class="scans-table" data-table-mode="server">
-      <thead>
-        <tr>
-          {{ tb.sortable_th('Application', 'asset_name', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
-          <th>Issued To (CN/O/OU)</th>
-          <th>Issued By (CN/O/OU)</th>
-          <th>Issued On</th>
-          {{ tb.sortable_th('Expires On', 'valid_until', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
-          <th>SHA-256 Fingerprint</th>
-          <th>Certificate Public Key</th>
-          {{ tb.sortable_th('Key Length', 'key_length', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
-          {{ tb.sortable_th('Cipher', 'cipher_suite', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
-          {{ tb.sortable_th('Certificate Authority', 'ca', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
-        </tr>
-      </thead>
-      <tbody>
-        {% if page_data.get('items') %}
-          {% for row in page_data.get('items') %}
-          <tr>
-            <td>{{ row.asset_name or 'Unknown Asset' }}</td>
-            <td>
-              {{ row.subject_cn or '-' }}{% if row.subject_o %}, {{ row.subject_o }}{% endif %}{% if row.subject_ou %}, {{ row.subject_ou }}{% endif %}
-            </td>
-            <td>
-              {{ row.issuer_cn or '-' }}{% if row.issuer_o %}, {{ row.issuer_o }}{% endif %}{% if row.issuer_ou %}, {{ row.issuer_ou }}{% endif %}
-            </td>
-            <td>{{ (row.valid_from or '-')[:10] if row.valid_from else '-' }}</td>
-            <td>{{ (row.valid_until or '-')[:10] if row.valid_until else '-' }}</td>
-            <td>
-              {% if row.fingerprint_sha256 %}
-                <span title="{{ row.fingerprint_sha256 }}">{{ row.fingerprint_sha256[:16] }}...</span>
-              {% else %}
-                -
-              {% endif %}
-            </td>
-            <td>{{ row.public_key_type or 'Unknown' }}</td>
-            <td>{{ row.key_length or 0 }}</td>
-            <td>{{ row.cipher_suite or 'Unknown' }}</td>
-            <td>{{ row.ca or 'Unknown' }}</td>
-          </tr>
-          {% endfor %}
+  <section class="cbom-kpis">
+    <article class="cbom-kpi"><div class="label">Total Apps</div><div class="value">{{ vm.kpis.total_applications or 0 }}</div></article>
+    <article class="cbom-kpi"><div class="label">Sites Surveyed</div><div class="value">{{ vm.kpis.sites_surveyed or 0 }}</div></article>
+    <article class="cbom-kpi safe"><div class="label">Active Certs</div><div class="value">{{ vm.kpis.active_certificates or 0 }}</div></article>
+    <article class="cbom-kpi alert"><div class="label">Weak Crypto</div><div class="value">{{ vm.kpis.weak_cryptography or 0 }}</div></article>
+    <article class="cbom-kpi alert"><div class="label">Cert Issues</div><div class="value">{{ vm.kpis.certificate_issues or 0 }}</div></article>
+  </section>
+
+  {% set protocols = vm.protocols or {} %}
+  {% set protocol_total = (protocols.values()|sum) if protocols else 0 %}
+  {% set tls13 = protocols.get('TLS 1.3', protocols.get('tls1.3', 0)) %}
+  {% set tls12 = protocols.get('TLS 1.2', protocols.get('tls1.2', 0)) %}
+  {% set legacy = protocol_total - tls13 - tls12 if protocol_total > 0 else 0 %}
+  {% set tls13_pct = ((tls13 / protocol_total) * 100)|round(1) if protocol_total > 0 else 0 %}
+  {% set tls12_pct = ((tls12 / protocol_total) * 100)|round(1) if protocol_total > 0 else 0 %}
+  {% set legacy_pct = ((legacy / protocol_total) * 100)|round(1) if protocol_total > 0 else 0 %}
+
+  <section class="cbom-grid">
+    <article class="cbom-card">
+      <h3>Key Length Distribution</h3>
+      {% for k,v in vm.key_length_distribution.items() %}
+      {% set pct = ((v / (vm.kpis.total_applications or 1)) * 100)|round(1) if (vm.kpis.total_applications or 0) > 0 else 0 %}
+      <div class="bar-line">
+        <div class="meta"><span>{{ k }}</span><strong>{{ v }} assets</strong></div>
+        <div class="bar-track"><div class="bar-fill" style="width: {{ pct }}%;"></div></div>
+      </div>
+      {% endfor %}
+    </article>
+
+    <article class="cbom-card">
+      <h3>Protocol Usage</h3>
+      <div class="donut-wrap" style="--tls13: {{ tls13_pct }}%; --tls12stop: {{ (tls13_pct + tls12_pct) }}%;">
+        <div class="donut-center">
+          <div>
+            <strong style="display:block;font-size:1.4rem;line-height:1;">TLS</strong>
+            <span style="font-size:0.62rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.12em;">Health</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;gap:0.3rem;font-size:0.72rem;">
+        <div style="display:flex;justify-content:space-between;"><span>• TLS 1.3</span><strong>{{ tls13_pct }}%</strong></div>
+        <div style="display:flex;justify-content:space-between;"><span>• TLS 1.2</span><strong>{{ tls12_pct }}%</strong></div>
+        <div style="display:flex;justify-content:space-between;"><span>• Legacy</span><strong>{{ legacy_pct }}%</strong></div>
+      </div>
+    </article>
+
+    <article class="cbom-card">
+      <h3>Top Cipher Suites</h3>
+      <div class="cipher-list">
+        {% for k,v in (vm.cipher_usage.items()|list)[:4] %}
+        <div class="cipher-item">
+          <div>
+            <div class="name">{{ k }}</div>
+            <div class="meta">Used in {{ v }} assets</div>
+          </div>
+          <span class="tag">{{ 'secure' if v > 10 else 'watch' }}</span>
+        </div>
         {% else %}
-          <tr><td colspan="10" style="padding:2rem;">{{ tb.empty_state("No CBOM rows matched criteria.") }}</td></tr>
-        {% endif %}
-      </tbody>
-    </table>
-  </div>
+        <div class="cipher-item"><div class="meta">No cipher usage data available.</div></div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
 
-  {{ tb.pagination_controls('cbom_dashboard', page_data, {}) }}
+  {% set minimum = vm.minimum_elements or {} %}
+  {% set min_items = minimum.get('items', []) %}
+  {% set min_total = minimum.get('total_entries', 0) %}
+  {% set min_dist = minimum.get('asset_type_distribution', {}) %}
+
+  <section class="cbom-card" style="margin-bottom:1rem;">
+    <h3>Minimum CBOM Elements (Table 9)</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0.6rem;margin-bottom:0.8rem;">
+      <div class="cipher-item"><div><div class="name">Tracked Elements</div><div class="meta">Total records in CBOM entries</div></div><span class="tag">{{ min_total }}</span></div>
+      {% for type_name, type_count in min_dist.items() %}
+      <div class="cipher-item"><div><div class="name">{{ type_name }}</div><div class="meta">Asset Type</div></div><span class="tag">{{ type_count }}</span></div>
+      {% endfor %}
+    </div>
+
+    {% set coverage = minimum.get('field_coverage', {}) %}
+    {% if coverage %}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0.55rem;">
+      {% for field_name, field_data in coverage.items() %}
+      <div class="bar-line" style="margin:0;">
+        <div class="meta"><span>{{ field_name.replace('_', ' ') }}</span><strong>{{ field_data.coverage_pct }}%</strong></div>
+        <div class="bar-track"><div class="bar-fill" style="width: {{ field_data.coverage_pct }}%;"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="cbom-table-card" style="margin-bottom:1rem;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:0.7rem;flex-wrap:wrap; margin-bottom:0.65rem;">
+      <h3 style="margin:0;font-size:0.82rem;letter-spacing:0.12em;text-transform:uppercase;">Table 9 Element Inventory</h3>
+      <span style="font-size:0.72rem;color:var(--text-secondary);">Latest {{ min_items|length }} mapped records</span>
+    </div>
+    <div class="scans-table-wrapper">
+      <table class="scans-table">
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>Asset Type</th>
+            <th>Element Name</th>
+            <th>OID</th>
+            <th>Primitive / Mode</th>
+            <th>Protocol Ver</th>
+            <th>Key Size</th>
+            <th>Certificate Validity</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in min_items[:50] %}
+          <tr>
+            <td>{{ row.asset_name or '-' }}</td>
+            <td>{{ row.asset_type or '-' }}</td>
+            <td>{{ row.element_name or '-' }}</td>
+            <td style="max-width:230px;overflow-wrap:anywhere;">{{ row.oid or '-' }}</td>
+            <td>{{ (row.primitive or '-') ~ ' / ' ~ (row.mode or '-') }}</td>
+            <td>{{ row.protocol_version_name or '-' }}</td>
+            <td>{{ row.key_size or '-' }}</td>
+            <td>{{ (row.not_valid_after or '-')[:10] if row.not_valid_after else '-' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" style="padding:1.2rem;">{{ tb.empty_state("No Table 9 mapped CBOM element rows yet.") }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="cbom-table-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:0.7rem;flex-wrap:wrap; margin-bottom:0.65rem;">
+      <h3 style="margin:0;font-size:0.82rem;letter-spacing:0.12em;text-transform:uppercase;">Recent CBOM Inventory Entries</h3>
+      <span style="font-size:0.72rem;color:var(--text-secondary);">Showing {{ page_data.get('total_count', 0) }} total entries</span>
+    </div>
+
+    {{ tb.search_form('cbom_dashboard', request.args.get('q', ''), request.args.get('page_size', page_data.page_size if page_data else 25), {}) }}
+
+    <div class="scans-table-wrapper" style="margin-top: 0.7rem;">
+      <table class="scans-table" data-table-mode="server">
+        <thead>
+          <tr>
+            {{ tb.sortable_th('Asset Name', 'asset_name', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
+            <th>Cert Status</th>
+            {{ tb.sortable_th('Key Length', 'key_length', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
+            {{ tb.sortable_th('Protocol', 'tls_version', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
+            {{ tb.sortable_th('Cipher', 'cipher_suite', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
+            {{ tb.sortable_th('Certificate Authority', 'ca', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
+            {{ tb.sortable_th('Expires On', 'valid_until', 'cbom_dashboard', request.args.get('sort'), request.args.get('order'), {}, True) }}
+            <th style="text-align:right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if page_data.get('items') %}
+            {% for row in page_data.get('items') %}
+            <tr>
+              <td>
+                <div style="font-weight:700;">{{ row.asset_name or 'Unknown Asset' }}</div>
+                <div style="font-size:0.67rem;color:var(--text-secondary);">{{ row.subject_cn or '-' }}</div>
+              </td>
+              <td>
+                {% if row.valid_until %}
+                  <span class="tag" style="border-color: color-mix(in srgb, var(--safe) 45%, transparent); color: var(--safe); background: color-mix(in srgb, var(--safe) 11%, transparent);">
+                    valid
+                  </span>
+                {% else %}
+                  <span class="tag">unknown</span>
+                {% endif %}
+              </td>
+              <td>{{ row.key_length or 0 }}</td>
+              <td>{{ row.tls_version or 'Unknown' }}</td>
+              <td>{{ row.cipher_suite or 'Unknown' }}</td>
+              <td>{{ row.ca or 'Unknown' }}</td>
+              <td>{{ (row.valid_until or '-')[:10] if row.valid_until else '-' }}</td>
+              <td>
+                <div class="cbom-row-actions">
+                  {% if row.asset_id %}
+                  <a href="{{ url_for('assets.asset_details', asset_id=row.asset_id) }}" class="btn-mini btn-view">Inspect</a>
+                  {% else %}
+                  <button type="button" class="btn-mini btn-view" disabled title="No inventory asset linked">Inspect</button>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="8" style="padding:2rem;">{{ tb.empty_state("No CBOM rows matched criteria.") }}</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    {{ tb.pagination_controls('cbom_dashboard', page_data, {}) }}
+  </section>
 </section>
 
 <script>
 (function () {
-  document.querySelectorAll('.dyn-bar').forEach((bar) => {
-    const w = Number(bar.getAttribute('data-width') || '0');
-    bar.style.width = Math.max(0, Math.min(100, w)) + '%';
+  const exportBtn = document.getElementById('exportCbomBtn');
+  if (!exportBtn) return;
+
+  function csvEscape(value) {
+    const raw = String(value ?? '');
+    if (/[",\n]/.test(raw)) return '"' + raw.replaceAll('"', '""') + '"';
+    return raw;
+  }
+
+  exportBtn.addEventListener('click', async () => {
+    const original = exportBtn.textContent;
+    exportBtn.disabled = true;
+    exportBtn.textContent = 'Exporting...';
+    try {
+      const params = new URLSearchParams(window.location.search);
+      params.set('page', '1');
+      params.set('page_size', '10000');
+      const response = await fetch(`/api/cbom/entries?${params.toString()}`, {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      const items = (payload?.data?.items || payload?.items || []);
+
+      const header = ['asset_name','subject_cn','issuer_cn','valid_from','valid_until','key_length','tls_version','cipher_suite','ca','fingerprint_sha256'];
+      const rows = [header.join(',')];
+      items.forEach((item) => {
+        rows.push(header.map((k) => csvEscape(item?.[k])).join(','));
+      });
+
+      const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `cbom_export_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      window.alert(err?.message || 'Failed to export CBOM CSV.');
+    } finally {
+      exportBtn.disabled = false;
+      exportBtn.textContent = original;
+    }
   });
 })();
 </script>

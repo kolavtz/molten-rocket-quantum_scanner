@@ -249,3 +249,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
 // Create global instance
 const api = new APIClient();
+
+if (typeof window !== 'undefined') {
+    window.QuantumShieldApiClient = api;
+}

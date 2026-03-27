@@ -14,6 +14,57 @@ from sqlalchemy import func, distinct, desc, asc
 
 class CbomService:
     WEAK_TLS_VERSIONS = ["SSLv2", "SSLv3", "TLS 1.0", "TLS 1.1"]
+    MINIMUM_ELEMENT_FIELDS = [
+        "asset_type",
+        "element_name",
+        "primitive",
+        "mode",
+        "crypto_functions",
+        "classical_security_level",
+        "oid",
+        "key_id",
+        "key_state",
+        "key_size",
+        "key_creation_date",
+        "key_activation_date",
+        "protocol_name",
+        "protocol_version_name",
+        "cipher_suites",
+        "subject_name",
+        "issuer_name",
+        "not_valid_before",
+        "not_valid_after",
+        "signature_algorithm_reference",
+        "subject_public_key_reference",
+        "certificate_format",
+        "certificate_extension",
+    ]
+
+    PNB_MINIMUM_ELEMENT_DEFINITIONS = {
+        "asset_type": "Type of cryptographic asset (algorithm, key, protocol, certificate).",
+        "element_name": "Name of the cryptographic element or algorithm (for example AES-128-GCM).",
+        "primitive": "Cryptographic primitive represented by the element (for example signature, cipher, hash).",
+        "mode": "Operational mode used by the algorithm (for example GCM).",
+        "crypto_functions": "Supported cryptographic functions (for example key generation, encryption, decryption).",
+        "classical_security_level": "Classical security strength in bits against non-quantum attacks.",
+        "oid": "Object Identifier used to uniquely identify protocol/algorithm/certificate references.",
+        "key_id": "Unique key identifier/reference in lifecycle management.",
+        "key_state": "Current key state such as active, revoked, or expired.",
+        "key_size": "Size of the key in bits.",
+        "key_creation_date": "Date-time when the key was created.",
+        "key_activation_date": "Date-time when the key became operational.",
+        "protocol_name": "Name of protocol such as TLS, SSH, IPsec.",
+        "protocol_version_name": "Protocol version such as TLS 1.2/TLS 1.3.",
+        "cipher_suites": "Cipher suites supported/used by the protocol context.",
+        "subject_name": "Certificate subject distinguished name.",
+        "issuer_name": "Certificate issuer distinguished name (CA).",
+        "not_valid_before": "Certificate validity start timestamp.",
+        "not_valid_after": "Certificate validity end/expiry timestamp.",
+        "signature_algorithm_reference": "Certificate signature algorithm reference (with OID where available).",
+        "subject_public_key_reference": "Reference to subject public key details/algorithm.",
+        "certificate_format": "Certificate format (for example X.509).",
+        "certificate_extension": "Certificate file extension (for example .crt).",
+    }
 
     @staticmethod
     def _build_scan_filters(start_date: Optional[str] = None, end_date: Optional[str] = None) -> List[Any]:
@@ -73,6 +124,189 @@ class CbomService:
                 | Certificate.tls_version.ilike(like)
             )
         return q
+
+    @staticmethod
+    def _build_cbom_entries_query(
+        asset_id: Optional[int],
+        start_date: Optional[str],
+        end_date: Optional[str],
+        search_term: str,
+    ):
+        q = (
+            db_session.query(CBOMEntry, Asset, Scan)
+            .join(Scan, CBOMEntry.scan_id == Scan.id)
+            .outerjoin(Asset, CBOMEntry.asset_id == Asset.id)
+            .filter(
+                CBOMEntry.is_deleted == False,
+                Scan.is_deleted == False,
+                Scan.status == "complete",
+            )
+        )
+        if asset_id is not None:
+            q = q.filter(CBOMEntry.asset_id == asset_id)
+        if start_date or end_date:
+            scan_time_expr = func.coalesce(Scan.scanned_at, Scan.completed_at, Scan.started_at)
+            if start_date:
+                try:
+                    q = q.filter(scan_time_expr >= datetime.fromisoformat(start_date))
+                except ValueError:
+                    pass
+            if end_date:
+                try:
+                    q = q.filter(scan_time_expr <= datetime.fromisoformat(end_date))
+                except ValueError:
+                    pass
+        search_term = (search_term or "").strip()
+        if search_term:
+            like = f"%{search_term}%"
+            q = q.filter(
+                CBOMEntry.algorithm_name.ilike(like)
+                | CBOMEntry.asset_type.ilike(like)
+                | CBOMEntry.element_name.ilike(like)
+                | CBOMEntry.oid.ilike(like)
+                | CBOMEntry.protocol_name.ilike(like)
+                | CBOMEntry.subject_name.ilike(like)
+                | CBOMEntry.issuer_name.ilike(like)
+            )
+        return q
+
+    @classmethod
+    def _build_minimum_elements_payload(
+        cls,
+        asset_id: Optional[int],
+        start_date: Optional[str],
+        end_date: Optional[str],
+        search_term: str,
+    ) -> Dict[str, Any]:
+        entries_query = cls._build_cbom_entries_query(asset_id, start_date, end_date, search_term)
+        total_entries_raw = entries_query.count()
+        try:
+            total_entries = int(total_entries_raw or 0)
+        except (TypeError, ValueError):
+            total_entries = 0
+
+        rows_result = entries_query.order_by(CBOMEntry.id.desc()).limit(200).all()
+        if isinstance(rows_result, list):
+            rows = rows_result
+        else:
+            try:
+                rows = list(rows_result)
+            except TypeError:
+                rows = []
+        items = []
+        for entry, asset, scan in rows:
+            items.append(
+                {
+                    "id": int(getattr(entry, "id", 0) or 0),
+                    "asset_id": int(getattr(entry, "asset_id", 0) or 0) if getattr(entry, "asset_id", None) else None,
+                    "asset_name": str(getattr(asset, "target", "") or ""),
+                    "scan_id": int(getattr(scan, "id", 0) or 0),
+                    "asset_type": str(getattr(entry, "asset_type", "") or ""),
+                    "element_name": str(getattr(entry, "element_name", "") or getattr(entry, "algorithm_name", "") or ""),
+                    "oid": str(getattr(entry, "oid", "") or ""),
+                    "primitive": str(getattr(entry, "primitive", "") or ""),
+                    "mode": str(getattr(entry, "mode", "") or ""),
+                    "protocol_version_name": str(getattr(entry, "protocol_version_name", "") or getattr(entry, "protocol_version", "") or ""),
+                    "key_size": getattr(entry, "key_size", None) or getattr(entry, "key_length", None),
+                    "subject_name": str(getattr(entry, "subject_name", "") or ""),
+                    "issuer_name": str(getattr(entry, "issuer_name", "") or ""),
+                    "not_valid_after": (
+                        getattr(entry, "not_valid_after", None).isoformat()
+                        if getattr(getattr(entry, "not_valid_after", None), "isoformat", None)
+                        else None
+                    ),
+                }
+            )
+
+        distribution_rows = (
+            db_session.query(CBOMEntry.asset_type, func.count(CBOMEntry.id))
+            .join(Scan, CBOMEntry.scan_id == Scan.id)
+            .filter(
+                CBOMEntry.is_deleted == False,
+                Scan.is_deleted == False,
+                Scan.status == "complete",
+            )
+        )
+        if asset_id is not None:
+            distribution_rows = distribution_rows.filter(CBOMEntry.asset_id == asset_id)
+        if start_date or end_date:
+            scan_time_expr = func.coalesce(Scan.scanned_at, Scan.completed_at, Scan.started_at)
+            if start_date:
+                try:
+                    distribution_rows = distribution_rows.filter(scan_time_expr >= datetime.fromisoformat(start_date))
+                except ValueError:
+                    pass
+            if end_date:
+                try:
+                    distribution_rows = distribution_rows.filter(scan_time_expr <= datetime.fromisoformat(end_date))
+                except ValueError:
+                    pass
+        distribution_rows = distribution_rows.group_by(CBOMEntry.asset_type).all()
+        asset_type_distribution = {
+            str((k or "unknown")): int(v or 0)
+            for k, v in distribution_rows
+        }
+
+        field_coverage = {}
+        for field_name in cls.MINIMUM_ELEMENT_FIELDS:
+            col = getattr(CBOMEntry, field_name)
+            non_empty_count = (
+                db_session.query(func.count(CBOMEntry.id))
+                .join(Scan, CBOMEntry.scan_id == Scan.id)
+                .filter(
+                    CBOMEntry.is_deleted == False,
+                    Scan.is_deleted == False,
+                    Scan.status == "complete",
+                    col.isnot(None),
+                )
+            )
+            if asset_id is not None:
+                non_empty_count = non_empty_count.filter(CBOMEntry.asset_id == asset_id)
+            if start_date or end_date:
+                scan_time_expr = func.coalesce(Scan.scanned_at, Scan.completed_at, Scan.started_at)
+                if start_date:
+                    try:
+                        non_empty_count = non_empty_count.filter(scan_time_expr >= datetime.fromisoformat(start_date))
+                    except ValueError:
+                        pass
+                if end_date:
+                    try:
+                        non_empty_count = non_empty_count.filter(scan_time_expr <= datetime.fromisoformat(end_date))
+                    except ValueError:
+                        pass
+            count_val = int(non_empty_count.scalar() or 0)
+            pct = round((count_val / total_entries) * 100, 1) if total_entries > 0 else 0.0
+            field_coverage[field_name] = {
+                "count": count_val,
+                "coverage_pct": pct,
+            }
+
+        covered_fields = sum(
+            1
+            for field_name in cls.MINIMUM_ELEMENT_FIELDS
+            if int((field_coverage.get(field_name) or {}).get("count", 0) or 0) > 0
+        )
+
+        return {
+            "total_entries": int(total_entries),
+            "asset_type_distribution": asset_type_distribution,
+            "field_coverage": field_coverage,
+            "field_definitions": {
+                field_name: {
+                    "description": cls.PNB_MINIMUM_ELEMENT_DEFINITIONS.get(field_name, ""),
+                    "required": True,
+                }
+                for field_name in cls.MINIMUM_ELEMENT_FIELDS
+            },
+            "coverage_summary": {
+                "required_fields": len(cls.MINIMUM_ELEMENT_FIELDS),
+                "covered_fields": int(covered_fields),
+                "coverage_pct": round((covered_fields / len(cls.MINIMUM_ELEMENT_FIELDS)) * 100, 1)
+                if cls.MINIMUM_ELEMENT_FIELDS
+                else 0.0,
+            },
+            "items": items,
+        }
 
     @classmethod
     def get_cbom_dashboard_data(
@@ -310,6 +544,12 @@ class CbomService:
                 "has_next": page < total_pages,
                 "has_prev": page > 1,
             },
+            "minimum_elements": cls._build_minimum_elements_payload(
+                asset_id=asset_id,
+                start_date=start_date,
+                end_date=end_date,
+                search_term=search_term,
+            ),
             "meta": {
                 "scan_count": scan_count,
                 "certificate_count": cert_count,
