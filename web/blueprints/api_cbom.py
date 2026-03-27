@@ -100,7 +100,25 @@ def get_cbom_entries():
         page, page_size = validate_pagination_params(params["page"], params["page_size"])
         
         # Build query
-        query = db.query(CBOMEntry).filter(CBOMEntry.is_deleted == False)
+        query = (
+            db.query(CBOMEntry)
+            .outerjoin(Asset, CBOMEntry.asset_id == Asset.id)
+            .filter(CBOMEntry.is_deleted == False)
+        )
+
+        search = (params.get("search") or "").strip()
+        if search:
+            like = f"%{search}%"
+            query = query.filter(
+                CBOMEntry.algorithm_name.ilike(like)
+                | CBOMEntry.element_name.ilike(like)
+                | CBOMEntry.asset_type.ilike(like)
+                | CBOMEntry.oid.ilike(like)
+                | CBOMEntry.protocol_name.ilike(like)
+                | CBOMEntry.subject_name.ilike(like)
+                | CBOMEntry.issuer_name.ilike(like)
+                | Asset.target.ilike(like)
+            )
         
         # Get total
         total = query.count()
@@ -109,6 +127,12 @@ def get_cbom_entries():
         allowed_sorts = {
             "key_length": CBOMEntry.key_length,
             "algorithm_name": CBOMEntry.algorithm_name,
+            "element_name": CBOMEntry.element_name,
+            "asset_type": CBOMEntry.asset_type,
+            "oid": CBOMEntry.oid,
+            "key_size": CBOMEntry.key_size,
+            "protocol_name": CBOMEntry.protocol_name,
+            "protocol_version_name": CBOMEntry.protocol_version_name,
             "category": CBOMEntry.category,
             "nist_status": CBOMEntry.nist_status
         }

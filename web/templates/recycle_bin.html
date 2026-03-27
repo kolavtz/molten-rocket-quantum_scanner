@@ -5,13 +5,13 @@
 
 {% block content %}
 <section class="hero" style="padding-bottom:1rem;">
-  <h2 class="hero-title" style="font-size:2rem; color: #f59e0b;"><i class="fa-solid fa-trash-arrow-up"></i> RECYCLE BIN</h2>
+  <h2 class="hero-title" style="font-size:2rem; color: var(--warn);"><i class="fa-solid fa-trash-arrow-up"></i> RECYCLE BIN</h2>
   <p class="hero-subtitle">Soft-deleted assets and scan snapshots. Restore items back to active dashboards.</p>
 </section>
 
 {% if vm.empty %}
 <section class="glass-card" style="padding:1.5rem; text-align:center; margin-bottom: 2rem;">
-  <div style="font-size: 3rem; color: #6b7280; margin-bottom: 1rem;"><i class="fa-regular fa-folder-open"></i></div>
+  <div style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"><i class="fa-regular fa-folder-open"></i></div>
   <strong style="font-size:1.1rem;">Your Recycle Bin is empty.</strong>
   <p style="margin-top:0.5rem; color:var(--text-secondary);">Deleted scans and assets will appear here for 30 days before permanent purging.</p>
 </section>
@@ -142,8 +142,8 @@
 
 <style>
   .tab-btn {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.05);
+    background: color-mix(in srgb, var(--bg-card) 92%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent);
     color: var(--text-secondary);
     padding: 0.6rem 1.2rem;
     border-radius: 8px;
@@ -152,11 +152,11 @@
     transition: all 0.2s ease;
     display: flex; gap: 0.5rem; align-items: center;
   }
-  .tab-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+  .tab-btn:hover { background: color-mix(in srgb, var(--accent) 10%, var(--bg-card) 90%); color: var(--text-primary); }
   .tab-btn.active {
-    background: rgba(245, 158, 11, 0.15);
-    color: #f59e0b;
-    border: 1px solid rgba(245, 158, 11, 0.3);
+    background: color-mix(in srgb, var(--warn) 14%, var(--bg-card) 86%);
+    color: var(--warn);
+    border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
   }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; animation: fadeIn 0.2s ease-out; }

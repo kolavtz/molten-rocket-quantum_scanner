@@ -1,5 +1,5 @@
 # pyre-ignore-all-errors
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float, Text, event
+from sqlalchemy import Column, Integer, BigInteger, String, Boolean, DateTime, ForeignKey, Float, Text, event
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.orm import declarative_base, relationship, synonym
 from sqlalchemy.sql import func
@@ -63,7 +63,7 @@ class Asset(Base, SoftDeleteMixin):
     risk_level = Column(String(50), nullable=True)
     notes = Column(Text, nullable=True)
 
-    last_scan_id = Column(Integer, ForeignKey('scans.id', ondelete='SET NULL'), nullable=True)
+    last_scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='SET NULL'), nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     
@@ -152,8 +152,8 @@ def _scan_before_save(_mapper, _connection, target):
 class DiscoveryItem(Base, SoftDeleteMixin):
     __tablename__ = 'discovery_items'
     id = Column(Integer, primary_key=True)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True)
     type = Column(String(50), nullable=False) # domain, ssl, ip, software
     status = Column(String(50), nullable=False) # new, confirmed, ignored, false_positive
     detection_date = Column(DateTime, default=func.now())
@@ -164,8 +164,8 @@ class DiscoveryItem(Base, SoftDeleteMixin):
 class Certificate(Base, SoftDeleteMixin):
     __tablename__ = 'certificates'
     id = Column(Integer, primary_key=True)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
     endpoint = Column(String(512), nullable=True, index=True)
     port = Column(Integer, nullable=True)
     
@@ -218,8 +218,8 @@ class PQCClassification(Base, SoftDeleteMixin):
     __tablename__ = 'pqc_classification'
     id = Column(Integer, primary_key=True)
     certificate_id = Column(Integer, ForeignKey('certificates.id', ondelete='CASCADE'), nullable=True, index=True)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
     
     # Algorithm classification
     algorithm_name = Column(String(100), nullable=True, index=True)
@@ -241,8 +241,8 @@ class PQCClassification(Base, SoftDeleteMixin):
 class CBOMSummary(Base, SoftDeleteMixin):
     __tablename__ = 'cbom_summary'
     id = Column(Integer, primary_key=True)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, unique=True)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, unique=True)
     total_components = Column(Integer, default=0)
     weak_crypto_count = Column(Integer, default=0)
     cert_issues_count = Column(Integer, default=0)
@@ -252,10 +252,38 @@ class CBOMSummary(Base, SoftDeleteMixin):
 class CBOMEntry(Base, SoftDeleteMixin):
     __tablename__ = 'cbom_entries'
     id = Column(Integer, primary_key=True)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True)
     algorithm_name = Column(String(100))
     category = Column(String(50))
+    asset_type = Column(String(50), nullable=True, index=True)
+    element_name = Column(String(255), nullable=True)
+    primitive = Column(String(100), nullable=True)
+    mode = Column(String(100), nullable=True)
+    crypto_functions = Column(Text, nullable=True)
+    classical_security_level = Column(Integer, nullable=True)
+    oid = Column(String(255), nullable=True, index=True)
+    element_list = Column(Text, nullable=True)
+
+    key_id = Column(String(255), nullable=True)
+    key_state = Column(String(50), nullable=True)
+    key_size = Column(Integer, nullable=True)
+    key_creation_date = Column(DateTime, nullable=True)
+    key_activation_date = Column(DateTime, nullable=True)
+
+    protocol_name = Column(String(100), nullable=True)
+    protocol_version_name = Column(String(50), nullable=True)
+    cipher_suites = Column(Text, nullable=True)
+
+    subject_name = Column(String(500), nullable=True)
+    issuer_name = Column(String(500), nullable=True)
+    not_valid_before = Column(DateTime, nullable=True)
+    not_valid_after = Column(DateTime, nullable=True)
+    signature_algorithm_reference = Column(String(255), nullable=True)
+    subject_public_key_reference = Column(String(255), nullable=True)
+    certificate_format = Column(String(100), nullable=True)
+    certificate_extension = Column(String(32), nullable=True)
+
     key_length = Column(Integer)
     protocol_version = Column(String(50))
     nist_status = Column(String(50))
@@ -267,8 +295,8 @@ class CBOMEntry(Base, SoftDeleteMixin):
 class ComplianceScore(Base, SoftDeleteMixin):
     __tablename__ = 'compliance_scores'
     id = Column(Integer, primary_key=True)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
     score_type = Column("score_type", String(50)) # pqc, tls, overall
     type = synonym("score_type")
     score_value = Column(Float)
@@ -278,9 +306,228 @@ class ComplianceScore(Base, SoftDeleteMixin):
 class CyberRating(Base, SoftDeleteMixin):
     __tablename__ = 'cyber_rating'
     id = Column(Integer, primary_key=True)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
     organization_id = synonym("asset_id")
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
     enterprise_score = Column(Float)
     rating_tier = Column(String(50))
     generated_at = Column(DateTime, default=func.now())
+
+
+# ===============================================
+# PHASE 1: NEW MODELS FOR MATH-BASED KPI SYSTEM
+# ===============================================
+
+class Finding(Base, SoftDeleteMixin):
+    """
+    Audit trail for all discovered security findings/issues.
+    Based on Math Spec Section 8 (Reporting Metrics).
+    Stores issues: weak_tls, expiring_cert, weak_key, weak_cipher, etc.
+    """
+    __tablename__ = 'findings'
+    
+    id = Column(Integer, primary_key=True)
+    finding_id = Column(String(36), unique=True, nullable=False, index=True)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
+    
+    # Finding Classification
+    issue_type = Column(String(100), nullable=False, index=True)  # weak_cipher, expiring_cert, etc.
+    severity = Column(String(50), nullable=False, index=True)      # critical, high, medium, low
+    description = Column(Text, nullable=False)
+    
+    # Context (JSON for flexibility)
+    metadata_json = Column(Text, nullable=True)  # JSON-serialized metadata
+    
+    # Related Entities
+    certificate_id = Column(Integer, ForeignKey('certificates.id', ondelete='SET NULL'), nullable=True)
+    cbom_entry_id = Column(Integer, ForeignKey('cbom_entries.id', ondelete='SET NULL'), nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    asset = relationship("Asset")
+    scan = relationship("Scan")
+    certificate = relationship("Certificate")
+
+
+@event.listens_for(Finding, "before_insert")
+def _finding_before_insert(_mapper, _connection, target):
+    if not getattr(target, "finding_id", None):
+        target.finding_id = f"finding-{uuid.uuid4().hex[:12]}"
+
+
+class AssetMetric(Base):
+    """
+    Materialized view of asset-level KPIs.
+    Based on Math Spec Sections 2, 3, 5 (PQC, Risk, Cyber Score).
+    Refreshed after each scan or via batch job.
+    """
+    __tablename__ = 'asset_metrics'
+    
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
+    
+    # PQC Scoring (Math Section 3.1-3.2)
+    pqc_score = Column(Float, default=0, nullable=False)           # 0-100, weighted average
+    pqc_score_timestamp = Column(DateTime, nullable=True)
+    
+    # Risk Penalties (Math Section 5.1)
+    risk_penalty = Column(Float, default=0, nullable=False)        # Σ(severity × weight)
+    total_findings_count = Column(Integer, default=0)
+    critical_findings_count = Column(Integer, default=0)
+    
+    # Classification & Labeling (Math Section 3.3)
+    pqc_class_tier = Column(String(50), nullable=True, index=True)  # Elite, Standard, Legacy, Critical
+    digital_label = Column(String(50), nullable=True, index=True)   # Quantum-Safe, PQC Ready, etc.
+    has_critical_findings = Column(Boolean, default=False)
+    
+    # Asset-level Cyber Score (Math Section 5.2)
+    asset_cyber_score = Column(Float, default=0)                   # max(0, pqc_score - penalty)
+    
+    # Timestamps
+    calculated_at = Column(DateTime, default=func.now())
+    last_updated = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Foreign Keys and Relationships
+    asset = relationship("Asset")
+
+
+class OrgPQCMetric(Base):
+    """
+    Daily snapshot of organization-wide PQC metrics.
+    Based on Math Spec Section 7.1 (Home Dashboard KPIs).
+    Populated by daily batch job for trend analysis.
+    """
+    __tablename__ = 'org_pqc_metrics'
+    
+    id = Column(Integer, primary_key=True)
+    metric_date = Column(DateTime, nullable=False, unique=True, index=True)
+    
+    # Counts (Math Section 2.1)
+    total_assets = Column(Integer, default=0)
+    total_endpoints = Column(Integer, default=0)
+    total_certificates = Column(Integer, default=0)
+    
+    # PQC Distribution (Math Section 3.4)
+    elite_assets_count = Column(Integer, default=0)
+    standard_assets_count = Column(Integer, default=0)
+    legacy_assets_count = Column(Integer, default=0)
+    critical_assets_count = Column(Integer, default=0)
+    
+    # Percentages (Math Section 2.2)
+    pct_elite = Column(Float, default=0)
+    pct_standard = Column(Float, default=0)
+    pct_legacy = Column(Float, default=0)
+    pct_critical = Column(Float, default=0)
+    
+    # Aggregate Scores
+    avg_pqc_score = Column(Float, default=0)
+    min_pqc_score = Column(Float, default=0)
+    max_pqc_score = Column(Float, default=0)
+    
+    # Findings Summary
+    total_findings_count = Column(Integer, default=0)
+    total_critical_findings = Column(Integer, default=0)
+    total_high_findings = Column(Integer, default=0)
+    total_medium_findings = Column(Integer, default=0)
+    total_low_findings = Column(Integer, default=0)
+    
+    # Quantum-Safe Status
+    quantum_safe_assets_count = Column(Integer, default=0)
+    quantum_safe_pct = Column(Float, default=0)
+    vulnerable_assets_count = Column(Integer, default=0)
+    vulnerable_pct = Column(Float, default=0)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class CertExpiryBucket(Base):
+    """
+    Summary of certificate expiry distribution.
+    Based on Math Spec Section 2.5 (Cert Expiry Buckets).
+    Supports expiry timeline charts: 0-30, 31-60, 61-90, >90 days.
+    """
+    __tablename__ = 'cert_expiry_buckets'
+    
+    id = Column(Integer, primary_key=True)
+    bucket_date = Column(DateTime, nullable=False, unique=True, index=True)
+    
+    # Expiry Bucket Counts (Math Section 2.5)
+    count_0_to_30_days = Column(Integer, default=0)      # Expiring soon
+    count_31_to_60_days = Column(Integer, default=0)
+    count_61_to_90_days = Column(Integer, default=0)
+    count_greater_90_days = Column(Integer, default=0)
+    count_expired = Column(Integer, default=0)
+    
+    # Summary
+    total_active_certs = Column(Integer, default=0)
+    total_expired_certs = Column(Integer, default=0)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class TLSComplianceScore(Base):
+    """
+    TLS-specific compliance metrics per asset.
+    Based on Math Spec Section 4 (CBOM Metrics).
+    Tracks weak cipher/TLS versions and calculates TLS compliance score.
+    """
+    __tablename__ = 'tls_compliance_scores'
+    
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
+    
+    # TLS Score (0-100)
+    tls_score = Column(Float, default=0, nullable=False)
+    
+    # Breakdown (JSON for flexibility)
+    score_breakdown_json = Column(Text, nullable=True)  # {weak_count, deprecated_count, good_count}
+    
+    # Weak Elements Counts
+    weak_tls_version_count = Column(Integer, default=0)    # TLS < 1.2
+    weak_cipher_count = Column(Integer, default=0)         # Deprecated
+    weak_key_length_count = Column(Integer, default=0)     # Key < threshold
+    
+    # Summary
+    total_endpoints_scanned = Column(Integer, default=0)
+    
+    # Timestamps
+    calculated_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Foreign Keys
+    asset = relationship("Asset")
+
+
+class DigitalLabel(Base):
+    """
+    Digital label classification per asset.
+    Based on Feature Requirement: "Digital Labels" (Quantum-Safe, PQC Ready, Fully Quantum Safe).
+    Denormalized for fast dashboard lookup and filtering.
+    """
+    __tablename__ = 'digital_labels'
+    
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
+    
+    # Label Classification
+    label = Column(String(100), nullable=False, index=True)  # Quantum-Safe, PQC Ready, Fully Quantum Safe, At Risk
+    label_reason_json = Column(Text, nullable=True)          # {reason, confidence_score, thresholds}
+    confidence_score = Column(Integer, default=0)            # 0-100, confidence in label
+    
+    # Label Derivation Info
+    based_on_pqc_score = Column(Float, default=0)
+    based_on_finding_count = Column(Integer, default=0)
+    based_on_critical_findings = Column(Boolean, default=False)
+    based_on_enterprise_score = Column(Float, default=0)
+    
+    # Timestamps
+    label_generated_at = Column(DateTime, default=func.now())
+    label_updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Foreign Keys
+    asset = relationship("Asset")

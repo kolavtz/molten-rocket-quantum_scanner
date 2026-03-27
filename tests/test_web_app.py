@@ -134,6 +134,23 @@ class TestModulePages:
         assert b'data-table-shell' in resp.data
         assert b'data-bulk-form' in resp.data
         assert b'data-open-asset-details' in resp.data
+        assert b'>View</a>' in resp.data
+        assert b'>Details</button>' in resp.data
+        assert b'>Scans</button>' in resp.data
+
+    def test_header_hides_reset_and_exposes_mobile_menu_hooks(self, client, mock_admin):
+        resp = client.get('/asset-inventory')
+        assert resp.status_code == 200
+        assert b'id="themeReset"' not in resp.data
+        assert b'id="navHamburger"' in resp.data
+        assert b'id="navLinks"' in resp.data
+        assert b'aria-controls="navLinks"' in resp.data
+
+    def test_admin_theme_page_keeps_reset_in_theme_settings(self, client, mock_admin):
+        resp = client.get('/admin/theme')
+        assert resp.status_code == 200
+        assert b'name="reset_colors"' in resp.data
+        assert b'RESET TO MONOCHROME' in resp.data
 
     def test_asset_inventory_context_excludes_deleted_assets(self, client, mock_admin):
         active = Asset(target=_new_target('inventory-active'), asset_type='Web App', is_deleted=False)
@@ -161,6 +178,24 @@ class TestModulePages:
         assert deleted_target not in asset_targets
         assert ctx['page_data'].total_count >= 1
         assert ctx['page_data'].total_count == len(ctx['vm']['assets'])
+
+    def test_asset_details_page_renders(self, client, mock_admin):
+        target = _new_target('asset-details-page')
+        asset = Asset(
+            target=target,
+            url=f"https://{target}",
+            asset_type='Web App',
+            owner='Security Team',
+            risk_level='Medium',
+            is_deleted=False,
+        )
+        db_session.add(asset)
+        db_session.commit()
+
+        resp = client.get(f'/assets/{asset.id}')
+        assert resp.status_code == 200
+        assert b'ASSET DETAILS' in resp.data
+        assert target.encode() in resp.data
 
     def test_asset_inventory_pagination_count_after_delete(self, client, mock_admin):
         """Verify asset count decreases in pagination after soft-delete."""
@@ -741,6 +776,76 @@ class TestAssetDeletionRoutes:
         reloaded = db_session.query(Asset).filter(Asset.id.in_([a_id, b_id])).all()
         assert len(reloaded) == 2
         assert all(row.is_deleted for row in reloaded)
+
+    def test_asset_bulk_scan_selected_api(self, client, mock_manager):
+        target_a = _new_target('mgr-api-bulk-scan-a')
+        target_b = _new_target('mgr-api-bulk-scan-b')
+        a = Asset(target=target_a, asset_type='Web App', is_deleted=False)
+        b = Asset(target=target_b, asset_type='Web App', is_deleted=False)
+        db_session.add_all([a, b])
+        db_session.commit()
+        a_id = int(a.id)
+        b_id = int(b.id)
+
+        with patch('web.routes.assets.InventoryScanService') as scan_service_cls:
+            scan_service = scan_service_cls.return_value
+            scan_service.scan_asset.side_effect = [
+                {'status': 'complete', 'scan_id': f'scan-{uuid4().hex[:8]}'},
+                {'status': 'complete', 'scan_id': f'scan-{uuid4().hex[:8]}'},
+            ]
+
+            resp = client.post(
+                '/api/assets/bulk-scan',
+                data=json.dumps({'selected_asset_ids': f'{a_id},{b_id}', 'bulk_action': 'bulk-scan-selected'}),
+                content_type='application/json',
+                headers={'Accept': 'application/json'},
+            )
+
+        assert resp.status_code == 200
+        payload = json.loads(resp.data)
+        assert payload['status'] == 'success'
+        assert payload.get('attempted') == 2
+        assert payload.get('completed') == 2
+        assert payload.get('failed') == 0
+        assert scan_service.scan_asset.call_count == 2
+
+    def test_asset_bulk_scan_all_api_excludes_deleted_assets(self, client, mock_manager):
+        target_active = _new_target('mgr-api-scan-all-active')
+        target_deleted = _new_target('mgr-api-scan-all-deleted')
+        active_asset = Asset(target=target_active, asset_type='Web App', is_deleted=False)
+        deleted_asset = Asset(
+            target=target_deleted,
+            asset_type='Web App',
+            is_deleted=True,
+            deleted_at=datetime.now(timezone.utc),
+        )
+        db_session.add_all([active_asset, deleted_asset])
+        db_session.commit()
+        active_id = int(active_asset.id)
+        deleted_id = int(deleted_asset.id)
+
+        with patch('web.routes.assets.InventoryScanService') as scan_service_cls:
+            scan_service = scan_service_cls.return_value
+
+            def _fake_scan(asset, scan_kind='asset_inventory_bulk'):
+                return {'status': 'complete', 'scan_id': f"scan-{asset.id}"}
+
+            scan_service.scan_asset.side_effect = _fake_scan
+
+            resp = client.post(
+                '/api/assets/bulk-scan',
+                data=json.dumps({'bulk_action': 'bulk-scan-all', 'scan_scope': 'all'}),
+                content_type='application/json',
+                headers={'Accept': 'application/json'},
+            )
+
+        assert resp.status_code == 200
+        payload = json.loads(resp.data)
+        assert payload['status'] == 'success'
+
+        result_ids = {int(item.get('asset_id')) for item in payload.get('results', []) if item.get('asset_id') is not None}
+        assert active_id in result_ids
+        assert deleted_id not in result_ids
 
     def test_asset_edit_api_updates_asset(self, client, mock_manager):
         target = _new_target('mgr-api-edit')

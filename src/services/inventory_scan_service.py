@@ -120,6 +120,16 @@ class InventoryScanService:
         )
         if latest_scan:
             asset.last_scan_id = latest_scan.id
+            
+            try:
+                from src.services.pqc_calculation_service import PQCCalculationService
+                from src.services.risk_calculation_service import RiskCalculationService
+                
+                # Math Engine Hook: Generates org_pqc_metrics and asset_metrics dynamically
+                PQCCalculationService.calculate_and_store_pqc_metrics(asset.id, latest_scan.id, auto_commit=False)
+                RiskCalculationService.calculate_and_store_risk_metrics(asset.id, latest_scan.id, auto_commit=False)
+            except Exception as e:
+                logger.error(f"Failed to calculate dashboard metrics for {target}: {e}")
 
     def scan_asset(self, asset: Asset, scan_kind: str = "inventory_asset") -> Dict:
         """Scan a single asset and sync key fields into inventory."""

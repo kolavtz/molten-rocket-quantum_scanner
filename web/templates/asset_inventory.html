@@ -65,6 +65,34 @@
     margin-top: 1rem;
   }
 
+  .inventory-form-grid .form-group {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .inventory-input,
+  .inventory-select {
+    width: 100%;
+    min-height: 44px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--border-subtle) 85%, transparent);
+    background: color-mix(in srgb, var(--bg-secondary) 68%, transparent);
+    color: var(--text-primary);
+    padding: 0.65rem 0.8rem;
+    outline: none;
+    transition: border-color 160ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  }
+
+  .inventory-input:focus-visible,
+  .inventory-select:focus-visible {
+    border-color: color-mix(in srgb, var(--accent) 72%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  .inventory-input::placeholder {
+    color: color-mix(in srgb, var(--text-secondary) 88%, transparent);
+  }
+
   .scan-feedback {
     margin-top: 1rem;
     padding: 0.8rem 0.95rem;
@@ -91,7 +119,7 @@
 
   .pipeline-strip {
     display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 0.7rem;
     margin-top: 1rem;
   }
@@ -169,6 +197,31 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
+
+  .bulk-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .bulk-toolbar .table-control-select {
+    min-width: 250px;
+    min-height: 42px;
+    border-radius: 10px;
+  }
+
+  .selection-summary[data-bulk-feedback][data-tone="success"] {
+    color: var(--safe);
+  }
+
+  .selection-summary[data-bulk-feedback][data-tone="warning"] {
+    color: var(--warn);
+  }
+
+  .selection-summary[data-bulk-feedback][data-tone="error"] {
+    color: var(--danger);
+  }
 </style>
 {% endblock %}
 
@@ -199,15 +252,15 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group" style="margin-bottom:0;">
         <label class="asset-modal-label" for="scanTarget">Target URL / IP <span style="color:var(--danger);">*</span></label>
-        <input id="scanTarget" name="target" class="asset-modal-input" type="text" placeholder="example.com or 203.0.113.10" required>
+        <input id="scanTarget" name="target" class="asset-modal-input inventory-input" type="text" placeholder="example.com or 203.0.113.10" required>
       </div>
       <div class="form-group" style="margin-bottom:0;">
         <label class="asset-modal-label" for="scanOwner">Owner</label>
-        <input id="scanOwner" name="owner" class="asset-modal-input" type="text" placeholder="Infra / App Team">
+        <input id="scanOwner" name="owner" class="asset-modal-input inventory-input" type="text" placeholder="Infra / App Team">
       </div>
       <div class="form-group" style="margin-bottom:0;">
         <label class="asset-modal-label" for="scanType">Asset Type</label>
-        <select id="scanType" name="type" class="asset-modal-select">
+        <select id="scanType" name="type" class="asset-modal-select inventory-select">
           <option value="Web App">Web App</option>
           <option value="API">API</option>
           <option value="Server">Server</option>
@@ -217,7 +270,7 @@
       </div>
       <div class="form-group" style="margin-bottom:0;">
         <label class="asset-modal-label" for="scanRisk">Risk Level</label>
-        <select id="scanRisk" name="risk_level" class="asset-modal-select">
+        <select id="scanRisk" name="risk_level" class="asset-modal-select inventory-select">
           <option value="Low">Low</option>
           <option value="Medium" selected>Medium</option>
           <option value="High">High</option>
@@ -330,20 +383,26 @@
       data-bulk-form
       data-bulk-delete-action="{{ url_for('assets.asset_bulk_delete') }}"
       data-bulk-edit-action="{{ url_for('assets.asset_bulk_edit') }}"
+      data-bulk-scan-action="{{ url_for('assets.asset_bulk_scan') }}"
       data-api-bulk-delete-action="{{ url_for('assets.asset_bulk_delete_api') }}"
       data-api-bulk-edit-action="{{ url_for('assets.asset_bulk_edit_api') }}"
+      data-api-bulk-scan-action="{{ url_for('assets.asset_bulk_scan_api') }}"
       action="{{ url_for('assets.asset_bulk_delete') }}"
       method="post"
     >
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="selected_asset_ids" data-bulk-ids value="">
+      <input type="hidden" name="scan_scope" data-scan-scope value="selected">
       <label class="table-control-label" for="bulkActionSelect">Bulk action</label>
       <select id="bulkActionSelect" name="bulk_action" class="table-control-select" data-bulk-action>
+        <option value="bulk-scan-selected">Scan Selected</option>
+        <option value="bulk-scan-all">Scan All In View</option>
         <option value="bulk-delete">Move Selected to Recycle Bin</option>
         <option value="bulk-edit">Edit Selected</option>
       </select>
       <button type="submit" class="scan-button">Apply</button>
     </form>
+    <div class="selection-summary" data-bulk-feedback aria-live="polite"></div>
   </div>
 
   {{ tb.paginated_table(
@@ -363,19 +422,19 @@
 
 {% include "modals/asset_edit.html" %}
 
-<!-- Asset Scan Detail Modal -->
+<!-- Asset View Detail Modal -->
 <div id="assetScanModal" class="modal" role="dialog" aria-hidden="true" aria-labelledby="modalTitle">
   <div class="modal-content glass-card" style="max-width: 800px; max-height: 85vh; overflow-y: auto;">
     <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--text-muted); padding-bottom: 1rem;">
       <div>
-        <h2 id="modalTitle" style="margin: 0;">Scan History</h2>
+        <h2 id="modalTitle" style="margin: 0;">View Details</h2>
         <div id="modalAssetName" style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.3rem;"></div>
       </div>
       <button data-close-scan-modal type="button" class="button ghost" aria-label="Close scan modal" style="font-size:1.2rem;line-height:1;">×</button>
     </div>
 
     <div id="scanDataContent" style="max-height: 60vh; overflow-y: auto;">
-      <div style="text-align: center; color: var(--text-secondary); padding: 2rem;">Loading scans...</div>
+      <div style="text-align: center; color: var(--text-secondary); padding: 2rem;">Loading details...</div>
     </div>
 
     <div style="margin-top: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;">
@@ -584,7 +643,7 @@
 
   async function loadScanData(assetId) {
     try {
-      scanDataContent.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:2rem;">Loading scans...</div>';
+      scanDataContent.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:2rem;">Loading details...</div>';
       
       const response = await fetch(`/api/assets/${assetId}/scans?page=1&page_size=20`, {
         method: 'GET',
@@ -598,15 +657,15 @@
       const scans = data.items || [];
 
       if (!scans.length) {
-        scanDataContent.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:2rem;">No scans yet.</div>';
+        scanDataContent.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:2rem;">No details available yet.</div>';
         return;
       }
 
       const html = `
         <div style="display:grid;gap:0.8rem;">
           ${scans.map(scan => {
-            const statusColor = scan.status === 'completed' ? '#10b981' : 
-                               scan.status === 'running' ? '#f59e0b' : '#f87171';
+            const statusColor = scan.status === 'completed' ? 'var(--safe)' : 
+                               scan.status === 'running' ? 'var(--warn)' : 'var(--danger)';
             return `
               <div class="glass-card" style="padding:1rem;border-left:4px solid ${statusColor};">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-bottom:0.6rem;">
@@ -629,7 +688,7 @@
                 </div>
                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.6rem;padding-top:0.6rem;border-top:1px solid var(--text-muted);">
                   <div style="text-align:center;">
-                    <div style="font-size:1.2rem;font-weight:700;color:${scan.quantum_safe ? '#10b981' : '#f87171'};">${scan.quantum_safe ? 'Yes' : 'No'}</div>
+                    <div style="font-size:1.2rem;font-weight:700;color:${scan.quantum_safe ? 'var(--safe)' : 'var(--danger)'};">${scan.quantum_safe ? 'Yes' : 'No'}</div>
                     <div style="font-size:0.7rem;color:var(--text-secondary);">Quantum Safe</div>
                   </div>
                   <div style="text-align:center;">
@@ -649,7 +708,7 @@
       scanDataContent.innerHTML = html;
     } catch (err) {
       console.error('Error loading scans:', err);
-      scanDataContent.innerHTML = `<div style="color:#f87171;padding:1rem;">Error: ${err.message}</div>`;
+      scanDataContent.innerHTML = `<div style="color:var(--danger);padding:1rem;">Error: ${err.message}</div>`;
     }
   }
 
@@ -759,7 +818,7 @@
       detailsContent.innerHTML = html;
     } catch (err) {
       console.error('Error loading asset details:', err);
-      detailsContent.innerHTML = `<div style="color:#f87171;padding:1rem;">Error: ${escapeHtml(err.message)}</div>`;
+      detailsContent.innerHTML = `<div style="color:var(--danger);padding:1rem;">Error: ${escapeHtml(err.message)}</div>`;
     }
   }
 
@@ -891,15 +950,12 @@
       const newItems = newData.items || [];
       
       // Update table rows with new data (preserves selections)
-      const tableBody = document.querySelector('table tbody');
+      const tableBody = document.querySelector('[data-table-shell] table[data-table-mode="server"] tbody');
       if (!tableBody) return;
       
       const existingRows = tableBody.querySelectorAll('tr');
       if (existingRows.length === 0) return; // No rows to update
-      if (newItems.length !== existingRows.length) {
-        window.location.reload();
-        return;
-      }
+      if (newItems.length !== existingRows.length) return;
       
       // Update textual/risk/status cells while preserving checkbox/action handlers.
       newItems.forEach((rawItem, idx) => {
@@ -972,60 +1028,13 @@
   const bulkForm = document.getElementById('bulkAssetsForm');
   const bulkAction = document.querySelector('[data-bulk-action]');
   const bulkIds = document.querySelector('[data-bulk-ids]');
+  const bulkScanScope = document.querySelector('[data-scan-scope]');
+  const bulkFeedback = document.querySelector('[data-bulk-feedback]');
   const csrfMeta = document.querySelector('meta[name="csrf-token"]');
 
   function toInt(value) {
     const parsed = Number.parseInt(String(value || ''), 10);
     return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  function getCheckedRows() {
-    return Array.from(document.querySelectorAll('[data-row-checkbox]:checked'));
-  }
-
-  function getCheckedIds() {
-    return getCheckedRows()
-      .map((checkbox) => toInt(checkbox.value))
-      .filter((value) => value !== null);
-  }
-
-  function syncBulkIds() {
-    if (!bulkIds) return;
-    bulkIds.value = getCheckedIds().join(',');
-  }
-
-  function updateSelectionSummary() {
-    const selectedCount = getCheckedRows().length;
-    document.querySelectorAll('[data-selected-count]').forEach((node) => {
-      node.textContent = `${selectedCount} item${selectedCount === 1 ? '' : 's'} selected`;
-    });
-  }
-
-  function updateSelectAllState() {
-    const selectAll = document.querySelector('[data-select-all]');
-    if (!selectAll) return;
-
-    const allRows = Array.from(document.querySelectorAll('[data-row-checkbox]'));
-    const selectedRows = allRows.filter((checkbox) => checkbox.checked);
-    selectAll.checked = allRows.length > 0 && selectedRows.length === allRows.length;
-    selectAll.indeterminate = selectedRows.length > 0 && selectedRows.length < allRows.length;
-  }
-
-  function updateVisibleAssetCount(delta) {
-    if (!Number.isFinite(delta) || delta === 0) return;
-
-    const countNode = document.querySelector('[data-assets-in-view-count]');
-    if (countNode) {
-      const current = Number.parseInt((countNode.textContent || '0').trim(), 10) || 0;
-      countNode.textContent = String(Math.max(0, current + delta));
-    }
-
-    const summaryNode = document.querySelector('[data-assets-in-view-summary]');
-    if (summaryNode) {
-      const current = Number.parseInt((summaryNode.textContent || '0').trim(), 10) || 0;
-      const next = Math.max(0, current + delta);
-      summaryNode.textContent = `${next} assets in view`;
-    }
   }
 
   function removeRowsByIds(ids) {
@@ -1044,9 +1053,10 @@
       }
     });
 
-    syncBulkIds();
-    updateSelectionSummary();
-    updateSelectAllState();
+    const table = document.querySelector('[data-table-component]');
+    if (table) {
+      table.dispatchEvent(new CustomEvent('qs:table:update'));
+    }
     updateVisibleAssetCount(-removed);
     return removed;
   }
@@ -1199,12 +1209,48 @@
 
       const selectedIds = getCheckedIds();
       bulkIds.value = selectedIds.join(',');
+      const action = String(bulkAction.value || '').trim();
 
-      if (!selectedIds.length) {
+      if (action === 'bulk-scan-all') {
+        if (bulkScanScope) bulkScanScope.value = 'all';
+        try {
+          const payload = await postJson(bulkForm.dataset.apiBulkScanAction, {
+            bulk_action: 'bulk-scan-all',
+            scan_scope: 'all',
+          });
+          showBulkFeedback(payload.message || 'Scan-all request submitted.', payload.failed > 0 ? 'warning' : 'success');
+        } catch (error) {
+          showBulkFeedback(error.message || 'Failed to run scan-all action.', 'error');
+        }
         return;
       }
 
-      if (bulkAction.value !== 'bulk-edit') {
+      if (bulkScanScope) bulkScanScope.value = 'selected';
+
+      if (action === 'bulk-scan-selected') {
+        if (!selectedIds.length) {
+          showBulkFeedback('Select one or more assets to run Scan Selected.', 'warning');
+          return;
+        }
+        try {
+          const payload = await postJson(bulkForm.dataset.apiBulkScanAction, {
+            bulk_action: 'bulk-scan-selected',
+            scan_scope: 'selected',
+            selected_asset_ids: selectedIds.join(','),
+          });
+          showBulkFeedback(payload.message || 'Bulk scan request submitted.', payload.failed > 0 ? 'warning' : 'success');
+        } catch (error) {
+          showBulkFeedback(error.message || 'Failed to run selected scan action.', 'error');
+        }
+        return;
+      }
+
+      if (!selectedIds.length) {
+        showBulkFeedback('Select one or more assets first.', 'warning');
+        return;
+      }
+
+      if (action !== 'bulk-edit') {
         try {
           const payload = await postJson(bulkForm.dataset.apiBulkDeleteAction, {
             selected_asset_ids: selectedIds.join(','),
@@ -1212,8 +1258,9 @@
           const apiDeletedIds = Array.isArray(payload.deleted_ids) ? payload.deleted_ids : [];
           const idsToRemove = apiDeletedIds.length ? apiDeletedIds : selectedIds;
           removeRowsByIds(idsToRemove);
+          showBulkFeedback(payload.message || 'Selected assets moved to Recycle Bin.', 'success');
         } catch (error) {
-          window.alert(error.message || 'Failed to move selected assets to Recycle Bin.');
+          showBulkFeedback(error.message || 'Failed to move selected assets to Recycle Bin.', 'error');
         }
         return;
       }
@@ -1229,6 +1276,7 @@
         riskLevel: 'Medium',
         lastScan: 'Mixed',
       });
+      showBulkFeedback('Editing selected assets.', 'success');
     });
   }
 

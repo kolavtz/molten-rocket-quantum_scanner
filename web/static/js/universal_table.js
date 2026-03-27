@@ -67,7 +67,7 @@ class UniversalTable {
         if (!container) return;
 
         container.innerHTML = `
-            <div class="table-wrapper">
+            <div class="table-wrapper table-responsive-cards">
                 ${this.renderControls()}
                 ${this.renderTableHeader()}
                 ${this.renderTableBody()}
@@ -147,14 +147,10 @@ class UniversalTable {
                     value = this.formatters[col.field](value, row);
                 }
 
-                return `<td>${value || '-'}</td>`;
+                return `<td data-label="${col.label || col.field}">${value || '-'}</td>`;
             }).join('');
 
-            return `
-                <tr class="table-row" data-row-id="${row.id || idx}">
-                    ${cells}
-                </tr>
-            `;
+            return `<tr data-id="${row.id || idx}">${cells}</tr>`;
         }).join('');
 
         const tbody = document.getElementById('table-body');

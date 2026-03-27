@@ -27,7 +27,25 @@ from utils.table_helper import paginate_query
 
 logger = logging.getLogger(__name__)
 
+# Service Instantiations
+asset_service = AssetService()
+certificate_service = CertificateTelemetryService()
+inventory_service = InventoryScanService()
+
 assets_bp = Blueprint("assets", __name__)
+
+@assets_bp.route("/assets-api")
+@login_required
+def assets_api_view():
+    """Renders the Asset Inventory view with UniversalTable integration."""
+    return render_template("assets_api.html")
+
+@assets_bp.route("/dev-assets")
+def dev_assets_view():
+    """Development bypass for UI auditing."""
+    if current_app.debug or request.remote_addr == "127.0.0.1":
+        return render_template("assets_api.html")
+    return redirect(url_for("login"))
 
 ALLOWED_DELETE_ROLES = {"Admin", "Manager"}
 ALLOWED_RISK_LEVELS = {"Low", "Medium", "High", "Critical"}
@@ -191,13 +209,18 @@ def _make_action_html(asset: dict, csrf_token: str) -> str:
         {data_attrs}
         data-open-asset-edit
       >Edit</button>
+            <a
+                class="btn-mini btn-view"
+                href="{url_for('assets.asset_details', asset_id=asset_id)}"
+                title="View asset details"
+            >View</a>
             <button
                 type="button"
                 class="btn-mini btn-view"
                 data-open-asset-details
                 data-asset-id="{asset_id}"
                 data-asset-name="{asset_name}"
-                title="View asset details"
+                title="Open quick asset details"
             >Details</button>
             <button
                 type="button"
@@ -205,12 +228,12 @@ def _make_action_html(asset: dict, csrf_token: str) -> str:
                 data-open-asset-scan
                 data-asset-id="{asset_id}"
                 data-asset-name="{asset_name}"
-                title="View scan history"
+                title="Open scan history"
             >Scans</button>
       <form action="{url_for('assets.asset_scan')}" method="post" class="inline-form">
         <input type="hidden" name="csrf_token" value="{csrf_token}">
         <input type="hidden" name="asset_id" value="{asset_id}">
-        <button type="submit" class="btn-mini btn-scan">Scan</button>
+                <button type="submit" class="btn-mini btn-scan">Run Scan</button>
       </form>
       <form
         action="{url_for('assets.asset_delete', asset_id=asset_id)}"
@@ -231,14 +254,26 @@ def _make_action_html(asset: dict, csrf_token: str) -> str:
 def _decorate_asset_rows(rows: list[dict], csrf_token: str) -> list[dict]:
     decorated: list[dict] = []
     for row in rows:
+        asset_id = row.get("id")
+        # Ensure the name is escaped but the tags we build are NOT.
+        raw_name = str(row.get("name") or row.get("asset_name") or "Unknown")
+        safe_name = escape(raw_name)
         risk = str(row.get("risk_level") or row.get("risk") or "Medium")
         cert_status = str(row.get("cert_status") or "Not Scanned")
+        
+        name_html = safe_name
+        if asset_id:
+            detail_url = url_for('assets.asset_details', asset_id=asset_id)
+            name_html = f'<a href="{detail_url}" class="asset-link" title="View details for {safe_name}">{safe_name}</a>'
+
         decorated.append(
             {
                 **row,
-                "select_html": f'<input type="checkbox" class="asset-select-checkbox" name="asset_ids" value="{escape(str(row.get("id") or ""))}" form="bulkAssetsForm" data-row-checkbox>',
-                "risk_html": f'<span class="risk-pill risk-{escape(risk.lower())}">{escape(risk)}</span>',
-                "cert_status_html": f'<span class="cert-pill cert-{escape(cert_status.lower().replace(" ", "-"))}">{escape(cert_status)}</span>',
+                "name": name_html,
+                "asset_name": name_html,
+                "select_html": f'<input type="checkbox" class="asset-select-checkbox" name="asset_ids" value="{asset_id or ""}" form="bulkAssetsForm" data-row-checkbox>',
+                "risk_html": f'<span class="risk-pill risk-{risk.lower()}">{risk}</span>',
+                "cert_status_html": f'<span class="cert-pill cert-{cert_status.lower().replace(" ", "-")}">{cert_status}</span>',
                 "actions_html": _make_action_html(row, csrf_token),
                 "last_scan": row.get("last_scan") or "Never",
                 "key_length": row.get("key_length") or "-",
@@ -257,7 +292,7 @@ def _build_headers() -> list[dict]:
             "safe_label": True,
             "class_name": "select-column sticky-column",
         },
-        {"label": "Asset Name", "field": "name", "sortable": True, "class_name": "asset-name-column"},
+        {"label": "Asset Name", "field": "name", "sortable": True, "class_name": "asset-name-column", "safe": True},
         {"label": "URL", "field": "url", "sortable": True, "class_name": "url-column"},
         {"label": "Type", "field": "asset_type", "sortable": True},
         {"label": "Owner", "field": "owner", "sortable": True},
@@ -396,8 +431,12 @@ def build_assets_api_response(
             "scan_status",
         ],
     )
+    # Generate CSRF for row decoration
+    from flask_wtf.csrf import generate_csrf
+    asset_csrf_token = generate_csrf()
+    
     data = {
-        "items": list(page_data["items"]),
+        "items": _decorate_asset_rows(list(page_data["items"]), asset_csrf_token),
         "total": int(page_data["total"]),
         "page": int(page_data["page"]),
         "page_size": int(page_data["page_size"]),
@@ -584,6 +623,22 @@ def build_asset_detail_api_response(asset_id: int) -> dict[str, Any] | None:
     )
     cert_service = CertificateTelemetryService()
     row["latest_certificate"] = cert_service.get_latest_certificate_for_asset(int(asset.id))
+
+    latest_pqc = (
+        db_session.query(PQCClassification)
+        .filter(
+            PQCClassification.asset_id == asset.id,
+            PQCClassification.is_deleted == False,
+            PQCClassification.deleted_at.is_(None),
+        )
+        .order_by(PQCClassification.updated_at.desc(), PQCClassification.id.desc())
+        .first()
+    )
+    row["pqc_score"] = round(float(getattr(latest_pqc, "pqc_score", 0) or 0), 1) if latest_pqc else 0.0
+    row["pqc_status"] = str(getattr(latest_pqc, "quantum_safe_status", "Unknown") or "Unknown") if latest_pqc else "Unknown"
+    row["readiness"] = str(getattr(latest_pqc, "readiness_level", "Standard Protocol") or "Standard Protocol") if latest_pqc else "Standard Protocol"
+    row["status"] = "Active"
+
     report = _scan_report_payload(scan)
     row["discovered_services"] = report.get("discovered_services") or []
     row["asset_locations"] = report.get("asset_locations") or []
@@ -731,6 +786,16 @@ def render_assets_inventory_page():
 
     context = build_assets_page_context()
     return render_template("asset_inventory.html", **context)
+
+
+@assets_bp.route("/assets/<int:asset_id>", methods=["GET"])
+@login_required
+def asset_details(asset_id: int):
+    detail = build_asset_detail_api_response(asset_id)
+    if not detail:
+        flash("Asset details not found.", "error")
+        return redirect(url_for("assets.assets_index"))
+    return render_template("asset_detail.html", asset=detail)
 
 
 @assets_bp.route("/assets", methods=["GET"])
@@ -926,6 +991,108 @@ def _json_response(message: str, code: int, **data):
     return jsonify({"status": "success" if code < 400 else "error", "message": message, **data}), code
 
 
+def _active_assets_by_ids(asset_ids: list[int]) -> list[Asset]:
+    if not asset_ids:
+        return []
+    return (
+        db_session.query(Asset)
+        .filter(Asset.id.in_(asset_ids), Asset.is_deleted == False, Asset.deleted_at.is_(None))
+        .order_by(Asset.id.asc())
+        .all()
+    )
+
+
+def _active_assets_for_bulk_scan(payload: dict) -> tuple[list[Asset], str | None]:
+    bulk_action = str(_payload_value(payload, "bulk_action", "") or "").strip().lower()
+    requested_scope = str(_payload_value(payload, "scan_scope", "") or "").strip().lower()
+
+    if bulk_action == "bulk-scan-all" or requested_scope == "all":
+        assets = (
+            db_session.query(Asset)
+            .filter(Asset.is_deleted == False, Asset.deleted_at.is_(None))
+            .order_by(Asset.id.asc())
+            .all()
+        )
+        if not assets:
+            return [], "No active assets are available to scan."
+        return assets, None
+
+    asset_ids = _extract_asset_ids(payload)
+    if not asset_ids:
+        return [], "Select one or more assets first."
+
+    assets = _active_assets_by_ids(asset_ids)
+    if not assets:
+        return [], "Selected assets were not found or already deleted."
+    return assets, None
+
+
+def _run_bulk_inventory_scan(assets: list[Asset]) -> dict[str, Any]:
+    scan_service = InventoryScanService(scan_runner=current_app.config.get("RUN_SCAN_PIPELINE_FUNC"))
+    results: list[dict[str, Any]] = []
+    completed_count = 0
+    warning_count = 0
+    failed_count = 0
+
+    for asset in assets:
+        target = str(getattr(asset, "target", None) or getattr(asset, "name", None) or f"asset-{asset.id}")
+        try:
+            result = scan_service.scan_asset(asset, scan_kind="asset_inventory_bulk")
+            db_session.commit()
+
+            status = str(result.get("status") or "unknown").strip().lower()
+            if status == "complete":
+                completed_count += 1
+            elif status in {"warning", "partial", "in_progress", "started"}:
+                warning_count += 1
+            else:
+                failed_count += 1
+
+            results.append(
+                {
+                    "asset_id": int(asset.id),
+                    "target": target,
+                    "status": status,
+                    "scan_id": result.get("scan_id"),
+                }
+            )
+        except Exception as exc:
+            db_session.rollback()
+            failed_count += 1
+            logger.exception("Bulk inventory scan failed for asset_id=%s", getattr(asset, "id", "unknown"))
+            results.append(
+                {
+                    "asset_id": int(asset.id),
+                    "target": target,
+                    "status": "failed",
+                    "error": str(exc),
+                }
+            )
+
+    attempted = len(assets)
+    if completed_count and failed_count == 0:
+        message = f"Scanned {completed_count} asset(s) successfully."
+    elif completed_count:
+        message = (
+            f"Bulk scan finished with partial success: {completed_count} completed, "
+            f"{warning_count} warning, {failed_count} failed."
+        )
+    else:
+        message = "Bulk scan failed for all selected assets."
+
+    if completed_count or warning_count:
+        _invalidate_caches()
+
+    return {
+        "attempted": attempted,
+        "completed": completed_count,
+        "warnings": warning_count,
+        "failed": failed_count,
+        "results": results,
+        "message": message,
+    }
+
+
 def _soft_delete_assets_by_ids(asset_ids: list[int]) -> tuple[list[Asset], str | None]:
     selected_assets = db_session.query(Asset).filter(Asset.id.in_(asset_ids), Asset.is_deleted == False).all()
     if not selected_assets:
@@ -1080,6 +1247,37 @@ def asset_bulk_edit():
     return redirect(request.referrer or url_for("assets.assets_index"))
 
 
+@assets_bp.route("/assets/bulk-scan", methods=["POST"])
+@login_required
+def asset_bulk_scan():
+    wants_json = _request_wants_json()
+    payload = _request_payload()
+
+    assets, validation_error = _active_assets_for_bulk_scan(payload)
+    if validation_error:
+        if wants_json:
+            return _json_response(validation_error, 400)
+        flash(validation_error, "warning")
+        return redirect(request.referrer or url_for("assets.assets_index"))
+
+    summary = _run_bulk_inventory_scan(assets)
+    code = 200 if summary["completed"] > 0 or summary["warnings"] > 0 else 500
+
+    if wants_json:
+        return _json_response(
+            summary["message"],
+            code,
+            attempted=summary["attempted"],
+            completed=summary["completed"],
+            warnings=summary["warnings"],
+            failed=summary["failed"],
+            results=summary["results"],
+        )
+
+    flash(summary["message"], "success" if code < 400 else "error")
+    return redirect(request.referrer or url_for("assets.assets_index"))
+
+
 @assets_bp.route("/api/assets/bulk-delete", methods=["POST"])
 @login_required
 def asset_bulk_delete_api():
@@ -1090,6 +1288,12 @@ def asset_bulk_delete_api():
 @login_required
 def asset_bulk_edit_api():
     return asset_bulk_edit()
+
+
+@assets_bp.route("/api/assets/bulk-scan", methods=["POST"])
+@login_required
+def asset_bulk_scan_api():
+    return asset_bulk_scan()
 
 
 @assets_bp.route("/assets/<int:asset_id>/edit", methods=["POST"])
@@ -1183,3 +1387,11 @@ def asset_edit_api(asset_id: int):
 @login_required
 def asset_delete_api(asset_id: int):
     return asset_delete(asset_id)
+
+
+@assets_bp.route("/api/assets/<int:asset_id>/comprehensive", methods=["GET"])
+@login_required
+def asset_comprehensive_detail_api(asset_id: int):
+    """Returns consolidated telemetry for the unified detail popup."""
+    result = asset_service.get_comprehensive_asset_detail(asset_id)
+    return jsonify(result)

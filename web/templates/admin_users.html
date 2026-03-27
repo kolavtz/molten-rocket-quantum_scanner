@@ -105,13 +105,13 @@
                                         <option value="Admin" {% if user.role|lower == 'admin' %}selected{% endif %}>ADMIN</option>
                                     </select>
                                     <input type="checkbox" name="is_active" {% if user.is_active %}checked{% endif %} title="Active Status">
-                                    <button type="submit" class="scan-button" style="padding: 0.3rem 0.5rem; font-size: 0.65rem;">COMMIT</button>
+                                    <button type="submit" class="scan-button" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; min-height:44px;">COMMIT</button>
                                 </form>
                                 <div style="margin-top: 0.5rem; display:flex; gap: 0.4rem; flex-wrap:wrap;">
                                     {% if user.email %}
                                     <button class="js-admin-reset-pass scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; border-color: var(--text-muted); color: var(--text-muted); background: transparent; cursor: pointer;">RESET_PASS</button>
                                     {% endif %}
-                                    <button class="js-admin-regen-key scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; border-color: #5b9e6f; color: #5b9e6f; background: transparent; cursor: pointer;">REGEN_KEY</button>
+                                    <button class="js-admin-regen-key scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; min-height:44px; border-color: var(--safe); color: var(--safe); background: transparent; cursor: pointer;">REGEN_KEY</button>
                                 </div>
                             </td>
                         </tr>

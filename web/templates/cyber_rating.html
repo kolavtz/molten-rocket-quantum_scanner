@@ -1,109 +1,217 @@
 {% extends "base.html" %}
 {% import "macros/table_macros.html" as tb %}
 {% block title %}Cyber Rating | QuantumShield{% endblock %}
+{% block head %}
+<style>
+  .cyber-shell { max-width: 1480px; margin: 0 auto; display:grid; gap:1rem; }
+  .cyber-head { display:flex; justify-content:space-between; align-items:flex-end; gap:0.75rem; flex-wrap:wrap; }
+  .cyber-head h2 { margin:0; font-size:clamp(1.6rem,2.6vw,2.2rem); text-transform:uppercase; }
+  .cyber-head p { margin:0.35rem 0 0; color:var(--text-secondary); }
+  .cyber-api { border:1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent); border-radius:10px; padding:0.72rem 0.9rem; color:var(--text-secondary); font-size:0.78rem; }
+  .cyber-api.error { color:var(--danger); border-color: color-mix(in srgb, var(--danger) 42%, transparent); }
+
+  .cyber-score { display:grid; grid-template-columns: 1.1fr 2fr; gap:0.9rem; }
+  .cyber-score-main { display:grid; place-items:center; text-align:center; padding:1.25rem; border:1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent); }
+  .cyber-score-main .value { font-size:3rem; line-height:1; font-weight:900; color:var(--accent); }
+  .cyber-score-main .tier { margin-top:0.35rem; font-size:0.83rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-secondary); }
+
+  .cyber-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:0.7rem; }
+  .cyber-kpi { padding:0.9rem; border-left:3px solid var(--accent); }
+  .cyber-kpi.warn { border-left-color:var(--warn); }
+  .cyber-kpi.danger { border-left-color:var(--danger); }
+  .cyber-kpi .label { font-size:0.65rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.12em; }
+  .cyber-kpi .value { margin-top:0.3rem; font-size:1.6rem; font-weight:800; line-height:1; }
+
+  .cyber-grid { display:grid; grid-template-columns: 1fr 1fr; gap:0.9rem; }
+  .cyber-card { padding:1rem; border:1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent); }
+  .cyber-title { margin:0 0 0.62rem; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.11em; color:var(--text-secondary); }
+  .cyber-heat { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:0.5rem; }
+  .cyber-cell { border:1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent); border-radius:10px; padding:0.55rem; background: color-mix(in srgb, var(--bg-secondary) 72%, transparent); }
+  .cyber-cell .meta { font-size:0.66rem; color:var(--text-secondary); }
+  .cyber-cell .val { font-size:0.95rem; font-weight:700; }
+  @media (max-width: 1180px) {
+    .cyber-score, .cyber-grid { grid-template-columns:1fr; }
+    .cyber-heat { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  }
+</style>
+{% endblock %}
 {% block content %}
-<section class="hero" style="padding-bottom:1rem;">
-  <h2 class="hero-title" style="font-size:2rem;">CYBER RATING</h2>
-  <p class="hero-subtitle">Enterprise cyber score and tier mapping</p>
-</section>
-
-{% if vm.empty %}
-<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <div class="alert alert-info" style="margin-bottom:0;">
-    <strong>No cyber score data yet.</strong>
-    <p style="margin-top:0.4rem;color:var(--text-secondary);">Run complete scans to generate normalized enterprise scores and tier mapping.</p>
+<section class="cyber-shell">
+  <div class="cyber-head">
+    <div>
+      <h2>CYBER RATING</h2>
+      <p>Enterprise cyber posture derived from asset-level PQC scores, weak-crypto signals, and critical findings.</p>
+    </div>
+    <a href="{{ url_for('reporting') }}" class="button secondary">View Reporting</a>
   </div>
-</section>
-{% endif %}
 
-<section class="glass-card" style="padding:1rem;margin-bottom:1rem;text-align:center;">
-  <div style="font-size:3rem;font-weight:800;color:var(--accent);">{{ vm.overall_score }}/100</div>
-  <div style="font-size:1rem;letter-spacing:0.08em;">{{ vm.label }}</div>
-</section>
+  <div id="cyberApiState" class="cyber-api" role="status" aria-live="polite">Syncing cyber rating data from API…</div>
 
-<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <h3 style="margin-bottom:0.6rem;">Rating Categories</h3>
-  <table class="scans-table">
-    <thead><tr><th data-key="label">Label</th><th data-key="range">Range</th></tr></thead>
-    <tbody>
-      <tr><td>Critical</td><td>&lt; 40</td></tr>
-      <tr><td>Legacy</td><td>40 - 59</td></tr>
-      <tr><td>Standard</td><td>60 - 79</td></tr>
-      <tr><td>Elite-PQC</td><td>&ge; 80</td></tr>
-    </tbody>
-  </table>
-</section>
+  {% if vm.empty %}
+  <section class="glass-card" style="padding:1rem;">
+    <div class="alert info" style="margin:0;">
+      <div class="alert-title">No cyber score data yet</div>
+      <div class="alert-message">Run complete scans to generate normalized enterprise scores and tier mapping.</div>
+    </div>
+  </section>
+  {% endif %}
 
-<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <div style="display:flex;justify-content:space-between;align-items:center;">
-    <h3 style="margin-bottom:0;">URL-level PQC Scores</h3>
-  </div>
-  
-  <div class="scans-table-wrapper" style="margin-top: 0.8rem;">
+  <section class="cyber-score">
+    <article class="glass-card cyber-score-main">
+      <div class="value" id="cyberScoreMain" data-fallback="{{ vm.overall_score or 0 }}">{{ vm.overall_score or 0 }}</div>
+      <div class="tier" id="cyberTierMain" data-fallback="{{ vm.label or 'Unknown' }}">{{ vm.label or 'Unknown' }}</div>
+    </article>
+    <div class="cyber-kpis">
+      <article class="glass-card cyber-kpi"><div class="label">Enterprise score</div><div class="value" id="kpiEnterprise" data-fallback="{{ vm.overall_score or 0 }}">{{ vm.overall_score or 0 }}</div></article>
+      <article class="glass-card cyber-kpi"><div class="label">Total URLs</div><div class="value" id="kpiUrls" data-fallback="{{ page_data.total_count or 0 }}">{{ page_data.total_count or 0 }}</div></article>
+      <article class="glass-card cyber-kpi safe"><div class="label">Elite %</div><div class="value" id="kpiElitePct" data-fallback="0">0</div></article>
+      <article class="glass-card cyber-kpi warn"><div class="label">Legacy %</div><div class="value" id="kpiLegacyPct" data-fallback="0">0</div></article>
+      <article class="glass-card cyber-kpi danger"><div class="label">Critical Count</div><div class="value" id="kpiCriticalCount" data-fallback="{{ vm.tier_counts.get('Critical', 0) if vm.tier_counts else 0 }}">{{ vm.tier_counts.get('Critical', 0) if vm.tier_counts else 0 }}</div></article>
+    </div>
+  </section>
+
+  <section class="cyber-grid">
+    <article class="glass-card cyber-card">
+      <h3 class="cyber-title">URL-level PQC scores</h3>
+      <div class="scans-table-wrapper">
+        <table class="scans-table">
+          <thead>
+            <tr>
+              {{ tb.sortable_th('URL / Target', 'target', 'cyber_rating', request.args.get('sort'), request.args.get('order')) }}
+              <th>Tier</th>
+              {{ tb.sortable_th('PQC Score', 'score', 'cyber_rating', request.args.get('sort'), request.args.get('order')) }}
+            </tr>
+          </thead>
+          <tbody id="cyberTableBody">
+            {% if page_data.get('items') %}
+              {% for row in page_data.get('items') %}
+              <tr>
+                <td>{{ row.target }}</td>
+                <td>{{ row.tier }}</td>
+                <td>{{ (row.score or 0)|round|int }}</td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="3" style="padding: 2rem;">{{ tb.empty_state("No scan ratings available.") }}</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <article class="glass-card cyber-card">
+      <h3 class="cyber-title">Cyber tier heatmap</h3>
+      <div class="cyber-heat" id="cyberHeatGrid">
+        {% for cell in vm.tier_heatmap %}
+        <div class="cyber-cell">
+          <div class="meta">{{ cell.x }} · {{ cell.y }}</div>
+          <div class="val">{{ cell.value }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="cyber-heat" style="margin-top:0.65rem;" id="cyberTierGrid">
+        {% for tier,count in vm.tier_counts.items() %}
+        <div class="cyber-cell">
+          <div class="meta">{{ tier }}</div>
+          <div class="val">{{ count }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+
+  <section class="glass-card cyber-card">
+    <h3 class="cyber-title">Tier criteria</h3>
     <table class="scans-table">
-      <thead>
-        <tr>
-          {{ tb.sortable_th('URL / Target', 'target', 'cyber_rating', request.args.get('sort'), request.args.get('order')) }}
-          <th>Tier</th>
-          {{ tb.sortable_th('PQC Score', 'score', 'cyber_rating', request.args.get('sort'), request.args.get('order')) }}
-        </tr>
-      </thead>
+      <thead><tr><th>Tier</th><th>Security Level</th><th>Compliance Criteria</th><th>Priority / Action</th></tr></thead>
       <tbody>
-        {% if page_data.get('items') %}
-          {% for row in page_data.get('items') %}
-          <tr>
-            <td>{{ row.target }}</td>
-            <td>{{ row.tier }}</td>
-            <td>{{ (row.score or 0)|round|int }}</td>
-          </tr>
-          {% endfor %}
-        {% else %}
-          <tr><td colspan="3" style="padding: 2rem;">{{ tb.empty_state("No scan ratings available.") }}</td></tr>
-        {% endif %}
+        <tr><td>Tier-1 Elite</td><td>Highest</td><td>TLS 1.2/1.3 only, strong ciphers, PFS, key &gt; 2048-bit, HSTS, no weak protocols</td><td>Maintain continuous hardening</td></tr>
+        <tr><td>Tier-2 Standard</td><td>Good</td><td>Mostly modern configurations with limited legacy allowances</td><td>Planned uplift</td></tr>
+        <tr><td>Tier-3 Legacy</td><td>Weak</td><td>TLS 1.0/1.1 present, weak ciphers, possibly 1024-bit keys</td><td>High-priority remediation</td></tr>
+        <tr><td>Critical</td><td>Insecure</td><td>SSLv2/v3, key &lt; 1024-bit, very weak ciphers, known exploitable vulnerabilities</td><td>Immediate action</td></tr>
       </tbody>
     </table>
-  </div>
+  </section>
+
+  <section class="glass-card cyber-card">
+    <h3 class="cyber-title">Recommendations</h3>
+    <ul style="padding-left:1.2rem;display:grid;gap:0.45rem;">
+      {% for rec in vm.recommendations %}
+        <li>{{ rec }}</li>
+      {% endfor %}
+    </ul>
+  </section>
 </section>
 
-<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <h3 style="margin-bottom:0.6rem;">Cyber Tier Heatmap</h3>
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;">
-    {% for cell in vm.tier_heatmap %}
-    <div style="background:var(--bg-secondary);border:1px solid var(--border-subtle);border-radius:6px;padding:0.55rem;">
-      <div style="font-size:0.68rem;color:var(--text-secondary);">{{ cell.x }} · {{ cell.y }}</div>
-      <div style="font-size:1rem;font-weight:700;">{{ cell.value }}</div>
-    </div>
-    {% endfor %}
-  </div>
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;margin-top:0.7rem;">
-    {% for tier,count in vm.tier_counts.items() %}
-    <div style="background:var(--bg-secondary);border:1px solid var(--border-subtle);border-radius:6px;padding:0.5rem;">
-      <div style="font-size:0.68rem;color:var(--text-secondary);">{{ tier }}</div>
-      <div style="font-size:1rem;font-weight:700;">{{ count }}</div>
-    </div>
-    {% endfor %}
-  </div>
-</section>
+<script>
+(function () {
+  const apiState = document.getElementById('cyberApiState');
+  const refs = {
+    scoreMain: document.getElementById('cyberScoreMain'),
+    tierMain: document.getElementById('cyberTierMain'),
+    enterprise: document.getElementById('kpiEnterprise'),
+    urls: document.getElementById('kpiUrls'),
+    elitePct: document.getElementById('kpiElitePct'),
+    legacyPct: document.getElementById('kpiLegacyPct'),
+    criticalCount: document.getElementById('kpiCriticalCount')
+  };
 
-<section class="glass-card" style="padding:1rem;">
-  <h3 style="margin-bottom:0.6rem;">Tier Criteria</h3>
-  <table class="scans-table">
-    <thead><tr><th data-key="tier">Tier</th><th data-key="security_level">Security Level</th><th data-key="compliance_criteria">Compliance Criteria</th><th data-key="action">Priority/Action</th></tr></thead>
-    <tbody>
-      <tr><td>Tier-1 Elite</td><td>Highest</td><td>TLS 1.2/1.3 only, strong ciphers, PFS, key &gt; 2048-bit, HSTS, no weak protocols</td><td>Maintain continuous hardening</td></tr>
-      <tr><td>Tier-2 Standard</td><td>Good</td><td>Mostly modern configurations with limited legacy allowances</td><td>Planned uplift</td></tr>
-      <tr><td>Tier-3 Legacy</td><td>Weak</td><td>TLS 1.0/1.1 present, weak ciphers, possibly 1024-bit keys</td><td>High-priority remediation</td></tr>
-      <tr><td>Critical</td><td>Insecure</td><td>SSLv2/v3, key &lt; 1024-bit, very weak ciphers, known exploitable vulnerabilities</td><td>Immediate action</td></tr>
-    </tbody>
-  </table>
-</section>
+  function setState(msg, isError) {
+    if (!apiState) return;
+    apiState.textContent = msg;
+    apiState.classList.toggle('error', !!isError);
+  }
 
-<section class="glass-card" style="padding:1rem; margin-top:1rem;">
-  <h3 style="margin-bottom:0.6rem;">Recommendations</h3>
-  <ul style="padding-left:1.2rem;">
-    {% for rec in vm.recommendations %}
-      <li style="margin-bottom:0.4rem;">{{ rec }}</li>
-    {% endfor %}
-  </ul>
-</section>
+  function setMetric(node, value, suffix = '') {
+    if (!node) return;
+    const fallback = node.dataset.fallback || '0';
+    const safe = value === undefined || value === null || value === '' ? fallback : value;
+    node.textContent = `${safe}${suffix}`;
+  }
+
+  function renderRows(items) {
+    const body = document.getElementById('cyberTableBody');
+    if (!body || !Array.isArray(items)) return;
+    if (!items.length) return;
+    body.innerHTML = items.map((row) => `
+      <tr>
+        <td>${String(row.url || 'Unknown')}</td>
+        <td>${String(row.tier || 'Unknown')}</td>
+        <td>${Number(row.enterprise_score || 0).toFixed(1)}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function syncCyber() {
+    try {
+      setState('Syncing cyber rating data from API…');
+      const resp = await fetch('/api/cyber-rating?page=1&page_size=25', { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const payload = await resp.json();
+      const kpis = payload?.data?.kpis || {};
+      const items = payload?.data?.items || [];
+      setMetric(refs.scoreMain, Number(kpis.enterprise_score || 0).toFixed(1));
+      setMetric(refs.tierMain, kpis.tier || refs.tierMain?.dataset?.fallback || 'Unknown');
+      setMetric(refs.enterprise, Number(kpis.enterprise_score || 0).toFixed(1));
+      setMetric(refs.urls, Number(kpis.total_urls || 0).toLocaleString());
+      setMetric(refs.elitePct, Number(kpis.elite_pct || 0).toFixed(1), '%');
+      setMetric(refs.legacyPct, Number(kpis.legacy_pct || 0).toFixed(1), '%');
+      setMetric(refs.criticalCount, Number(kpis.critical_count || 0).toLocaleString());
+      renderRows(items);
+      setState('Cyber rating data synced successfully.');
+    } catch (_err) {
+      setState('Live cyber rating sync failed. Displaying server-rendered data.', true);
+      setMetric(refs.scoreMain, undefined);
+      setMetric(refs.tierMain, undefined);
+      setMetric(refs.enterprise, undefined);
+      setMetric(refs.urls, undefined);
+      setMetric(refs.elitePct, undefined, '%');
+      setMetric(refs.legacyPct, undefined, '%');
+      setMetric(refs.criticalCount, undefined);
+    }
+  }
+
+  syncCyber();
+})();
+</script>
 {% endblock %}

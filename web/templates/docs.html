@@ -236,6 +236,12 @@ waitress-serve --host 0.0.0.0 --port 5000 web.app:app</pre>
         Pass the key via <code style="color:var(--accent);">X-API-Key</code> header or <code style="color:var(--accent);">?api_key=</code> query parameter.
       </p>
 
+      <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:0.9rem 1rem; margin-bottom:1rem;">
+        <strong style="color:var(--text-primary);">Scan Center routes</strong>
+        <p style="font-size:.85rem; margin-top:.35rem; margin-bottom:.35rem;">Canonical UI route: <code style="color:var(--accent);">/scans</code>. Legacy route <code style="color:var(--accent);">/scan-center</code> remains available for compatibility.</p>
+        <p style="font-size:.82rem; color:var(--text-secondary); margin:0;">Single scan roles: Admin, Manager, SingleScan, Viewer · Bulk/schedules: Admin, Manager only.</p>
+      </div>
+
       <div style="margin-bottom:1.5rem;">
         <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.5rem;">
           <code style="color:var(--safe);background:var(--safe-bg);padding:.15rem .5rem;border-radius:4px;">GET</code>
@@ -263,7 +269,39 @@ waitress-serve --host 0.0.0.0 --port 5000 web.app:app</pre>
           <code style="color:var(--safe);background:var(--safe-bg);padding:.15rem .5rem;border-radius:4px;">GET</code>
           <code style="color:var(--text-primary);">/api/scans</code>
         </h3>
-        <p style="font-size:.85rem;margin-bottom:.5rem;">List all recent scan results.</p>
+        <p style="font-size:.85rem;margin-bottom:.5rem;">List scan history with pagination, search, and sorting for scan center.</p>
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.5rem;">
+          <code style="color:var(--warn);background:var(--warn-bg);padding:.15rem .5rem;border-radius:4px;">POST</code>
+          <code style="color:var(--text-primary);">/api/scans</code>
+        </h3>
+        <p style="font-size:.85rem;margin-bottom:.5rem;">Queue single target scan (supports autodiscovery + inventory metadata payload).</p>
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.5rem;">
+          <code style="color:var(--warn);background:var(--warn-bg);padding:.15rem .5rem;border-radius:4px;">POST</code>
+          <code style="color:var(--text-primary);">/api/scans/bulk</code>
+        </h3>
+        <p style="font-size:.85rem;margin-bottom:.5rem;">Queue sequential bulk scans (Admin/Manager only).</p>
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.5rem;">
+          <code style="color:var(--safe);background:var(--safe-bg);padding:.15rem .5rem;border-radius:4px;">GET</code>
+          <code style="color:var(--text-primary);">/api/scans/&lt;scan_id&gt;/status</code>
+        </h3>
+        <p style="font-size:.85rem;margin-bottom:.5rem;">Live status tracking for queued/running/completed scans.</p>
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.5rem;">
+          <code style="color:var(--safe);background:var(--safe-bg);padding:.15rem .5rem;border-radius:4px;">GET/POST/DELETE</code>
+          <code style="color:var(--text-primary);">/api/scan-schedules[/:id]</code>
+        </h3>
+        <p style="font-size:.85rem;margin-bottom:.5rem;">Create/list/delete recurring scan schedules (Admin/Manager only).</p>
       </div>
 
       <div style="margin-bottom:1.5rem;">

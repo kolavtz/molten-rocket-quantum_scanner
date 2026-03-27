@@ -12,16 +12,20 @@ from src import database as db
 from src.db import db_session
 from src.models import (
     Asset,
+    AssetMetric,
     CBOMEntry,
     CBOMSummary,
     Certificate,
     ComplianceScore,
+    DigitalLabel,
     PQCClassification,
     Scan,
 )
 from src.services.cbom_service import CbomService
 from src.services.cyber_reporting_service import CyberReportingService
+from src.services.distribution_service import DistributionService
 from src.services.pqc_service import PQCService
+from src.services.risk_calculation_service import RiskCalculationService
 from utils.api_helper import (
     apply_sort,
     build_data_envelope,
@@ -32,6 +36,13 @@ from utils.api_helper import (
 )
 
 api_dashboards_bp = Blueprint("api_dashboards", __name__)
+
+PQC_STATUS_EXPLANATIONS = {
+    "safe": "Algorithms or certificates currently classified as quantum-safe.",
+    "unsafe": "Cryptography currently classified as not quantum-safe.",
+    "migration_advised": "Still operational but migration to stronger/PQC alternatives is advised.",
+    "unknown": "Insufficient telemetry to confidently classify PQC status.",
+}
 
 
 def _safe_ratio(numerator: float, denominator: float) -> float:
@@ -320,6 +331,48 @@ def _discovery_kpis() -> dict[str, int]:
     }
 
 
+def _normalize_distribution_items(raw_distribution: dict[str, dict[str, Any]], label_key: str = "name") -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for key, value in (raw_distribution or {}).items():
+        if isinstance(value, dict):
+            count = int(value.get("count") or 0)
+            pct = round(float(value.get("pct") or 0), 2)
+        else:
+            count = int(value or 0)
+            pct = 0.0
+        items.append(
+            {
+                label_key: key,
+                "count": count,
+                "pct": pct,
+            }
+        )
+    return items
+
+
+def _paginate_distribution_items(items: list[dict[str, Any]], params: dict[str, Any], label_key: str = "name") -> tuple[list[dict[str, Any]], int]:
+    search_value = str(params.get("search") or "").strip().lower()
+    filtered_items = items
+    if search_value:
+        filtered_items = [
+            item
+            for item in items
+            if search_value in str(item.get(label_key, "")).lower()
+        ]
+
+    sort_key = str(params.get("sort") or "count").lower()
+    reverse = str(params.get("order") or "desc").lower() == "desc"
+    if sort_key in {"count", "pct"}:
+        filtered_items = sorted(filtered_items, key=lambda row: float(row.get(sort_key) or 0), reverse=reverse)
+    else:
+        filtered_items = sorted(filtered_items, key=lambda row: str(row.get(label_key, "")).lower(), reverse=reverse)
+
+    total = len(filtered_items)
+    offset = (params["page"] - 1) * params["page_size"]
+    paged_items = filtered_items[offset : offset + params["page_size"]]
+    return paged_items, total
+
+
 @api_dashboards_bp.app_errorhandler(404)
 def api_not_found(_err):
     if request.path.startswith("/api/"):
@@ -385,6 +438,238 @@ def api_home_metrics():
         return success_response(data, filters={})
     except Exception as exc:
         return error_response(f"Failed to load home metrics: {exc}", 500)
+
+
+@api_dashboards_bp.route("/api/distributions/asset-types", methods=["GET"])
+@login_required
+@api_guard
+def api_distribution_asset_types():
+    params = parse_paging_args(default_sort="count")
+    distribution = DistributionService.get_asset_type_distribution()
+    all_items = _normalize_distribution_items(distribution, label_key="asset_type")
+    items, total = _paginate_distribution_items(all_items, params, label_key="asset_type")
+    total_assets = sum(int(row.get("count") or 0) for row in all_items)
+
+    data = build_data_envelope(
+        items,
+        total,
+        params,
+        {
+            "total_assets": int(total_assets),
+            "categories": int(len(all_items)),
+        },
+    )
+    return success_response(data, filters=_filters_payload(params))
+
+
+@api_dashboards_bp.route("/api/distributions/risk-levels", methods=["GET"])
+@login_required
+@api_guard
+def api_distribution_risk_levels():
+    params = parse_paging_args(default_sort="count")
+    distribution = DistributionService.get_risk_level_distribution()
+    all_items = _normalize_distribution_items(distribution, label_key="risk_level")
+    items, total = _paginate_distribution_items(all_items, params, label_key="risk_level")
+    total_assets = sum(int(row.get("count") or 0) for row in all_items)
+
+    data = build_data_envelope(
+        items,
+        total,
+        params,
+        {
+            "total_assets": int(total_assets),
+            "levels": int(len(all_items)),
+            "critical_assets": int(next((row.get("count") for row in all_items if str(row.get("risk_level", "")).lower() == "critical"), 0) or 0),
+        },
+    )
+    return success_response(data, filters=_filters_payload(params))
+
+
+@api_dashboards_bp.route("/api/distributions/ip-versions", methods=["GET"])
+@login_required
+@api_guard
+def api_distribution_ip_versions():
+    params = parse_paging_args(default_sort="count")
+    distribution = DistributionService.get_ipv4_ipv6_distribution()
+    all_items = [
+        {
+            "ip_version": key,
+            "count": int((value or {}).get("count") or 0),
+            "pct": round(float((value or {}).get("pct") or 0), 2),
+        }
+        for key, value in (distribution or {}).items()
+    ]
+    items, total = _paginate_distribution_items(all_items, params, label_key="ip_version")
+    total_assets = sum(int(row.get("count") or 0) for row in all_items)
+
+    data = build_data_envelope(
+        items,
+        total,
+        params,
+        {
+            "total_assets": int(total_assets),
+            "dual_stack": int(next((row.get("count") for row in all_items if row.get("ip_version") == "dual_stack"), 0) or 0),
+        },
+    )
+    return success_response(data, filters=_filters_payload(params))
+
+
+@api_dashboards_bp.route("/api/distributions/cert-expiry", methods=["GET"])
+@login_required
+@api_guard
+def api_distribution_cert_expiry():
+    params = parse_paging_args(default_sort="count")
+    buckets = DistributionService.calculate_cert_expiry_buckets()
+    total_certificates = int((buckets or {}).get("total_active", 0) or 0) + int((buckets or {}).get("total_expired", 0) or 0)
+
+    bucket_items = [
+        {"bucket": "0-30_days", "count": int((buckets or {}).get("count_0_to_30_days", 0) or 0)},
+        {"bucket": "31-60_days", "count": int((buckets or {}).get("count_31_to_60_days", 0) or 0)},
+        {"bucket": "61-90_days", "count": int((buckets or {}).get("count_61_to_90_days", 0) or 0)},
+        {"bucket": ">90_days", "count": int((buckets or {}).get("count_greater_90_days", 0) or 0)},
+        {"bucket": "expired", "count": int((buckets or {}).get("count_expired", 0) or 0)},
+    ]
+    for row in bucket_items:
+        row["pct"] = round((float(row["count"]) / total_certificates) * 100.0, 2) if total_certificates > 0 else 0.0
+
+    items, total = _paginate_distribution_items(bucket_items, params, label_key="bucket")
+    data = build_data_envelope(
+        items,
+        total,
+        params,
+        {
+            "total_certificates": int(total_certificates),
+            "total_active": int((buckets or {}).get("total_active", 0) or 0),
+            "total_expired": int((buckets or {}).get("total_expired", 0) or 0),
+        },
+    )
+    return success_response(data, filters=_filters_payload(params))
+
+
+@api_dashboards_bp.route("/api/enterprise-metrics", methods=["GET"])
+@login_required
+@api_guard
+def api_enterprise_metrics():
+    params = parse_paging_args(default_sort="asset_cyber_score")
+
+    cyber_data = CyberReportingService.get_cyber_rating_data(limit=2000)
+    if _table_exists("findings"):
+        vulnerability = RiskCalculationService.get_vulnerability_summary()
+    else:
+        vulnerability = {
+            "total_findings": 0,
+            "critical_count": 0,
+            "high_count": 0,
+            "medium_count": 0,
+            "low_count": 0,
+            "assets_with_critical": 0,
+        }
+
+    has_asset_metrics = _table_exists("asset_metrics")
+    if has_asset_metrics:
+        metrics_query = db_session.query(Asset, AssetMetric).outerjoin(
+            AssetMetric,
+            AssetMetric.asset_id == Asset.id,
+        ).filter(Asset.is_deleted == False)
+        metrics_query = apply_sort(
+            metrics_query,
+            params.get("sort"),
+            params.get("order", "asc"),
+            {
+                "id": Asset.id,
+                "asset_name": Asset.target,
+                "pqc_score": AssetMetric.pqc_score,
+                "asset_cyber_score": AssetMetric.asset_cyber_score,
+                "risk_penalty": AssetMetric.risk_penalty,
+                "findings": AssetMetric.total_findings_count,
+            },
+            Asset.id,
+        )
+    else:
+        metrics_query = db_session.query(Asset).filter(Asset.is_deleted == False)
+        metrics_query = apply_sort(
+            metrics_query,
+            params.get("sort"),
+            params.get("order", "asc"),
+            {
+                "id": Asset.id,
+                "asset_name": Asset.target,
+            },
+            Asset.id,
+        )
+
+    if params.get("search"):
+        like = f"%{params['search']}%"
+        metrics_query = metrics_query.filter(
+            or_(
+                Asset.target.ilike(like),
+                Asset.owner.ilike(like),
+                Asset.asset_type.ilike(like),
+                AssetMetric.pqc_class_tier.ilike(like) if has_asset_metrics else Asset.target.ilike(like),
+                AssetMetric.digital_label.ilike(like) if has_asset_metrics else Asset.owner.ilike(like),
+            )
+        )
+
+    total = int(metrics_query.count())
+    rows = metrics_query.offset((params["page"] - 1) * params["page_size"]).limit(params["page_size"]).all()
+
+    label_map: dict[int, str] = {}
+    if _table_exists("digital_labels"):
+        label_rows = db_session.query(DigitalLabel).all()
+        label_map = {
+            int(getattr(row, "asset_id", 0) or 0): str(getattr(row, "label", "") or "")
+            for row in label_rows
+            if int(getattr(row, "asset_id", 0) or 0) > 0
+        }
+
+    items = []
+    for row in rows:
+        if has_asset_metrics:
+            asset, metric = row
+        else:
+            asset = row
+            metric = None
+        asset_id = int(getattr(asset, "id", 0) or 0)
+        effective_label = str(getattr(metric, "digital_label", "") or "").strip() or label_map.get(asset_id) or "Unclassified"
+        items.append(
+            {
+                "asset_id": asset_id,
+                "asset_name": str(getattr(asset, "target", "") or ""),
+                "owner": str(getattr(asset, "owner", "") or ""),
+                "asset_type": str(getattr(asset, "asset_type", "") or ""),
+                "risk_level": str(getattr(asset, "risk_level", "") or "Unknown"),
+                "pqc_score": round(float(getattr(metric, "pqc_score", 0) or 0), 2) if metric else 0.0,
+                "asset_cyber_score": round(float(getattr(metric, "asset_cyber_score", 0) or 0), 2) if metric else 0.0,
+                "risk_penalty": round(float(getattr(metric, "risk_penalty", 0) or 0), 2) if metric else 0.0,
+                "total_findings": int(getattr(metric, "total_findings_count", 0) or 0) if metric else 0,
+                "critical_findings": int(getattr(metric, "critical_findings_count", 0) or 0) if metric else 0,
+                "pqc_class_tier": str(getattr(metric, "pqc_class_tier", "Unknown") or "Unknown") if metric else "Unknown",
+                "digital_label": effective_label,
+            }
+        )
+
+    label_distribution: dict[str, int] = {}
+    for row in items:
+        label_key = str(row.get("digital_label") or "Unclassified")
+        label_distribution[label_key] = int(label_distribution.get(label_key, 0) or 0) + 1
+
+    enterprise_score = float(cyber_data.get("kpis", {}).get("avg_score", 0) or 0)
+    data = build_data_envelope(
+        items,
+        total,
+        params,
+        {
+            "enterprise_score": round(enterprise_score, 2),
+            "critical_assets": int(cyber_data.get("kpis", {}).get("critical_count", 0) or 0),
+            "total_findings": int(vulnerability.get("total_findings", 0) or 0),
+            "critical_findings": int(vulnerability.get("critical_count", 0) or 0),
+            "high_findings": int(vulnerability.get("high_count", 0) or 0),
+            "medium_findings": int(vulnerability.get("medium_count", 0) or 0),
+            "low_findings": int(vulnerability.get("low_count", 0) or 0),
+            "label_distribution": label_distribution,
+        },
+    )
+    return success_response(data, filters=_filters_payload(params))
 
 
 @api_dashboards_bp.route("/api/assets", methods=["GET"])
@@ -526,9 +811,66 @@ def api_cbom_charts():
             "cipher_suite_usage": cbom_data.get("cipher_suite_usage", {}),
             "top_cas": cbom_data.get("ca_distribution", {}),
             "protocol_versions": cbom_data.get("protocol_distribution", {}),
+            "minimum_elements": cbom_data.get("minimum_elements", {}),
+            "chart_explanations": {
+                "key_length_distribution": {
+                    "chart_type": "bar",
+                    "x_axis": "Key length bucket (bits)",
+                    "y_axis": "Number of certificate/crypto observations",
+                    "what_it_represents": "Each bar shows how many observed cryptographic assets are using a given key length.",
+                },
+                "protocol_versions": {
+                    "chart_type": "donut",
+                    "segments": "TLS/SSL versions",
+                    "what_it_represents": "Each segment shows relative protocol usage share across scanned inventory.",
+                },
+                "cipher_suite_usage": {
+                    "chart_type": "ranked list",
+                    "what_it_represents": "Top cipher suites by observed usage frequency.",
+                },
+                "top_cas": {
+                    "chart_type": "ranked list",
+                    "what_it_represents": "Certificate Authorities ranked by issued/observed certificate count.",
+                },
+                "minimum_elements": {
+                    "chart_type": "coverage bars",
+                    "what_it_represents": "Coverage of PNB CERT-IN minimum cryptographic CBOM elements in live SQL data.",
+                },
+            },
         }
     ]
     data = build_data_envelope(items, 1, {"page": 1, "page_size": 1}, cbom_data.get("kpis", {}))
+    return success_response(data, filters=_filters_payload(params))
+
+
+@api_dashboards_bp.route("/api/cbom/minimum-elements", methods=["GET"])
+@login_required
+@api_guard
+def api_cbom_minimum_elements():
+    params = parse_paging_args(default_sort="asset_name")
+    cbom_data = CbomService.get_cbom_dashboard_data(
+        page=params["page"],
+        page_size=params["page_size"],
+        sort_field=params["sort"],
+        sort_order=params["order"],
+        search_term=params["search"],
+    )
+
+    minimum_elements = cbom_data.get("minimum_elements", {}) or {}
+    items = minimum_elements.get("items", []) or []
+    total = int(minimum_elements.get("total_entries", len(items)) or 0)
+    kpis = {
+        "required_fields": int((minimum_elements.get("coverage_summary") or {}).get("required_fields", 0) or 0),
+        "covered_fields": int((minimum_elements.get("coverage_summary") or {}).get("covered_fields", 0) or 0),
+        "coverage_pct": float((minimum_elements.get("coverage_summary") or {}).get("coverage_pct", 0) or 0),
+    }
+    data = build_data_envelope(items, total, params, kpis)
+    data["minimum_elements"] = {
+        "asset_type_distribution": minimum_elements.get("asset_type_distribution", {}),
+        "field_coverage": minimum_elements.get("field_coverage", {}),
+        "field_definitions": minimum_elements.get("field_definitions", {}),
+        "coverage_summary": minimum_elements.get("coverage_summary", {}),
+    }
     return success_response(data, filters=_filters_payload(params))
 
 
@@ -560,7 +902,57 @@ def api_pqc_metrics():
         "critical": _safe_ratio(float(grade_counts.get("Critical", 0)), float(total)),
         "avg_score": float(data_vm.get("kpis", {}).get("avg_score", 0) or 0),
     }
-    data = build_data_envelope([], 0, params, kpis)
+
+    raw_status_rows = (
+        db_session.query(func.lower(PQCClassification.quantum_safe_status), func.count(PQCClassification.id))
+        .filter(PQCClassification.is_deleted == False)
+        .group_by(func.lower(PQCClassification.quantum_safe_status))
+        .all()
+    )
+    normalized_status_counts = {
+        "safe": 0,
+        "unsafe": 0,
+        "migration_advised": 0,
+        "unknown": 0,
+    }
+    for status, count in raw_status_rows:
+        status_key = str(status or "unknown").strip().lower()
+        if status_key in {"safe", "quantum_safe", "quantum-safe"}:
+            normalized_status_counts["safe"] += int(count or 0)
+        elif status_key in {"unsafe", "quantum_vulnerable", "quantum-vulnerable", "vulnerable"}:
+            normalized_status_counts["unsafe"] += int(count or 0)
+        elif status_key in {"migration_advised", "migration-advised", "migration advised"}:
+            normalized_status_counts["migration_advised"] += int(count or 0)
+        else:
+            normalized_status_counts["unknown"] += int(count or 0)
+
+    status_total = max(1, sum(normalized_status_counts.values()))
+    status_bars = [
+        {
+            "status": key,
+            "count": int(value),
+            "pct": _safe_ratio(float(value), float(status_total)),
+            "description": PQC_STATUS_EXPLANATIONS.get(key, ""),
+        }
+        for key, value in normalized_status_counts.items()
+    ]
+
+    data = build_data_envelope(
+        [
+            {
+                "status_bar_chart": status_bars,
+                "chart_explanation": {
+                    "chart_type": "bar",
+                    "x_axis": "PQC status bucket",
+                    "y_axis": "Percentage of classified observations",
+                    "what_it_represents": "Each bar shows the share of PQC classifications in safe/unsafe/migration_advised/unknown status.",
+                },
+            }
+        ],
+        1,
+        {"page": 1, "page_size": 1},
+        kpis,
+    )
     return success_response(data, filters=_filters_payload(params))
 
 
@@ -890,10 +1282,16 @@ def api_docs():
         "GET /api/home/metrics",
         "GET /api/assets",
         "GET /api/discovery?tab=domains|ssl|ips|software",
+        "GET /api/distributions/asset-types",
+        "GET /api/distributions/risk-levels",
+        "GET /api/distributions/ip-versions",
+        "GET /api/distributions/cert-expiry",
+        "GET /api/enterprise-metrics",
         "GET /api/cbom/metrics",
         "GET /api/cbom/entries",
         "GET /api/cbom/summary?scan_id=...",
         "GET /api/cbom/charts",
+        "GET /api/cbom/minimum-elements",
         "GET /api/pqc-posture/metrics",
         "GET /api/pqc-posture/assets",
         "GET /api/cyber-rating",

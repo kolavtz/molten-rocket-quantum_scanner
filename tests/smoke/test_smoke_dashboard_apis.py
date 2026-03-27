@@ -4,6 +4,11 @@ import json
 API_ENDPOINTS = [
     "/api/assets",
     "/api/discovery",
+    "/api/distributions/asset-types",
+    "/api/distributions/risk-levels",
+    "/api/distributions/ip-versions",
+    "/api/distributions/cert-expiry",
+    "/api/enterprise-metrics",
     "/api/cbom",
     "/api/pqc-posture",
     "/api/cyber-rating",

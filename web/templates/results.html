@@ -241,12 +241,12 @@
     const chartData = JSON.parse(document.getElementById('chartDataSource').textContent);
     const monoFont = "'JetBrains Mono', monospace";
     const cssVars = getComputedStyle(document.documentElement);
-    const textColor = cssVars.getPropertyValue('--text-primary').trim() || '#e8ecf1';
-    const gridColor = cssVars.getPropertyValue('--border-subtle').trim() || '#2a3245';
-    const safeColor = cssVars.getPropertyValue('--safe').trim() || '#34d399';
-    const warnColor = cssVars.getPropertyValue('--warn').trim() || '#fbbf24';
-    const dangerColor = cssVars.getPropertyValue('--danger').trim() || '#f87171';
-    const accentColor = cssVars.getPropertyValue('--accent').trim() || '#4a9ead';
+    const textColor = cssVars.getPropertyValue('--text-primary').trim() || 'var(--text-primary)';
+    const gridColor = cssVars.getPropertyValue('--border-subtle').trim() || 'var(--border-subtle)';
+    const safeColor = cssVars.getPropertyValue('--safe').trim() || 'var(--safe)';
+    const warnColor = cssVars.getPropertyValue('--warn').trim() || 'var(--warn)';
+    const dangerColor = cssVars.getPropertyValue('--danger').trim() || 'var(--danger)';
+    const accentColor = cssVars.getPropertyValue('--accent').trim() || 'var(--accent)';
     
     // Global defaults
     Chart.defaults.color = textColor;
