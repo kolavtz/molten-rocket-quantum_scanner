@@ -72,6 +72,7 @@ class CbomService:
             Asset.is_deleted == False,
             Scan.is_deleted == False,
             Scan.status == "complete",
+            Scan.add_to_inventory == True,
         ]
         scan_time_expr = func.coalesce(Scan.scanned_at, Scan.completed_at, Scan.started_at)
         if start_date:

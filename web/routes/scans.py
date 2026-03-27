@@ -149,6 +149,7 @@ def _build_scan_item_from_report(report: dict[str, Any]) -> dict[str, Any]:
         "started_at": started_at,
         "completed_at": completed_at,
         "date": started_at or completed_at or "",
+        "add_to_inventory": bool(report.get("add_to_inventory", False)),
         "actions": f"/results/{scan_id}" if scan_id else "",
     }
 
@@ -512,6 +513,7 @@ def _process_job(
                     asset_class_hint=(str(job_options.get("asset_class_hint") or "").strip() or None),
                     scan_kind="api_bulk" if len(targets) > 1 else "api_single",
                     scanned_by=requested_by,
+                    add_to_inventory=bool(job_options.get("add_to_inventory")),
                 )
 
                 if not testing_mode and not bool(report.get("orm_persisted")):

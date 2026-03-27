@@ -1243,6 +1243,7 @@ def run_scan_pipeline(
     asset_class_hint: str | None = None,
     scan_kind: str = "manual",
     scanned_by: str | None = None,
+    add_to_inventory: bool = False,
 ) -> dict:
     """Execute the full scan pipeline and return a report dict.
 
@@ -1392,6 +1393,7 @@ def run_scan_pipeline(
     report["status"] = "complete"
     report["scan_kind"] = str(scan_kind or "manual")
     report["scanned_by"] = str(scanned_by or "system")
+    report["add_to_inventory"] = bool(add_to_inventory)
     report["tls_results"] = tls_results
     report["pqc_assessments"] = pqc_dicts
     report["recommendations_detailed"] = recommendations
@@ -1442,39 +1444,41 @@ def run_scan_pipeline(
 
         scan_pk = getattr(db_scan, "id", None) or getattr(db_scan, "scan_id", None)
         
-        # Resolve Asset
-        inventory_asset = (
-            db_session.query(Asset)
-            .filter(func.lower(Asset.name) == canonical_target)
-            .first()
-        )
-        if inventory_asset and getattr(inventory_asset, "is_deleted", False):
-            inventory_asset.is_deleted = False
-        if not inventory_asset:
-            score_risk = "Critical"
-            if overall_score >= 80:
-                score_risk = "Low"
-            elif overall_score >= 60:
-                score_risk = "Medium"
-            elif overall_score >= 40:
-                score_risk = "High"
-            inventory_asset = Asset(
-                name=canonical_target,
-                url=f"https://{canonical_target}" if canonical_target and not canonical_target.startswith(("http://", "https://")) else canonical_target,
-                asset_type="Web App",
-                owner=str(scanned_by or "Unassigned"),
-                risk_level=score_risk,
-                notes="Auto-created from scan pipeline",
-                is_deleted=False,
+        # Resolve Asset (only when the user chooses to persist to inventory)
+        asset_id = None
+        if add_to_inventory:
+            inventory_asset = (
+                db_session.query(Asset)
+                .filter(func.lower(Asset.name) == canonical_target)
+                .first()
             )
-            db_session.add(inventory_asset)
-            db_session.flush()
-        asset_id = int(getattr(inventory_asset, "id", 0) or 0)
-        inventory_asset.last_scan_id = int(getattr(db_scan, "id", 0) or 0)
-        if not str(getattr(inventory_asset, "url", "") or "") and canonical_target:
-            inventory_asset.url = f"https://{canonical_target}"
-        if not str(getattr(inventory_asset, "owner", "") or "").strip() and scanned_by:
-            inventory_asset.owner = str(scanned_by)
+            if inventory_asset and getattr(inventory_asset, "is_deleted", False):
+                inventory_asset.is_deleted = False
+            if not inventory_asset:
+                score_risk = "Critical"
+                if overall_score >= 80:
+                    score_risk = "Low"
+                elif overall_score >= 60:
+                    score_risk = "Medium"
+                elif overall_score >= 40:
+                    score_risk = "High"
+                inventory_asset = Asset(
+                    name=canonical_target,
+                    url=f"https://{canonical_target}" if canonical_target and not canonical_target.startswith(("http://", "https://")) else canonical_target,
+                    asset_type="Web App",
+                    owner=str(scanned_by or "Unassigned"),
+                    risk_level=score_risk,
+                    notes="Auto-created from scan pipeline",
+                    is_deleted=False,
+                )
+                db_session.add(inventory_asset)
+                db_session.flush()
+            asset_id = int(getattr(inventory_asset, "id", 0) or 0)
+            inventory_asset.last_scan_id = int(getattr(db_scan, "id", 0) or 0)
+            if not str(getattr(inventory_asset, "url", "") or "") and canonical_target:
+                inventory_asset.url = f"https://{canonical_target}"
+            if not str(getattr(inventory_asset, "owner", "") or "").strip() and scanned_by:
+                inventory_asset.owner = str(scanned_by)
         
         # Discovery Items
         discovery_types = {"domain"}
@@ -1499,12 +1503,13 @@ def run_scan_pipeline(
                 )
                 db_session.add(discovery_item)
 
-        for svc in discovered_services:
-            host = str(svc.get("host") or "").strip()
-            if host and not str(getattr(inventory_asset, "ipv4", "") or "") and host.count(":") == 0 and any(ch.isdigit() for ch in host):
-                inventory_asset.ipv4 = host
-            if host and not str(getattr(inventory_asset, "ipv6", "") or "") and host.count(":") > 1:
-                inventory_asset.ipv6 = host
+        if inventory_asset is not None:
+            for svc in discovered_services:
+                host = str(svc.get("host") or "").strip()
+                if host and not str(getattr(inventory_asset, "ipv4", "") or "") and host.count(":") == 0 and any(ch.isdigit() for ch in host):
+                    inventory_asset.ipv4 = host
+                if host and not str(getattr(inventory_asset, "ipv6", "") or "") and host.count(":") > 1:
+                    inventory_asset.ipv6 = host
 
         _persist_split_discovery_rows(
             scan_pk=int(scan_pk) if scan_pk is not None else None,
@@ -2958,12 +2963,14 @@ def api_dashboard_unified():
             ports = _parse_ports_from_payload(payload.get("ports"))
             clean_target, _ = sanitize_target(target)
             scanned_by = getattr(current_user, "username", None) if getattr(current_user, "is_authenticated", False) else None
+            add_to_inventory = bool(payload.get("add_to_inventory", False))
             report = run_scan_pipeline(
                 clean_target,
                 ports=ports,
                 asset_class_hint=asset_class_hint,
                 scan_kind="api_scan_run",
                 scanned_by=scanned_by,
+                add_to_inventory=add_to_inventory,
             )
 
             if not app.config.get("TESTING", False) and not bool(report.get("orm_persisted")):
@@ -3558,6 +3565,7 @@ def scan():
                 asset_class_hint=asset_class_hint,
                 scan_kind="manual_single",
                 scanned_by=getattr(current_user, "username", None),
+                add_to_inventory=add_to_inventory,
             )
             
             # Ensure persistence to both JSON and MySQL
@@ -3604,6 +3612,7 @@ def scan():
                         asset_class_hint=asset_class_hint,
                         scan_kind="manual_bulk",
                         scanned_by=getattr(current_user, "username", None),
+                        add_to_inventory=add_to_inventory,
                     )
                     
                     # Persist to both JSON and MySQL

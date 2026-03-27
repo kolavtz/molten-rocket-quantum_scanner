@@ -149,10 +149,18 @@ class InventoryScanService:
 
             scanned_by = str(getattr(asset, "owner", "") or "system")
             try:
-                report = self.scan_runner(target, scan_kind=scan_kind, scanned_by=scanned_by)
+                report = self.scan_runner(
+                    target,
+                    scan_kind=scan_kind,
+                    scanned_by=scanned_by,
+                    add_to_inventory=True,
+                )
             except TypeError:
                 # Backward compatibility for older scan runners that accept target only.
-                report = self.scan_runner(target)
+                try:
+                    report = self.scan_runner(target, scan_kind=scan_kind, scanned_by=scanned_by)
+                except TypeError:
+                    report = self.scan_runner(target)
             status = "complete" if report.get("status") == "complete" else "failed"
             if status == "complete":
                 self._sync_asset_from_report(asset, report)
