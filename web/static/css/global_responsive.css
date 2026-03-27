@@ -90,13 +90,9 @@ td.url-column {
 }
 
 /* 6. Fix for sidebar overlap on mid-sized screens (900px - 1100px) */
+/* Sidebar removed, topbar layout utilized */
 @media (min-width: 901px) and (max-width: 1200px) {
-    .sidebar {
-        width: 240px !important;
-    }
-    .main-content {
-        margin-left: 240px !important;
-    }
+    /* No sidebar margin needed */
 }
 
 /* 7. Mobile Card View Replacement for Tables */

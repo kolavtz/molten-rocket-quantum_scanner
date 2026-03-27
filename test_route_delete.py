@@ -1,6 +1,7 @@
 import sys
 import json
 from flask import session
+from sqlalchemy import text
 
 sys.path.append('.')
 from web.app import app
@@ -15,7 +16,12 @@ with app.test_client() as client:
     if not user:
         user = User(id='1786cc59-27f5-4ecf-8716-223b3bb1b287', username='admin_test', role='Admin')
         db_session.add(user)
-        db_session.commit()
+        try:
+            db_session.commit()
+        except:
+            db_session.rollback()
+            db_session.execute(text("INSERT INTO users (id, username, role, password_hash) VALUES (:id, :username, :role, :password_hash)"), {'id': '1786cc59-27f5-4ecf-8716-223b3bb1b287', 'username': 'admin_test', 'role': 'Admin', 'password_hash': 'dummy'})
+            db_session.commit()
     elif user.role != 'Admin':
         user.role = 'Admin'
         db_session.commit()

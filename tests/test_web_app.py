@@ -269,7 +269,7 @@ class TestModulePages:
     def test_api_asset_create_runs_scan_pipeline(self, client, mock_admin):
         target = _new_target('api-create-scan')
 
-        def fake_runner(scan_target, scan_kind="manual", scanned_by=None):
+        def fake_runner(scan_target, scan_kind="manual", scanned_by=None, add_to_inventory=True, **kwargs):
             started_at = datetime.now(timezone.utc).replace(tzinfo=None)
             report = {
                 'scan_id': f"scan-{uuid4().hex[:8]}",
@@ -310,7 +310,7 @@ class TestModulePages:
                 headers={'Accept': 'application/json'},
             )
 
-        assert resp.status_code == 201
+        print(resp.data); assert resp.status_code == 201
         payload = json.loads(resp.data)
         assert payload.get('success') is True
         assert payload.get('data', {}).get('scan', {}).get('status') == 'complete'

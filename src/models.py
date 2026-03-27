@@ -48,6 +48,7 @@ class User(Base):
     id = Column(String(36), primary_key=True)
     username = Column(String(50), unique=True, nullable=False)
     role = Column(String(50), default="Viewer")
+    password_hash = Column(String(255), default='')
 
 class Asset(Base, SoftDeleteMixin):
     __tablename__ = 'assets'
@@ -104,6 +105,7 @@ class Scan(Base, SoftDeleteMixin):
     quantum_safe = Column(Integer, default=0)
     quantum_vuln = Column(Integer, default=0)
     cbom_path = Column(String(500), nullable=True)
+    add_to_inventory = Column(Boolean, default=False, nullable=False)
     error_message = Column(Text, nullable=True)
     report_json = Column(Text, nullable=False)
     is_encrypted = Column(Boolean, default=False)

@@ -27,25 +27,7 @@ from utils.table_helper import paginate_query
 
 logger = logging.getLogger(__name__)
 
-# Service Instantiations
-asset_service = AssetService()
-certificate_service = CertificateTelemetryService()
-inventory_service = InventoryScanService()
-
 assets_bp = Blueprint("assets", __name__)
-
-@assets_bp.route("/assets-api")
-@login_required
-def assets_api_view():
-    """Renders the Asset Inventory view with UniversalTable integration."""
-    return render_template("assets_api.html")
-
-@assets_bp.route("/dev-assets")
-def dev_assets_view():
-    """Development bypass for UI auditing."""
-    if current_app.debug or request.remote_addr == "127.0.0.1":
-        return render_template("assets_api.html")
-    return redirect(url_for("login"))
 
 ALLOWED_DELETE_ROLES = {"Admin", "Manager"}
 ALLOWED_RISK_LEVELS = {"Low", "Medium", "High", "Critical"}
@@ -254,26 +236,14 @@ def _make_action_html(asset: dict, csrf_token: str) -> str:
 def _decorate_asset_rows(rows: list[dict], csrf_token: str) -> list[dict]:
     decorated: list[dict] = []
     for row in rows:
-        asset_id = row.get("id")
-        # Ensure the name is escaped but the tags we build are NOT.
-        raw_name = str(row.get("name") or row.get("asset_name") or "Unknown")
-        safe_name = escape(raw_name)
         risk = str(row.get("risk_level") or row.get("risk") or "Medium")
         cert_status = str(row.get("cert_status") or "Not Scanned")
-        
-        name_html = safe_name
-        if asset_id:
-            detail_url = url_for('assets.asset_details', asset_id=asset_id)
-            name_html = f'<a href="{detail_url}" class="asset-link" title="View details for {safe_name}">{safe_name}</a>'
-
         decorated.append(
             {
                 **row,
-                "name": name_html,
-                "asset_name": name_html,
-                "select_html": f'<input type="checkbox" class="asset-select-checkbox" name="asset_ids" value="{asset_id or ""}" form="bulkAssetsForm" data-row-checkbox>',
-                "risk_html": f'<span class="risk-pill risk-{risk.lower()}">{risk}</span>',
-                "cert_status_html": f'<span class="cert-pill cert-{cert_status.lower().replace(" ", "-")}">{cert_status}</span>',
+                "select_html": f'<input type="checkbox" class="asset-select-checkbox" name="asset_ids" value="{escape(str(row.get("id") or ""))}" form="bulkAssetsForm" data-row-checkbox>',
+                "risk_html": f'<span class="risk-pill risk-{escape(risk.lower())}">{escape(risk)}</span>',
+                "cert_status_html": f'<span class="cert-pill cert-{escape(cert_status.lower().replace(" ", "-"))}">{escape(cert_status)}</span>',
                 "actions_html": _make_action_html(row, csrf_token),
                 "last_scan": row.get("last_scan") or "Never",
                 "key_length": row.get("key_length") or "-",
@@ -292,7 +262,7 @@ def _build_headers() -> list[dict]:
             "safe_label": True,
             "class_name": "select-column sticky-column",
         },
-        {"label": "Asset Name", "field": "name", "sortable": True, "class_name": "asset-name-column", "safe": True},
+        {"label": "Asset Name", "field": "name", "sortable": True, "class_name": "asset-name-column"},
         {"label": "URL", "field": "url", "sortable": True, "class_name": "url-column"},
         {"label": "Type", "field": "asset_type", "sortable": True},
         {"label": "Owner", "field": "owner", "sortable": True},
@@ -431,12 +401,8 @@ def build_assets_api_response(
             "scan_status",
         ],
     )
-    # Generate CSRF for row decoration
-    from flask_wtf.csrf import generate_csrf
-    asset_csrf_token = generate_csrf()
-    
     data = {
-        "items": _decorate_asset_rows(list(page_data["items"]), asset_csrf_token),
+        "items": list(page_data["items"]),
         "total": int(page_data["total"]),
         "page": int(page_data["page"]),
         "page_size": int(page_data["page_size"]),
@@ -1387,11 +1353,3 @@ def asset_edit_api(asset_id: int):
 @login_required
 def asset_delete_api(asset_id: int):
     return asset_delete(asset_id)
-
-
-@assets_bp.route("/api/assets/<int:asset_id>/comprehensive", methods=["GET"])
-@login_required
-def asset_comprehensive_detail_api(asset_id: int):
-    """Returns consolidated telemetry for the unified detail popup."""
-    result = asset_service.get_comprehensive_asset_detail(asset_id)
-    return jsonify(result)
