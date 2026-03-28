@@ -1,5 +1,5 @@
 # pyre-ignore-all-errors
-from sqlalchemy import Column, Integer, BigInteger, String, Boolean, DateTime, ForeignKey, Float, Text, event
+from sqlalchemy import Column, Integer, BigInteger, String, Boolean, DateTime, ForeignKey, Float, Text, event, Enum, Date, Numeric
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.orm import declarative_base, relationship, synonym
 from sqlalchemy.sql import func
@@ -41,7 +41,7 @@ class SoftDeleteMixin:
     
     @declared_attr
     def deleted_by_user_id(cls):
-        return Column(DeletedByUserIdType(length=128), ForeignKey('users.id'), nullable=True)
+        return Column(DeletedByUserIdType(), ForeignKey('users.id'), nullable=True)
 
 class User(Base):
     __tablename__ = 'users'
@@ -52,7 +52,7 @@ class User(Base):
 
 class Asset(Base, SoftDeleteMixin):
     __tablename__ = 'assets'
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     asset_key = Column(String(255), unique=True, nullable=True, index=True)
     target = Column(String(255), nullable=False, unique=True, index=True)
     name = synonym('target')
@@ -69,7 +69,10 @@ class Asset(Base, SoftDeleteMixin):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     
     # Relationships
-    discovery_items = relationship("DiscoveryItem", back_populates="asset", cascade="all, delete-orphan", passive_deletes=True)
+    discovery_domains = relationship("DiscoveryDomain", back_populates="asset", cascade="all, delete-orphan", passive_deletes=True)
+    discovery_ssl = relationship("DiscoverySSL", back_populates="asset", cascade="all, delete-orphan", passive_deletes=True)
+    discovery_ips = relationship("DiscoveryIP", back_populates="asset", cascade="all, delete-orphan", passive_deletes=True)
+    discovery_software = relationship("DiscoverySoftware", back_populates="asset", cascade="all, delete-orphan", passive_deletes=True)
     certificates = relationship("Certificate", back_populates="asset", cascade="all, delete-orphan", passive_deletes=True)
     pqc_classifications = relationship("PQCClassification", back_populates="asset", cascade="all, delete-orphan", passive_deletes=True)
     cbom_entries = relationship("CBOMEntry", back_populates="asset", cascade="all, delete-orphan", passive_deletes=True)
@@ -86,7 +89,7 @@ def _asset_before_insert(_mapper, _connection, target):
 
 class Scan(Base, SoftDeleteMixin):
     __tablename__ = 'scans'
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     scan_uid = Column(String(36), unique=True, nullable=True, index=True)
     scan_id = Column(String(36), unique=True, nullable=False, index=True)
     requested_target = Column(String(512), nullable=True)
@@ -117,7 +120,10 @@ class Scan(Base, SoftDeleteMixin):
     
     # Relationships
     cbom_summary = relationship("CBOMSummary", back_populates="scan", uselist=False, cascade="all, delete-orphan", passive_deletes=True)
-    discovery_items = relationship("DiscoveryItem", back_populates="scan", cascade="all, delete-orphan", passive_deletes=True)
+    discovery_domains = relationship("DiscoveryDomain", back_populates="scan", cascade="all, delete-orphan", passive_deletes=True)
+    discovery_ssl = relationship("DiscoverySSL", back_populates="scan", cascade="all, delete-orphan", passive_deletes=True)
+    discovery_ips = relationship("DiscoveryIP", back_populates="scan", cascade="all, delete-orphan", passive_deletes=True)
+    discovery_software = relationship("DiscoverySoftware", back_populates="scan", cascade="all, delete-orphan", passive_deletes=True)
     cbom_entries = relationship("CBOMEntry", back_populates="scan", cascade="all, delete-orphan", passive_deletes=True)
     certificates = relationship("Certificate", back_populates="scan", cascade="all, delete-orphan", passive_deletes=True)
     pqc_classifications = relationship("PQCClassification", back_populates="scan", cascade="all, delete-orphan", passive_deletes=True)
@@ -151,21 +157,82 @@ def _scan_before_save(_mapper, _connection, target):
     target.scan_kind = str(getattr(target, "scan_kind", "") or "manual").strip().lower() or "manual"
 
 
-class DiscoveryItem(Base, SoftDeleteMixin):
-    __tablename__ = 'discovery_items'
-    id = Column(Integer, primary_key=True)
+
+class DiscoveryDomain(Base, SoftDeleteMixin):
+    __tablename__ = 'discovery_domains'
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
-    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True)
-    type = Column(String(50), nullable=False) # domain, ssl, ip, software
-    status = Column(String(50), nullable=False) # new, confirmed, ignored, false_positive
-    detection_date = Column(DateTime, default=func.now())
-    # JSON or arbitrary fields can be mapped here or as EAV, but leaving structural context
-    asset = relationship("Asset", back_populates="discovery_items")
-    scan = relationship("Scan", back_populates="discovery_items")
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
+    domain = Column(String(512), nullable=False)
+    registrar = Column(String(255))
+    registration_date = Column(Date)
+    status = Column(Enum('new', 'confirmed', 'ignored', 'false_positive'), default='new')
+    promoted_to_inventory = Column(Boolean, default=False)
+    promoted_at = Column(DateTime)
+    promoted_by = Column(String(36), ForeignKey('users.id', ondelete='SET NULL'))
+
+    asset = relationship("Asset", back_populates="discovery_domains")
+    scan = relationship("Scan", back_populates="discovery_domains")
+
+class DiscoverySSL(Base, SoftDeleteMixin):
+    __tablename__ = 'discovery_ssl'
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
+    endpoint = Column(String(512), nullable=False)
+    tls_version = Column(String(50))
+    cipher_suite = Column(String(255))
+    key_exchange = Column(String(120))
+    key_length = Column(Integer)
+    subject_cn = Column(String(255))
+    issuer = Column(String(255))
+    valid_until = Column(DateTime)
+    status = Column(Enum('new', 'confirmed', 'ignored', 'false_positive'), default='new')
+    promoted_to_inventory = Column(Boolean, default=False)
+    promoted_at = Column(DateTime)
+    promoted_by = Column(String(36), ForeignKey('users.id', ondelete='SET NULL'))
+
+    asset = relationship("Asset", back_populates="discovery_ssl")
+    scan = relationship("Scan", back_populates="discovery_ssl")
+
+class DiscoveryIP(Base, SoftDeleteMixin):
+    __tablename__ = 'discovery_ips'
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
+    ip_address = Column(String(80), nullable=False)
+    subnet = Column(String(80))
+    asn = Column(String(80))
+    netname = Column(String(255))
+    location = Column(String(255))
+    status = Column(Enum('new', 'confirmed', 'ignored', 'false_positive'), default='new')
+    promoted_to_inventory = Column(Boolean, default=False)
+    promoted_at = Column(DateTime)
+    promoted_by = Column(String(36), ForeignKey('users.id', ondelete='SET NULL'))
+
+    asset = relationship("Asset", back_populates="discovery_ips")
+    scan = relationship("Scan", back_populates="discovery_ips")
+
+class DiscoverySoftware(Base, SoftDeleteMixin):
+    __tablename__ = 'discovery_software'
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
+    product = Column(String(255), nullable=False)
+    version = Column(String(120))
+    category = Column(String(80))
+    cpe = Column(String(255))
+    status = Column(Enum('new', 'confirmed', 'ignored', 'false_positive'), default='new')
+    promoted_to_inventory = Column(Boolean, default=False)
+    promoted_at = Column(DateTime)
+    promoted_by = Column(String(36), ForeignKey('users.id', ondelete='SET NULL'))
+
+    asset = relationship("Asset", back_populates="discovery_software")
+    scan = relationship("Scan", back_populates="discovery_software")
 
 class Certificate(Base, SoftDeleteMixin):
     __tablename__ = 'certificates'
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
     endpoint = Column(String(512), nullable=True, index=True)
@@ -218,8 +285,8 @@ class Certificate(Base, SoftDeleteMixin):
 
 class PQCClassification(Base, SoftDeleteMixin):
     __tablename__ = 'pqc_classification'
-    id = Column(Integer, primary_key=True)
-    certificate_id = Column(Integer, ForeignKey('certificates.id', ondelete='CASCADE'), nullable=True, index=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    certificate_id = Column(BigInteger, ForeignKey('certificates.id', ondelete='CASCADE'), nullable=True, index=True)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
     
@@ -242,7 +309,7 @@ class PQCClassification(Base, SoftDeleteMixin):
 
 class CBOMSummary(Base, SoftDeleteMixin):
     __tablename__ = 'cbom_summary'
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, unique=True)
     total_components = Column(Integer, default=0)
@@ -253,7 +320,7 @@ class CBOMSummary(Base, SoftDeleteMixin):
 
 class CBOMEntry(Base, SoftDeleteMixin):
     __tablename__ = 'cbom_entries'
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True)
     algorithm_name = Column(String(100))
@@ -296,7 +363,7 @@ class CBOMEntry(Base, SoftDeleteMixin):
 
 class ComplianceScore(Base, SoftDeleteMixin):
     __tablename__ = 'compliance_scores'
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
     score_type = Column("score_type", String(50)) # pqc, tls, overall
@@ -307,7 +374,7 @@ class ComplianceScore(Base, SoftDeleteMixin):
 
 class CyberRating(Base, SoftDeleteMixin):
     __tablename__ = 'cyber_rating'
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
     organization_id = synonym("asset_id")
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
@@ -321,14 +388,9 @@ class CyberRating(Base, SoftDeleteMixin):
 # ===============================================
 
 class Finding(Base, SoftDeleteMixin):
-    """
-    Audit trail for all discovered security findings/issues.
-    Based on Math Spec Section 8 (Reporting Metrics).
-    Stores issues: weak_tls, expiring_cert, weak_key, weak_cipher, etc.
-    """
     __tablename__ = 'findings'
     
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     finding_id = Column(String(36), unique=True, nullable=False, index=True)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
@@ -342,7 +404,7 @@ class Finding(Base, SoftDeleteMixin):
     metadata_json = Column(Text, nullable=True)  # JSON-serialized metadata
     
     # Related Entities
-    certificate_id = Column(Integer, ForeignKey('certificates.id', ondelete='SET NULL'), nullable=True)
+    certificate_id = Column(BigInteger, ForeignKey('certificates.id', ondelete='SET NULL'), nullable=True)
     cbom_entry_id = Column(Integer, ForeignKey('cbom_entries.id', ondelete='SET NULL'), nullable=True)
     
     # Timestamps

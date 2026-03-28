@@ -170,7 +170,7 @@ dashboard_bp = Blueprint('main', __name__)
 
 mail = Mail(app)
 csrf = CSRFProtect(app)
-talisman = Talisman(app, content_security_policy=CSP_CONFIG, force_https=FORCE_HTTPS)
+talisman = Talisman(app, content_security_policy=CSP_CONFIG, force_https=FORCE_HTTPS, strict_transport_security=FORCE_HTTPS)
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
@@ -1413,7 +1413,8 @@ def run_scan_pipeline(
 
     # 11. Save to MySQL natively via SQLAlchemy Models
     from src.db import db_session
-    from src.models import Scan, Asset, Certificate, DiscoveryItem, PQCClassification, CBOMSummary, CBOMEntry
+    from src.models import Scan, Asset, Certificate, PQCClassification, CBOMSummary, CBOMEntry, \
+        DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware
     from sqlalchemy import func
     from sqlalchemy.exc import SQLAlchemyError
     report["orm_persisted"] = False
@@ -1480,29 +1481,6 @@ def run_scan_pipeline(
             if not str(getattr(inventory_asset, "owner", "") or "").strip() and scanned_by:
                 inventory_asset.owner = str(scanned_by)
         
-        # Discovery Items
-        discovery_types = {"domain"}
-        for svc in discovered_services:
-            host = str(svc.get("host") or "").strip()
-            if host:
-                discovery_types.add("ip")
-            if str(svc.get("banner") or "").strip():
-                discovery_types.add("software")
-        if tls_results:
-            discovery_types.add("ssl")
-
-        detection_dt = datetime.now()
-        if _db_table_exists("discovery_items"):
-            for dtype in sorted(discovery_types):
-                discovery_item = DiscoveryItem(
-                    scan_id=int(scan_pk) if scan_pk is not None else None,
-                    asset_id=asset_id,
-                    type=dtype,
-                    status="confirmed",
-                    detection_date=detection_dt,
-                )
-                db_session.add(discovery_item)
-
         if inventory_asset is not None:
             for svc in discovered_services:
                 host = str(svc.get("host") or "").strip()
@@ -4490,7 +4468,8 @@ def recycle_bin():
       - delete_scans: Permanently purge deleted scans (hard delete, Admin-only)
     """
     from src.db import db_session
-    from src.models import Asset, Scan, DiscoveryItem, Certificate, PQCClassification, CBOMEntry, ComplianceScore, CBOMSummary, CyberRating
+    from src.models import Asset, Scan, Certificate, PQCClassification, CBOMEntry, ComplianceScore, CBOMSummary, CyberRating, \
+        DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware
     
     # Check admin/manager permission for destructive actions
     ALLOWED_RESTORE_ROLES = {"Admin", "Manager"}
@@ -4564,7 +4543,7 @@ def recycle_bin():
                         asset.deleted_by_user_id = None
 
                         # Restore child records tied to this asset
-                        for model in (DiscoveryItem, Certificate, PQCClassification, CBOMEntry, ComplianceScore):
+                        for model in (DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, Certificate, PQCClassification, CBOMEntry, ComplianceScore):
                             try:
                                 rows = db_session.query(model).filter(model.asset_id == asset.id, model.is_deleted == True).all()
                             except Exception:
@@ -4594,7 +4573,7 @@ def recycle_bin():
                                         s_row.deleted_at = None
                                         s_row.deleted_by_user_id = None
 
-                                for s_model in (DiscoveryItem, ComplianceScore, CyberRating):
+                                for s_model in (DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, ComplianceScore, CyberRating):
                                     s_rows = db_session.query(s_model).filter(s_model.scan_id == scan.id, s_model.is_deleted == True).all()
                                     for s_row in s_rows:
                                         s_row.is_deleted = False
@@ -4636,7 +4615,7 @@ def recycle_bin():
                                 s_row.deleted_at = None
                                 s_row.deleted_by_user_id = None
 
-                        for s_model in (DiscoveryItem, ComplianceScore, CyberRating):
+                        for s_model in (DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, ComplianceScore, CyberRating):
                             s_rows = db_session.query(s_model).filter(s_model.scan_id == scan.id, s_model.is_deleted == True).all()
                             for s_row in s_rows:
                                 s_row.is_deleted = False
@@ -4676,7 +4655,10 @@ def recycle_bin():
                             if asset_target:
                                 related_scans = db_session.query(Scan).filter(Scan.target.ilike(asset_target), Scan.is_deleted == True).all()
                                 for scan in related_scans:
-                                    db_session.query(DiscoveryItem).filter(DiscoveryItem.scan_id == scan.id).delete(synchronize_session=False)
+                                    db_session.query(DiscoveryDomain).filter(DiscoveryDomain.scan_id == scan.id).delete(synchronize_session=False)
+                                    db_session.query(DiscoverySSL).filter(DiscoverySSL.scan_id == scan.id).delete(synchronize_session=False)
+                                    db_session.query(DiscoveryIP).filter(DiscoveryIP.scan_id == scan.id).delete(synchronize_session=False)
+                                    db_session.query(DiscoverySoftware).filter(DiscoverySoftware.scan_id == scan.id).delete(synchronize_session=False)
                                     db_session.query(Certificate).filter(Certificate.scan_id == scan.id).delete(synchronize_session=False)
                                     db_session.query(PQCClassification).filter(PQCClassification.scan_id == scan.id).delete(synchronize_session=False)
                                     db_session.query(CBOMEntry).filter(CBOMEntry.scan_id == scan.id).delete(synchronize_session=False)

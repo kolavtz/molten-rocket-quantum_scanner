@@ -1,370 +1,432 @@
 {% extends "base.html" %}
-{% block title %}Asset Discovery | QuantumShield{% endblock %}
+
+{% block title %}Asset Discovery // QuantumShield{% endblock %}
+
+{% block head %}
+<style>
+    .discovery-container {
+        padding: 1.5rem 0;
+    }
+
+    .discovery-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 2rem;
+    }
+
+    .tab-nav {
+        display: flex;
+        gap: 0.5rem;
+        padding: 0.25rem;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 12px;
+        border: 1px solid var(--border-subtle);
+        width: fit-content;
+    }
+
+    .tab-btn {
+        padding: 0.6rem 1.25rem;
+        border-radius: 10px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: none;
+        background: transparent;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .tab-btn.active {
+        background: var(--accent);
+        color: var(--bg-primary);
+        box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 30%, transparent);
+    }
+
+    .filter-bar {
+        display: grid;
+        grid-template-columns: 1fr 200px 200px;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .discovery-input {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border-subtle);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        color: var(--text-primary);
+        font-size: 0.85rem;
+    }
+
+    .graph-container {
+        height: 500px;
+        border-radius: var(--ui-radius-lg);
+        overflow: hidden;
+        background: rgba(0, 0, 0, 0.2);
+        position: relative;
+    }
+
+    .discovery-stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+        padding: 1.25rem;
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 1.75rem;
+        font-weight: 800;
+        color: var(--text-primary);
+    }
+
+    .stat-label {
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-top: 0.25rem;
+    }
+
+    .inventory-status-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 700;
+    }
+
+    .status-inventoried {
+        background: rgba(52, 199, 89, 0.1);
+        color: var(--pqc-safe);
+        border: 1px solid rgba(52, 199, 89, 0.2);
+    }
+
+    .status-pending {
+        background: rgba(0, 255, 204, 0.1);
+        color: var(--accent);
+        border: 1px solid rgba(0, 255, 204, 0.2);
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<section class="hero" style="padding-bottom:1rem;">
-  <h2 class="hero-title" style="font-size:2rem;">ASSET DISCOVERY</h2>
-  <p class="hero-subtitle">Domains, SSL, IP/Subnets, and software intelligence</p>
-</section>
-
-{% if vm.empty %}
-<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <strong>No discovery data yet.</strong>
-  <p style="margin-top:0.4rem;color:var(--text-secondary);">Run a scan from Home to populate domains, SSL, IP/subnet, software, and graph relationships.</p>
-</section>
-{% endif %}
-
-<section class="overview-grid" style="margin-bottom:1rem;">
-  <div class="overview-card glass-card"><div class="overview-value">{{ vm.overview.domains }}</div><div class="overview-label">DOMAINS</div></div>
-  <div class="overview-card glass-card"><div class="overview-value">{{ vm.overview.ssl }}</div><div class="overview-label">SSL</div></div>
-  <div class="overview-card glass-card"><div class="overview-value">{{ vm.overview.ip_subnets }}</div><div class="overview-label">IP ADDRESS/SUBNETS</div></div>
-  <div class="overview-card glass-card"><div class="overview-value">{{ vm.overview.software }}</div><div class="overview-label">SOFTWARE</div></div>
-</section>
-
-<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
-  <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.8rem;">
-    <button class="scan-button tabBtn" data-tab="domains" style="padding:0.35rem 0.7rem;">Domains ({{ vm.domains|length }})</button>
-    <button class="scan-button tabBtn" data-tab="ssl" style="padding:0.35rem 0.7rem;">SSL ({{ vm.ssl|length }})</button>
-    <button class="scan-button tabBtn" data-tab="ip" style="padding:0.35rem 0.7rem;">IP Address/Subnets ({{ vm.ip_subnets|length }})</button>
-    <button class="scan-button tabBtn" data-tab="software" style="padding:0.35rem 0.7rem;">Software ({{ vm.software|length }})</button>
-  </div>
-
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0.7rem;margin-bottom:0.8rem;">
-    <input id="globalSearch" value="{{ request.args.get('q', '') }}" placeholder="Search domain, URL, contact, IoC or other" style="background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.45rem 0.6rem;border-radius:6px;" />
-    <div style="display:flex;gap:0.5rem;">
-      <input id="startDate" type="date" style="flex:1;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.45rem 0.6rem;border-radius:6px;" />
-      <input id="endDate" type="date" style="flex:1;background:var(--bg-input);border:1px solid var(--border-subtle);color:var(--text-primary);padding:0.45rem 0.6rem;border-radius:6px;" />
+<div class="discovery-container">
+    <div class="discovery-header">
+        <div>
+            <h1 style="font-size: 2.5rem; font-weight: 900; letter-spacing: -0.02em; margin: 0;">ASSET DISCOVERY</h1>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">Intelligence-driven identification of domains, certificates, and infrastructure.</p>
+        </div>
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab(this, 'domains')">Domains ({{ vm.domains|length }})</button>
+            <button class="tab-btn" onclick="switchTab(this, 'ssl')">SSL ({{ vm.ssl|length }})</button>
+            <button class="tab-btn" onclick="switchTab(this, 'ip')">Infrastructure ({{ vm.ip_subnets|length }})</button>
+            <button class="tab-btn" onclick="switchTab(this, 'software')">Software ({{ vm.software|length }})</button>
+        </div>
     </div>
-  </div>
 
-  <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.8rem;">
-    <button class="scan-button statusBtn" data-status="New" style="padding:0.25rem 0.55rem;">New ({{ vm.status_counts.New }})</button>
-    <button class="scan-button statusBtn" data-status="False Positive" style="padding:0.25rem 0.55rem;">False Positive ({{ vm.status_counts['False Positive'] }})</button>
-    <button class="scan-button statusBtn" data-status="Confirmed" style="padding:0.25rem 0.55rem;">Confirmed ({{ vm.status_counts.Confirmed }})</button>
-    <button class="scan-button statusBtn" data-status="All" style="padding:0.25rem 0.55rem;">All ({{ vm.status_counts.All }})</button>
-  </div>
-
-  <div id="tab-domains" class="tabPane">
-    <table class="scans-table dataTable"><thead><tr><th>Detection Date</th><th>Domain Name</th><th>Registration Date</th><th>Registrar</th><th>Company Name</th><th>Status</th><th>Action</th></tr></thead><tbody>
-      {% for r in vm.domains %}<tr><td>{{ r.detection_date }}</td><td>{{ r.domain_name }}</td><td>{{ r.registration_date }}</td><td>{{ r.registrar }}</td><td>{{ r.company }}</td><td>{{ r.status }}</td><td>
-        {% if r.is_inventoried %}
-          <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
-        {% else %}
-          <button class="scan-button js-add-discovery" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);" data-target="{{ r.domain_name }}" data-type="Web App">+ Add</button>
-        {% endif %}
-      </td></tr>{% endfor %}
-    </tbody></table>
-  </div>
-
-  <div id="tab-ssl" class="tabPane" style="display:none;">
-    <table class="scans-table dataTable"><thead><tr><th>Detection Date</th><th>SSL SHA Fingerprint</th><th>Valid From</th><th>Common Name</th><th>Company Name</th><th>Certificate Authority</th><th>Status</th><th>Action</th></tr></thead><tbody>
-      {% for r in vm.ssl %}<tr><td>{{ r.detection_date }}</td><td>{{ r.fingerprint[:16] }}...</td><td>{{ r.valid_from }}</td><td>{{ r.common_name }}</td><td>{{ r.company }}</td><td>{{ r.ca }}</td><td>{{ r.status }}</td><td>
-        {% if r.is_inventoried %}
-          <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
-        {% else %}
-          <button class="scan-button js-add-discovery" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);" data-target="{{ r.common_name }}" data-type="Web App">+ Add</button>
-        {% endif %}
-      </td></tr>{% endfor %}
-    </tbody></table>
-  </div>
-
-  <div id="tab-ip" class="tabPane" style="display:none;">
-    <table class="scans-table dataTable"><thead><tr><th>Detection Date</th><th>IP Address</th><th>Ports</th><th>Subnet</th><th>ASN</th><th>Netname</th><th>Location</th><th>Company</th><th>Status</th><th>Action</th></tr></thead><tbody>
-      {% for r in vm.ip_subnets %}<tr><td>{{ r.detection_date }}</td><td>{{ r.ip }}</td><td>{{ r.ports }}</td><td>{{ r.subnet }}</td><td>{{ r.asn }}</td><td>{{ r.netname }}</td><td>{{ r.location }}</td><td>{{ r.company }}</td><td>{{ r.status }}</td><td>
-        {% if r.is_inventoried %}
-          <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
-        {% else %}
-          <button class="scan-button js-add-discovery" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);" data-target="{{ r.ip }}" data-type="Server">+ Add</button>
-        {% endif %}
-      </td></tr>{% endfor %}
-    </tbody></table>
-  </div>
-
-  <div id="tab-software" class="tabPane" style="display:none;">
-    <table class="scans-table dataTable"><thead><tr><th>Detection Date</th><th>Product</th><th>Version</th><th>Type</th><th>Port</th><th>Host</th><th>Company Name</th><th>Status</th><th>Action</th></tr></thead><tbody>
-      {% for r in vm.software %}<tr><td>{{ r.detection_date }}</td><td>{{ r.product }}</td><td>{{ r.version }}</td><td>{{ r.type }}</td><td>{{ r.port }}</td><td>{{ r.host }}</td><td>{{ r.company }}</td><td>{{ r.status }}</td><td>
-        {% if r.is_inventoried %}
-          <span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>
-        {% else %}
-          <button class="scan-button js-add-discovery" style="padding:0.2rem 0.4rem;font-size:0.7rem;background:var(--accent);min-height:44px;" data-target="{{ r.host }}" data-type="Web App">+ Add</button>
-        {% endif %}
-      </td></tr>{% endfor %}
-    </tbody></table>
-  </div>
-</section>
-
-<section class="glass-card" style="padding:1rem;">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.6rem;">
-    <h3>Network Graph View</h3>
-    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
-      <button id="graphBtnDomain" class="scan-button graphFilter" data-type="domain" style="padding:0.3rem 0.6rem;font-size:0.75rem;min-height:44px;">Domains</button>
-      <button id="graphBtnIp" class="scan-button graphFilter" data-type="ip" style="padding:0.3rem 0.6rem;font-size:0.75rem;min-height:44px;">IPs</button>
-      <button id="graphBtnService" class="scan-button graphFilter" data-type="service" style="padding:0.3rem 0.6rem;font-size:0.75rem;min-height:44px;">Services</button>
-      <button id="graphBtnAsset" class="scan-button graphFilter" data-type="asset" style="padding:0.3rem 0.6rem;font-size:0.75rem;min-height:44px;">Assets</button>
-      <button id="graphBtnAll" class="scan-button graphFilter" data-type="all" style="padding:0.3rem 0.6rem;font-size:0.75rem;min-height:44px;">All</button>
-      <button id="graphResetBtn" class="scan-button" style="padding:0.3rem 0.6rem;font-size:0.75rem;min-height:44px;background:var(--bg-secondary);"><i class="fa-solid fa-rotate-right" style="margin-right:0.25rem;"></i>Reset</button>
+    <!-- Overview Stats -->
+    <div class="discovery-stats">
+        <div class="glass-card stat-card">
+            <div class="stat-value">{{ vm.overview.domains }}</div>
+            <div class="stat-label">DOMAINS</div>
+        </div>
+        <div class="glass-card stat-card">
+            <div class="stat-value">{{ vm.overview.ssl }}</div>
+            <div class="stat-label">CERTIFICATES</div>
+        </div>
+        <div class="glass-card stat-card">
+            <div class="stat-value">{{ vm.overview.ip_subnets }}</div>
+            <div class="stat-label">IP SUBNETS</div>
+        </div>
+        <div class="glass-card stat-card">
+            <div class="stat-value">{{ vm.overview.software }}</div>
+            <div class="stat-label">SOFTWARE</div>
+        </div>
     </div>
-  </div>
-  <div id="networkGraph" style="height:420px;background:var(--bg-secondary);border:1px solid var(--border-subtle);border-radius:8px;"></div>
-  <div id="graphTooltip" style="display:none;position:fixed;background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;padding:0.5rem 0.75rem;font-size:0.78rem;color:var(--text-primary);pointer-events:none;z-index:9999;max-width:280px;"></div>
-  <div style="margin-top:0.5rem;display:flex;gap:1rem;flex-wrap:wrap;">
-    <span style="font-size:0.72rem;color:var(--text-muted);">● <span style="color:var(--accent);">Domains</span> &nbsp; ● <span style="color:var(--safe);">IPs</span> &nbsp; ● <span style="color:var(--warn);">Services</span> &nbsp; ● <span style="color:var(--danger);">Assets</span></span>
-    <span style="font-size:0.72rem;color:var(--text-muted);">Scroll to zoom · Drag to pan · Click node to highlight connections</span>
-  </div>
-</section>
 
+    <!-- Main Content Panel -->
+    <div class="glass-card" style="padding: 1.5rem; margin-bottom: 2rem;">
+        <!-- Filters -->
+        <div class="filter-bar">
+            <input type="text" id="globalSearch" class="discovery-input" placeholder="Search by name, IP, or fingerprint..." oninput="filterData()">
+            <input type="date" id="startDate" class="discovery-input" onchange="filterData()">
+            <input type="date" id="endDate" class="discovery-input" onchange="filterData()">
+        </div>
+
+        <!-- Tables -->
+        <div id="tab-domains" class="discovery-tab-content">
+            <div class="table-scroll">
+                <table class="scans-table">
+                    <thead>
+                        <tr>
+                            <th>Discovery Date</th>
+                            <th>Domain Name</th>
+                            <th>Registrar</th>
+                            <th>Company</th>
+                            <th>Status</th>
+                            <th>Inventory</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in vm.domains %}
+                        <tr data-status="{{ r.status }}">
+                            <td style="font-size:0.75rem;">{{ r.detection_date }}</td>
+                            <td><div style="font-weight:600;">{{ r.domain_name }}</div></td>
+                            <td style="font-size:0.75rem;">{{ r.registrar }}</td>
+                            <td style="font-size:0.75rem;">{{ r.company }}</td>
+                            <td><span class="status-pill">{{ r.status }}</span></td>
+                            <td>
+                                {% if r.is_inventoried %}
+                                <span class="inventory-status-chip status-inventoried"><i class="fa-solid fa-check"></i> Inventoried</span>
+                                {% else %}
+                                <button class="inventory-status-chip status-pending js-add-discovery" data-target="{{ r.domain_name }}" data-type="Web App">Add to Inventory</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="tab-ssl" class="discovery-tab-content" style="display:none;">
+            <div class="table-scroll">
+                <table class="scans-table">
+                    <thead>
+                        <tr>
+                            <th>Fingerprint</th>
+                            <th>Common Name</th>
+                            <th>Valid From</th>
+                            <th>Issuer</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in vm.ssl %}
+                        <tr data-status="{{ r.status }}">
+                            <td style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-secondary);">{{ r.fingerprint[:16] }}...</td>
+                            <td><div style="font-weight:600;">{{ r.common_name }}</div></td>
+                            <td style="font-size:0.75rem;">{{ r.valid_from }}</td>
+                            <td style="font-size:0.75rem;">{{ r.ca }}</td>
+                            <td><span class="status-pill">{{ r.status }}</span></td>
+                            <td>
+                                {% if r.is_inventoried %}
+                                <span class="inventory-status-chip status-inventoried"><i class="fa-solid fa-check"></i> Inventoried</span>
+                                {% else %}
+                                <button class="inventory-status-chip status-pending js-add-discovery" data-target="{{ r.common_name }}" data-type="Web App">Add to Inventory</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="tab-ip" class="discovery-tab-content" style="display:none;">
+            <div class="table-scroll">
+                <table class="scans-table">
+                    <thead>
+                        <tr>
+                            <th>IP Address</th>
+                            <th>Ports</th>
+                            <th>Subnet</th>
+                            <th>Location</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in vm.ip_subnets %}
+                        <tr data-status="{{ r.status }}">
+                            <td><div style="font-weight:600;">{{ r.ip }}</div><div style="font-size:0.65rem; color:var(--text-muted);">{{ r.asn }}</div></td>
+                            <td style="font-size:0.75rem;">{{ r.ports }}</td>
+                            <td style="font-size:0.75rem;">{{ r.subnet }}</td>
+                            <td style="font-size:0.75rem;">{{ r.location }}</td>
+                            <td><span class="status-pill">{{ r.status }}</span></td>
+                            <td>
+                                {% if r.is_inventoried %}
+                                <span class="inventory-status-chip status-inventoried"><i class="fa-solid fa-check"></i> Inventoried</span>
+                                {% else %}
+                                <button class="inventory-status-chip status-pending js-add-discovery" data-target="{{ r.ip }}" data-type="Server">Add to Inventory</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="tab-software" class="discovery-tab-content" style="display:none;">
+            <div class="table-scroll">
+                <table class="scans-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Version</th>
+                            <th>Type</th>
+                            <th>Host</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in vm.software %}
+                        <tr data-status="{{ r.status }}">
+                            <td><div style="font-weight:600;">{{ r.product }}</div></td>
+                            <td style="font-size:0.75rem;">{{ r.version }}</td>
+                            <td style="font-size:0.75rem;">{{ r.type }}</td>
+                            <td style="font-size:0.75rem;">{{ r.host }}</td>
+                            <td><span class="status-pill">{{ r.status }}</span></td>
+                            <td>
+                                {% if r.is_inventoried %}
+                                <span class="inventory-status-chip status-inventoried"><i class="fa-solid fa-check"></i> Inventoried</span>
+                                {% else %}
+                                <button class="inventory-status-chip status-pending js-add-discovery" data-target="{{ r.host }}" data-type="Web App">Add to Inventory</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Network Graph Section -->
+    <div class="glass-card" style="padding: 1.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <div class="metric-title"><i class="fa-solid fa-diagram-project" style="margin-right:8px;"></i> Relational Intelligence Graph</div>
+            <div style="display:flex; gap:0.5rem;">
+                <button class="button secondary" style="padding: 0.4rem 0.8rem; font-size: 0.7rem;" onclick="resetGraph()">Reset View</button>
+            </div>
+        </div>
+        <div id="networkGraph" class="graph-container"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
 <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <script id="graphPayload" type="application/json">{{ vm.graph_payload|tojson }}</script>
 <script>
-(function () {
-  const css = getComputedStyle(document.documentElement);
-  const COLOR = {
-    domain: css.getPropertyValue('--accent').trim() || 'var(--accent)',
-    ip: css.getPropertyValue('--safe').trim() || 'var(--safe)',
-    service: css.getPropertyValue('--warn').trim() || 'var(--warn)',
-    asset: css.getPropertyValue('--danger').trim() || 'var(--danger)'
-  };
-  const payloadRaw = document.getElementById('graphPayload');
-  const initialPayload = payloadRaw ? JSON.parse(payloadRaw.textContent || '{}') : { nodes: [], edges: [] };
+    let network = null;
+    let allNodes = null;
+    let allEdges = null;
 
-  const toNode = (node) => {
-    const group = node.group || 'asset';
-    const border = COLOR[group] || COLOR.asset;
-    return {
-      id: node.id,
-      label: node.label,
-      group,
-      title: node.title || node.label,
-      color: { background: 'color-mix(in srgb, var(--bg-card) 90%, transparent)', border },
-      font: { color: css.getPropertyValue('--text-primary').trim() || 'var(--text-primary)', size: 12 }
-    };
-  };
+    function switchTab(btn, tabId) {
+        // Update buttons
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
 
-  const allNodes = new vis.DataSet((initialPayload.nodes || []).map(toNode));
-  const allEdges = new vis.DataSet(initialPayload.edges || []);
-
-  const options = {
-    autoResize: true,
-    height: '420px',
-    nodes: { shape: 'dot', size: 18, borderWidth: 2, shadow: true },
-    edges: { width: 2, smooth: { type: 'continuous' } },
-    physics: { stabilization: { iterations: 80 }, barnesHut: { gravitationalConstant: -3000 } },
-    interaction: { hover: true, tooltipDelay: 0, navigationButtons: true, keyboard: true, zoomView: true },
-    layout: { improvedLayout: true },
-    background: { color: 'transparent' },
-  };
-
-  const container = document.getElementById('networkGraph');
-  const network = new vis.Network(container, { nodes: allNodes, edges: allEdges }, options);
-
-  // ── Tooltip ──────────────────────────────────────────────
-  const tooltip = document.getElementById('graphTooltip');
-  network.on('hoverNode', function (params) {
-    const node = allNodes.get(params.node);
-    if (!node) return;
-    tooltip.innerHTML = node.title || node.label;
-    tooltip.style.display = 'block';
-  });
-  network.on('blurNode', function () { tooltip.style.display = 'none'; });
-  network.on('mousemove', function (params) {
-    if (tooltip.style.display === 'block') {
-      tooltip.style.left = (params.event.clientX + 14) + 'px';
-      tooltip.style.top = (params.event.clientY + 8) + 'px';
+        // Update content
+        document.querySelectorAll('.discovery-tab-content').forEach(c => c.style.display = 'none');
+        document.getElementById('tab-' + tabId).style.display = 'block';
     }
-  });
 
-  // ── Click to highlight neighbours ───────────────────────
-  network.on('click', function (params) {
-    if (!params.nodes.length) { network.unselectAll(); return; }
-    const nodeId = params.nodes[0];
-    const connected = network.getConnectedNodes(nodeId);
-    const allNodeIds = allNodes.getIds();
-    allNodeIds.forEach((id) => {
-      const update = { id };
-      if (id === nodeId || connected.includes(id)) {
-        update.opacity = 1;
-      } else {
-        update.opacity = 0.2;
-      }
-      allNodes.update(update);
-    });
-  });
+    function filterData() {
+        const q = document.getElementById('globalSearch').value.toLowerCase();
+        const start = document.getElementById('startDate').value;
+        const end = document.getElementById('endDate').value;
 
-  // ── Filter by type ───────────────────────────────────────
-  document.querySelectorAll('.graphFilter').forEach(btn => {
-    btn.addEventListener('click', function () {
-      const type = this.dataset.type;
-      allNodes.getIds().forEach(id => {
-        const node = allNodes.get(id);
-        allNodes.update({ id, hidden: type !== 'all' && node.group !== type });
-      });
-    });
-  });
+        document.querySelectorAll('.discovery-tab-content tr').forEach(row => {
+            if (row.parentElement.tagName === 'THEAD') return;
+            
+            const text = row.textContent.toLowerCase();
+            const date = row.cells[0].textContent;
 
-  document.getElementById('graphResetBtn').addEventListener('click', function () {
-    allNodes.getIds().forEach(id => allNodes.update({ id, hidden: false, opacity: 1 }));
-    network.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
-  });
+            const matchesText = text.includes(q);
+            const matchesDate = (!start || date >= start) && (!end || date <= end);
 
-  function mergePayload(payload) {
-    const nodes = payload.nodes || [];
-    const edges = payload.edges || [];
-    nodes.forEach((n) => {
-      const existing = allNodes.get(n.id);
-      const node = toNode(n);
-      if (existing) {
-        allNodes.update(node);
-      } else {
-        allNodes.add(node);
-      }
-    });
-    edges.forEach((e) => {
-      const edgeId = e.id || (String(e.from) + '->' + String(e.to));
-      if (!allEdges.get(edgeId)) {
-        allEdges.add({ id: edgeId, from: e.from, to: e.to });
-      }
-    });
-  }
-
-  // Realtime incremental updates during active scans.
-  setInterval(function () {
-    fetch('/api/dashboard', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ action: 'dashboard.refresh', include_discovery: true })
-    })
-      .then((r) => r.ok ? r.json() : null)
-      .then((payload) => {
-        if (!payload || payload.status !== 'success') {
-          return;
-        }
-        const graphPayload = (((payload.data || {}).discovery || {}).graph_payload) || { nodes: [], edges: [] };
-        mergePayload(graphPayload);
-      })
-      .catch(() => null);
-  }, 7000);
-})();
-</script>
-
-<script>
-(function () {
-  let currentTab = 'domains';
-  let statusFilter = 'All';
-  const panes = {
-    domains: document.getElementById('tab-domains'),
-    ssl: document.getElementById('tab-ssl'),
-    ip: document.getElementById('tab-ip'),
-    software: document.getElementById('tab-software')
-  };
-
-  function activeTableRows() {
-    return Array.from(panes[currentTab].querySelectorAll('tbody tr'));
-  }
-
-  function applyFilters() {
-    const q = (document.getElementById('globalSearch').value || '').toLowerCase();
-    const start = document.getElementById('startDate').value;
-    const end = document.getElementById('endDate').value;
-    activeTableRows().forEach((row) => {
-      const textMatch = !q || row.textContent.toLowerCase().includes(q);
-      const status = row.children[row.children.length - 1].textContent.trim();
-      const statusMatch = statusFilter === 'All' || status === statusFilter;
-      const d = row.children[0].textContent.trim();
-      const dateMatch = (!start || d >= start) && (!end || d <= end);
-      row.style.display = textMatch && statusMatch && dateMatch ? 'table-row' : 'none';
-    });
-  }
-
-  document.querySelectorAll('.tabBtn').forEach((btn) => btn.addEventListener('click', () => {
-    currentTab = btn.dataset.tab;
-    Object.keys(panes).forEach((k) => panes[k].style.display = k === currentTab ? 'block' : 'none');
-    applyFilters();
-  }));
-
-  document.querySelectorAll('.statusBtn').forEach((btn) => btn.addEventListener('click', () => {
-    statusFilter = btn.dataset.status;
-    applyFilters();
-  }));
-
-  ['globalSearch','startDate','endDate'].forEach((id) => document.getElementById(id).addEventListener('input', applyFilters));
-})();
-
-(function () {
-  const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-
-  function getCsrfToken() {
-    return csrfMeta ? (csrfMeta.getAttribute('content') || '') : '';
-  }
-
-  async function addAsset(target, type) {
-    const response = await fetch('/dashboard/api/assets', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-CSRFToken': getCsrfToken(),
-      },
-      body: JSON.stringify({
-        target,
-        type,
-      }),
-    });
-
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || payload.status === 'error') {
-      throw new Error(payload.message || 'Failed to add asset.');
-    }
-    return payload;
-  }
-
-  // Handle new API-based discovery add buttons
-  document.querySelectorAll('.js-add-discovery').forEach((button) => {
-    button.addEventListener('click', async (event) => {
-      event.preventDefault();
-      const target = button.dataset.target || '';
-      const type = button.dataset.type || 'Web App';
-      
-      button.disabled = true;
-      const originalText = button.textContent;
-      button.textContent = 'Adding...';
-
-      try {
-        // Create asset via API
-        const response = await fetch('/api/assets', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}'
-          },
-          body: JSON.stringify({
-            target: target,
-            type: type
-          })
+            row.style.display = (matchesText && matchesDate) ? '' : 'none';
         });
+    }
+
+    function initGraph() {
+        const payloadRaw = document.getElementById('graphPayload');
+        const payload = JSON.parse(payloadRaw.textContent || '{"nodes":[],"edges":[]}');
         
-        if (!response.ok) {
-          const err = await response.json();
-          throw new Error(err.error?.message || 'Failed to create asset');
-        }
+        allNodes = new vis.DataSet(payload.nodes.map(n => ({
+            id: n.id,
+            label: n.label,
+            title: n.label,
+            color: {
+                background: n.group === 'domain' ? '#00ffcc' : n.group === 'ip' ? '#af52de' : '#34c759',
+                border: 'rgba(255,255,255,0.1)'
+            },
+            font: { color: '#ffffff', size: 12 }
+        })));
         
-        const result = await response.json();
-        if (result.success) {
-          const cell = button.closest('td');
-          if (cell) {
-            cell.innerHTML = '<span style="color:var(--safe);font-weight:700;">✓ Inventoried</span>';
-          }
-        } else {
-          throw new Error(result.error?.message || 'Failed to create asset');
-        }
-      } catch (error) {
-        button.disabled = false;
-        button.textContent = originalText;
-        window.alert(error.message || 'Failed to add asset.');
-      }
+        allEdges = new vis.DataSet(payload.edges);
+
+        const container = document.getElementById('networkGraph');
+        const options = {
+            nodes: { shape: 'dot', size: 16 },
+            edges: { color: 'rgba(255,255,255,0.1)', width: 1 },
+            physics: {
+                stabilization: true,
+                barnesHut: { gravitationalConstant: -2000 }
+            }
+        };
+
+        network = new vis.Network(container, { nodes: allNodes, edges: allEdges }, options);
+    }
+
+    function resetGraph() {
+        if (network) network.fit();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initGraph();
+
+        // Add to Inventory Handler
+        document.querySelectorAll('.js-add-discovery').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const target = btn.dataset.target;
+                const type = btn.dataset.type;
+
+                btn.disabled = true;
+                btn.textContent = 'Adding...';
+
+                try {
+                    const response = await fetch('/api/assets', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({ target, type })
+                    });
+
+                    if (response.ok) {
+                        btn.parentElement.innerHTML = '<span class="inventory-status-chip status-inventoried"><i class="fa-solid fa-check"></i> Inventoried</span>';
+                    } else {
+                        const err = await response.json();
+                        alert(err.message || 'Failed to add asset');
+                        btn.disabled = false;
+                        btn.textContent = 'Add to Inventory';
+                    }
+                } catch (e) {
+                    alert('Network error. Check console.');
+                    btn.disabled = false;
+                    btn.textContent = 'Add to Inventory';
+                }
+            });
+        });
     });
-  });
-})();
 </script>
 {% endblock %}

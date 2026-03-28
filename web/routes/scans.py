@@ -5,6 +5,7 @@ import math
 import threading
 import uuid
 from datetime import datetime, timezone
+import re
 from typing import Any
 
 from flask import Blueprint, abort, current_app, jsonify, render_template, request
@@ -124,6 +125,19 @@ def _normalize_status(value: Any) -> str:
     return text or "unknown"
 
 
+def _normalize_scan_type(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    if not text:
+        return "single"
+    if text in {"bulk", "api_bulk", "manual_bulk"}:
+        return text
+    if text in {"single", "api_single", "manual_single", "api_scan_run", "manual"}:
+        return text
+    if "bulk" in text:
+        return "bulk"
+    return "single"
+
+
 def _build_scan_item_from_report(report: dict[str, Any]) -> dict[str, Any]:
     overview = report.get("overview") if isinstance(report.get("overview"), dict) else {}
     pqc_score = overview.get("average_compliance_score")
@@ -143,6 +157,7 @@ def _build_scan_item_from_report(report: dict[str, Any]) -> dict[str, Any]:
     return {
         "scan_id": scan_id,
         "target": str(report.get("target") or ""),
+        "scan_type": _normalize_scan_type(report.get("scan_kind") or report.get("scan_type")),
         "status": _normalize_status(report.get("status") or "completed"),
         "assets_found": int(assets_found or 0),
         "pqc_score": round(float(pqc_score or 0), 2),
@@ -198,9 +213,12 @@ def _collect_scan_items() -> list[dict[str, Any]]:
                     {
                         "scan_id": sid,
                         "target": str(st.get("target") or ""),
+                        "scan_type": _normalize_scan_type(st.get("scan_type") or (st.get("options") or {}).get("scan_type") or "single"),
                         "status": _normalize_status(st.get("status") or job.get("status")),
                         "assets_found": int(st.get("assets_found") or 0),
                         "pqc_score": round(float(st.get("pqc_score") or 0), 2),
+                        "started_at": str(st.get("started_at") or job.get("started_at") or ""),
+                        "completed_at": str(st.get("completed_at") or job.get("completed_at") or ""),
                         "date": str(st.get("updated_at") or job.get("updated_at") or ""),
                         "actions": f"/api/scans/{sid}/status",
                     }
@@ -511,7 +529,7 @@ def _process_job(
                     clean_target,
                     ports=effective_ports,
                     asset_class_hint=(str(job_options.get("asset_class_hint") or "").strip() or None),
-                    scan_kind="api_bulk" if len(targets) > 1 else "api_single",
+                    scan_kind=str(job_options.get("scan_type") or ("api_bulk" if len(targets) > 1 else "api_single")),
                     scanned_by=requested_by,
                     add_to_inventory=bool(job_options.get("add_to_inventory")),
                 )
@@ -538,10 +556,13 @@ def _process_job(
                     statuses[tracking_scan_id] = {
                         "scan_id": tracking_scan_id,
                         "target": clean_target,
+                        "scan_type": _normalize_scan_type(job_options.get("scan_type") or ("api_bulk" if len(targets) > 1 else "api_single")),
                         "status": "completed",
                         "assets_found": int(report.get("total_assets") or len(report.get("discovered_services") or [])),
                         "pqc_score": float((report.get("overview") or {}).get("average_compliance_score") or report.get("overall_pqc_score") or 0),
                         "result_scan_id": report.get("scan_id"),
+                        "started_at": str(running_job.get("started_at") or ""),
+                        "completed_at": _now_iso(),
                         "updated_at": _now_iso(),
                     }
                     running_job["statuses"] = statuses
@@ -556,8 +577,11 @@ def _process_job(
                     statuses[tracking_scan_id] = {
                         "scan_id": tracking_scan_id,
                         "target": target,
+                        "scan_type": _normalize_scan_type(job_options.get("scan_type") or ("api_bulk" if len(targets) > 1 else "api_single")),
                         "status": "failed",
                         "error": str(exc),
+                        "started_at": str(running_job.get("started_at") or ""),
+                        "completed_at": _now_iso(),
                         "updated_at": _now_iso(),
                     }
                     running_job["statuses"] = statuses
@@ -600,6 +624,7 @@ def _start_job(targets: list[str], ports: list[int] | None, options: dict[str, A
             "targets": list(targets),
             "scan_ids": list(tracking_scan_ids),
             "statuses": statuses,
+            "scan_type": _normalize_scan_type((options or {}).get("scan_type") or ("bulk" if len(targets) > 1 else "single")),
             "total": len(targets),
             "completed": 0,
             "failed": 0,
@@ -642,8 +667,24 @@ def api_scans_list():
     page_size = min(max(1, request.args.get("page_size", 25, type=int) or 25), 250)
     q = str(request.args.get("q", "") or "").strip().lower()
     status_filter = _normalize_status(request.args.get("status", ""))
+    scan_type_filter = _normalize_scan_type(request.args.get("scan_type", "")) if str(request.args.get("scan_type", "")).strip() else ""
+    date_from_raw = str(request.args.get("date_from", "") or "").strip()
+    date_to_raw = str(request.args.get("date_to", "") or "").strip()
     sort = str(request.args.get("sort", "date") or "date").strip().lower()
     order = str(request.args.get("order", "desc") or "desc").strip().lower()
+
+    date_from = None
+    date_to = None
+    if date_from_raw:
+        try:
+            date_from = datetime.fromisoformat(date_from_raw)
+        except ValueError:
+            date_from = None
+    if date_to_raw:
+        try:
+            date_to = datetime.fromisoformat(f"{date_to_raw}T23:59:59")
+        except ValueError:
+            date_to = None
 
     items = _collect_scan_items()
 
@@ -659,19 +700,39 @@ def api_scans_list():
     if status_filter:
         items = [row for row in items if _normalize_status(row.get("status")) == status_filter]
 
+    if scan_type_filter:
+        items = [row for row in items if _normalize_scan_type(row.get("scan_type")) == scan_type_filter]
+
+    if date_from or date_to:
+        filtered_items: list[dict[str, Any]] = []
+        for row in items:
+            row_dt = _parse_iso_datetime(row.get("started_at") or row.get("date") or row.get("completed_at"))
+            if row_dt is None:
+                continue
+            row_naive = row_dt.replace(tzinfo=None)
+            if date_from and row_naive < date_from:
+                continue
+            if date_to and row_naive > date_to:
+                continue
+            filtered_items.append(row)
+        items = filtered_items
+
     sort_key_map = {
         "scan_id": lambda r: str(r.get("scan_id") or ""),
+        "scan_type": lambda r: str(r.get("scan_type") or ""),
         "target": lambda r: str(r.get("target") or ""),
         "status": lambda r: str(r.get("status") or ""),
         "assets_found": lambda r: int(r.get("assets_found") or 0),
         "pqc_score": lambda r: float(r.get("pqc_score") or 0),
+        "started_at": lambda r: str(r.get("started_at") or ""),
+        "completed_at": lambda r: str(r.get("completed_at") or ""),
         "date": lambda r: str(r.get("date") or ""),
     }
     key_fn = sort_key_map.get(sort, sort_key_map["date"])
     items = sorted(items, key=key_fn, reverse=(order == "desc"))
 
     # Legacy compatibility: no pagination params => return list.
-    legacy_mode = all(param not in request.args for param in ("page", "page_size", "sort", "order", "q", "status"))
+    legacy_mode = all(param not in request.args for param in ("page", "page_size", "sort", "order", "q", "status", "scan_type", "date_from", "date_to"))
     if legacy_mode:
         return jsonify(items), 200
 
@@ -725,6 +786,7 @@ def api_scan_single():
         [target],
         ports,
         options={
+            "scan_type": "single",
             "autodiscovery": autodiscovery,
             "add_to_inventory": add_to_inventory,
             "owner": inv_owner,
@@ -769,6 +831,7 @@ def api_scan_bulk():
         targets,
         ports,
         options={
+            "scan_type": "bulk",
             "autodiscovery": autodiscovery,
             "add_to_inventory": add_to_inventory,
             "owner": inv_owner,
@@ -824,6 +887,66 @@ def api_scan_result(scan_id: str):
         return jsonify({"status": "success", "data": snapshot}), 200
 
     return jsonify({"status": "error", "message": "Scan result not found."}), 404
+
+
+@scans_bp.route("/api/scans/<scan_id>/promote", methods=["POST"])
+@login_required
+def api_scan_promote(scan_id: str):
+    if not _can_scan():
+        return jsonify({"status": "error", "message": "Insufficient role for scan promotion."}), 403
+
+    payload = request.get_json(silent=True) or {}
+    destination = str(payload.get("destination") or "inventory").strip().lower()
+    if destination not in {"inventory", "cbom"}:
+        return jsonify({"status": "error", "message": "Invalid destination. Use 'inventory' or 'cbom'."}), 400
+
+    resolved_scan_id = _resolve_result_scan_id(scan_id)
+    report = _load_scan_report(resolved_scan_id)
+    target = str((report or {}).get("target") or "").strip()
+
+    scan_row = db_session.query(Scan).filter(
+        Scan.is_deleted == False,
+        or_(Scan.scan_id == resolved_scan_id, Scan.scan_id == scan_id),
+    ).order_by(Scan.id.desc()).first()
+
+    if destination == "cbom":
+        if scan_row is None or not bool(getattr(scan_row, "add_to_inventory", False)):
+            return jsonify({
+                "status": "error",
+                "message": "Scan must be added to inventory before enabling CBOM visibility.",
+            }), 400
+        return jsonify({
+            "status": "success",
+            "message": "CBOM visibility is active for this inventory-promoted scan.",
+            "scan_id": resolved_scan_id,
+            "destination": "cbom",
+        }), 200
+
+    if not target:
+        return jsonify({"status": "error", "message": "Unable to resolve scan target for promotion."}), 404
+
+    _upsert_inventory_asset_from_scan(
+        target=target,
+        add_to_inventory=True,
+        owner=None,
+        risk_level=None,
+        notes="Promoted from Scan Center",
+        asset_type="Web App",
+    )
+
+    if scan_row is not None:
+        try:
+            scan_row.add_to_inventory = True
+            db_session.commit()
+        except Exception:
+            db_session.rollback()
+
+    return jsonify({
+        "status": "success",
+        "message": "Scan promoted to inventory successfully.",
+        "scan_id": resolved_scan_id,
+        "destination": "inventory",
+    }), 200
 
 
 @scans_bp.route("/api/scans/metrics", methods=["GET"])
@@ -1055,6 +1178,58 @@ def api_scan_certificates(scan_id: str):
 _scan_schedules_in_memory: dict[str, dict[str, Any]] = {}
 
 
+def _normalize_schedule_frequency(value: Any) -> str:
+    freq = str(value or "").strip().lower()
+    return freq if freq in {"daily", "weekly", "monthly"} else ""
+
+
+def _normalize_schedule_time(value: Any) -> str:
+    time_text = str(value or "").strip()
+    if not time_text:
+        return ""
+    if not re.fullmatch(r"^([01]\d|2[0-3]):([0-5]\d)$", time_text):
+        return ""
+    return time_text
+
+
+def _validate_schedule_payload(payload: dict[str, Any], *, partial: bool) -> tuple[dict[str, Any], str | None]:
+    updates: dict[str, Any] = {}
+
+    if not partial or "target" in payload:
+        target = str(payload.get("target") or "").strip()
+        if not target:
+            return {}, "Missing 'target'."
+        updates["target"] = target
+
+    if not partial or "frequency" in payload:
+        frequency = _normalize_schedule_frequency(payload.get("frequency"))
+        if not frequency:
+            return {}, "Invalid 'frequency'. Use daily, weekly, or monthly."
+        updates["frequency"] = frequency
+
+    if not partial or "scheduled_time" in payload:
+        scheduled_time = _normalize_schedule_time(payload.get("scheduled_time"))
+        if not scheduled_time:
+            return {}, "Invalid 'scheduled_time'. Use HH:MM (24-hour)."
+        updates["scheduled_time"] = scheduled_time
+
+    if not partial or "timezone" in payload:
+        timezone_val = str(payload.get("timezone") or "").strip()
+        if not timezone_val:
+            return {}, "Missing 'timezone'."
+        updates["timezone"] = timezone_val
+
+    if "auto_add_to_inventory" in payload:
+        updates["auto_add_to_inventory"] = bool(payload.get("auto_add_to_inventory"))
+    elif not partial:
+        updates["auto_add_to_inventory"] = False
+
+    if partial and not updates:
+        return {}, "No updatable fields provided."
+
+    return updates, None
+
+
 @scans_bp.route("/api/scan-schedules", methods=["GET"])
 @login_required
 def list_scan_schedules():
@@ -1073,31 +1248,77 @@ def create_scan_schedule():
         return jsonify({"status": "error", "message": "Insufficient role for scan scheduling."}), 403
 
     payload = request.get_json(silent=True) or {}
-    target = str(payload.get("target") or "").strip()
-    frequency = str(payload.get("frequency") or "daily").strip().lower()
-    scheduled_time = str(payload.get("scheduled_time") or "12:00").strip()
-    timezone_val = str(payload.get("timezone") or "UTC").strip()
-    auto_add = payload.get("auto_add_to_inventory", False)
-
-    if not target or frequency not in {"daily", "weekly", "monthly"}:
-        return jsonify({"status": "error", "message": "Missing or invalid target/frequency."}), 400
+    defaulted_payload = {
+        "target": payload.get("target"),
+        "frequency": payload.get("frequency") or "daily",
+        "scheduled_time": payload.get("scheduled_time") or "12:00",
+        "timezone": payload.get("timezone") or "UTC",
+        "auto_add_to_inventory": payload.get("auto_add_to_inventory", False),
+    }
+    updates, err = _validate_schedule_payload(defaulted_payload, partial=False)
+    if err:
+        return jsonify({"status": "error", "message": err}), 400
 
     schedule_id = f"sched_{uuid.uuid4().hex[:8]}"
     schedule = {
         "id": schedule_id,
-        "target": target,
-        "frequency": frequency,
-        "scheduled_time": scheduled_time,
-        "timezone": timezone_val,
-        "auto_add_to_inventory": auto_add,
+        "target": updates["target"],
+        "frequency": updates["frequency"],
+        "scheduled_time": updates["scheduled_time"],
+        "timezone": updates["timezone"],
+        "auto_add_to_inventory": bool(updates.get("auto_add_to_inventory", False)),
+        "status": "active",
+        "last_run_at": None,
+        "next_run_at": None,
         "created_by": str(getattr(current_user, "username", "anonymous")),
         "created_at": _now_iso(),
+        "updated_at": _now_iso(),
+        "updated_by": str(getattr(current_user, "username", "anonymous")),
     }
 
     _scan_schedules_in_memory[schedule_id] = schedule
 
     # TODO: Persist to database table scan_schedules
     return jsonify({"status": "created", "data": schedule, "message": "Schedule created successfully."}), 201
+
+
+@scans_bp.route("/api/scan-schedules/<schedule_id>", methods=["GET"])
+@login_required
+def get_scan_schedule(schedule_id: str):
+    """Get full details for a specific scan schedule."""
+    if not _can_bulk_scan():
+        return jsonify({"status": "error", "message": "Insufficient role for schedule access."}), 403
+
+    schedule = _scan_schedules_in_memory.get(schedule_id)
+    if not schedule:
+        return jsonify({"status": "error", "message": "Schedule not found."}), 404
+
+    return jsonify({"status": "success", "data": schedule}), 200
+
+
+@scans_bp.route("/api/scan-schedules/<schedule_id>", methods=["PUT", "PATCH"])
+@login_required
+def update_scan_schedule(schedule_id: str):
+    """Update an existing scan schedule."""
+    if not _can_bulk_scan():
+        return jsonify({"status": "error", "message": "Insufficient role for schedule update."}), 403
+
+    schedule = _scan_schedules_in_memory.get(schedule_id)
+    if not schedule:
+        return jsonify({"status": "error", "message": "Schedule not found."}), 404
+
+    payload = request.get_json(silent=True) or {}
+    partial = request.method.upper() == "PATCH"
+    updates, err = _validate_schedule_payload(payload, partial=partial)
+    if err:
+        return jsonify({"status": "error", "message": err}), 400
+
+    schedule.update(updates)
+    schedule["updated_at"] = _now_iso()
+    schedule["updated_by"] = str(getattr(current_user, "username", "anonymous"))
+
+    _scan_schedules_in_memory[schedule_id] = schedule
+    return jsonify({"status": "updated", "data": schedule, "message": "Schedule updated successfully."}), 200
 
 
 @scans_bp.route("/api/scan-schedules/<schedule_id>", methods=["DELETE"])

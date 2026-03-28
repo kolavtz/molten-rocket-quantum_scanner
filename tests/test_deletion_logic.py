@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from unittest.mock import Mock, patch, MagicMock
 from uuid import uuid4
 from src.db import db_session
-from src.models import Asset, Scan, Certificate, DiscoveryItem, PQCClassification, CBOMEntry, ComplianceScore
+from src.models import Asset, Scan, Certificate, DiscoveryDomain, PQCClassification, CBOMEntry, ComplianceScore
 from src.database import delete_asset as db_delete_asset
 
 
@@ -191,7 +191,7 @@ class TestDashboardDeleteRoute:
         db_session.add(asset)
         db_session.commit()
         scan = _new_scan(target)
-        discovery = DiscoveryItem(asset_id=asset.id, scan_id=scan.id, type="domain", status="confirmed")
+        discovery = DiscoveryDomain(asset_id=asset.id, scan_id=scan.id, domain=target, status="confirmed")
 
         db_session.add(discovery)
         db_session.commit()
@@ -199,14 +199,14 @@ class TestDashboardDeleteRoute:
         # Soft delete cascade
         asset.is_deleted = True
         asset.deleted_at = datetime.now(timezone.utc)
-        for item in asset.discovery_items:
+        for item in asset.discovery_domains:
             item.is_deleted = True
             item.deleted_at = asset.deleted_at
         
         db_session.commit()
         
         # Verify discovery item deleted
-        reloaded_discovery = db_session.query(DiscoveryItem).filter_by(id=discovery.id).first()
+        reloaded_discovery = db_session.query(DiscoveryDomain).filter_by(id=discovery.id).first()
         assert reloaded_discovery.is_deleted == True
 
 

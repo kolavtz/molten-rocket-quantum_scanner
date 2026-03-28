@@ -13,8 +13,15 @@
             this.pqcChart = null;
             this.currentAssetId = null;
             this.data = null;
-            
+            this._boundEsc = null;
+
+            if (!this.modal) {
+                return;
+            }
+
+            this._ensureClosedState();
             this._initTabListeners();
+            this._initCloseListeners();
         }
 
         /**
@@ -26,9 +33,16 @@
                 return;
             }
 
+            if (!assetId) {
+                this._showStatus('Unable to open details: missing asset id.', true);
+                return;
+            }
+
             this.currentAssetId = assetId;
             this.modal.classList.add('open');
             this.modal.setAttribute('aria-hidden', 'false');
+            this._bindEscape();
+            this._resetTabs('overview');
             this._showStatus("Loading comprehensive telemetry...");
 
             try {
@@ -50,9 +64,54 @@
          * Closes the modal and cleans up active interactive components.
          */
         close() {
+            if (!this.modal) return;
             this.modal.classList.remove('open');
             this.modal.setAttribute('aria-hidden', 'true');
+            this._unbindEscape();
             this._cleanup();
+        }
+
+        _ensureClosedState() {
+            this.modal.classList.remove('open');
+            this.modal.setAttribute('aria-hidden', 'true');
+        }
+
+        _bindEscape() {
+            this._unbindEscape();
+            this._boundEsc = (event) => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    this.close();
+                }
+            };
+            document.addEventListener('keydown', this._boundEsc);
+        }
+
+        _unbindEscape() {
+            if (this._boundEsc) {
+                document.removeEventListener('keydown', this._boundEsc);
+                this._boundEsc = null;
+            }
+        }
+
+        _initCloseListeners() {
+            if (!this.modal) return;
+            this.modal.addEventListener('click', (event) => {
+                if (event.target === this.modal) {
+                    this.close();
+                }
+            });
+        }
+
+        _resetTabs(defaultTab) {
+            if (!this.modal) return;
+            const targetTab = defaultTab || 'overview';
+            this.modal.querySelectorAll('.qs-tab-btn').forEach((btn) => {
+                btn.classList.toggle('active', btn.dataset.tab === targetTab);
+            });
+            this.modal.querySelectorAll('.qs-tab-pane').forEach((pane) => {
+                pane.style.display = pane.id === `tab-${targetTab}` ? 'block' : 'none';
+            });
         }
 
         /**
@@ -296,6 +355,7 @@
         }
 
         _initTabListeners() {
+            if (!this.modal) return;
             this.modal.querySelectorAll('.qs-tab-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const tabName = btn.dataset.tab;
@@ -321,6 +381,7 @@
 
         _showStatus(msg, isError = false) {
             const sub = document.getElementById('qsModalSubtitle');
+            if (!sub) return;
             sub.textContent = msg;
             sub.style.color = isError ? 'var(--danger)' : 'var(--text-secondary)';
         }
@@ -334,6 +395,7 @@
             this.pqcChart = null;
             this.currentAssetId = null;
             this.data = null;
+            this._resetTabs('overview');
         }
     }
 

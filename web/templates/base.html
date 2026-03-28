@@ -217,147 +217,101 @@
         '/profile': 'Profile',
         '/docs': 'Docs'
     } %}
-    {% set section_title = section_map.get(request.path, 'Dashboard') %}
-
-    <!-- Navigation -->
-    <nav class="navbar">
+    {% set section_title = section_map.get(request.path, 'Dashboard') %}    <!-- Navigation -->
+    <nav class="navbar glass-morphism">
         <div class="nav-container">
             <a href="/" class="nav-brand">
-                <span class="brand-text">QuantumShield</span>
+                <span class="brand-text gradient-text">QuantumShield</span>
                 <span class="brand-sep">|</span>
-                <span class="brand-sub">PNB Security Console</span>
+                <span class="brand-sub">Sentinel Console</span>
             </a>
             <button class="nav-hamburger" id="navHamburger" aria-label="Toggle navigation" aria-expanded="false" aria-controls="navLinks">&#9776;</button>
             <div class="nav-links" id="navLinks" role="navigation" aria-label="Primary">
-                <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}" {% if request.path == '/' %}aria-current="page"{% endif %} title="Home">
+                <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}" title="Home Dashboard">
                     <i class="fa-solid fa-house"></i> <span class="nav-text">HOME</span>
                 </a>
                 
                 {% if current_user.is_authenticated %}
-                    {% if current_user.role in ['Admin', 'Manager', 'SingleScan', 'Viewer'] %}
-                    <a href="/scans" class="nav-link {% if request.path in ['/scans', '/scan-center'] %}active{% endif %}" title="Scan Center">
-                        <i class="fa-solid fa-shield-halved"></i> <span class="nav-text">SCAN</span>
-                    </a>
-                    {% endif %}
-
-                    <!-- Assets Dropdown -->
-                    <div class="nav-dropdown">
-                        <button class="nav-dropdown-trigger" title="Assets" aria-haspopup="true" aria-expanded="false" aria-controls="assetsMenu">
-                            <i class="fa-solid fa-boxes-stacked"></i> <span class="nav-text">ASSETS</span> <span class="arrow">▾</span>
-                        </button>
-                        <div class="nav-dropdown-menu" id="assetsMenu">
-                            <a href="/asset-inventory" class="dropdown-link {% if request.path == '/asset-inventory' %}active{% endif %}">
-                                <i class="fa-solid fa-list-check"></i> Inventory
-                            </a>
-                            <a href="/asset-discovery" class="dropdown-link {% if request.path == '/asset-discovery' %}active{% endif %}">
-                                <i class="fa-solid fa-compass"></i> Discovery
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- Posture Dropdown -->
-                    <div class="nav-dropdown">
-                        <button class="nav-dropdown-trigger" title="Posture" aria-haspopup="true" aria-expanded="false" aria-controls="postureMenu">
-                            <i class="fa-solid fa-chart-line"></i> <span class="nav-text">POSTURE</span> <span class="arrow">▾</span>
-                        </button>
-                        <div class="nav-dropdown-menu" id="postureMenu">
-                            <a href="/cbom-dashboard" class="dropdown-link {% if request.path == '/cbom-dashboard' %}active{% endif %}">
-                                <i class="fa-solid fa-cubes"></i> CBOM Dashboard
-                            </a>
-                            <a href="/pqc-posture" class="dropdown-link {% if request.path == '/pqc-posture' %}active{% endif %}">
-                                <i class="fa-solid fa-lock"></i> PQC Posture
-                            </a>
-                            <a href="/cyber-rating" class="dropdown-link {% if request.path == '/cyber-rating' %}active{% endif %}">
-                                <i class="fa-solid fa-star"></i> Cyber Rating
-                            </a>
-                        </div>
-                    </div>
-
-                    <a href="/reporting" class="nav-link {% if request.path == '/reporting' %}active{% endif %}" title="Reporting">
-                        <i class="fa-solid fa-file-invoice-with-dollar"></i> <span class="nav-text">REPORTING</span>
-                    </a>
-                    <a href="/docs" class="nav-link {% if request.path == '/docs' %}active{% endif %}" title="Documentation">
-                        <i class="fa-solid fa-book"></i> <span class="nav-text">DOCS</span>
+                    <a href="/scans" class="nav-link {% if request.path in ['/scans', '/scan-center'] %}active{% endif %}" title="Scans Center">
+                        <i class="fa-solid fa-bolt"></i> <span class="nav-text">SCANS</span>
                     </a>
 
-                    <!-- Admin Dropdown -->
+                    <a href="/asset-inventory" class="nav-link {% if request.path == '/asset-inventory' %}active{% endif %}" title="Asset Inventory">
+                        <i class="fa-solid fa-database"></i> <span class="nav-text">INVENTORY</span>
+                    </a>
+
+                    <a href="/asset-discovery" class="nav-link {% if request.path == '/asset-discovery' %}active{% endif %}" title="Asset Discovery">
+                        <i class="fa-solid fa-radar"></i> <span class="nav-text">DISCOVERY</span>
+                    </a>
+
+                    <a href="/cbom-dashboard" class="nav-link {% if request.path == '/cbom-dashboard' %}active{% endif %}" title="CBOM Dashboard">
+                        <i class="fa-solid fa-file-code"></i> <span class="nav-text">CBOM</span>
+                    </a>
+
+                    <a href="/pqc-posture" class="nav-link {% if request.path == '/pqc-posture' %}active{% endif %}" title="Posture of PQC">
+                        <i class="fa-solid fa-shield-virus"></i> <span class="nav-text">POSTURE</span>
+                    </a>
+
+                    <a href="/cyber-rating" class="nav-link {% if request.path == '/cyber-rating' %}active{% endif %}" title="Cyber Rating">
+                        <i class="fa-solid fa-gauge-high"></i> <span class="nav-text">RATING</span>
+                    </a>
+
+                    <a href="/reporting" class="nav-link {% if request.path == '/reporting' %}active{% endif %}" title="Reporting System">
+                        <i class="fa-solid fa-chart-pie"></i> <span class="nav-text">REPORTS</span>
+                    </a>
+
+                    <!-- Admin Access (Conditional) -->
                     {% if current_user.role|lower == 'admin' %}
                     <div class="nav-dropdown">
-                        <button class="nav-dropdown-trigger" title="Admin" aria-haspopup="true" aria-expanded="false" aria-controls="adminMenu">
-                            <i class="fa-solid fa-user-gear"></i> <span class="nav-text">ADMIN</span> <span class="arrow">▾</span>
+                        <button class="nav-dropdown-trigger" title="Admin Control" aria-haspopup="true" aria-expanded="false">
+                            <i class="fa-solid fa-user-shield"></i> <span class="nav-text">ADMIN</span> <span class="arrow">▾</span>
                         </button>
-                        <div class="nav-dropdown-menu" id="adminMenu">
-                            <a href="/admin/users" class="dropdown-link {% if request.path == '/admin/users' %}active{% endif %}">
-                                <i class="fa-solid fa-users"></i> User Management
-                            </a>
-                            <a href="/admin/audit" class="dropdown-link {% if request.path == '/admin/audit' %}active{% endif %}">
-                                <i class="fa-solid fa-clock-rotate-left"></i> Audit Logs
-                            </a>
-                            <a href="/recycle-bin" class="dropdown-link {% if request.path == '/recycle-bin' %}active{% endif %}">
-                                <i class="fa-solid fa-recycle"></i> Recycle Bin
-                            </a>
-                            <a href="/admin/theme" class="dropdown-link {% if request.path == '/admin/theme' %}active{% endif %}">
-                                <i class="fa-solid fa-palette"></i> Theme Settings
-                            </a>
+                        <div class="nav-dropdown-menu">
+                            <a href="/admin/users" class="dropdown-link"><i class="fa-solid fa-users"></i> Users</a>
+                            <a href="/admin/audit" class="dropdown-link"><i class="fa-solid fa-clock-rotate-left"></i> Audit</a>
+                            <a href="/recycle-bin" class="dropdown-link"><i class="fa-solid fa-trash-can"></i> Recycle Bin</a>
+                            <a href="/admin/theme" class="dropdown-link"><i class="fa-solid fa-palette"></i> Theme</a>
                         </div>
                     </div>
                     {% endif %}
 
                     <div class="user-profile">
-                        <span class="user-info">
-                            <span class="user-name">{{ current_user.username }}</span>
-                            <span class="role-badge" style="color:var(--accent);">{{ current_user.role }}</span>
-                        </span>
-                        <a href="/profile" class="nav-link {% if request.path == '/profile' %}active{% endif %}" title="View &amp; manage your API key">
-                            <i class="fa-solid fa-key"></i> <span class="nav-text">API KEY</span>
-                        </a>
-                        <form action="/profile/rotate-api-key" method="POST" onsubmit="return confirm('Rotate API key? Your current key will be immediately revoked.')" style="display:inline-flex;align-items:center;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="nav-link" title="Rotate API Key">
-                                <i class="fa-solid fa-rotate"></i> <span class="nav-text">ROTATE KEY</span>
+                        <div class="nav-dropdown">
+                            <button class="nav-dropdown-trigger user-btn" aria-haspopup="true" aria-expanded="false">
+                                <span class="user-avatar-circle">{{ current_user.username[0]|upper }}</span>
+                                <span class="nav-text">{{ current_user.username[:8] }}</span> <span class="arrow">▾</span>
                             </button>
-                        </form>
-                        <form action="/logout" method="POST" style="display:inline-flex;align-items:center;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="nav-link logout-link" title="Logout">
-                                <i class="fa-solid fa-right-from-bracket"></i> <span class="nav-text">LOGOUT</span>
-                            </button>
-                        </form>
+                            <div class="nav-dropdown-menu">
+                                <a href="/profile" class="dropdown-link"><i class="fa-solid fa-key"></i> API Keys</a>
+                                <form action="/logout" method="POST" style="margin: 0;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="dropdown-link logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                                </form>
+                            </div>
+                        </div>
                     </div>
                 {% else %}
-                    <a href="/docs" class="nav-link" style="margin-right:0.5rem;" title="Documentation">
-                        <i class="fa-solid fa-book"></i> <span class="nav-text">DOCS</span>
-                    </a>
-                    <a href="/login" class="nav-link" title="Login">
+                    <a href="/login" class="nav-link" title="Secure Login">
                         <i class="fa-solid fa-right-to-bracket"></i> <span class="nav-text">LOGIN</span>
                     </a>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Integrated Topbar Details -->
         {% if current_user.is_authenticated %}
-        <div class="nav-secondary-header" style="border-top: 1px solid color-mix(in srgb, var(--border-subtle) 50%, transparent); padding: 0.5rem 1.5rem; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center; background: color-mix(in srgb, var(--bg-primary) 50%, transparent);">
-            <div style="display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;">
-                <h1 style="font-size:0.9rem; letter-spacing:0.08em; text-transform:uppercase; margin:0; color:var(--text-primary);">
-                    <i class="fa-solid fa-chevron-right" style="color:var(--accent); margin-right:0.3rem;"></i>{{ section_title }}
-                </h1>
-                <div class="dashboard-tabs" role="navigation" aria-label="Dashboard view modes">
-                    <a href="/" class="{% if request.path == '/' %}active{% endif %}">Global View</a>
-                    <a href="{{ request.path }}" class="active">Analytics</a>
-                    <a href="/asset-discovery">Network</a>
-                </div>
+        <div class="nav-status-bar" style="border-top: 1px solid var(--glass-border); padding: 0.4rem 1.5rem; display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.4); font-size: 0.75rem;">
+            <div style="display:flex; align-items:center; gap:1rem;">
+                <span style="color:var(--text-secondary);"><i class="fa-solid fa-location-dot" style="margin-right: 4px;"></i> Global View: <strong style="color:var(--accent);">Active</strong></span>
+                <span style="color:var(--text-secondary);"><i class="fa-solid fa-clock" style="margin-right: 4px;"></i> Last Scan: <strong>Syncing...</strong></span>
             </div>
-            
-            <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
-                <div class="dashboard-search" style="min-width: 250px;">
-                    <input type="search" placeholder="Search resources..." aria-label="Search resources" style="width: 100%; border: 1px solid var(--border-subtle); background: var(--bg-input); color: var(--text-primary);">
-                </div>
-                <span class="system-badge">System: Optimal</span>
+            <div style="display:flex; align-items:center; gap:1rem;">
+                <span class="status-pill" style="border: 1px solid var(--pqc-safe); color: var(--pqc-safe); background: rgba(52, 199, 89, 0.1);">Sentinel Online</span>
+                <span style="color:var(--text-muted);">v4.2.0-stable</span>
             </div>
         </div>
         {% endif %}
     </nav>
+ </nav>
     <script>
     (function(){
         var btn = document.getElementById('navHamburger');
@@ -376,7 +330,9 @@
         {% block content %}{% endblock %}
     </main>
 
+    {% if current_user.is_authenticated %}
     {% include 'common/asset_detail_modal.html' %}
+    {% endif %}
 
     <!-- Footer -->
     <footer class="footer">
@@ -396,7 +352,9 @@
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/scans-table.js') }}"></script>
     <script src="{{ url_for('static', filename='js/table.js') }}"></script>
+    {% if current_user.is_authenticated %}
     <script src="{{ url_for('static', filename='js/asset_modal.js') }}"></script>
+    {% endif %}
     <script>
         (function () {
             const now = new Date();

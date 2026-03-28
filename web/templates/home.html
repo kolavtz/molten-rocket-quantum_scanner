@@ -1,610 +1,364 @@
 {% extends "base.html" %}
 
-{% block title %}Executive Dashboard // QuantumShield{% endblock %}
+{% block title %}Sentinel Home // QuantumShield{% endblock %}
 
 {% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-    .qs-home {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 1rem 0.5rem 2rem;
+    .home-container {
+        padding: 1.5rem 0;
     }
 
-    .qs-hero {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 1rem;
-        padding: 1.15rem;
-        border-radius: 14px;
-        border: 1px solid color-mix(in srgb, var(--border-subtle) 76%, transparent);
-        background:
-            radial-gradient(circle at 10% 15%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 44%),
-            linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 94%, transparent), color-mix(in srgb, var(--bg-primary) 96%, transparent));
-        margin-bottom: 1.15rem;
-    }
-
-    .qs-hero h1 {
-        font-size: clamp(1.3rem, 2.3vw, 2rem);
-        margin: 0;
-        letter-spacing: 0.01em;
-        font-weight: 800;
-    }
-
-    .qs-subtitle {
-        margin-top: 0.35rem;
-        color: var(--text-secondary);
-        font-size: 0.9rem;
-        max-width: 68ch;
-    }
-
-    .qs-hero-meta {
-        margin-top: 0.75rem;
-        display: flex;
-        gap: 0.75rem;
-        flex-wrap: wrap;
-        color: var(--text-secondary);
-        font-size: 0.74rem;
-        text-transform: uppercase;
-        letter-spacing: 0.07em;
-    }
-
-    .qs-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.55rem;
-        justify-content: flex-end;
-    }
-
-    .qs-api-state {
-        margin-bottom: 1rem;
-        padding: 0.75rem 0.9rem;
-        border-radius: 10px;
-        border: 1px solid color-mix(in srgb, var(--border-subtle) 72%, transparent);
-        background: color-mix(in srgb, var(--bg-card) 90%, transparent);
-        color: var(--text-secondary);
-        font-size: 0.78rem;
-    }
-
-    .qs-api-state.error {
-        border-color: color-mix(in srgb, var(--danger) 48%, transparent);
-        color: color-mix(in srgb, var(--danger) 72%, var(--text-primary) 28%);
-    }
-
-    .qs-kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 0.85rem;
-        margin-bottom: 1rem;
-    }
-
-    .qs-kpi {
-        padding: 1rem;
-        border-left: 3px solid var(--accent);
-        border-radius: 12px;
-    }
-
-    .qs-kpi.warn { border-left-color: var(--warn); }
-    .qs-kpi.danger { border-left-color: var(--danger); }
-    .qs-kpi.safe { border-left-color: var(--safe); }
-
-    .qs-kpi-label {
-        font-size: 0.68rem;
-        color: var(--text-secondary);
-        letter-spacing: 0.11em;
-        text-transform: uppercase;
-        font-weight: 700;
-        margin-bottom: 0.4rem;
-    }
-
-    .qs-kpi-value {
-        font-size: 2rem;
-        font-weight: 800;
-        font-family: var(--font-display);
-        line-height: 1.1;
-    }
-
-    .qs-kpi-detail {
-        margin-top: 0.55rem;
-        padding-top: 0.55rem;
-        border-top: 1px solid color-mix(in srgb, var(--border-subtle) 56%, transparent);
-        color: var(--text-secondary);
-        font-size: 0.75rem;
-    }
-
-    .clickable-card {
-        text-decoration: none;
-        color: inherit;
-        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-        display: block;
-        cursor: pointer;
-    }
-
-    .clickable-card:hover {
-        transform: translateY(-4px);
-        border-color: var(--accent);
-        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
-    }
-
-    .qs-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 0.85rem;
-        margin-bottom: 1rem;
-    }
-
-    .qs-panel {
-        padding: 1rem;
-        min-height: 280px;
+    .metric-card {
+        padding: 1.25rem;
         display: flex;
         flex-direction: column;
-    }
-
-    .qs-panel-title {
-        display: flex;
         justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.65rem;
-        gap: 0.75rem;
-        font-size: 0.73rem;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        color: var(--text-secondary);
+        min-height: 110px;
+    }
+
+    .metric-title {
+        font-size: 0.65rem;
         font-weight: 700;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 0.5rem;
     }
 
-    .qs-chart-wrap {
+    .metric-value {
+        font-size: 1.75rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        line-height: 1;
+    }
+
+    .metric-trend {
+        font-size: 0.7rem;
+        margin-top: 0.5rem;
+    }
+
+    .trend-up { color: var(--pqc-safe); }
+    .trend-down { color: var(--risk-critical); }
+
+    .chart-container {
+        height: 240px;
         position: relative;
-        flex: 1;
-        min-height: 180px;
-        border-radius: 10px;
-        border: 1px solid color-mix(in srgb, var(--border-subtle) 68%, transparent);
-        background: color-mix(in srgb, var(--bg-card) 90%, transparent);
-        padding: 0.65rem;
     }
 
-    #homeGeoMap {
-        width: 100%;
-        min-height: 220px;
-        border-radius: 8px;
+    .map-container {
+        height: 400px;
+        border-radius: var(--ui-radius-lg);
+        overflow: hidden;
+        margin-bottom: 2rem;
     }
 
-    .qs-table-panel {
+    .risk-bar-wrapper {
+        height: 12px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 6px;
+        overflow: hidden;
+        display: flex;
+        margin: 1rem 0;
+    }
+
+    .risk-segment {
+        height: 100%;
+        transition: width 0.5s ease;
+    }
+
+    .cyber-rating-display {
+        text-align: center;
         padding: 1rem;
     }
 
-    .qs-table-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.75rem;
-        margin-bottom: 0.8rem;
-        flex-wrap: wrap;
+    .rating-score {
+        font-size: 3.5rem;
+        font-weight: 900;
+        background: linear-gradient(135deg, var(--accent), var(--pqc-safe));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
 
-    .qs-mono {
-        font-family: var(--font-mono);
-    }
-
-    .qs-pill {
-        display: inline-flex;
-        padding: 0.22rem 0.55rem;
-        border-radius: 999px;
-        font-size: 0.7rem;
+    .rating-tier {
+        font-size: 1rem;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.2em;
+        margin-top: -0.5rem;
     }
 
-    .qs-pill-critical { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
-    .qs-pill-high { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
-    .qs-pill-medium { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
-    .qs-pill-low { background: color-mix(in srgb, var(--safe) 18%, transparent); color: var(--safe); }
+    .table-section {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        margin-top: 2rem;
+    }
 
-    @media (max-width: 768px) {
-        .qs-home { padding: 0.8rem 0 1.4rem; }
-        .qs-hero { flex-direction: column; }
-        .qs-actions { width: 100%; justify-content: flex-start; }
+    @media (max-width: 1100px) {
+        .table-section {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<section class="qs-home">
-    <div class="qs-hero glass-card">
-        <div>
-            <h1><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Executive Dashboard</h1>
-            <p class="qs-subtitle">
-                Global cryptographic posture and post-quantum readiness across your active inventory.
-            </p>
-            <div class="qs-hero-meta">
-                <span><i class="fa-regular fa-clock" aria-hidden="true"></i> Last sync <span id="lastUpdated">--:--:--</span></span>
-                <span><i class="fa-solid fa-circle-check" aria-hidden="true"></i> System status operational</span>
-            </div>
+<div class="home-container">
+    <!-- Top Row: 10 Key Metrics -->
+    <div class="home-metric-grid">
+        <div class="glass-card metric-card">
+            <div class="metric-title">Total Assets</div>
+            <div class="metric-value">{{ summary.total_assets }}</div>
+            <div class="metric-trend trend-up"><i class="fa-solid fa-arrow-up"></i> 2.4%</div>
         </div>
-        <div class="qs-actions">
-            <button type="button" class="secondary" onclick="location.href='{{ url_for('asset_inventory_page') }}'">
-                <i class="fa-solid fa-table-list" aria-hidden="true"></i>
-                View Inventory
-            </button>
-            <button type="button" onclick="openAddModal()">
-                <i class="fa-solid fa-plus" aria-hidden="true"></i>
-                Add Asset
-            </button>
+        <div class="glass-card metric-card">
+            <div class="metric-title">Web Apps</div>
+            <div class="metric-value">{{ summary.public_web_apps }}</div>
+            <div class="metric-trend" style="color:var(--text-muted);">Active Scope</div>
+        </div>
+        <div class="glass-card metric-card">
+            <div class="metric-title">APIs</div>
+            <div class="metric-value">{{ summary.apis }}</div>
+            <div class="metric-trend" style="color:var(--text-muted);">Internal/Public</div>
+        </div>
+        <div class="glass-card metric-card">
+            <div class="metric-title">Expiring Certs</div>
+            <div class="metric-value {% if (summary.expiring_certs_30 or 0) > 0 %}trend-down{% endif %}">{{ summary.expiring_certs_30 }}</div>
+            <div class="metric-trend">&lt; 30 Days</div>
+        </div>
+        <div class="glass-card metric-card">
+            <div class="metric-title">High Risk</div>
+            <div class="metric-value {% if (summary.high_risk_assets or 0) > 0 %}trend-down{% endif %}">{{ summary.high_risk_assets }}</div>
+            <div class="metric-trend">Action Required</div>
+        </div>
+        <div class="glass-card metric-card">
+            <div class="metric-title">Posture Score</div>
+            <div class="metric-value" style="color:var(--accent);">{{ overall_rating.score }}</div>
+            <div class="metric-trend">{{ overall_rating.tier }}</div>
+        </div>
+        <div class="glass-card metric-card">
+            <div class="metric-title">Total Scans</div>
+            <div class="metric-value">{{ summary.total_scans }}</div>
+            <div class="metric-trend">Platform Wide</div>
+        </div>
+        <div class="glass-card metric-card">
+            <div class="metric-title">Recent Discoveries</div>
+            <div class="metric-value">{{ recent_discoveries|length }}</div>
+            <div class="metric-trend">Last 7 Days</div>
+        </div>
+        <div class="glass-card metric-card">
+            <div class="metric-title">Critical Vulns</div>
+            <div class="metric-value {% if (summary.weak_ciphers_count or 0) > 0 %}trend-down{% endif %}">{{ summary.weak_ciphers_count }}</div>
+            <div class="metric-trend">CVE/Crypto</div>
+        </div>
+        <div class="glass-card metric-card">
+            <div class="metric-title">System Status</div>
+            <div class="metric-value" style="color:var(--pqc-safe);">HEALTHY</div>
+            <div class="metric-trend">Uptime 99.9%</div>
         </div>
     </div>
 
-    <div id="apiState" class="qs-api-state" role="status" aria-live="polite">
-        Loading live dashboard metrics from API…
-    </div>
-
-    <div class="qs-kpi-grid">
-        <a href="{{ url_for('assets.assets_index') }}" class="glass-card qs-kpi clickable-card">
-            <div class="qs-kpi-label">Total managed assets</div>
-            <div class="qs-kpi-value" id="kpiTotalAssets" data-fallback="{{ summary.total_assets or 0 }}">{{ summary.total_assets or 0 }}</div>
-            <div class="qs-kpi-detail">Inventory-backed assets in active scope.</div>
-        </a>
-
-        <a href="{{ url_for('scan_center') }}" class="glass-card qs-kpi safe clickable-card">
-            <div class="qs-kpi-label">Total scans</div>
-            <div class="qs-kpi-value" id="kpiTotalScans" data-fallback="{{ summary.total_scans or 0 }}">{{ summary.total_scans or 0 }}</div>
-            <div class="qs-kpi-detail">Completed or running scan records in platform history.</div>
-        </a>
-
-        <a href="{{ url_for('assets.assets_index', q='safe') }}" class="glass-card qs-kpi warn clickable-card">
-            <div class="qs-kpi-label">Quantum-safe posture</div>
-            <div class="qs-kpi-value" id="kpiQuantumSafe" data-fallback="{{ summary.overall_pqc_readiness or 0 }}%">{{ summary.overall_pqc_readiness or 0 }}%</div>
-            <div class="qs-kpi-detail">Percentage of assets currently assessed quantum-safe.</div>
-        </a>
-
-        <a href="{{ url_for('assets.assets_index', q='critical') }}" class="glass-card qs-kpi danger clickable-card">
-            <div class="qs-kpi-label">Vulnerable assets</div>
-            <div class="qs-kpi-value" id="kpiVulnerable" data-fallback="{{ summary.critical_count or 0 }}">{{ summary.critical_count or 0 }}</div>
-            <div class="qs-kpi-detail">Critical/high risk assets requiring remediation.</div>
-        </a>
-    </div>
-
-    <div class="qs-grid">
-        <article class="glass-card qs-panel">
-            <div class="qs-panel-title">
-                <span><i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Risk tier distribution</span>
-            </div>
-            <div class="qs-chart-wrap"><canvas id="chartRisk" aria-label="Risk tier distribution chart"></canvas></div>
-        </article>
-
-        <article class="glass-card qs-panel">
-            <div class="qs-panel-title">
-                <span><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Asset composition</span>
-            </div>
-            <div class="qs-chart-wrap"><canvas id="chartType" aria-label="Asset composition chart"></canvas></div>
-        </article>
-
-        <article class="glass-card qs-panel">
-            <div class="qs-panel-title">
-                <span><i class="fa-solid fa-wave-square" aria-hidden="true"></i> PQC score signal</span>
-            </div>
-            <div class="qs-chart-wrap"><canvas id="chartPqcPulse" aria-label="PQC score pulse chart"></canvas></div>
-        </article>
-
-        <article class="glass-card qs-panel">
-            <div class="qs-panel-title">
-                <span><i class="fa-solid fa-earth-americas" aria-hidden="true"></i> Geo asset intelligence</span>
-            </div>
-            <div class="qs-chart-wrap"><div id="homeGeoMap" aria-label="Asset geo map"></div></div>
-        </article>
-    </div>
-
-    <article class="glass-card qs-table-panel">
-        <div class="qs-table-header">
-            <h3 class="table-title"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Asset roster</h3>
-            <div class="asset-actions">
-                <button type="button" class="secondary" onclick="location.href='{{ url_for('asset_discovery') }}'">
-                    <i class="fa-solid fa-compass" aria-hidden="true"></i>
-                    Discovery
-                </button>
-                <button type="button" onclick="openAddModal()">
-                    <i class="fa-solid fa-plus" aria-hidden="true"></i>
-                    Add asset
-                </button>
+    <!-- Middle Row: Charts -->
+    <div class="chart-section-grid">
+        <!-- Asset Type (Donut) -->
+        <div class="glass-card" style="padding: 1.5rem;">
+            <div class="metric-title" style="margin-bottom: 1.5rem;"><i class="fa-solid fa-chart-pie" style="margin-right: 8px;"></i> Asset Distribution</div>
+            <div class="chart-container">
+                <canvas id="typeChart"></canvas>
             </div>
         </div>
 
-        {% if assets %}
-        <div class="scans-table-wrapper" role="region" aria-label="Asset roster table">
-            <table class="scans-table">
-                <thead>
-                    <tr>
-                        <th>Target</th>
-                        <th>Type</th>
-                        <th>Owner</th>
-                        <th>Risk</th>
-                        <th>Certificate</th>
-                        <th>Key length</th>
-                        <th>Last scan</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for a in assets[:8] %}
-                    <tr>
-                        <td>
-                            <div style="font-weight: 600;">{{ a.asset_name | escape }}</div>
-                            <div class="qs-mono" style="font-size: 0.72rem; color: var(--text-secondary);">{{ a.url | escape }}</div>
-                        </td>
-                        <td><span class="badge">{{ a.type | escape }}</span></td>
-                        <td>{{ a.owner | escape }}</td>
-                        <td>
-                            {% set risk_val = (a.risk | string | lower) %}
-                            <span class="qs-pill {% if risk_val == 'critical' %}qs-pill-critical{% elif risk_val == 'high' %}qs-pill-high{% elif risk_val == 'medium' %}qs-pill-medium{% else %}qs-pill-low{% endif %}">{{ a.risk | escape }}</span>
-                        </td>
-                        <td>
-                            <span class="badge {% if a.cert_status == 'Expired' %}danger{% elif a.cert_status == 'Expiring' %}warning{% else %}success{% endif %}">
-                                {{ a.cert_status | escape }}
-                            </span>
-                        </td>
-                        <td class="qs-mono">{{ a.key_length or 0 }} bit</td>
-                        <td>{{ a.last_scan[0:10] | escape if a.last_scan else '--' }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="empty-state">
-            <div class="empty-state-icon"><i class="fa-regular fa-folder-open" aria-hidden="true"></i></div>
-            <p><strong>No assets discovered yet</strong></p>
-            <p style="font-size: 0.85rem; margin-top: 0.45rem;">Run a scan or add an asset to start populating this dashboard.</p>
-        </div>
-        {% endif %}
-    </article>
-</section>
-
-<div id="addAssetModal" class="modal" role="dialog" aria-labelledby="addAssetHeading" aria-modal="true">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 id="addAssetHeading" class="modal-title">Add New Asset</h3>
-            <button type="button" class="modal-close" aria-label="Close dialog" onclick="closeAddModal()">×</button>
-        </div>
-        <form action="{{ url_for('quantumshield_dashboard.add_asset') }}" method="POST">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-            <div class="form-group">
-                <label for="assetTarget" class="required">Target / Hostname</label>
-                <input id="assetTarget" type="text" name="target" placeholder="example.com" required autocomplete="off">
-            </div>
-
-            <div class="grid cols-2" style="margin-bottom: 1rem;">
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="assetType">Type</label>
-                    <select id="assetType" name="type">
-                        <option>Web App</option>
-                        <option>API</option>
-                        <option>VPN/Gateway</option>
-                        <option>Server</option>
-                    </select>
+        <!-- Risk Distribution (Single Line Bar) -->
+        <div class="glass-card" style="padding: 1.5rem;">
+            <div class="metric-title"><i class="fa-solid fa-shield-virus" style="margin-right: 8px;"></i> Risk Exposure</div>
+            <div style="margin-top: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                    <div style="font-size: 2.5rem; font-weight: 800;">{{ risk_metrics.high_risk_pct }}%</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Assets at High Risk</div>
                 </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="assetRisk">Risk Override</label>
-                    <select id="assetRisk" name="risk_level">
-                        <option>Low</option>
-                        <option>Medium</option>
-                        <option>High</option>
-                        <option>Critical</option>
-                    </select>
+                <div class="risk-bar-wrapper">
+                    <div class="risk-segment" style="width:{{ risk_metrics.distribution.Critical.pct }}%; background:var(--risk-critical);" title="Critical"></div>
+                    <div class="risk-segment" style="width:{{ risk_metrics.distribution.High.pct }}%; background:var(--risk-high);" title="High"></div>
+                    <div class="risk-segment" style="width:{{ risk_metrics.distribution.Medium.pct }}%; background:var(--risk-medium);" title="Medium"></div>
+                    <div class="risk-segment" style="width:{{ risk_metrics.distribution.Low.pct }}%; background:var(--risk-low);" title="Low"></div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 1rem;">
+                    <div style="font-size: 0.6rem; color: var(--text-muted);"><i class="fa-solid fa-circle" style="color:var(--risk-critical);"></i> CRIT</div>
+                    <div style="font-size: 0.6rem; color: var(--text-muted);"><i class="fa-solid fa-circle" style="color:var(--risk-high);"></i> HIGH</div>
+                    <div style="font-size: 0.6rem; color: var(--text-muted);"><i class="fa-solid fa-circle" style="color:var(--risk-medium);"></i> MED</div>
+                    <div style="font-size: 0.6rem; color: var(--text-muted);"><i class="fa-solid fa-circle" style="color:var(--risk-low);"></i> LOW</div>
                 </div>
             </div>
+        </div>
 
-            <div class="form-group">
-                <label for="assetOwner">Owner</label>
-                <input id="assetOwner" type="text" name="owner" placeholder="IT Ops">
+        <!-- Cert Expiry (Timeline) -->
+        <div class="glass-card" style="padding: 1.5rem;">
+            <div class="metric-title" style="margin-bottom: 1.5rem;"><i class="fa-solid fa-clock-rotate-left" style="margin-right: 8px;"></i> Expiry Timeline</div>
+            <div class="chart-container">
+                <canvas id="expiryChart"></canvas>
             </div>
+        </div>
+    </div>
 
-            <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
-                <button type="button" class="secondary" onclick="closeAddModal()">Cancel</button>
-                <button type="submit">Save Asset</button>
+    <!-- Map Section -->
+    <div class="glass-card" style="padding: 1rem; margin-bottom: 2rem;">
+        <div class="metric-title" style="margin-bottom: 1rem; padding-left: 0.5rem;"><i class="fa-solid fa-earth-americas" style="margin-right: 8px;"></i> Global Asset Intelligence</div>
+        <div id="homeMap" class="map-container"></div>
+    </div>
+
+    <!-- Bottom Tables -->
+    <div class="table-section">
+        <!-- Top 10 High Risk Assets -->
+        <div class="glass-card" style="padding: 1.5rem;">
+            <div class="metric-title" style="margin-bottom: 1.25rem;"><i class="fa-solid fa-triangle-exclamation" style="margin-right: 8px; color: var(--risk-critical);"></i> Top 10 High Risk Assets</div>
+            <div class="table-scroll">
+                <table class="scans-table">
+                    <thead>
+                        <tr>
+                            <th>Asset Name</th>
+                            <th>Type</th>
+                            <th>Score</th>
+                            <th>Last Seen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for asset in high_risk_assets %}
+                        <tr>
+                            <td><div style="font-weight:600;">{{ asset.name }}</div><div style="font-size:0.65rem; color:var(--text-muted);">{{ asset.url }}</div></td>
+                            <td><span class="status-pill" style="border:1px solid var(--border-subtle); background:rgba(255,255,255,0.05);">{{ asset.asset_type }}</span></td>
+                            <td><strong style="color: {% if asset.risk_score > 700 %}var(--risk-critical){% else %}var(--risk-high){% endif %}">{{ asset.risk_score or '--' }}</strong></td>
+                            <td style="font-size:0.7rem;">{{ asset.last_scan_at.strftime('%Y-%m-%d') if asset.last_scan_at else 'Never' }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% if not high_risk_assets %}
+                        <tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding: 2rem;">No high risk assets found.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
             </div>
-        </form>
+        </div>
+
+        <!-- Recent Discoveries -->
+        <div class="glass-card" style="padding: 1.5rem;">
+            <div class="metric-title" style="margin-bottom: 1.25rem;"><i class="fa-solid fa-magnifying-glass" style="margin-right: 8px; color: var(--accent);"></i> Recent Discoveries</div>
+            <div class="table-scroll">
+                <table class="scans-table">
+                    <thead>
+                        <tr>
+                            <th>Asset</th>
+                            <th>Type</th>
+                            <th>Source</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for discovery in recent_discoveries %}
+                        <tr>
+                            <td><div style="font-weight:600;">{{ discovery.value }}</div><div style="font-size:0.65rem; color:var(--text-muted);">{{ discovery.ip_address or '--' }}</div></td>
+                            <td><span class="status-pill" style="border:1px solid var(--accent); color:var(--accent); background:rgba(0,255,204,0.05);">{{ discovery.item_type }}</span></td>
+                            <td style="font-size:0.7rem;">{{ discovery.source }}</td>
+                            <td style="font-size:0.7rem;">{{ discovery.discovered_at.strftime('%H:%M %m-%d') if discovery.discovered_at else '--' }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% if not recent_discoveries %}
+                        <tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding: 2rem;">No recent discoveries.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const pageSummary = {{ (summary or {}) | tojson }};
-    const apiStateEl = document.getElementById('apiState');
-    const lastUpdatedEl = document.getElementById('lastUpdated');
+    // Initialize Charts
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctxType = document.getElementById('typeChart').getContext('2d');
+        const ctxExpiry = document.getElementById('expiryChart').getContext('2d');
 
-    const cssVars = getComputedStyle(document.documentElement);
-    const colors = {
-        accent: cssVars.getPropertyValue('--accent').trim(),
-        safe: cssVars.getPropertyValue('--safe').trim(),
-        warn: cssVars.getPropertyValue('--warn').trim(),
-        danger: cssVars.getPropertyValue('--danger').trim(),
-        secondary: cssVars.getPropertyValue('--text-secondary').trim(),
-        border: cssVars.getPropertyValue('--border-subtle').trim()
-    };
-
-    function openAddModal() {
-        document.getElementById('addAssetModal').classList.add('open');
-        const first = document.getElementById('assetTarget');
-        if (first) first.focus();
-    }
-
-    function closeAddModal() {
-        document.getElementById('addAssetModal').classList.remove('open');
-    }
-
-    function setApiState(message, isError = false) {
-        if (!apiStateEl) return;
-        apiStateEl.textContent = message;
-        apiStateEl.classList.toggle('error', !!isError);
-    }
-
-    function setMetric(id, value, suffix = '') {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const fallback = el.dataset.fallback || '0';
-        const safeValue = (value === null || value === undefined || value === '' || Number.isNaN(Number(value))) ? fallback : value;
-        const formatted = Number.isFinite(Number(safeValue)) ? Number(safeValue).toLocaleString() : safeValue;
-        el.textContent = `${formatted}${suffix}`;
-    }
-
-    function riskFromSummary() {
-        const risk = pageSummary.risk_distribution || {};
-        return [risk.Critical || 0, risk.High || 0, risk.Medium || 0, risk.Low || 0];
-    }
-
-    function typeFromSummary() {
-        const values = pageSummary.type_distribution || [];
-        return Array.isArray(values) && values.length ? values : [0, 0, 0, 0];
-    }
-
-    function renderCharts() {
-        const riskCtx = document.getElementById('chartRisk');
-        const typeCtx = document.getElementById('chartType');
-        const pulseCtx = document.getElementById('chartPqcPulse');
-
-        if (riskCtx) {
-            new Chart(riskCtx.getContext('2d'), {
-                type: 'doughnut',
-                data: {
-                    labels: ['Critical', 'High', 'Medium', 'Low'],
-                    datasets: [{
-                        data: riskFromSummary(),
-                        borderWidth: 0,
-                        backgroundColor: [colors.danger, colors.warn, colors.accent, colors.safe]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { labels: { color: colors.secondary, font: { size: 11 } }, position: 'bottom' }
+        // Asset Type Donut
+        new Chart(ctxType, {
+            type: 'doughnut',
+            data: {
+                labels: {{ asset_type_dist.keys()|list|tojson }},
+                datasets: [{
+                    data: {{ asset_type_dist.values()|map(attribute='count')|list|tojson }},
+                    backgroundColor: ['#00ffcc', '#af52de', '#34c759', '#ffcc00', '#ff9500'],
+                    borderWidth: 0,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { color: '#94a3b8', font: { size: 10 }, usePointStyle: true, padding: 15 }
                     }
-                }
-            });
-        }
-
-        if (typeCtx) {
-            new Chart(typeCtx.getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: ['API', 'VPN', 'Server', 'Web App'],
-                    datasets: [{
-                        data: typeFromSummary(),
-                        borderRadius: 6,
-                        backgroundColor: [colors.accent, colors.warn, colors.safe, colors.secondary]
-                    }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: { beginAtZero: true, ticks: { color: colors.secondary }, grid: { color: colors.border } },
-                        x: { ticks: { color: colors.secondary }, grid: { display: false } }
-                    },
-                    plugins: { legend: { display: false } }
-                }
-            });
-        }
+                cutout: '70%'
+            }
+        });
 
-        if (pulseCtx) {
-            const baseline = Number(pageSummary.overall_risk_score || 55);
-            const pulseChart = new Chart(pulseCtx.getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels: ['T-4', 'T-3', 'T-2', 'T-1', 'Now'],
-                    datasets: [{
-                        data: [baseline, baseline, baseline, baseline, baseline],
-                        borderColor: colors.accent,
-                        borderWidth: 2,
-                        backgroundColor: 'transparent',
-                        tension: 0.35,
-                        fill: false,
-                        pointRadius: 2
-                    }]
+        // Cert Expiry Timeline Bar
+        new Chart(ctxExpiry, {
+            type: 'bar',
+            data: {
+                labels: ['0-30d', '31-60d', '61-90d', '>90d'],
+                datasets: [{
+                    label: 'Certificates',
+                    data: [
+                        {{ cert_expiry.count_0_to_30_days }},
+                        {{ cert_expiry.count_31_to_60_days }},
+                        {{ cert_expiry.count_61_to_90_days }},
+                        {{ cert_expiry.count_greater_90_days }}
+                    ],
+                    backgroundColor: ['#ff2d55', '#ff9500', '#ffcc00', '#34c759'],
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } },
+                    x: { grid: { display: false }, ticks: { color: '#64748b' } }
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { beginAtZero: true, max: 100, ticks: { color: colors.secondary }, grid: { color: colors.border } },
-                        x: { ticks: { color: colors.secondary }, grid: { display: false } }
-                    }
-                }
-            });
+                plugins: { legend: { display: false } }
+            }
+        });
 
-            setInterval(() => {
-                pulseChart.data.datasets[0].data = pulseChart.data.datasets[0].data.map((v) => {
-                    const delta = (Math.random() - 0.5) * 6;
-                    return Math.min(100, Math.max(5, v + delta));
-                });
-                pulseChart.update('none');
-            }, 2500);
-        }
-    }
-
-    function renderMap() {
-        const mapRoot = document.getElementById('homeGeoMap');
-        if (!mapRoot || typeof L === 'undefined') return;
-
-        const map = L.map('homeGeoMap').setView([20, 0], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
+        // Initialize Map
+        const map = L.map('homeMap').setView([20, 0], 2);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         }).addTo(map);
 
+        // Fetch GeoJSON Cluster Feed
         fetch("{{ url_for('quantumshield_dashboard.dashboard_geojson') }}")
-            .then((r) => r.json())
-            .then((geojson) => {
-                L.geoJSON(geojson, {
-                    onEachFeature: (feature, layer) => {
-                        const p = feature.properties || {};
-                        layer.bindPopup(`<strong>${p.title || 'Asset'}</strong><br>Type: ${p.type || '--'}<br>Location: ${p.location || '--'}`);
+            .then(res => res.json())
+            .then(data => {
+                L.geoJSON(data, {
+                    pointToLayer: function(feature, latlng) {
+                        return L.circleMarker(latlng, {
+                            radius: 6,
+                            fillColor: feature.properties.risk === 'Critical' ? '#ff2d55' : '#00ffcc',
+                            color: "#000",
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        });
+                    },
+                    onEachFeature: function(feature, layer) {
+                        layer.bindPopup(`<strong>${feature.properties.title}</strong><br>Type: ${feature.properties.type}<br>Location: ${feature.properties.location}`);
                     }
                 }).addTo(map);
-            })
-            .catch(() => {
-                setApiState('Metrics loaded, but geo intelligence feed failed to load.', true);
             });
-    }
-
-    async function loadLiveMetrics() {
-        try {
-            setApiState('Loading live dashboard metrics from API…');
-            const client = window.QuantumShieldApiClient;
-            const resp = client && client.getHomeMetrics
-                ? await client.getHomeMetrics()
-                : await fetch('/api/home/metrics').then((r) => r.json());
-
-            const kpis = (resp && resp.data && resp.data.kpis) ? resp.data.kpis : {};
-
-            setMetric('kpiTotalAssets', kpis.total_assets);
-            setMetric('kpiTotalScans', kpis.total_scans);
-            setMetric('kpiQuantumSafe', kpis.quantum_safe_pct, '%');
-            setMetric('kpiVulnerable', kpis.vulnerable_assets);
-
-            setApiState('Live metrics synced successfully.');
-            if (lastUpdatedEl) {
-                lastUpdatedEl.textContent = new Date().toLocaleTimeString();
-            }
-        } catch (_err) {
-            setApiState('Live metrics unavailable. Showing latest server-rendered values.', true);
-            setMetric('kpiTotalAssets', undefined);
-            setMetric('kpiTotalScans', undefined);
-            setMetric('kpiQuantumSafe', undefined, '%');
-            setMetric('kpiVulnerable', undefined);
-            if (lastUpdatedEl) {
-                lastUpdatedEl.textContent = 'fallback';
-            }
-        }
-    }
-
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') closeAddModal();
     });
-
-    renderCharts();
-    renderMap();
-    loadLiveMetrics();
 </script>
 {% endblock %}

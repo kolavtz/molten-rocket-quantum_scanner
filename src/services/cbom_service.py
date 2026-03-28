@@ -93,6 +93,7 @@ class CbomService:
             Asset.is_deleted == False,
             Scan.is_deleted == False,
             Scan.status == "complete",
+            Scan.add_to_inventory == True,
             Certificate.is_deleted == False,
         ]
         if asset_id is not None:
@@ -141,6 +142,7 @@ class CbomService:
                 CBOMEntry.is_deleted == False,
                 Scan.is_deleted == False,
                 Scan.status == "complete",
+                Scan.add_to_inventory == True,
             )
         )
         if asset_id is not None:
@@ -226,6 +228,7 @@ class CbomService:
                 CBOMEntry.is_deleted == False,
                 Scan.is_deleted == False,
                 Scan.status == "complete",
+                Scan.add_to_inventory == True,
             )
         )
         if asset_id is not None:
@@ -258,6 +261,7 @@ class CbomService:
                     CBOMEntry.is_deleted == False,
                     Scan.is_deleted == False,
                     Scan.status == "complete",
+                    Scan.add_to_inventory == True,
                     col.isnot(None),
                 )
             )
@@ -353,7 +357,7 @@ class CbomService:
             db_session.query(func.count(CBOMEntry.id))
             .join(Scan, CBOMEntry.scan_id == Scan.id)
             .join(Asset, func.lower(Asset.target) == func.lower(Scan.target))
-            .filter(Asset.is_deleted == False, Scan.is_deleted == False, Scan.status == "complete", CBOMEntry.quantum_safe_flag == False)
+            .filter(Asset.is_deleted == False, Scan.is_deleted == False, Scan.status == "complete", Scan.add_to_inventory == True, CBOMEntry.quantum_safe_flag == False)
         )
         if asset_id is not None:
             cbom_entry_issue_count = cbom_entry_issue_count.filter(Asset.id == asset_id)
@@ -366,7 +370,7 @@ class CbomService:
             db_session.query(func.sum(CBOMSummary.cert_issues_count))
             .join(Scan, CBOMSummary.scan_id == Scan.id)
             .join(Asset, func.lower(Asset.target) == func.lower(Scan.target))
-            .filter(Asset.is_deleted == False, Scan.is_deleted == False, Scan.status == "complete")
+            .filter(Asset.is_deleted == False, Scan.is_deleted == False, Scan.status == "complete", Scan.add_to_inventory == True)
         )
         if asset_id is not None:
             cbom_summary_issue_sum = cbom_summary_issue_sum.filter(Asset.id == asset_id)

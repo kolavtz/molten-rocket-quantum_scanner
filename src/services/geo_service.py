@@ -55,7 +55,11 @@ class GeoService:
                             "asn": data.get("as", "Unknown")
                         }
         except Exception as e:
-            if logger: logger.error(f"Geolocation lookup failed for {target}: {e}")
+            # Downgrade DNS resolution errors to debug to prevent log flooding for internal/test domains
+            if isinstance(e, socket.gaierror) or "11001" in str(e):
+                if logger: logger.debug(f"Geolocation DNS lookup failed for {target}: {e}")
+            else:
+                if logger: logger.error(f"Geolocation lookup failed for {target}: {e}")
         
         return {"ip": target, "status": "fail", "lat": 0.0, "lon": 0.0}
 

@@ -603,24 +603,41 @@
         var schedules = result.data || result.schedules || [];
 
         if (!schedules.length) {
-          schedulesList.innerHTML = '<div style="color:var(--text-secondary);">No schedules yet.</div>';
+          schedulesList.innerHTML = '<div style="color:var(--text-secondary);">No scheduled scans found. Please set up scheduled scans.</div>';
           return;
         }
 
         schedulesList.innerHTML = schedules.map(function (schedule) {
           var detail = String(schedule.frequency || 'daily') + ' at ' + String(schedule.scheduled_time || '--:--') + ' (' + String(schedule.timezone || 'UTC') + ')';
           var auto = schedule.auto_add_to_inventory ? '<div style="font-size:0.75rem; color:var(--safe);">Auto-add enabled</div>' : '';
+          var scheduleId = String(schedule.id || '');
           return (
             '<div class="glass-card" style="padding:0.7rem; display:flex; justify-content:space-between; gap:0.8rem; align-items:center;">' +
               '<div>' +
-                '<div style="font-weight:700;">' + String(schedule.target || '') + '</div>' +
-                '<div style="font-size:0.8rem; color:var(--text-secondary);">' + detail + '</div>' +
+                '<div style="font-weight:700;">' + escapeHtml(String(schedule.target || '')) + '</div>' +
+                '<div style="font-size:0.8rem; color:var(--text-secondary);">' + escapeHtml(detail) + '</div>' +
                 auto +
               '</div>' +
-              '<button class="quick-btn" data-schedule-delete="' + String(schedule.id || '') + '" type="button">Delete</button>' +
+              '<div class="row-actions">' +
+                '<button class="quick-btn" data-schedule-detail="' + scheduleId + '" type="button">Details</button>' +
+                '<button class="quick-btn" data-schedule-edit="' + scheduleId + '" type="button">Edit</button>' +
+                '<button class="quick-btn" data-schedule-delete="' + scheduleId + '" type="button">Delete</button>' +
+              '</div>' +
             '</div>'
           );
         }).join('');
+
+        schedulesList.querySelectorAll('[data-schedule-detail]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            showScheduleDetails(String(btn.getAttribute('data-schedule-detail') || ''));
+          });
+        });
+
+        schedulesList.querySelectorAll('[data-schedule-edit]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            editSchedule(String(btn.getAttribute('data-schedule-edit') || ''));
+          });
+        });
 
         schedulesList.querySelectorAll('[data-schedule-delete]').forEach(function (btn) {
           btn.addEventListener('click', function () {
@@ -685,6 +702,98 @@
       }
     }
 
+    async function getSchedule(scheduleId) {
+      if (!scheduleId) {
+        throw new Error('Missing schedule id.');
+      }
+
+      var resp = await fetch('/api/scan-schedules/' + encodeURIComponent(scheduleId), {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json', 'X-CSRFToken': getCsrfToken() }
+      });
+      var payload = {};
+      try { payload = await resp.json(); } catch (_e) { payload = {}; }
+      if (!resp.ok) throw new Error(payload.message || 'Failed to fetch schedule details.');
+      return payload.data || payload;
+    }
+
+    async function updateSchedule(scheduleId, payload) {
+      var resp = await fetch('/api/scan-schedules/' + encodeURIComponent(scheduleId), {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(payload || {})
+      });
+
+      var body = {};
+      try { body = await resp.json(); } catch (_e) { body = {}; }
+      if (!resp.ok) throw new Error(body.message || 'Failed to update schedule.');
+      return body;
+    }
+
+    async function showScheduleDetails(scheduleId) {
+      try {
+        var schedule = await getSchedule(scheduleId);
+        var lines = [
+          'ID: ' + String(schedule.id || ''),
+          'Target: ' + String(schedule.target || ''),
+          'Frequency: ' + String(schedule.frequency || ''),
+          'Time: ' + String(schedule.scheduled_time || '') + ' (' + String(schedule.timezone || 'UTC') + ')',
+          'Auto Add: ' + (schedule.auto_add_to_inventory ? 'Yes' : 'No'),
+          'Status: ' + String(schedule.status || 'active'),
+          'Created: ' + formatDate(schedule.created_at),
+          'Updated: ' + formatDate(schedule.updated_at)
+        ];
+        window.alert(lines.join('\n'));
+      } catch (err) {
+        setActionMessage(err.message || 'Failed to load schedule details.', true);
+      }
+    }
+
+    async function editSchedule(scheduleId) {
+      try {
+        var current = await getSchedule(scheduleId);
+
+        var target = window.prompt('Schedule target', String(current.target || ''));
+        if (target === null) return;
+        target = String(target || '').trim();
+
+        var frequency = window.prompt('Frequency (daily|weekly|monthly)', String(current.frequency || 'daily'));
+        if (frequency === null) return;
+        frequency = String(frequency || '').trim().toLowerCase();
+
+        var scheduledTime = window.prompt('Scheduled time (HH:MM)', String(current.scheduled_time || '12:00'));
+        if (scheduledTime === null) return;
+        scheduledTime = String(scheduledTime || '').trim();
+
+        var timezone = window.prompt('Timezone', String(current.timezone || 'UTC'));
+        if (timezone === null) return;
+        timezone = String(timezone || '').trim();
+
+        var autoAddRaw = window.prompt('Auto add to inventory? (yes/no)', current.auto_add_to_inventory ? 'yes' : 'no');
+        if (autoAddRaw === null) return;
+        var autoAdd = /^y(es)?$/i.test(String(autoAddRaw || '').trim());
+
+        await updateSchedule(scheduleId, {
+          target: target,
+          frequency: frequency,
+          scheduled_time: scheduledTime,
+          timezone: timezone,
+          auto_add_to_inventory: autoAdd
+        });
+
+        setActionMessage('Schedule updated successfully.');
+        await loadSchedules();
+      } catch (err) {
+        setActionMessage(err.message || 'Failed to update schedule.', true);
+      }
+    }
+
     if (scheduleCreateBtn) {
       scheduleCreateBtn.addEventListener('click', createSchedule);
     }
@@ -726,10 +835,51 @@
     detailLoader = showRecordDetails;
   }
 
+  async function promote(scanId, destination) {
+    if (!scanId) {
+      window.alert('Missing scan id for promotion.');
+      return;
+    }
+
+    var target = String(destination || 'inventory').toLowerCase();
+    if (target !== 'inventory' && target !== 'cbom') {
+      target = 'inventory';
+    }
+
+    try {
+      var resp = await fetch('/api/scans/' + encodeURIComponent(scanId) + '/promote', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({ destination: target })
+      });
+
+      var payload = {};
+      try { payload = await resp.json(); } catch (_err) { payload = {}; }
+      if (!resp.ok) {
+        throw new Error(payload.message || 'Promotion failed.');
+      }
+
+      window.alert(payload.message || ('Scan promoted to ' + target + '.'));
+
+      var searchBtn = document.querySelector('[data-api-search-btn]');
+      if (searchBtn) {
+        searchBtn.click();
+      }
+    } catch (err) {
+      window.alert(err.message || 'Promotion failed.');
+    }
+  }
+
   var detailLoader = function () {};
 
   window.QuantumShieldScans = {
     init: init,
+    promote: promote,
     showRecordDetails: function (record) {
       detailLoader(record);
     }

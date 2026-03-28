@@ -1,241 +1,194 @@
 {% extends "base.html" %}
-{% import "macros/table_macros.html" as tb %}
-{% block title %}Posture of PQC | QuantumShield{% endblock %}
+{% import "macros/table.html" as tb %}
+
+{% block title %}PQC Posture // QuantumShield{% endblock %}
+
 {% block head %}
 <style>
-  .pqc-shell { max-width: 1480px; margin: 0 auto; display:grid; gap:1rem; }
-  .pqc-head { display:flex; justify-content:space-between; align-items:flex-end; gap:0.8rem; flex-wrap:wrap; }
-  .pqc-head h2 { margin:0; font-size:clamp(1.6rem,2.6vw,2.2rem); text-transform:uppercase; letter-spacing:0.02em; }
-  .pqc-head p { margin:0.35rem 0 0; color:var(--text-secondary); }
-  .pqc-api { border:1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent); border-radius:10px; padding:0.7rem 0.9rem; color:var(--text-secondary); font-size:0.78rem; }
-  .pqc-api.error { color:var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
+    .pqc-container { padding: 1.5rem 0; }
+    .pqc-hero { margin-bottom: 2rem; }
+    .pqc-kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin-bottom: 2rem; }
+    .pqc-main-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+    
+    .pqc-kpi { text-align: center; padding: 1.25rem; }
+    .pqc-kpi .value { font-size: 1.75rem; font-weight: 800; color: var(--text-primary); }
+    .pqc-kpi .label { font-size: 0.65rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.25rem; }
 
-  .pqc-kpis { display:grid; grid-template-columns: repeat(auto-fit, minmax(190px,1fr)); gap:0.75rem; }
-  .pqc-kpi { padding:0.95rem; border-left:3px solid var(--accent); }
-  .pqc-kpi.warn { border-left-color: var(--warn); }
-  .pqc-kpi.danger { border-left-color: var(--danger); }
-  .pqc-kpi.safe { border-left-color: var(--safe); }
-  .pqc-kpi .label { font-size:0.66rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.11em; margin-bottom:0.35rem; }
-  .pqc-kpi .value { font-size:1.9rem; line-height:1; font-weight:800; }
+    .pqc-row { display: grid; grid-template-columns: 150px 1fr 60px; gap: 1rem; align-items: center; margin-bottom: 1rem; }
+    .status-track { height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; }
+    .status-fill { height: 100%; background: var(--accent); border-radius: 3px; }
 
-  .pqc-grid { display:grid; grid-template-columns: 1.35fr 1fr; gap:0.9rem; }
-  .pqc-card { padding:1rem; border:1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent); }
-  .pqc-title { margin:0 0 0.65rem; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.11em; color:var(--text-secondary); }
-  .pqc-bars { display:grid; gap:0.55rem; }
-  .pqc-bar-row { display:grid; grid-template-columns: 132px 1fr 56px; gap:0.5rem; align-items:center; }
-  .pqc-bar-label { font-size:0.74rem; color:var(--text-secondary); }
-  .pqc-track { height:8px; border-radius:999px; background:var(--bg-secondary); overflow:hidden; }
-  .pqc-fill { height:100%; width:0; background:var(--accent); border-radius:999px; }
-  .pqc-num { font-size:0.72rem; color:var(--text-secondary); text-align:right; }
+    .detail-item { display: flex; justify-content: space-between; padding: 0.75rem; background: rgba(255,255,255,0.02); border-radius: 8px; margin-bottom: 0.5rem; }
+    .detail-label { font-size: 0.7rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; }
+    .detail-value { font-size: 0.8rem; font-weight: 700; color: var(--text-primary); }
 
-  .pqc-heat { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:0.5rem; }
-  .pqc-cell { border:1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent); border-radius:10px; padding:0.6rem; background: color-mix(in srgb, var(--bg-secondary) 76%, transparent); }
-  .pqc-cell .meta { font-size:0.67rem; color:var(--text-secondary); }
-  .pqc-cell .val { font-size:1rem; font-weight:700; }
-
-  .pqc-details { display:grid; grid-template-columns: 1fr 1fr; gap:0.9rem; }
-  @media (max-width: 1180px) {
-    .pqc-grid, .pqc-details { grid-template-columns: 1fr; }
-  }
+    @media (max-width: 1200px) {
+        .pqc-kpi-grid { grid-template-columns: repeat(3, 1fr); }
+        .pqc-main-grid { grid-template-columns: 1fr; }
+    }
 </style>
 {% endblock %}
+
 {% block content %}
-<section class="pqc-shell">
-  <div class="pqc-head">
-    <div>
-      <h2>Posture of PQC</h2>
-      <p>Asset readiness analytics, risk distribution, and migration priorities based on active inventory telemetry.</p>
+<div class="pqc-container">
+    <div class="pqc-hero">
+        <h1 style="font-size: 2.5rem; font-weight: 900; letter-spacing: -0.02em; margin: 0;">PQC POSTURE</h1>
+        <p style="color: var(--text-secondary); margin-top: 0.5rem;">Quantum-readiness analytics and cryptographic migration priorities.</p>
     </div>
-    <a href="{{ url_for('scans.scans_page') }}" class="button">Initiate Scan</a>
-  </div>
 
-  <div id="pqcApiState" class="pqc-api" role="status" aria-live="polite">Syncing PQC metrics from API…</div>
+    <!-- Sync Status -->
+    <div id="pqcApiState" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em;">Syncing PQC metrics...</div>
 
-  {% if vm.empty %}
-  <section class="glass-card" style="padding:1rem;">
-    <div class="alert info" style="margin:0;">
-      <div class="alert-title">No PQC telemetry available yet</div>
-      <div class="alert-message">Run at least one scan with TLS findings to populate PQC posture analytics.</div>
-    </div>
-  </section>
-  {% endif %}
-
-  <section class="pqc-kpis">
-    <article class="glass-card pqc-kpi safe"><div class="label">Elite readiness</div><div class="value" id="kpiElite" data-fallback="{{ vm.overall.elite or 0 }}">{{ vm.overall.elite or 0 }}</div></article>
-    <article class="glass-card pqc-kpi"><div class="label">Standard readiness</div><div class="value" id="kpiStandard" data-fallback="{{ vm.overall.standard or 0 }}">{{ vm.overall.standard or 0 }}</div></article>
-    <article class="glass-card pqc-kpi warn"><div class="label">Legacy posture</div><div class="value" id="kpiLegacy" data-fallback="{{ vm.overall.legacy or 0 }}">{{ vm.overall.legacy or 0 }}</div></article>
-    <article class="glass-card pqc-kpi danger"><div class="label">Critical apps</div><div class="value" id="kpiCritical" data-fallback="{{ vm.overall.critical_apps or 0 }}">{{ vm.overall.critical_apps or 0 }}</div></article>
-    <article class="glass-card pqc-kpi"><div class="label">Average PQC score</div><div class="value" id="kpiAvg" data-fallback="{{ vm.average_pqc_score or 0 }}">{{ vm.average_pqc_score or 0 }}</div></article>
-  </section>
-
-  <section class="pqc-grid">
-    <article class="glass-card pqc-card">
-      <h3 class="pqc-title">Application status distribution</h3>
-      <div class="pqc-bars">
-        {% for k,v in vm.status_distribution.items() %}
-        <div class="pqc-bar-row">
-          <span class="pqc-bar-label">{{ k }}</span>
-          <div class="pqc-track"><div class="pqc-fill" data-width="{{ v }}"></div></div>
-          <span class="pqc-num">{{ v }}%</span>
+    <!-- KPI Grid -->
+    <div class="pqc-kpi-grid">
+        <div class="glass-card pqc-kpi" style="border-left: 3px solid var(--pqc-safe);">
+            <div class="value" id="kpiElite">{{ vm.overall.elite or 0 }}%</div>
+            <div class="label">Elite Readiness</div>
         </div>
-        {% endfor %}
-      </div>
-    </article>
-    <article class="glass-card pqc-card">
-      <h3 class="pqc-title">Risk heatmap</h3>
-      <div class="pqc-heat">
-        {% for cell in vm.risk_heatmap %}
-        <div class="pqc-cell">
-          <div class="meta">{{ cell.x }} · {{ cell.y }}</div>
-          <div class="val">{{ cell.value }}</div>
+        <div class="glass-card pqc-kpi" style="border-left: 3px solid var(--accent);">
+            <div class="value" id="kpiStandard">{{ vm.overall.standard or 0 }}%</div>
+            <div class="label">Standard</div>
         </div>
-        {% endfor %}
-      </div>
-    </article>
-  </section>
-
-  <section class="glass-card" style="padding:1rem;">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:0.8rem;flex-wrap:wrap;margin-bottom:0.75rem;">
-      <h3 style="margin:0;">PQC asset telemetry</h3>
-      <span style="font-size:0.75rem;color:var(--text-secondary);">Live API view with server-rendered fallback rows</span>
+        <div class="glass-card pqc-kpi" style="border-left: 3px solid var(--risk-high);">
+            <div class="value" id="kpiLegacy">{{ vm.overall.legacy or 0 }}%</div>
+            <div class="label">Legacy</div>
+        </div>
+        <div class="glass-card pqc-kpi" style="border-left: 3px solid var(--risk-critical);">
+            <div class="value" id="kpiCritical">{{ vm.overall.critical_apps or 0 }}%</div>
+            <div class="label">Critical Apps</div>
+        </div>
+        <div class="glass-card pqc-kpi">
+            <div class="value" id="kpiAvg">{{ vm.average_pqc_score or 0 }}</div>
+            <div class="label">Avg PQC Score</div>
+        </div>
     </div>
 
-    {{ tb.search_form('pqc_posture', request.args.get('q', ''), request.args.get('page_size', page_data.page_size if page_data else 25), {}) }}
+    <!-- Main Analytics -->
+    <div class="pqc-main-grid">
+        <div class="glass-card" style="padding: 1.5rem;">
+            <div class="metric-title" style="margin-bottom:1.5rem;">Application Status Distribution</div>
+            <div style="display:flex; flex-direction:column;">
+                {% for k, v in vm.status_distribution.items() %}
+                <div class="pqc-row">
+                    <div style="font-size:0.75rem; font-weight:600; color:var(--text-secondary);">{{ k }}</div>
+                    <div class="status-track">
+                        <div class="status-fill" style="width: {{ v }}%; background: {% if k == 'Elite' %}var(--pqc-safe){% elif k == 'Standard' %}var(--accent){% else %}var(--risk-high){% endif %};"></div>
+                    </div>
+                    <div style="font-size:0.75rem; font-weight:700; text-align:right;">{{ v }}%</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
 
-    <div class="scans-table-wrapper">
-      <table class="scans-table" id="supportTable" data-table-mode="server">
-        <thead>
-          <tr>
-            <th>Asset Name</th>
-            <th>PQC Tier</th>
-            <th>Readiness Score</th>
-            <th>Quantum-Safe Algorithms</th>
-            <th>Vulnerable Algorithms</th>
-            <th>Last Scan Time</th>
-            <th>Scan Type</th>
-          </tr>
-        </thead>
-        <tbody id="pqcTableBody">
-          {% if page_data.get('items') %}
-            {% for row in page_data.get('items') %}
-            <tr data-owner="{{ row.asset_name or row.target }}" data-exposure="Public" data-tls="{{ row.tls_version or 'Unknown' }} · {{ row.cipher_suite or 'Unknown' }}" data-score="{{ (row.score or 0)|round|int }}" data-status="{{ row.status }}" data-recommendation="{{ row.recommendation or '' }}">
-              <td>{{ row.asset_name or row.target }}</td>
-              <td><span style="font-weight:600;">{{ row.status }}</span></td>
-              <td>{{ row.readiness }} ({{ row.score }}%)</td>
-              <td>{{ row.quantum_safe_algorithms }}</td>
-              <td>{{ row.quantum_vulnerable_algorithms }}</td>
-              <td>{{ row.last_scan or 'Never' }}</td>
-              <td>{{ row.scan_kind or 'N/A' }}</td>
-            </tr>
-            {% endfor %}
-          {% else %}
-            <tr>
-              <td colspan="7" style="padding: 2rem;">
-                {{ tb.empty_state("No PQC records matched your criteria.") }}
-              </td>
-            </tr>
-          {% endif %}
-        </tbody>
-      </table>
+        <div class="glass-card" style="padding: 1.5rem;">
+            <div class="metric-title" style="margin-bottom:1.5rem;">Migration Priority Checklist</div>
+            <div style="display:flex; flex-direction:column; gap:0.75rem;">
+                {% for rec in vm.recommendations %}
+                <div class="glass-card" style="padding:0.8rem; background:rgba(255,255,255,0.02); display:flex; gap:0.75rem;">
+                    <i class="fa-solid fa-circle-exclamation" style="color:var(--risk-high); margin-top:3px;"></i>
+                    <div style="font-size:0.8rem; line-height:1.4;">{{ rec }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
     </div>
 
-    {{ tb.pagination_controls('pqc_posture', page_data, {}) }}
-  </section>
+    <!-- Telemetry Table -->
+    <div class="glass-card" style="padding: 1.5rem; margin-bottom: 2rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <div class="metric-title">PQC Asset Telemetry</div>
+            <div style="font-size:0.7rem; color:var(--text-muted);">Real-time Discovery Feed</div>
+        </div>
+        
+        <div class="table-scroll">
+            <table class="scans-table" id="pqcTable">
+                <thead>
+                    <tr>
+                        <th>Asset</th>
+                        <th>Tier</th>
+                        <th>Readiness</th>
+                        <th>Quantum-Safe ALGOs</th>
+                        <th>Vulnerable ALGOs</th>
+                        <th>Last Scan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in page_data['items'] %}
+                    <tr onclick="showDetails(this)" 
+                        data-owner="{{ row.asset_name }}" 
+                        data-tls="{{ row.tls_version }}" 
+                        data-score="{{ row.score }}" 
+                        data-status="{{ row.status }}" 
+                        data-rec="{{ row.recommendation }}">
+                        <td><strong>{{ row.asset_name or row.target }}</strong></td>
+                        <td><span class="status-pill">{{ row.status }}</span></td>
+                        <td><div style="font-weight:700;">{{ row.score }}%</div></td>
+                        <td style="font-size:0.7rem;">{{ row.quantum_safe_algorithms }}</td>
+                        <td style="font-size:0.7rem; color:var(--risk-high);">{{ row.quantum_vulnerable_algorithms }}</td>
+                        <td style="font-size:0.75rem;">{{ row.last_scan }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 
-  <section class="pqc-details">
-    <article class="glass-card pqc-card">
-      <h3 class="pqc-title">Recommendations</h3>
-      <ul style="padding-left:1.2rem;display:grid;gap:0.45rem;">
-        {% for rec in vm.recommendations %}
-        <li>{{ rec }}</li>
-        {% endfor %}
-      </ul>
-    </article>
-    <article class="glass-card pqc-card">
-      <h3 class="pqc-title">Selected asset details</h3>
-      <div style="font-size:0.8rem;color:var(--text-secondary);display:grid;gap:0.45rem;">
-        <div>Owner: <strong id="detailOwner" style="color:var(--text-primary);">-</strong></div>
-        <div>Exposure: <strong id="detailExposure" style="color:var(--text-primary);">-</strong></div>
-        <div>TLS: <strong id="detailTls" style="color:var(--text-primary);">-</strong></div>
-        <div>Score: <strong id="detailScore" style="color:var(--text-primary);">-</strong></div>
-        <div>Status: <strong id="detailStatus" style="color:var(--text-primary);">-</strong></div>
-        <div>Recommendation: <strong id="detailRecommendation" style="color:var(--text-primary);">-</strong></div>
-      </div>
-    </article>
-  </section>
-</section>
+    <!-- Detailed Inspection -->
+    <div class="glass-card" style="padding: 1.5rem;">
+        <div class="metric-title" style="margin-bottom:1.5rem;">Selected Asset Inspection</div>
+        <div class="pqc-main-grid" style="grid-template-columns: 1fr 1fr;">
+            <div id="assetDetails">
+                <div class="detail-item"><span class="detail-label">Asset Identity</span><span class="detail-value" id="det-name">-</span></div>
+                <div class="detail-item"><span class="detail-label">Cryptographic Status</span><span class="detail-value" id="det-status">-</span></div>
+                <div class="detail-item"><span class="detail-label">Readiness Score</span><span class="detail-value" id="det-score">-</span></div>
+                <div class="detail-item"><span class="detail-label">TLS Stack</span><span class="detail-value" id="det-tls">-</span></div>
+            </div>
+            <div class="glass-card" style="padding: 1rem; background:rgba(255,255,255,0.01);">
+                <div class="detail-label" style="margin-bottom:0.5rem;">Recommended Action</div>
+                <div id="det-rec" style="font-size:0.85rem; line-height:1.5; color:var(--text-primary);">Select an asset to view remediation steps.</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
+{% block scripts %}
 <script>
-(function () {
-  const apiState = document.getElementById('pqcApiState');
-  const kpiKeys = {
-    elite: document.getElementById('kpiElite'),
-    standard: document.getElementById('kpiStandard'),
-    legacy: document.getElementById('kpiLegacy'),
-    critical: document.getElementById('kpiCritical'),
-    avg: document.getElementById('kpiAvg')
-  };
-
-  function setState(msg, isError) {
-    if (!apiState) return;
-    apiState.textContent = msg;
-    apiState.classList.toggle('error', !!isError);
-  }
-
-  function fallbackMetric(node) {
-    return node ? node.dataset.fallback || '0' : '0';
-  }
-
-  function setMetric(node, value, suffix = '') {
-    if (!node) return;
-    const safe = value === undefined || value === null || value === '' ? fallbackMetric(node) : value;
-    node.textContent = `${safe}${suffix}`;
-  }
-
-  function bindRows() {
-    const rows = Array.from(document.querySelectorAll('#supportTable tbody tr'));
-    function selectRow(row) {
-      document.getElementById('detailOwner').textContent = row.dataset.owner || '-';
-      document.getElementById('detailExposure').textContent = row.dataset.exposure || '-';
-      document.getElementById('detailTls').textContent = row.dataset.tls || '-';
-      document.getElementById('detailScore').textContent = row.dataset.score || '-';
-      document.getElementById('detailStatus').textContent = row.dataset.status || '-';
-      document.getElementById('detailRecommendation').textContent = row.dataset.recommendation || '-';
+    function showDetails(row) {
+        document.getElementById('det-name').textContent = row.dataset.owner;
+        document.getElementById('det-status').textContent = row.dataset.status;
+        document.getElementById('det-score').textContent = row.dataset.score + '%';
+        document.getElementById('det-tls').textContent = row.dataset.tls;
+        document.getElementById('det-rec').textContent = row.dataset.rec || 'No specific action required for this asset.';
+        
+        // Highlight row
+        document.querySelectorAll('tr').forEach(r => r.style.background = '');
+        row.style.background = 'rgba(255,255,255,0.05)';
     }
-    rows.forEach((row) => row.addEventListener('click', () => selectRow(row)));
-    if (rows.length) selectRow(rows[0]);
-  }
 
-  document.querySelectorAll('.pqc-fill[data-width]').forEach((bar) => {
-    const width = Number(bar.getAttribute('data-width') || '0');
-    bar.style.width = `${Math.max(0, Math.min(100, width))}%`;
-  });
-
-  async function syncMetrics() {
-    try {
-      setState('Syncing PQC metrics from API…');
-      const metricsResp = await fetch('/api/pqc-posture/metrics', { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
-      if (!metricsResp.ok) throw new Error(`metrics HTTP ${metricsResp.status}`);
-      const metricsPayload = await metricsResp.json();
-      const kpis = metricsPayload?.data?.kpis || {};
-      setMetric(kpiKeys.elite, Number(kpis.elite || 0).toFixed(1), '%');
-      setMetric(kpiKeys.standard, Number(kpis.standard || 0).toFixed(1), '%');
-      setMetric(kpiKeys.legacy, Number(kpis.legacy || 0).toFixed(1), '%');
-      setMetric(kpiKeys.critical, Number(kpis.critical || 0).toFixed(1), '%');
-      setMetric(kpiKeys.avg, Number(kpis.avg_score || 0).toFixed(1));
-      setState('PQC metrics synced successfully.');
-    } catch (_err) {
-      setState('Live PQC metrics unavailable. Showing server-rendered values.', true);
-      setMetric(kpiKeys.elite, undefined);
-      setMetric(kpiKeys.standard, undefined);
-      setMetric(kpiKeys.legacy, undefined);
-      setMetric(kpiKeys.critical, undefined);
-      setMetric(kpiKeys.avg, undefined);
+    async function syncMetrics() {
+        const stateEl = document.getElementById('pqcApiState');
+        try {
+            const resp = await fetch('/api/pqc-posture/metrics');
+            if (resp.ok) {
+                const result = await resp.json();
+                const kpis = result.data.kpis;
+                document.getElementById('kpiElite').textContent = kpis.elite + '%';
+                document.getElementById('kpiStandard').textContent = kpis.standard + '%';
+                document.getElementById('kpiLegacy').textContent = kpis.legacy + '%';
+                document.getElementById('kpiCritical').textContent = kpis.critical + '%';
+                document.getElementById('kpiAvg').textContent = kpis.avg_score;
+                stateEl.textContent = 'PQC Metrics Synced Successfully';
+            }
+        } catch (e) {
+            stateEl.textContent = 'Sync Failed: Using Cached Data';
+        }
     }
-  }
 
-  bindRows();
-  syncMetrics();
-})();
+    document.addEventListener('DOMContentLoaded', () => {
+        syncMetrics();
+        const firstRow = document.querySelector('tbody tr');
+        if (firstRow) showDetails(firstRow);
+    });
 </script>
 {% endblock %}

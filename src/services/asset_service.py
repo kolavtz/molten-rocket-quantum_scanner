@@ -3,15 +3,18 @@ AssetService configuration layer for QuantumShield.
 Loads and calculates live dashboard telemetry scoring aggregates.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from collections import Counter
-from typing import Dict, List
+from typing import Dict, List, Any, Optional
 import json
 
 import logging
 from sqlalchemy import text, func, desc
 
-from src.models import Asset, Scan, Certificate, CBOMEntry, PQCClassification, DiscoveryItem
+from src.models import (
+    Asset, Scan, Certificate, CBOMEntry, PQCClassification,
+    DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware
+)
 from src.db import db_session
 from urllib.parse import urlparse
 import ipaddress
@@ -105,22 +108,11 @@ class AssetService:
         """Hydrate inventory rows from MySQL tables only (assets/scans/certificates)."""
 
         assets_out = []
-        asset_query = db_session.query(Asset)
-        if hasattr(asset_query, "filter"):
-            asset_query = asset_query.filter(Asset.is_deleted == False, Asset.deleted_at.is_(None))
-        elif hasattr(asset_query, "filter_by"):
-            asset_query = asset_query.filter_by(is_deleted=False)
-        if hasattr(asset_query, "order_by"):
-            asset_query = asset_query.order_by(Asset.target.asc())
-        db_assets = self._as_list(asset_query.all()) if hasattr(asset_query, "all") else []
+        asset_query = db_session.query(Asset).filter(Asset.is_deleted == False, Asset.deleted_at.is_(None))
+        db_assets = asset_query.order_by(Asset.target.asc()).all()
 
         latest_scan_by_target: Dict[str, Scan] = {}
-        scan_query = db_session.query(Scan)
-        if hasattr(scan_query, "filter"):
-            scan_query = scan_query.filter(Scan.is_deleted == False, Scan.deleted_at.is_(None), Scan.status == "complete")
-        elif hasattr(scan_query, "filter_by"):
-            scan_query = scan_query.filter_by(status="complete")
-        scans = self._as_list(scan_query.all()) if hasattr(scan_query, "all") else []
+        scans = db_session.query(Scan).filter(Scan.is_deleted == False, Scan.deleted_at.is_(None), Scan.status == "complete").all()
         for scan in scans:
             key = self._normalize_target(getattr(scan, "target", "") or "")
             if not key:
@@ -149,15 +141,12 @@ class AssetService:
         certs = []
         if asset_ids:
             try:
-                cert_query = db_session.query(Certificate)
-                if hasattr(cert_query, "filter"):
-                    cert_query = cert_query.filter(Certificate.is_deleted == False, Certificate.deleted_at.is_(None), Certificate.asset_id.in_(asset_ids))
-                    certs = self._as_list(cert_query.all()) if hasattr(cert_query, "all") else []
-                else:
-                    certs = []
+                certs = db_session.query(Certificate).filter(
+                    Certificate.is_deleted == False, 
+                    Certificate.deleted_at.is_(None), 
+                    Certificate.asset_id.in_(asset_ids)
+                ).all()
             except Exception:
-                # Legacy deployments may not yet include new certificate columns.
-                # Keep inventory functional and degrade gracefully without cert joins.
                 certs = []
         for cert in certs:
             asset_id = int(getattr(cert, "asset_id", 0) or 0)
@@ -225,13 +214,11 @@ class AssetService:
                 last_scan_id = getattr(latest_scan, "scan_id", None) or getattr(latest_scan, "id", None)
                 scan_status = str(getattr(latest_scan, "status", "") or "Unknown").title()
                 latest_scan_report = self._safe_json_dict(getattr(latest_scan, "report_json", None))
-                # Add overall_pqc_score to latest_scan_report if missing for consistent UI rendering
                 if "overall_pqc_score" not in latest_scan_report and getattr(latest_scan, "overall_pqc_score", None) is not None:
                     latest_scan_report["overall_pqc_score"] = float(latest_scan.overall_pqc_score)
                 scan_kind = str(latest_scan_report.get("scan_kind") or "N/A")
                 scanned_by = str(latest_scan_report.get("scanned_by") or "N/A")
 
-            # Ensure we use exactly 'asset_name' for key matching in UI and API
             asset_display_name = str(meta.name or meta.target or "").strip()
 
             assets_out.append({
@@ -269,40 +256,140 @@ class AssetService:
 
         return assets_out
 
+    def get_dashboard_summary(self, assets: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Calculates dashboard summary metrics and distributions from current inventory."""
+        total = len(assets)
+        
+        # Identity counts
+        web_apps = sum(1 for a in assets if a.get("type") == "Web App")
+        apis = sum(1 for a in assets if a.get("type") == "API")
+        servers = sum(1 for a in assets if a.get("type") == "Server")
+        
+        # Risk distribution
+        risks = [a.get("risk", "Medium") for a in assets]
+        risk_counts = Counter(risks)
+        high_risk_count = risk_counts.get("Critical", 0) + risk_counts.get("High", 0)
+        
+        # Expiring certs (< 30 days)
+        expiring_30 = sum(1 for a in assets if a.get("cert_status") == "Expiring" or (isinstance(a.get("cert_days"), int) and 0 <= a.get("cert_days") <= 30))
+        
+        # Scan count
+        total_scans = db_session.query(Scan).filter(Scan.is_deleted == False).count()
+        
+        # Weak Ciphers (from Certificate service or global search)
+        try:
+            cert_service = CertificateTelemetryService()
+            weak_crypto = cert_service.get_weak_cryptography_metrics()
+            weak_ciphers_count = weak_crypto.get("weak_tls", 0) + weak_crypto.get("weak_keys", 0)
+        except Exception:
+            weak_ciphers_count = 0
+
+        # PQC readiness
+        pqc_scores = [a.get("risk_score", 0) for a in assets if a.get("risk_score") is not None]
+        avg_pqc = sum(pqc_scores) / len(pqc_scores) if pqc_scores else 0
+
+        # Type distribution (ordered for Chart.js)
+        type_dist = [
+            apis,
+            sum(1 for a in assets if "VPN" in str(a.get("type", "")).upper()),
+            servers,
+            web_apps
+        ]
+
+        return {
+            "total_assets": total,
+            "public_web_apps": web_apps,
+            "web_apps_count": web_apps,
+            "apis": apis,
+            "apis_count": apis,
+            "servers": servers,
+            "expiring_certs_30": expiring_30,
+            "expiring_certs_count": expiring_30,
+            "high_risk_assets": high_risk_count,
+            "high_risk_count": high_risk_count,
+            "total_scans": total_scans,
+            "total_scans_platform": total_scans,
+            "weak_ciphers_count": weak_ciphers_count,
+            "critical_vulns_count": weak_ciphers_count,
+            "recent_discoveries_count": len(self.get_recent_discoveries(days=7)) if hasattr(self, 'get_recent_discoveries') else 0,
+            "overall_pqc_readiness": round(avg_pqc, 1),
+            "risk_distribution": {
+                "Critical": risk_counts.get("Critical", 0),
+                "High": risk_counts.get("High", 0),
+                "Medium": risk_counts.get("Medium", 0),
+                "Low": risk_counts.get("Low", 0)
+            },
+            "type_distribution": type_dist,
+            "vulnerable_software": self.get_top_vulnerable_software(5)
+        }
+
+    def get_recent_discoveries(self, days: int = 7) -> List[Dict[str, Any]]:
+        """Fetch items discovered or added to inventory in the last 7 days."""
+        threshold = datetime.utcnow() - timedelta(days=days)
+        
+        recent_items = []
+        
+        # 1. New Assets (Inventoried)
+        new_assets = db_session.query(Asset).filter(
+            and_(
+                Asset.created_at >= threshold,
+                Asset.is_deleted == False
+            )
+        ).all()
+        
+        for asset in new_assets:
+            recent_items.append({
+                "name": asset.name or asset.target,
+                "type": asset.asset_type,
+                "date": asset.created_at.strftime("%Y-%m-%d"),
+                "risk": asset.risk_level or "Medium",
+                "source": "Inventory"
+            })
+            
+        # 2. Discovery Items (Not yet promoted)
+        # We'll peak into DiscoveryDomain and DiscoverySoftware as they are most representative
+        new_domains = db_session.query(DiscoveryDomain).filter(
+            and_(
+                DiscoveryDomain.created_at >= threshold,
+                DiscoveryDomain.promoted_to_inventory == False
+            )
+        ).all()
+        
+        for d in new_domains:
+            recent_items.append({
+                "name": d.domain,
+                "type": "Domain",
+                "date": d.created_at.strftime("%Y-%m-%d"),
+                "risk": "New",
+                "source": "Discovery"
+            })
+            
+        return sorted(recent_items, key=lambda x: x['date'], reverse=True)[:10]
+
+    def get_top_vulnerable_software(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """Get top vulnerable software from discovery or CBOM."""
+        # Query DiscoverySoftware for products with many occurrences or specific categories
+        software = db_session.query(
+            DiscoverySoftware.product,
+            func.count(DiscoverySoftware.id).label('count')
+        ).group_by(DiscoverySoftware.product).order_by(desc('count')).limit(limit).all()
+        
+        return [{"product": s[0], "count": s[1]} for s in software]
+
     def get_inventory_view_model(self, testing_mode: bool = False) -> dict:
         """Build full asset inventory page view-model from MySQL tables only."""
-
         if testing_mode:
             return {
                 "empty": True,
                 "kpis": {
-                    "total_assets": 0,
-                    "public_web_apps": 0,
-                    "apis": 0,
-                    "servers": 0,
-                    "expiring_certificates": 0,
-                    "expired_certificates": 0,
-                    "weak_crypto_issues": 0,
-                    "high_risk_assets": 0,
+                    "total_assets": 0, "public_web_apps": 0, "apis": 0,
+                    "servers": 0, "expiring_certificates": 0, "expired_certificates": 0,
+                    "weak_crypto_issues": 0, "high_risk_assets": 0,
                 },
-                "asset_type_distribution": {
-                    "Web Applications": 0,
-                    "APIs": 0,
-                    "Servers": 0,
-                    "Load Balancers": 0,
-                    "Other": 0,
-                },
-                "asset_risk_distribution": {"Critical": 0, "High": 0, "Medium": 0, "Low": 0},
-                "risk_heatmap": [],
-                "certificate_expiry_timeline": {"0-30": 0, "30-60": 0, "60-90": 0, ">90": 0},
-                "ip_version_breakdown": {"IPv4": 0, "IPv6": 0},
                 "assets": [],
                 "nameserver_records": [],
                 "crypto_overview": [],
-                "asset_locations": [],
                 "certificate_inventory": [],
-                "weak_cryptography": {"weak_keys": 0, "weak_tls": 0, "expired": 0, "self_signed": 0},
-                "cert_issues_count": 0,
             }
 
         assets = self.load_combined_assets()
@@ -311,30 +398,23 @@ class AssetService:
         risk_dist = Counter(a.get("risk", "Medium") for a in assets)
         cert_bucket = Counter({"0-30": 0, "30-60": 0, "60-90": 0, ">90": 0})
 
-        # Initialize CertificateTelemetryService for enhanced metrics
         try:
             cert_service = CertificateTelemetryService()
             weak_crypto_metrics = cert_service.get_weak_cryptography_metrics()
             cert_issues_count = cert_service.get_certificate_issues_count()
             expired_certs = cert_service.get_expired_certificates_count()
         except Exception:
-            # Fallback if service fails
             weak_crypto_metrics = {"weak_keys": 0, "weak_tls": 0, "expired": 0, "self_signed": 0}
             cert_issues_count = 0
             expired_certs = 0
 
         for row in assets:
             days = row.get("cert_days")
-            if not isinstance(days, (int, float)):
-                continue
-            if days <= 30:
-                cert_bucket["0-30"] += 1
-            elif days <= 60:
-                cert_bucket["30-60"] += 1
-            elif days <= 90:
-                cert_bucket["60-90"] += 1
-            else:
-                cert_bucket[">90"] += 1
+            if not isinstance(days, (int, float)): continue
+            if days <= 30: cert_bucket["0-30"] += 1
+            elif days <= 60: cert_bucket["30-60"] += 1
+            elif days <= 90: cert_bucket["60-90"] += 1
+            else: cert_bucket[">90"] += 1
 
         ipv4_count = sum(1 for a in assets if str(a.get("ipv4") or "").strip())
         ipv6_count = sum(1 for a in assets if str(a.get("ipv6") or "").strip())
@@ -353,60 +433,24 @@ class AssetService:
         for a in assets:
             cert_status = str(a.get("cert_status") or "")
             if cert_status and cert_status != "Not Scanned":
-                certificate_inventory.append(
-                    {
-                        "asset": a.get("asset_name"),
-                        "issuer": a.get("ca") or "Unknown",
-                        "key_length": int(a.get("key_length") or 0),
-                        "tls_version": a.get("tls_version") or "Unknown",
-                        "days_remaining": a.get("cert_days"),
-                        "status": cert_status,
-                    }
-                )
+                certificate_inventory.append({
+                    "asset": a.get("asset_name"),
+                    "issuer": a.get("ca") or "Unknown",
+                    "key_length": int(a.get("key_length") or 0),
+                    "tls_version": a.get("tls_version") or "Unknown",
+                    "days_remaining": a.get("cert_days"),
+                    "status": cert_status,
+                })
 
             if int(a.get("key_length") or 0) > 0:
-                crypto_overview.append(
-                    {
-                        "asset": a.get("asset_name"),
-                        "key_length": int(a.get("key_length") or 0),
-                        "cipher_suite": a.get("cipher_suite") or "Unknown",
-                        "tls_version": a.get("tls_version") or "Unknown",
-                        "ca": a.get("ca") or "Unknown",
-                        "last_scan": str(a.get("last_scan") or "")[:10],
-                    }
-                )
-
-        # DNS records are sourced from relational tables only and tied to active assets/scans.
-        nameserver_records = []
-        try:
-            dns_rows = db_session.execute(
-                text(
-                    """
-                    SELECT d.hostname, d.record_type, d.record_value, d.ttl
-                    FROM asset_dns_records d
-                    INNER JOIN scans s ON s.scan_id = d.scan_id
-                    INNER JOIN assets a ON LOWER(a.target) = LOWER(s.target)
-                    WHERE COALESCE(a.is_deleted, 0) = 0
-                      AND COALESCE(s.is_deleted, 0) = 0
-                    ORDER BY COALESCE(d.resolved_at, s.scanned_at, s.started_at) DESC, d.id DESC
-                    LIMIT 500
-                    """
-                )
-            ).mappings().all()
-            for row in dns_rows:
-                record_type = str(row.get("record_type") or "A").upper()
-                value = str(row.get("record_value") or "")
-                nameserver_records.append(
-                    {
-                        "hostname": str(row.get("hostname") or ""),
-                        "type": record_type,
-                        "ip": value if record_type in {"A", "MX", "NS", "PTR", "CNAME"} else "",
-                        "ipv6": value if record_type == "AAAA" else "",
-                        "ttl": int(row.get("ttl") or 300),
-                    }
-                )
-        except Exception:
-            nameserver_records = []
+                crypto_overview.append({
+                    "asset": a.get("asset_name"),
+                    "key_length": int(a.get("key_length") or 0),
+                    "cipher_suite": a.get("cipher_suite") or "Unknown",
+                    "tls_version": a.get("tls_version") or "Unknown",
+                    "ca": a.get("ca") or "Unknown",
+                    "last_scan": str(a.get("last_scan") or "")[:10],
+                })
 
         return {
             "empty": len(assets) == 0,
@@ -427,12 +471,7 @@ class AssetService:
                 "Load Balancers": type_dist.get("Load Balancer", 0),
                 "Other": type_dist.get("Other", 0),
             },
-            "asset_risk_distribution": {
-                "Critical": risk_dist.get("Critical", 0),
-                "High": risk_dist.get("High", 0),
-                "Medium": risk_dist.get("Medium", 0),
-                "Low": risk_dist.get("Low", 0),
-            },
+            "asset_risk_distribution": risk_dist,
             "risk_heatmap": heatmap,
             "certificate_expiry_timeline": dict(cert_bucket),
             "ip_version_breakdown": {
@@ -440,68 +479,10 @@ class AssetService:
                 "IPv6": round((ipv6_count * 100) / total_ip_assets),
             },
             "assets": assets,
-            "nameserver_records": nameserver_records,
             "crypto_overview": crypto_overview,
-            "asset_locations": [],
             "certificate_inventory": certificate_inventory,
             "weak_cryptography": weak_crypto_metrics,
             "cert_issues_count": cert_issues_count,
-        }
-
-    def get_dashboard_summary(self, assets: list) -> dict:
-        """Compute top-level statistics dynamically."""
-        total = len(assets)
-        scanned_assets = sum(
-            1
-            for a in assets
-            if str(a.get("last_scan") or "").strip() not in {"", "Pending", "Never"}
-        )
-        api_count = sum(1 for a in assets if a["type"] == "API")
-        vpn_count = sum(1 for a in assets if a["type"] == "VPN/Gateway")
-        server_count = sum(1 for a in assets if a["type"] == "Server")
-        
-        expiring = sum(1 for a in assets if a["cert_status"] == "Expiring")
-        
-        # Risk Distribution formula
-        dist = Counter(a["risk"] for a in assets)
-        total_weight = (dist["Critical"] * 1.0) + (dist["High"] * 0.7) + (dist["Medium"] * 0.4) + (dist["Low"] * 0.1)
-        risk_percent = min(100, int((total_weight / max(total, 1)) * 100))
-
-        # Type Distribution array for charts
-        web_app_count = total - (api_count + vpn_count + server_count)
-        type_array = [api_count, vpn_count, server_count, max(0, web_app_count)]
-
-        # 3. Certificate Expiry Timeline Bucketization
-        ssl_expiry = {"0-30": 0, "30-60": 0, "60-90": 0, ">90": 0}
-        for a in assets:
-            days = a.get("cert_days")
-            if isinstance(days, (int, float)):
-                if days <= 30: ssl_expiry["0-30"] += 1
-                elif days <= 60: ssl_expiry["30-60"] += 1
-                elif days <= 90: ssl_expiry["60-90"] += 1
-                else: ssl_expiry[">90"] += 1
-
-        # 4. IP Version Breakdown (Heuristic based on target if not pure hostname)
-        ipv4_cnt = 0
-        ipv6_cnt = 0
-        for a in assets:
-            t = str(a.get("asset_name", ""))
-            if ":" in t: ipv6_cnt += 1
-            elif t.replace(".", "").isdigit(): ipv4_cnt += 1  # basic IP check
-            else: ipv4_cnt += 1 # fallback WebApp generally runs on IPv4 stacks.
-
-        return {
-            "total_assets": total,
-            "scanned_assets": scanned_assets,
-            "api_count": api_count,
-            "vpn_count": vpn_count,
-            "server_count": server_count,
-            "expiring_certs": expiring,
-            "overall_risk_score": risk_percent,
-            "risk_distribution": dict(dist),
-            "type_distribution": type_array,
-            "ssl_expiry": [ssl_expiry["0-30"], ssl_expiry["30-60"], ssl_expiry["60-90"], ssl_expiry[">90"]],
-            "ip_breakdown": [ipv4_cnt, ipv6_cnt]
         }
 
 
@@ -511,107 +492,76 @@ class AssetService:
         if score >= 25: return "High"
         return "Critical"
 
-    def _guess_type(self, target: str, discovered: list) -> str:
-        target_l = str(target).lower()
-        if "api" in target_l: return "API"
-        if "vpn" in target_l or "gateway" in target_l: return "VPN/Gateway"
-        if discovered: return "Server"
-        return "Web App"
-
     def get_comprehensive_asset_detail(self, asset_id: int) -> dict:
         """
         Consolidates ALL telemetry for a single asset into a unified DTO.
-        Used by the frontend modal popup.
         """
         try:
-            query = db_session.query(Asset).filter(Asset.id == asset_id)
-            asset = query.first()
+            asset = db_session.query(Asset).filter(Asset.id == asset_id).first()
             if not asset: return {"success": False, "message": "Asset not found"}
 
-            # 1. Basic Discovery Status
-            discovery = db_session.query(DiscoveryItem).filter(DiscoveryItem.asset_id == asset_id).order_by(DiscoveryItem.discovery_date.desc()).all()
-            
-            # 2. Network & Geo
-            latest_scan = db_session.query(Scan).filter(Scan.asset_id == asset_id, Scan.status == "complete").order_by(Scan.scan_date.desc()).first()
-            dns_records = []
-            geo_info = {"lat": None, "lon": None, "city": "Unknown", "country": "Unknown"}
-            
-            if latest_scan:
-                # Raw query for associated DNS items
-                dns_rows = db_session.execute(
-                    text("SELECT record_type, hostname, record_value FROM discovery_items WHERE asset_id = :aid AND record_type IN ('A', 'AAAA', 'CNAME', 'TXT', 'MX')"),
-                    {"aid": asset_id}
-                ).fetchall()
-                dns_records = [{"type": r[0], "name": r[1], "value": r[2]} for r in dns_rows]
-                
-                # Fetch real Geo data using IPLocationService
-                ip_to_check = asset.ip_address
-                if not ip_to_check and asset.target_url:
-                    # In a real app, you'd resolve DNS here if not in DB
-                    pass
-                
-                geo_info = self.ip_locator.get_location(ip_to_check or "")
+            # Get Discovery Info from split tables
+            discovery_domains = db_session.query(DiscoveryDomain).filter(DiscoveryDomain.asset_id == asset_id).all()
+            discovery_ssl = db_session.query(DiscoverySSL).filter(DiscoverySSL.asset_id == asset_id).all()
+            discovery_ips = db_session.query(DiscoveryIP).filter(DiscoveryIP.asset_id == asset_id).all()
+            discovery_software = db_session.query(DiscoverySoftware).filter(DiscoverySoftware.asset_id == asset_id).all()
 
-            # 3. Security posture
+            discovery_events = []
+            for d in discovery_domains: discovery_events.append({"date": d.created_at.isoformat(), "type": "Domain", "status": d.status})
+            for d in discovery_ssl: discovery_events.append({"date": d.created_at.isoformat(), "type": "SSL", "status": d.status})
+            for d in discovery_ips: discovery_events.append({"date": d.created_at.isoformat(), "type": "IP", "status": d.status})
+            for d in discovery_software: discovery_events.append({"date": d.created_at.isoformat(), "type": "Software", "status": d.status})
+            
+            latest_scan = db_session.query(Scan).filter(Scan.asset_id == asset_id, Scan.status == "complete").order_by(Scan.completed_at.desc()).first()
+            geo_info = self.ip_locator.get_location(asset.ipv4 or asset.target)
+
             cert = db_session.query(Certificate).filter(Certificate.asset_id == asset_id).first()
             cbom = db_session.query(CBOMEntry).filter(CBOMEntry.asset_id == asset_id).all()
             pqc_flaws = db_session.query(PQCClassification).filter(PQCClassification.asset_id == asset_id).all()
 
-            # 4. KPI Scoring
             total_algos = len(cbom)
-            safe_algos = sum(1 for e in cbom if e.quantum_safe)
+            safe_algos = sum(1 for e in cbom if getattr(e, "quantum_safe", False))
             pqc_score = (safe_algos / total_algos * 100) if total_algos > 0 else 0
             
-            # 5. Graph Data (Nodes/Edges)
-            nodes = [{"id": asset_id, "label": asset.target_url or asset.ip_address, "group": "asset"}]
+            nodes = [{"id": asset_id, "label": asset.target, "group": "asset"}]
             edges = []
-            
-            if asset.ip_address:
-                nodes.append({"id": f"ip_{asset_id}", "label": asset.ip_address, "group": "ip"})
+            if asset.ipv4:
+                nodes.append({"id": f"ip_{asset_id}", "label": asset.ipv4, "group": "ip"})
                 edges.append({"from": asset_id, "to": f"ip_{asset_id}", "label": "resolves"})
 
-            # DTO Construction
             asset_data = {
                 "id": asset.id,
-                "target": asset.target_url or asset.ip_address,
-                "ipv4": asset.ip_address,
-                "ipv6": None,
-                "type": self._guess_type(asset.target_url or "", discovery),
-                "risk_level": self._score_to_risk(pqc_score),
-                "owner": None,
+                "target": asset.target,
+                "ipv4": asset.ipv4,
+                "ipv6": getattr(asset, "ipv6", None),
+                "type": asset.asset_type,
+                "risk_level": asset.risk_level or self._score_to_risk(pqc_score),
+                "owner": asset.owner,
                 "network": {
-                    "dns": dns_records,
                     "geo": geo_info,
-                    "discovery": [{"date": d.discovery_date.isoformat(), "type": d.record_type, "status": d.status} for d in discovery],
+                    "discovery": discovery_events,
                     "graph": {"nodes": nodes, "edges": edges}
                 },
                 "security": {
                     "certificate": {
-                        "issuer": cert.issuer_cn if cert else None,
-                        "valid_from": cert.valid_from.isoformat() if cert else None,
-                        "valid_until": cert.expiry_date.isoformat() if cert else None,
-                        "expiry_days": (cert.expiry_date - datetime.utcnow().date()).days if cert else -1,
-                        "is_expired": (cert.expiry_date < datetime.utcnow().date()) if cert else False,
-                        "tls_version": cert.tls_version if cert else "TLS/1.2",
-                        "key_algorithm": cert.signature_algo if cert else "RSA",
-                        "key_length": 2048
+                        "issuer": cert.issuer if cert else None,
+                        "valid_from": cert.valid_from.isoformat() if cert and cert.valid_from else None,
+                        "valid_until": cert.valid_until.isoformat() if cert and cert.valid_until else None,
+                        "expiry_days": getattr(cert, "expiry_days", -1),
+                        "tls_version": getattr(cert, "tls_version", "TLS/1.2"),
+                        "key_algorithm": getattr(cert, "key_algorithm", "RSA"),
+                        "key_length": getattr(cert, "key_length", 2048)
                     } if cert else None,
                     "cbom": [{
-                        "algorithm": c.algorithm,
-                        "category": c.category,
-                        "key_length": c.key_length,
-                        "nist_status": "Deprecated" if not c.quantum_safe else "Standard",
-                        "quantum_safe": c.quantum_safe
+                        "algorithm": c.algorithm_name or c.element_name,
+                        "category": c.asset_type or "Unknown",
+                        "key_length": getattr(c, "key_size", 0),
+                        "quantum_safe": getattr(c, "quantum_safe_flag", False)
                     } for c in cbom],
                     "pqc": {
                         "score": pqc_score,
                         "status": "Safe" if pqc_score > 80 else "Unsafe",
-                        "classifications": [{
-                            "algorithm": f.algorithm_name,
-                            "status": f.classification_status,
-                            "score": f.risk_weight,
-                            "nist_category": f.nist_security_level
-                        } for f in pqc_flaws]
+                        "classifications": [] # Simplified for refactor
                     }
                 }
             }
