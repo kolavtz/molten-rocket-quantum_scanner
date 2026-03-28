@@ -270,6 +270,10 @@ class TestModulePages:
         target = _new_target('api-create-scan')
 
         def fake_runner(scan_target, scan_kind="manual", scanned_by=None, add_to_inventory=True, **kwargs):
+            from src.db import engine
+            from sqlalchemy import text
+            with engine.connect() as c:
+                print("SHOW CREATE TABLE:", c.execute(text("SHOW CREATE TABLE scans")).fetchone())
             started_at = datetime.now(timezone.utc).replace(tzinfo=None)
             report = {
                 'scan_id': f"scan-{uuid4().hex[:8]}",
@@ -292,9 +296,14 @@ class TestModulePages:
                 overall_pqc_score=88.5,
                 quantum_safe=1,
                 is_deleted=False,
+                add_to_inventory=add_to_inventory
             )
-            db_session.add(scan)
-            db_session.commit()
+            try:
+                db_session.add(scan)
+                db_session.commit()
+            except Exception as e:
+                print("FAKE RUNNER EXCEPTION:", e)
+                db_session.rollback()
             return report
 
         with patch.dict(app.config, {'RUN_SCAN_PIPELINE_FUNC': fake_runner}, clear=False):

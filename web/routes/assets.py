@@ -19,7 +19,11 @@ from markupsafe import escape
 from sqlalchemy import func, text
 
 from src.db import db_session
-from src.models import Asset, CBOMEntry, CBOMSummary, CyberRating, Certificate, ComplianceScore, DiscoveryItem, PQCClassification, Scan
+from src.models import (
+    Asset, CBOMEntry, CBOMSummary, CyberRating, Certificate, ComplianceScore, 
+    DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware,
+    PQCClassification, Scan
+)
 from src.services.asset_service import AssetService
 from src.services.certificate_telemetry_service import CertificateTelemetryService
 from src.services.inventory_scan_service import InventoryScanService
@@ -202,7 +206,7 @@ def _make_action_html(asset: dict, csrf_token: str) -> str:
                 data-open-asset-details
                 data-asset-id="{asset_id}"
                 data-asset-name="{asset_name}"
-                title="Open quick asset details"
+                title="Open comprehensive intelligence telemetry"
             >Details</button>
             <button
                 type="button"
@@ -224,7 +228,6 @@ def _make_action_html(asset: dict, csrf_token: str) -> str:
         data-asset-delete-form
         data-api-endpoint="{url_for('assets.asset_delete_api', asset_id=asset_id)}"
         data-asset-name="{scan_target}"
-        onsubmit="return confirm('Move {scan_target} to Recycle Bin?');"
       >
         <input type="hidden" name="csrf_token" value="{csrf_token}">
         <button type="submit" class="btn-mini btn-delete">Move to Recycle Bin</button>
@@ -241,7 +244,7 @@ def _decorate_asset_rows(rows: list[dict], csrf_token: str) -> list[dict]:
         decorated.append(
             {
                 **row,
-                "select_html": f'<input type="checkbox" class="asset-select-checkbox" name="asset_ids" value="{escape(str(row.get("id") or ""))}" form="bulkAssetsForm" data-row-checkbox>',
+                "select_html": f'<input type="checkbox" class="asset-select-checkbox" name="asset_ids" value="{escape(str(row.get("id") or ""))}" data-row-checkbox>',
                 "risk_html": f'<span class="risk-pill risk-{escape(risk.lower())}">{escape(risk)}</span>',
                 "cert_status_html": f'<span class="cert-pill cert-{escape(cert_status.lower().replace(" ", "-"))}">{escape(cert_status)}</span>',
                 "actions_html": _make_action_html(row, csrf_token),
@@ -569,9 +572,12 @@ def build_asset_detail_api_response(asset_id: int) -> dict[str, Any] | None:
         .scalar()
     )
     row["discovery_count"] = _safe_count(
-        lambda: db_session.query(func.count(DiscoveryItem.id))
-        .filter(DiscoveryItem.asset_id == asset.id, DiscoveryItem.is_deleted == False, DiscoveryItem.deleted_at.is_(None))
-        .scalar()
+        lambda: sum([
+            db_session.query(func.count(DiscoveryDomain.id)).filter(DiscoveryDomain.asset_id == asset.id, DiscoveryDomain.is_deleted == False).scalar() or 0,
+            db_session.query(func.count(DiscoverySSL.id)).filter(DiscoverySSL.asset_id == asset.id, DiscoverySSL.is_deleted == False).scalar() or 0,
+            db_session.query(func.count(DiscoveryIP.id)).filter(DiscoveryIP.asset_id == asset.id, DiscoveryIP.is_deleted == False).scalar() or 0,
+            db_session.query(func.count(DiscoverySoftware.id)).filter(DiscoverySoftware.asset_id == asset.id, DiscoverySoftware.is_deleted == False).scalar() or 0
+        ])
     )
     row["scan_count"] = _safe_count(
         lambda: db_session.query(func.count(Scan.id))
@@ -1086,7 +1092,10 @@ def _soft_delete_asset(asset: Asset) -> None:
     asset.deleted_by_user_id = user_id
 
     for rel_name in (
-        "discovery_items",
+        "discovery_domains",
+        "discovery_ssl",
+        "discovery_ips",
+        "discovery_software",
         "certificates",
         "pqc_classifications",
         "cbom_entries",
@@ -1110,7 +1119,7 @@ def _soft_delete_asset(asset: Asset) -> None:
             scan.is_deleted = True
             scan.deleted_at = now
             scan.deleted_by_user_id = user_id
-            for model in (DiscoveryItem, Certificate, PQCClassification, CBOMEntry, ComplianceScore, CBOMSummary, CyberRating):
+            for model in (DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, Certificate, PQCClassification, CBOMEntry, ComplianceScore, CBOMSummary, CyberRating):
                 try:
                     rows = db_session.query(model).filter(model.scan_id == scan.id, model.is_deleted == False).all()
                 except Exception as query_exc:

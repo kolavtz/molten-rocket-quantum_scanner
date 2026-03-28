@@ -71,16 +71,14 @@
       });
     }
 
-    // Unified Asset Detail Popup Trigger
+    // Asset Intelligence Modal Trigger (Explicit Only)
     tableComponent.addEventListener('click', (event) => {
-        const row = event.target.closest('tr[data-asset-id]');
-        if (!row) return;
+        const trigger = event.target.closest('[data-open-asset-details]');
+        if (!trigger) return;
 
-        // Ignore clicks on interactive elements (checkboxes, actions, links)
-        if (event.target.closest('input, button, a, .qs-table-action')) return;
-
-        if (window.AssetDetailModal) {
-            window.AssetDetailModal.open(row.dataset.assetId);
+        const assetId = trigger.dataset.assetId;
+        if (assetId && window.AssetDetailModal) {
+            window.AssetDetailModal.open(assetId);
         }
     });
 

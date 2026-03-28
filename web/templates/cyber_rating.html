@@ -1,217 +1,134 @@
 {% extends "base.html" %}
-{% import "macros/table_macros.html" as tb %}
-{% block title %}Cyber Rating | QuantumShield{% endblock %}
+{% import "macros/table.html" as tb %}
+
+{% block title %}Cyber Rating // QuantumShield{% endblock %}
+
 {% block head %}
 <style>
-  .cyber-shell { max-width: 1480px; margin: 0 auto; display:grid; gap:1rem; }
-  .cyber-head { display:flex; justify-content:space-between; align-items:flex-end; gap:0.75rem; flex-wrap:wrap; }
-  .cyber-head h2 { margin:0; font-size:clamp(1.6rem,2.6vw,2.2rem); text-transform:uppercase; }
-  .cyber-head p { margin:0.35rem 0 0; color:var(--text-secondary); }
-  .cyber-api { border:1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent); border-radius:10px; padding:0.72rem 0.9rem; color:var(--text-secondary); font-size:0.78rem; }
-  .cyber-api.error { color:var(--danger); border-color: color-mix(in srgb, var(--danger) 42%, transparent); }
+    .cyber-container { padding: 1.5rem 0; }
+    .cyber-hero { margin-bottom: 2rem; }
+    .cyber-score-card { display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 2rem; border-left: 4px solid var(--accent); }
+    .cyber-score-card .value { font-size: 3.5rem; font-weight: 900; color: var(--accent); line-height: 1; }
+    .cyber-score-card .label { font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-top: 0.5rem; letter-spacing: 0.1em; }
 
-  .cyber-score { display:grid; grid-template-columns: 1.1fr 2fr; gap:0.9rem; }
-  .cyber-score-main { display:grid; place-items:center; text-align:center; padding:1.25rem; border:1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent); }
-  .cyber-score-main .value { font-size:3rem; line-height:1; font-weight:900; color:var(--accent); }
-  .cyber-score-main .tier { margin-top:0.35rem; font-size:0.83rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-secondary); }
+    .cyber-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-top: 1rem; }
+    .cyber-kpi { text-align: center; padding: 1rem; }
+    .cyber-kpi .val { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); }
+    .cyber-kpi .lbl { font-size: 0.6rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; }
 
-  .cyber-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:0.7rem; }
-  .cyber-kpi { padding:0.9rem; border-left:3px solid var(--accent); }
-  .cyber-kpi.warn { border-left-color:var(--warn); }
-  .cyber-kpi.danger { border-left-color:var(--danger); }
-  .cyber-kpi .label { font-size:0.65rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.12em; }
-  .cyber-kpi .value { margin-top:0.3rem; font-size:1.6rem; font-weight:800; line-height:1; }
-
-  .cyber-grid { display:grid; grid-template-columns: 1fr 1fr; gap:0.9rem; }
-  .cyber-card { padding:1rem; border:1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent); }
-  .cyber-title { margin:0 0 0.62rem; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.11em; color:var(--text-secondary); }
-  .cyber-heat { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:0.5rem; }
-  .cyber-cell { border:1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent); border-radius:10px; padding:0.55rem; background: color-mix(in srgb, var(--bg-secondary) 72%, transparent); }
-  .cyber-cell .meta { font-size:0.66rem; color:var(--text-secondary); }
-  .cyber-cell .val { font-size:0.95rem; font-weight:700; }
-  @media (max-width: 1180px) {
-    .cyber-score, .cyber-grid { grid-template-columns:1fr; }
-    .cyber-heat { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  }
+    .cyber-main-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 1.5rem; margin-top: 2rem; }
+    
+    .rating-row { display: grid; grid-template-columns: 1fr 100px 80px; gap: 1rem; padding: 0.75rem; border-bottom: 1px solid var(--border-subtle); align-items: center; }
+    .tier-badge { padding: 4px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; border: 1px solid transparent; }
+    
+    @media (max-width: 1000px) {
+        .cyber-main-grid { grid-template-columns: 1fr; }
+        .cyber-kpi-grid { grid-template-columns: 1fr 1fr; }
+    }
 </style>
 {% endblock %}
+
 {% block content %}
-<section class="cyber-shell">
-  <div class="cyber-head">
-    <div>
-      <h2>CYBER RATING</h2>
-      <p>Enterprise cyber posture derived from asset-level PQC scores, weak-crypto signals, and critical findings.</p>
+<div class="cyber-container">
+    <div class="cyber-hero">
+        <h1 style="font-size: 2.5rem; font-weight: 900; letter-spacing: -0.02em; margin: 0;">CYBER RATING</h1>
+        <p style="color: var(--text-secondary); margin-top: 0.5rem;">Enterprise security posture score based on PQC readiness and cryptographic strength.</p>
     </div>
-    <a href="{{ url_for('reporting') }}" class="button secondary">View Reporting</a>
-  </div>
 
-  <div id="cyberApiState" class="cyber-api" role="status" aria-live="polite">Syncing cyber rating data from API…</div>
+    <!-- Sync status -->
+    <div id="cyberApiState" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Syncing enterprise intelligence...</div>
 
-  {% if vm.empty %}
-  <section class="glass-card" style="padding:1rem;">
-    <div class="alert info" style="margin:0;">
-      <div class="alert-title">No cyber score data yet</div>
-      <div class="alert-message">Run complete scans to generate normalized enterprise scores and tier mapping.</div>
-    </div>
-  </section>
-  {% endif %}
-
-  <section class="cyber-score">
-    <article class="glass-card cyber-score-main">
-      <div class="value" id="cyberScoreMain" data-fallback="{{ vm.overall_score or 0 }}">{{ vm.overall_score or 0 }}</div>
-      <div class="tier" id="cyberTierMain" data-fallback="{{ vm.label or 'Unknown' }}">{{ vm.label or 'Unknown' }}</div>
-    </article>
-    <div class="cyber-kpis">
-      <article class="glass-card cyber-kpi"><div class="label">Enterprise score</div><div class="value" id="kpiEnterprise" data-fallback="{{ vm.overall_score or 0 }}">{{ vm.overall_score or 0 }}</div></article>
-      <article class="glass-card cyber-kpi"><div class="label">Total URLs</div><div class="value" id="kpiUrls" data-fallback="{{ page_data.total_count or 0 }}">{{ page_data.total_count or 0 }}</div></article>
-      <article class="glass-card cyber-kpi safe"><div class="label">Elite %</div><div class="value" id="kpiElitePct" data-fallback="0">0</div></article>
-      <article class="glass-card cyber-kpi warn"><div class="label">Legacy %</div><div class="value" id="kpiLegacyPct" data-fallback="0">0</div></article>
-      <article class="glass-card cyber-kpi danger"><div class="label">Critical Count</div><div class="value" id="kpiCriticalCount" data-fallback="{{ vm.tier_counts.get('Critical', 0) if vm.tier_counts else 0 }}">{{ vm.tier_counts.get('Critical', 0) if vm.tier_counts else 0 }}</div></article>
-    </div>
-  </section>
-
-  <section class="cyber-grid">
-    <article class="glass-card cyber-card">
-      <h3 class="cyber-title">URL-level PQC scores</h3>
-      <div class="scans-table-wrapper">
-        <table class="scans-table">
-          <thead>
-            <tr>
-              {{ tb.sortable_th('URL / Target', 'target', 'cyber_rating', request.args.get('sort'), request.args.get('order')) }}
-              <th>Tier</th>
-              {{ tb.sortable_th('PQC Score', 'score', 'cyber_rating', request.args.get('sort'), request.args.get('order')) }}
-            </tr>
-          </thead>
-          <tbody id="cyberTableBody">
-            {% if page_data.get('items') %}
-              {% for row in page_data.get('items') %}
-              <tr>
-                <td>{{ row.target }}</td>
-                <td>{{ row.tier }}</td>
-                <td>{{ (row.score or 0)|round|int }}</td>
-              </tr>
-              {% endfor %}
-            {% else %}
-              <tr><td colspan="3" style="padding: 2rem;">{{ tb.empty_state("No scan ratings available.") }}</td></tr>
-            {% endif %}
-          </tbody>
-        </table>
-      </div>
-    </article>
-
-    <article class="glass-card cyber-card">
-      <h3 class="cyber-title">Cyber tier heatmap</h3>
-      <div class="cyber-heat" id="cyberHeatGrid">
-        {% for cell in vm.tier_heatmap %}
-        <div class="cyber-cell">
-          <div class="meta">{{ cell.x }} · {{ cell.y }}</div>
-          <div class="val">{{ cell.value }}</div>
+    <!-- Top Score Section -->
+    <div style="display: grid; grid-template-columns: 0.8fr 2fr; gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="glass-card cyber-score-card">
+            <div class="value" id="cyberScoreMain">{{ vm.overall_score or 0 }}</div>
+            <div class="label" id="cyberTierMain">{{ vm.label or 'Unknown' }}</div>
         </div>
-        {% endfor %}
-      </div>
-      <div class="cyber-heat" style="margin-top:0.65rem;" id="cyberTierGrid">
-        {% for tier,count in vm.tier_counts.items() %}
-        <div class="cyber-cell">
-          <div class="meta">{{ tier }}</div>
-          <div class="val">{{ count }}</div>
+        <div class="glass-card" style="padding: 1.5rem;">
+            <div class="metric-title">Compliance Statistics</div>
+            <div class="cyber-kpi-grid">
+                <div class="glass-card cyber-kpi">
+                    <div class="val" id="kpiUrls">{{ page_data.total_count or 0 }}</div>
+                    <div class="lbl">Total Domains</div>
+                </div>
+                <div class="glass-card cyber-kpi">
+                    <div class="val" id="kpiElitePct" style="color:var(--pqc-safe);">0%</div>
+                    <div class="lbl">Elite Tier</div>
+                </div>
+                <div class="glass-card cyber-kpi">
+                    <div class="val" id="kpiLegacyPct" style="color:var(--risk-high);">0%</div>
+                    <div class="lbl">Legacy Tier</div>
+                </div>
+                <div class="glass-card cyber-kpi">
+                    <div class="val" id="kpiCriticalCount" style="color:var(--risk-critical);">{{ vm.tier_counts.Critical or 0 }}</div>
+                    <div class="lbl">Critical Vulnerabilities</div>
+                </div>
+            </div>
         </div>
-        {% endfor %}
-      </div>
-    </article>
-  </section>
+    </div>
 
-  <section class="glass-card cyber-card">
-    <h3 class="cyber-title">Tier criteria</h3>
-    <table class="scans-table">
-      <thead><tr><th>Tier</th><th>Security Level</th><th>Compliance Criteria</th><th>Priority / Action</th></tr></thead>
-      <tbody>
-        <tr><td>Tier-1 Elite</td><td>Highest</td><td>TLS 1.2/1.3 only, strong ciphers, PFS, key &gt; 2048-bit, HSTS, no weak protocols</td><td>Maintain continuous hardening</td></tr>
-        <tr><td>Tier-2 Standard</td><td>Good</td><td>Mostly modern configurations with limited legacy allowances</td><td>Planned uplift</td></tr>
-        <tr><td>Tier-3 Legacy</td><td>Weak</td><td>TLS 1.0/1.1 present, weak ciphers, possibly 1024-bit keys</td><td>High-priority remediation</td></tr>
-        <tr><td>Critical</td><td>Insecure</td><td>SSLv2/v3, key &lt; 1024-bit, very weak ciphers, known exploitable vulnerabilities</td><td>Immediate action</td></tr>
-      </tbody>
-    </table>
-  </section>
+    <!-- Main Content Section -->
+    <div class="cyber-main-grid">
+        <div class="glass-card" style="padding: 1.5rem;">
+            <div class="metric-title" style="margin-bottom: 1.5rem;">Individual Asset Ratings</div>
+            <div id="cyberTableBody">
+                {% for row in page_data['items'] %}
+                <div class="rating-row">
+                    <div style="font-weight: 600;">{{ row.target }}</div>
+                    <div><span class="tier-badge" style="border-color: var(--accent); color: var(--accent);">{{ row.tier }}</span></div>
+                    <div style="text-align: right; font-weight: 800;">{{ row.score|int }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
 
-  <section class="glass-card cyber-card">
-    <h3 class="cyber-title">Recommendations</h3>
-    <ul style="padding-left:1.2rem;display:grid;gap:0.45rem;">
-      {% for rec in vm.recommendations %}
-        <li>{{ rec }}</li>
-      {% endfor %}
-    </ul>
-  </section>
-</section>
+        <div class="glass-card" style="padding: 1.5rem;">
+            <div class="metric-title" style="margin-bottom: 1.5rem;">Security Remediation Priority</div>
+            <div style="display:flex; flex-direction:column; gap:0.75rem;">
+                {% for rec in vm.recommendations %}
+                <div class="glass-card" style="padding:0.8rem; background:rgba(255,255,255,0.02); display:flex; gap:0.75rem;">
+                    <i class="fa-solid fa-shield-halved" style="color:var(--accent); margin-top:3px;"></i>
+                    <div style="font-size:0.8rem; line-height:1.4;">{{ rec }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div style="margin-top:2rem;">
+                <div class="metric-title" style="margin-bottom:1rem; font-size:0.75rem;">Tier Definitions</div>
+                <div style="font-size:0.7rem; display:grid; gap:0.5rem;">
+                    <div style="display:flex; justify-content:space-between;"><span>Elite</span><span style="color:var(--pqc-safe);">Quantum Safe</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span>Standard</span><span style="color:var(--accent);">TLS 1.2+ Standard</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span>Legacy</span><span style="color:var(--risk-high);">Action Required</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span>Critical</span><span style="color:var(--risk-critical);">Immediate Remediation</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
+{% block scripts %}
 <script>
-(function () {
-  const apiState = document.getElementById('cyberApiState');
-  const refs = {
-    scoreMain: document.getElementById('cyberScoreMain'),
-    tierMain: document.getElementById('cyberTierMain'),
-    enterprise: document.getElementById('kpiEnterprise'),
-    urls: document.getElementById('kpiUrls'),
-    elitePct: document.getElementById('kpiElitePct'),
-    legacyPct: document.getElementById('kpiLegacyPct'),
-    criticalCount: document.getElementById('kpiCriticalCount')
-  };
-
-  function setState(msg, isError) {
-    if (!apiState) return;
-    apiState.textContent = msg;
-    apiState.classList.toggle('error', !!isError);
-  }
-
-  function setMetric(node, value, suffix = '') {
-    if (!node) return;
-    const fallback = node.dataset.fallback || '0';
-    const safe = value === undefined || value === null || value === '' ? fallback : value;
-    node.textContent = `${safe}${suffix}`;
-  }
-
-  function renderRows(items) {
-    const body = document.getElementById('cyberTableBody');
-    if (!body || !Array.isArray(items)) return;
-    if (!items.length) return;
-    body.innerHTML = items.map((row) => `
-      <tr>
-        <td>${String(row.url || 'Unknown')}</td>
-        <td>${String(row.tier || 'Unknown')}</td>
-        <td>${Number(row.enterprise_score || 0).toFixed(1)}</td>
-      </tr>
-    `).join('');
-  }
-
-  async function syncCyber() {
-    try {
-      setState('Syncing cyber rating data from API…');
-      const resp = await fetch('/api/cyber-rating?page=1&page_size=25', { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const payload = await resp.json();
-      const kpis = payload?.data?.kpis || {};
-      const items = payload?.data?.items || [];
-      setMetric(refs.scoreMain, Number(kpis.enterprise_score || 0).toFixed(1));
-      setMetric(refs.tierMain, kpis.tier || refs.tierMain?.dataset?.fallback || 'Unknown');
-      setMetric(refs.enterprise, Number(kpis.enterprise_score || 0).toFixed(1));
-      setMetric(refs.urls, Number(kpis.total_urls || 0).toLocaleString());
-      setMetric(refs.elitePct, Number(kpis.elite_pct || 0).toFixed(1), '%');
-      setMetric(refs.legacyPct, Number(kpis.legacy_pct || 0).toFixed(1), '%');
-      setMetric(refs.criticalCount, Number(kpis.critical_count || 0).toLocaleString());
-      renderRows(items);
-      setState('Cyber rating data synced successfully.');
-    } catch (_err) {
-      setState('Live cyber rating sync failed. Displaying server-rendered data.', true);
-      setMetric(refs.scoreMain, undefined);
-      setMetric(refs.tierMain, undefined);
-      setMetric(refs.enterprise, undefined);
-      setMetric(refs.urls, undefined);
-      setMetric(refs.elitePct, undefined, '%');
-      setMetric(refs.legacyPct, undefined, '%');
-      setMetric(refs.criticalCount, undefined);
+    async function syncCyber() {
+        const stateEl = document.getElementById('cyberApiState');
+        try {
+            const resp = await fetch('/api/cyber-rating?page=1&page_size=25');
+            if (resp.ok) {
+                const result = await resp.json();
+                const kpis = result.data.kpis;
+                document.getElementById('cyberScoreMain').textContent = kpis.enterprise_score.toFixed(1);
+                document.getElementById('cyberTierMain').textContent = kpis.tier;
+                document.getElementById('kpiUrls').textContent = kpis.total_urls;
+                document.getElementById('kpiElitePct').textContent = kpis.elite_pct.toFixed(1) + '%';
+                document.getElementById('kpiLegacyPct').textContent = kpis.legacy_pct.toFixed(1) + '%';
+                document.getElementById('kpiCriticalCount').textContent = kpis.critical_count;
+                stateEl.textContent = 'Cyber Ratings Updated';
+            }
+        } catch (e) {
+            stateEl.textContent = 'Mode: Offline/Cached';
+        }
     }
-  }
 
-  syncCyber();
-})();
+    document.addEventListener('DOMContentLoaded', syncCyber);
 </script>
 {% endblock %}

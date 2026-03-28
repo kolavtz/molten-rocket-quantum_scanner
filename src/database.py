@@ -850,9 +850,6 @@ def init_db() -> bool:
             "ALTER TABLE scans ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
             "ALTER TABLE scans ADD COLUMN IF NOT EXISTS deleted_at DATETIME",
             "ALTER TABLE scans ADD COLUMN IF NOT EXISTS deleted_by_user_id BIGINT",
-            "ALTER TABLE discovery_items ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE discovery_items ADD COLUMN IF NOT EXISTS deleted_at DATETIME",
-            "ALTER TABLE discovery_items ADD COLUMN IF NOT EXISTS deleted_by_user_id BIGINT",
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS deleted_at DATETIME",
             "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS deleted_by_user_id BIGINT",
@@ -1008,7 +1005,22 @@ def init_db() -> bool:
                 "deleted_at": "DATETIME NULL",
                 "deleted_by_user_id": "BIGINT NULL",
             },
-            "discovery_items": {
+            "discovery_domains": {
+                "is_deleted": "BOOLEAN DEFAULT FALSE",
+                "deleted_at": "DATETIME NULL",
+                "deleted_by_user_id": "BIGINT NULL",
+            },
+            "discovery_ssl": {
+                "is_deleted": "BOOLEAN DEFAULT FALSE",
+                "deleted_at": "DATETIME NULL",
+                "deleted_by_user_id": "BIGINT NULL",
+            },
+            "discovery_ips": {
+                "is_deleted": "BOOLEAN DEFAULT FALSE",
+                "deleted_at": "DATETIME NULL",
+                "deleted_by_user_id": "BIGINT NULL",
+            },
+            "discovery_software": {
                 "is_deleted": "BOOLEAN DEFAULT FALSE",
                 "deleted_at": "DATETIME NULL",
                 "deleted_by_user_id": "BIGINT NULL",

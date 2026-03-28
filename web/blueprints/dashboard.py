@@ -34,39 +34,71 @@ def _inventory_scan_service():
     scan_runner = current_app.config.get("RUN_SCAN_PIPELINE_FUNC")
     return InventoryScanService(scan_runner=scan_runner)
 
+from src.services.distribution_service import DistributionService
+from src.services.cyber_rating_service import CyberRatingService
+
+@dashboard_bp.route('/')
 @dashboard_bp.route('/assets')
 @login_required
 def dashboard_home():
     """Renders primary Quantumshield Dashboard with charts and maps using unified data service."""
     try:
-        # Canonical route payload: combine best of both approaches
-        # 1) Aggregate KPIs (fast DB-level query path)
-        # 2) Asset roster rows (inventory ORM path)
-        data = get_dashboard_data_cached()
+        # 1. Load Assets & Summary Metrics
         assets = asset_service.load_combined_assets()
         summary = asset_service.get_dashboard_summary(assets)
-
-        # Keep aggregate metadata available without breaking template expectations.
-        summary["total_scans"] = typing.cast(dict, data).get("total_scans", 0)
-        summary["aggregated_kpis"] = typing.cast(dict, data).get("aggregated_kpis", {})
-        summary["distributions"] = typing.cast(dict, data).get("distributions", {})
+        
+        # 2. Advanced Data Distributions
+        dist_service = DistributionService()
+        asset_type_dist = dist_service.get_asset_type_distribution()
+        risk_metrics = dist_service.get_high_risk_metrics()
+        cert_expiry = dist_service.calculate_cert_expiry_buckets()
+        
+        # 3. Cyber Rating
+        rating_service = CyberRatingService()
+        overall_rating = rating_service.get_overall_rating()
+        
+        # 4. Tables Data
+        # Top 10 High Risk Assets
+        high_risk_assets = sorted(
+            [a for a in assets if a.get('risk_level') in ['Critical', 'High']],
+            key=lambda x: (x.get('risk_score', 0) or 0),
+            reverse=True
+        )[:10]
+        
+        # Recent Discoveries (7 days)
+        recent_discoveries = asset_service.get_recent_discoveries(days=7)
+        
+        # 5. Top Software Telemetry
+        top_software = asset_service.get_top_vulnerable_software(limit=5)
 
         return render_template(
             'home.html',
             assets=assets,
             summary=summary,
-            enterprise_metrics=summary,
+            asset_type_dist=asset_type_dist,
+            risk_metrics=risk_metrics,
+            cert_expiry=cert_expiry,
+            overall_rating=overall_rating,
+            high_risk_assets=high_risk_assets,
+            recent_discoveries=recent_discoveries,
+            top_software=top_software,
+            section_title="Executive Dashboard"
         )
     except Exception as e:
-        current_app.logger.error(f"Error loading dashboard data: {e}")
-        # Fallback to asset service for backward compatibility
-        assets = asset_service.load_combined_assets()
-        summary = asset_service.get_dashboard_summary(assets)
+        current_app.logger.error(f"Error loading dashboard data: {e}", exc_info=True)
         return render_template(
             'home.html', 
-            assets=assets, 
-            summary=summary,
-            enterprise_metrics=summary
+            assets=[], 
+            summary={},
+            asset_type_dist={},
+            risk_metrics={"high_risk_pct": 0, "distribution": {"Critical": {"pct": 0}, "High": {"pct": 0}, "Medium": {"pct": 0}, "Low": {"pct": 0}}},
+            cert_expiry={"buckets": {}},
+            overall_rating={"score": 0, "tier": "Error"},
+            high_risk_assets=[],
+            recent_discoveries=[],
+            top_software=[],
+            error=str(e),
+            section_title="Executive Dashboard (Error State)"
         )
 
 @dashboard_bp.route('/geojson')

@@ -117,3 +117,147 @@ def test_scan_certificate_details_endpoint_works_with_report_fallback(app_client
     assert first.get("subject_cn") == "example.com"
     assert first.get("tls_version") == "TLS 1.3"
     assert first.get("key_length") == 2048
+
+
+def test_scans_list_supports_type_status_and_date_filters(app_client):
+    resp = app_client.get(
+        "/api/scans?page=1&page_size=10&scan_type=single&status=completed&date_from=2020-01-01&date_to=2099-12-31"
+    )
+    assert resp.status_code == 200
+    payload = json.loads(resp.data)
+    assert "items" in payload
+    assert "kpis" in payload
+
+
+def test_promote_scan_requires_inventory_before_cbom(app_client):
+    with patch("web.routes.scans._can_scan", return_value=True), \
+         patch("web.routes.scans._resolve_result_scan_id", return_value="scan-123"), \
+         patch("web.routes.scans.db_session") as mock_session:
+        scan_row = type("ScanRow", (), {"add_to_inventory": False})()
+        mock_query = mock_session.query.return_value
+        mock_query.filter.return_value.order_by.return_value.first.return_value = scan_row
+
+        resp = app_client.post(
+            "/api/scans/scan-123/promote",
+            data=json.dumps({"destination": "cbom"}),
+            content_type="application/json",
+        )
+
+    assert resp.status_code == 400
+    payload = json.loads(resp.data)
+    assert payload.get("status") == "error"
+
+
+def test_promote_scan_inventory_success(app_client):
+    with patch("web.routes.scans._can_scan", return_value=True), \
+         patch("web.routes.scans._resolve_result_scan_id", return_value="scan-abc"), \
+         patch("web.routes.scans._load_scan_report", return_value={"target": "example.com"}), \
+         patch("web.routes.scans._upsert_inventory_asset_from_scan") as mock_upsert, \
+         patch("web.routes.scans.db_session") as mock_session:
+        scan_row = type("ScanRow", (), {"add_to_inventory": False})()
+        mock_query = mock_session.query.return_value
+        mock_query.filter.return_value.order_by.return_value.first.return_value = scan_row
+
+        resp = app_client.post(
+            "/api/scans/scan-abc/promote",
+            data=json.dumps({"destination": "inventory"}),
+            content_type="application/json",
+        )
+
+    assert resp.status_code == 200
+    payload = json.loads(resp.data)
+    assert payload.get("status") == "success"
+    mock_upsert.assert_called_once()
+
+
+def test_scan_schedule_detail_and_patch_update(app_client):
+    with patch("web.routes.scans._can_bulk_scan", return_value=True):
+        create_resp = app_client.post(
+            "/api/scan-schedules",
+            data=json.dumps(
+                {
+                    "target": "example.com",
+                    "frequency": "daily",
+                    "scheduled_time": "08:30",
+                    "timezone": "UTC",
+                    "auto_add_to_inventory": False,
+                }
+            ),
+            content_type="application/json",
+        )
+
+        assert create_resp.status_code == 201
+        created = json.loads(create_resp.data)
+        schedule_id = created["data"]["id"]
+
+        detail_resp = app_client.get(f"/api/scan-schedules/{schedule_id}")
+        assert detail_resp.status_code == 200
+        detail_payload = json.loads(detail_resp.data)
+        assert detail_payload.get("status") == "success"
+        assert detail_payload["data"].get("target") == "example.com"
+
+        update_resp = app_client.patch(
+            f"/api/scan-schedules/{schedule_id}",
+            data=json.dumps(
+                {
+                    "target": "api.example.com",
+                    "frequency": "weekly",
+                    "scheduled_time": "21:45",
+                    "timezone": "Asia/Kolkata",
+                    "auto_add_to_inventory": True,
+                }
+            ),
+            content_type="application/json",
+        )
+
+        assert update_resp.status_code == 200
+        update_payload = json.loads(update_resp.data)
+        assert update_payload.get("status") == "updated"
+        assert update_payload["data"].get("target") == "api.example.com"
+        assert update_payload["data"].get("frequency") == "weekly"
+        assert update_payload["data"].get("scheduled_time") == "21:45"
+        assert update_payload["data"].get("timezone") == "Asia/Kolkata"
+        assert update_payload["data"].get("auto_add_to_inventory") is True
+
+
+def test_scan_schedule_put_requires_valid_fields(app_client):
+    with patch("web.routes.scans._can_bulk_scan", return_value=True):
+        create_resp = app_client.post(
+            "/api/scan-schedules",
+            data=json.dumps(
+                {
+                    "target": "example.com",
+                    "frequency": "daily",
+                    "scheduled_time": "09:00",
+                    "timezone": "UTC",
+                }
+            ),
+            content_type="application/json",
+        )
+        assert create_resp.status_code == 201
+        schedule_id = json.loads(create_resp.data)["data"]["id"]
+
+        bad_resp = app_client.put(
+            f"/api/scan-schedules/{schedule_id}",
+            data=json.dumps(
+                {
+                    "target": "example.com",
+                    "frequency": "yearly",
+                    "scheduled_time": "25:12",
+                    "timezone": "UTC",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        assert bad_resp.status_code == 400
+        payload = json.loads(bad_resp.data)
+        assert payload.get("status") == "error"
+
+
+def test_scan_schedule_detail_not_found(app_client):
+    with patch("web.routes.scans._can_bulk_scan", return_value=True):
+        resp = app_client.get("/api/scan-schedules/sched_missing")
+    assert resp.status_code == 404
+    payload = json.loads(resp.data)
+    assert payload.get("status") == "error"

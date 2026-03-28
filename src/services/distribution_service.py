@@ -94,13 +94,33 @@ class DistributionService:
         
         distribution = {}
         for risk_level, count in risk_counts:
+            label = str(risk_level or 'Medium').strip().capitalize()
             pct = (count / total_assets * 100.0) if total_assets > 0 else 0.0
-            distribution[risk_level or 'Unknown'] = {
+            distribution[label] = {
                 'count': count,
                 'pct': round(pct, 2)
             }
         
+        # Ensure all keys exist
+        for label in ['Critical', 'High', 'Medium', 'Low']:
+            if label not in distribution:
+                distribution[label] = {'count': 0, 'pct': 0.0}
+
         return distribution
+
+    @staticmethod
+    def get_high_risk_metrics() -> Dict[str, Any]:
+        """Specifically for the Home Dashboard single-line risk bar."""
+        dist = DistributionService.get_risk_level_distribution()
+        high_risk_count = dist.get('Critical', {}).get('count', 0) + dist.get('High', {}).get('count', 0)
+        total = sum(d.get('count', 0) for d in dist.values())
+        
+        return {
+            "high_risk_count": high_risk_count,
+            "total_assets": total,
+            "high_risk_pct": round((high_risk_count / total * 100), 2) if total > 0 else 0.0,
+            "distribution": dist
+        }
 
     @staticmethod
     def get_ipv4_ipv6_distribution() -> Dict[str, Dict[str, Any]]:

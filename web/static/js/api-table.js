@@ -184,10 +184,20 @@
 
     renderHeaders(headerRow, config.columns || []);
 
+    function resolveExtraParams() {
+      if (typeof config.getExtraParams === 'function') {
+        var dynamicParams = config.getExtraParams();
+        if (dynamicParams && typeof dynamicParams === 'object') {
+          return dynamicParams;
+        }
+      }
+      return config.extraParams || {};
+    }
+
     async function refresh() {
       setError('', root);
       try {
-        var payload = await fetchDashboardPage(config.apiUrl, Object.assign({}, state, config.extraParams || {}));
+        var payload = await fetchDashboardPage(config.apiUrl, Object.assign({}, state, resolveExtraParams()));
         lastItems = payload.items || [];
         renderTable(body, config.columns || [], lastItems, config);
         renderKpis(payload.kpis || {}, root);
@@ -251,6 +261,19 @@
     }
 
     refresh();
+
+    return {
+      refresh: refresh,
+      getState: function () {
+        return Object.assign({}, state);
+      },
+      setPage: function (page) {
+        state.page = Math.max(1, Number(page || 1));
+      },
+      setQuery: function (q) {
+        state.q = String(q || '');
+      },
+    };
   }
 
   window.QuantumShieldApiTable = {

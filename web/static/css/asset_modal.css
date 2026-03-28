@@ -13,11 +13,16 @@
     z-index: 99999;
     padding: clamp(0.5rem, 3vw, 2rem);
     transition: opacity 0.3s ease, visibility 0.3s ease;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
 }
 
 .qs-modal-overlay.open {
     display: flex;
     opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
 }
 
 .qs-modal-shell {
