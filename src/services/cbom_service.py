@@ -6,6 +6,7 @@ Encapsulates query logic in one service for reusability and easier unit tests.
 
 from datetime import datetime
 from typing import Dict, List, Any, Optional
+import json
 
 from src.db import db_session
 from src.models import Asset, Scan, Certificate, CBOMEntry, CBOMSummary
@@ -65,6 +66,83 @@ class CbomService:
         "certificate_format": "Certificate format (for example X.509).",
         "certificate_extension": "Certificate file extension (for example .crt).",
     }
+
+    @staticmethod
+    def _safe_json_dict(value: Any) -> Dict[str, Any]:
+        if isinstance(value, dict):
+            return value
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return {}
+            try:
+                parsed = json.loads(raw)
+                return parsed if isinstance(parsed, dict) else {}
+            except Exception:
+                return {}
+        return {}
+
+    @staticmethod
+    def _certificate_details_from_cert_row(cert: Certificate) -> Dict[str, Any]:
+        return {
+            "certificate_version": "",
+            "serial_number": str(getattr(cert, "serial", "") or ""),
+            "certificate_signature_algorithm": str(getattr(cert, "signature_algorithm", "") or ""),
+            "certificate_signature": "",
+            "issuer": str(getattr(cert, "issuer", "") or getattr(cert, "ca", "") or ""),
+            "validity": {
+                "not_before": getattr(cert, "valid_from", None).isoformat() if getattr(cert, "valid_from", None) else "",
+                "not_after": getattr(cert, "valid_until", None).isoformat() if getattr(cert, "valid_until", None) else "",
+            },
+            "subject": str(getattr(cert, "subject", "") or getattr(cert, "subject_cn", "") or ""),
+            "subject_public_key_info": {
+                "subject_public_key_algorithm": str(getattr(cert, "public_key_type", "") or getattr(cert, "key_algorithm", "") or ""),
+                "subject_public_key_bits": int(getattr(cert, "key_length", 0) or 0),
+                "subject_public_key": str(getattr(cert, "public_key_pem", "") or ""),
+            },
+            "extensions": [],
+            "certificate_key_usage": [],
+            "extended_key_usage": [],
+            "certificate_basic_constraints": {},
+            "certificate_subject_key_id": "",
+            "certificate_authority_key_id": "",
+            "authority_information_access": [],
+            "certificate_subject_alternative_name": [],
+            "certificate_policies": [],
+            "crl_distribution_points": [],
+            "signed_certificate_timestamp_list": [],
+        }
+
+    @staticmethod
+    def _find_report_certificate_details(scan: Scan, cert: Certificate) -> Dict[str, Any]:
+        report = CbomService._safe_json_dict(getattr(scan, "report_json", None))
+        raw_tls_rows = report.get("tls_results")
+        tls_rows = raw_tls_rows if isinstance(raw_tls_rows, list) else []
+
+        serial = str(getattr(cert, "serial", "") or "").strip().upper()
+        subject_cn = str(getattr(cert, "subject_cn", "") or "").strip().lower()
+        endpoint = str(getattr(cert, "endpoint", "") or "").strip().lower()
+
+        for row in tls_rows:
+            if not isinstance(row, dict):
+                continue
+            row_serial = str(row.get("serial_number") or "").strip().upper()
+            row_subject_cn = str(row.get("subject_cn") or "").strip().lower()
+            row_host = str(row.get("host") or "").strip().lower()
+            row_port = int(row.get("port") or 0) if str(row.get("port") or "").strip() else 0
+            row_endpoint = f"{row_host}:{row_port}" if row_host and row_port else row_host
+
+            if serial and row_serial and serial == row_serial:
+                details = row.get("certificate_details")
+                return dict(details) if isinstance(details, dict) else {}
+            if subject_cn and row_subject_cn and subject_cn == row_subject_cn:
+                details = row.get("certificate_details")
+                return dict(details) if isinstance(details, dict) else {}
+            if endpoint and row_endpoint and endpoint == row_endpoint:
+                details = row.get("certificate_details")
+                return dict(details) if isinstance(details, dict) else {}
+
+        return {}
 
     @staticmethod
     def _build_scan_filters(start_date: Optional[str] = None, end_date: Optional[str] = None) -> List[Any]:
@@ -482,6 +560,13 @@ class CbomService:
         for cert, asset, scan in rows:
             valid_from = getattr(cert, "valid_from", None)
             valid_until = getattr(cert, "valid_until", None)
+            certificate_details = cls._certificate_details_from_cert_row(cert)
+            report_certificate_details = cls._find_report_certificate_details(scan, cert)
+            if report_certificate_details:
+                certificate_details = {
+                    **certificate_details,
+                    **report_certificate_details,
+                }
             applications.append(
                 {
                     "asset_id": int(getattr(asset, "id", 0) or 0),
@@ -503,6 +588,7 @@ class CbomService:
                     "valid_from": valid_from.isoformat() if hasattr(valid_from, "isoformat") and valid_from else None,
                     "valid_until": valid_until.isoformat() if hasattr(valid_until, "isoformat") and valid_until else None,
                     "fingerprint_sha256": str(getattr(cert, "fingerprint_sha256", "") or ""),
+                    "certificate_details": certificate_details,
                     "last_scan": (
                         getattr(scan, "scanned_at", None)
                         or getattr(scan, "completed_at", None)

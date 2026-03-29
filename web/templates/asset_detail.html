@@ -156,6 +156,26 @@
         <div class="list-row"><span class="left">TLS / Cipher</span><strong>{{ cert.tls_version or '-' }} / {{ cert.cipher_suite or '-' }}</strong></div>
         <div class="list-row"><span class="left">Validity</span><strong>{{ cert.valid_from or '-' }} → {{ cert.valid_until or '-' }}</strong></div>
       </div>
+      {% set cert_details = cert.certificate_details if cert.certificate_details is mapping else {} %}
+      {% set cert_validity = cert_details.get('validity', {}) if cert_details else {} %}
+      {% if cert_details %}
+      <details style="margin-top:0.7rem; border:1px solid var(--border-subtle); border-radius:10px; padding:0.65rem;">
+        <summary style="cursor:pointer; font-size:0.74rem; color:var(--text-secondary);">Show full X.509 certificate details</summary>
+        <div class="list-mini" style="margin-top:0.55rem;">
+          <div class="list-row"><span class="left">Certificate Version</span><strong>{{ cert_details.get('certificate_version', '-') }}</strong></div>
+          <div class="list-row"><span class="left">Serial Number</span><strong>{{ cert_details.get('serial_number', '-') }}</strong></div>
+          <div class="list-row"><span class="left">Signature Algorithm</span><strong>{{ cert_details.get('certificate_signature_algorithm', cert.signature_algorithm or '-') }}</strong></div>
+          <div class="list-row"><span class="left">Issuer</span><strong>{{ cert_details.get('issuer', cert.issuer_cn or cert.ca or '-') }}</strong></div>
+          <div class="list-row"><span class="left">Not Before</span><strong>{{ cert_validity.get('not_before', cert.valid_from or '-') }}</strong></div>
+          <div class="list-row"><span class="left">Not After</span><strong>{{ cert_validity.get('not_after', cert.valid_until or '-') }}</strong></div>
+          <div class="list-row"><span class="left">Subject</span><strong>{{ cert_details.get('subject', cert.subject_cn or '-') }}</strong></div>
+          <div class="list-row"><span class="left">Subject Alternative Names</span><strong>{{ cert_details.get('certificate_subject_alternative_name', []) }}</strong></div>
+          <div class="list-row"><span class="left">Certificate Key Usage</span><strong>{{ cert_details.get('certificate_key_usage', []) }}</strong></div>
+          <div class="list-row"><span class="left">Extended Key Usage</span><strong>{{ cert_details.get('extended_key_usage', []) }}</strong></div>
+          <div class="list-row"><span class="left">Certificate Policies</span><strong>{{ cert_details.get('certificate_policies', []) }}</strong></div>
+        </div>
+      </details>
+      {% endif %}
       {% if cert.fingerprint_sha256 %}
       <div style="margin-top:0.7rem;">
         <div class="label" style="margin-bottom:0.25rem;">SHA-256 Fingerprint</div>

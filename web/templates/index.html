@@ -157,11 +157,13 @@
         <table class="scans-table">
             <thead>
                 <tr>
-                    <th>ASSET</th><th>COMMON NAME</th><th>ISSUER</th><th>KEY</th><th>TLS</th><th>SIG ALG</th><th>VALID TO</th><th>DAYS LEFT</th><th>STATUS</th>
+                    <th>ASSET</th><th>COMMON NAME</th><th>ISSUER</th><th>KEY</th><th>TLS</th><th>SIG ALG</th><th>VALID TO</th><th>DAYS LEFT</th><th>STATUS</th><th>CERTIFICATE DETAILS</th>
                 </tr>
             </thead>
             <tbody>
                 {% for cert in enterprise_metrics.certificate_inventory[:12] %}
+                {% set details = cert.certificate_details if cert.certificate_details is mapping else {} %}
+                {% set validity = details.get('validity', {}) if details else {} %}
                 <tr>
                     <td>{{ cert.asset }}</td>
                     <td>{{ cert.common_name }}</td>
@@ -176,9 +178,26 @@
                             {{ cert.status }}
                         </span>
                     </td>
+                    <td style="max-width:320px;">
+                        <details>
+                            <summary style="cursor:pointer; font-size:0.68rem; color:var(--text-secondary);">Show X.509 details</summary>
+                            <div style="display:grid; gap:0.2rem; margin-top:0.35rem; font-size:0.68rem;">
+                                <div><strong>Version:</strong> {{ details.get('certificate_version', '-') }}</div>
+                                <div><strong>Serial:</strong> {{ details.get('serial_number', '-') }}</div>
+                                <div><strong>Signature Algorithm:</strong> {{ details.get('certificate_signature_algorithm', cert.signature_algorithm or '-') }}</div>
+                                <div><strong>Issuer:</strong> {{ details.get('issuer', cert.issuer or '-') }}</div>
+                                <div><strong>Not Before:</strong> {{ validity.get('not_before', '-') }}</div>
+                                <div><strong>Not After:</strong> {{ validity.get('not_after', cert.valid_to or '-') }}</div>
+                                <div><strong>Subject SAN:</strong> {{ details.get('certificate_subject_alternative_name', []) }}</div>
+                                <div><strong>Key Usage:</strong> {{ details.get('certificate_key_usage', []) }}</div>
+                                <div><strong>Extended Key Usage:</strong> {{ details.get('extended_key_usage', []) }}</div>
+                                <div><strong>Policies:</strong> {{ details.get('certificate_policies', []) }}</div>
+                            </div>
+                        </details>
+                    </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="9" style="text-align:center;color:var(--text-secondary);">No certificate telemetry available yet.</td></tr>
+                <tr><td colspan="10" style="text-align:center;color:var(--text-secondary);">No certificate telemetry available yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

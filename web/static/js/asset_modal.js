@@ -140,27 +140,57 @@
             const certBox = document.getElementById('qsCertDetails');
             if (d.security.certificate) {
                 const c = d.security.certificate;
+                const details = (c.certificate_details && typeof c.certificate_details === 'object') ? c.certificate_details : {};
+                const validity = (details.validity && typeof details.validity === 'object') ? details.validity : {};
+                const spki = (details.subject_public_key_info && typeof details.subject_public_key_info === 'object')
+                    ? details.subject_public_key_info
+                    : {};
                 certBox.innerHTML = `
                     <div class="qs-cert-item">
                         <div class="qs-cert-label">Subject</div>
-                        <div class="qs-cert-value">${c.subject || 'N/A'}</div>
+                        <div class="qs-cert-value">${this._escapeHtml(c.subject || 'N/A')}</div>
                     </div>
                     <div class="qs-cert-item">
                         <div class="qs-cert-label">Issuer</div>
-                        <div class="qs-cert-value">${c.issuer || 'N/A'}</div>
+                        <div class="qs-cert-value">${this._escapeHtml(c.issuer || 'N/A')}</div>
                     </div>
                     <div class="qs-cert-item">
                         <div class="qs-cert-label">Validity</div>
-                        <div class="qs-cert-value">${c.valid_from} to ${c.valid_until} (${c.expiry_days} days remaining)</div>
+                        <div class="qs-cert-value">${this._escapeHtml(c.valid_from || 'N/A')} to ${this._escapeHtml(c.valid_until || 'N/A')} (${Number(c.expiry_days || 0)} days remaining)</div>
                     </div>
                     <div class="qs-cert-item">
                         <div class="qs-cert-label">Algorithm</div>
-                        <div class="qs-cert-value">${c.key_algorithm} ${c.key_length} bits | ${c.signature_algorithm}</div>
+                        <div class="qs-cert-value">${this._escapeHtml(c.key_algorithm || 'Unknown')} ${Number(c.key_length || 0)} bits | ${this._escapeHtml(c.signature_algorithm || 'Unknown')}</div>
                     </div>
                     <div class="p-2 mt-2" style="background: rgba(0,0,0,0.4); border-radius: 4px;">
                         <span class="qs-badge ${c.is_expired ? 'danger' : 'safe'}">${c.is_expired ? 'EXPIRED' : 'ACTIVE'}</span>
-                        <span class="qs-badge warn">${c.tls_version}</span>
+                        <span class="qs-badge warn">${this._escapeHtml(c.tls_version || 'Unknown')}</span>
                     </div>
+                    <details class="qs-cert-item" style="margin-top:0.65rem; border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:0.5rem;">
+                        <summary style="cursor:pointer; font-size:0.72rem; color:var(--text-secondary);">Show full X.509 certificate details</summary>
+                        <div style="display:grid; gap:0.35rem; margin-top:0.55rem; font-size:0.76rem;">
+                            <div><strong>Certificate Version:</strong> ${this._escapeHtml(details.certificate_version || 'N/A')}</div>
+                            <div><strong>Serial Number:</strong> ${this._escapeHtml(details.serial_number || 'N/A')}</div>
+                            <div><strong>Certificate Signature Algorithm:</strong> ${this._escapeHtml(details.certificate_signature_algorithm || 'N/A')}</div>
+                            <div><strong>Issuer:</strong> ${this._escapeHtml(details.issuer || c.issuer || 'N/A')}</div>
+                            <div><strong>Validity Not Before:</strong> ${this._escapeHtml(validity.not_before || c.valid_from || 'N/A')}</div>
+                            <div><strong>Validity Not After:</strong> ${this._escapeHtml(validity.not_after || c.valid_until || 'N/A')}</div>
+                            <div><strong>Subject:</strong> ${this._escapeHtml(details.subject || c.subject || 'N/A')}</div>
+                            <div><strong>Subject Public Key Algorithm:</strong> ${this._escapeHtml(spki.subject_public_key_algorithm || c.key_algorithm || 'N/A')}</div>
+                            <div><strong>Subject Public Key Bits:</strong> ${this._escapeHtml(String(spki.subject_public_key_bits || c.key_length || 'N/A'))}</div>
+                            <div><strong>Extensions:</strong> ${this._renderCollection(details.extensions)}</div>
+                            <div><strong>Certificate Key Usage:</strong> ${this._renderCollection(details.certificate_key_usage)}</div>
+                            <div><strong>Extended Key Usage:</strong> ${this._renderCollection(details.extended_key_usage)}</div>
+                            <div><strong>Certificate Basic Constraints:</strong> ${this._renderCollection(details.certificate_basic_constraints)}</div>
+                            <div><strong>Certificate Subject Key ID:</strong> ${this._escapeHtml(details.certificate_subject_key_id || 'N/A')}</div>
+                            <div><strong>Certificate Authority Key ID:</strong> ${this._escapeHtml(details.certificate_authority_key_id || 'N/A')}</div>
+                            <div><strong>Authority Information Access:</strong> ${this._renderCollection(details.authority_information_access)}</div>
+                            <div><strong>Certificate Subject Alternative Name:</strong> ${this._renderCollection(details.certificate_subject_alternative_name)}</div>
+                            <div><strong>Certificate Policies:</strong> ${this._renderCollection(details.certificate_policies)}</div>
+                            <div><strong>CRL Distribution Points:</strong> ${this._renderCollection(details.crl_distribution_points)}</div>
+                            <div><strong>Signed Certificate Timestamp List:</strong> ${this._renderCollection(details.signed_certificate_timestamp_list)}</div>
+                        </div>
+                    </details>
                 `;
             } else {
                 certBox.innerHTML = '<div class="text-center py-4 text-muted">No certificates found on scanned endpoints.</div>';
@@ -384,6 +414,29 @@
             if (!sub) return;
             sub.textContent = msg;
             sub.style.color = isError ? 'var(--danger)' : 'var(--text-secondary)';
+        }
+
+        _escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        _renderCollection(value) {
+            if (Array.isArray(value)) {
+                if (!value.length) return '[]';
+                return this._escapeHtml(value.join(', '));
+            }
+            if (value && typeof value === 'object') {
+                const entries = Object.entries(value);
+                if (!entries.length) return '{}';
+                return this._escapeHtml(entries.map(([k, v]) => `${k}: ${v}`).join(', '));
+            }
+            if (value === null || value === undefined || value === '') return 'N/A';
+            return this._escapeHtml(String(value));
         }
 
         _cleanup() {

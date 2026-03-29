@@ -120,24 +120,32 @@ class InventoryScanService:
         )
         if latest_scan:
             asset.last_scan_id = latest_scan.id
-            
+
             try:
                 from src.services.pqc_calculation_service import PQCCalculationService
                 from src.services.risk_calculation_service import RiskCalculationService
-                
+
                 # Math Engine Hook: Generates org_pqc_metrics and asset_metrics dynamically
-                PQCCalculationService.calculate_and_store_pqc_metrics(asset.id, latest_scan.id, auto_commit=False)
-                RiskCalculationService.calculate_and_store_risk_metrics(asset.id, latest_scan.id, auto_commit=False)
+                metric_savepoint = db_session.begin_nested()
+                try:
+                    PQCCalculationService.calculate_and_store_pqc_metrics(asset.id, latest_scan.id, auto_commit=False)
+                    RiskCalculationService.calculate_and_store_risk_metrics(asset.id, latest_scan.id, auto_commit=False)
+                    metric_savepoint.commit()
+                except Exception:
+                    metric_savepoint.rollback()
+                    raise
             except Exception as e:
                 logger.error(f"Failed to calculate dashboard metrics for {target}: {e}")
 
     def scan_asset(self, asset: Asset, scan_kind: str = "inventory_asset") -> Dict:
         """Scan a single asset and sync key fields into inventory."""
+        asset_id = int(getattr(asset, "id", 0) or 0)
+        asset_name = str(getattr(asset, "name", "") or "")
         target = self._canonical_target(asset)
         if not target:
             return {
-                "asset_id": asset.id,
-                "asset_name": asset.name,
+                "asset_id": asset_id,
+                "asset_name": asset_name,
                 "target": "",
                 "status": "failed",
                 "errors": ["empty_target"],
@@ -165,26 +173,27 @@ class InventoryScanService:
             if status == "complete":
                 self._sync_asset_from_report(asset, report)
                 return {
-                    "asset_id": asset.id,
-                    "asset_name": asset.name,
+                    "asset_id": asset_id,
+                    "asset_name": asset_name,
                     "target": target,
                     "scan_id": report.get("scan_id"),
                     "status": "complete",
                     "errors": [],
                 }
             return {
-                "asset_id": asset.id,
-                "asset_name": asset.name,
+                "asset_id": asset_id,
+                "asset_name": asset_name,
                 "target": target,
                 "scan_id": report.get("scan_id"),
                 "status": "failed",
                 "errors": [str(report.get("message") or "scan_failed")],
             }
         except Exception as exc:
+            db_session.rollback()
             logger.exception("Inventory asset scan failed for %s", target)
             return {
-                "asset_id": asset.id,
-                "asset_name": asset.name,
+                "asset_id": asset_id,
+                "asset_name": asset_name,
                 "target": target,
                 "status": "failed",
                 "errors": [str(exc)],

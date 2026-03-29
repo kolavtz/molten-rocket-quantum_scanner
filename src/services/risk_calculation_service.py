@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import Dict, List
 
 from sqlalchemy import and_
+from sqlalchemy.exc import IntegrityError
 
 from config import RISK_WEIGHTS, PENALTY_ALPHA
 from src.db import db_session
@@ -22,6 +23,31 @@ from src.models import Asset, AssetMetric, Finding, Scan
 
 class RiskCalculationService:
     """Service for risk penalty calculations per Math Spec Section 5."""
+
+    @staticmethod
+    def _get_or_create_asset_metric(asset_id: int) -> AssetMetric:
+        """Get or create AssetMetric row safely under concurrent writes."""
+        metric = db_session.query(AssetMetric).filter(
+            AssetMetric.asset_id == asset_id
+        ).first()
+        if metric:
+            return metric
+
+        savepoint = db_session.begin_nested()
+        try:
+            metric = AssetMetric(asset_id=asset_id)
+            db_session.add(metric)
+            db_session.flush()
+            savepoint.commit()
+            return metric
+        except IntegrityError:
+            savepoint.rollback()
+            existing = db_session.query(AssetMetric).filter(
+                AssetMetric.asset_id == asset_id
+            ).first()
+            if existing:
+                return existing
+            raise
 
     @staticmethod
     def calculate_finding_severity_weight(severity: str) -> float:
@@ -118,14 +144,7 @@ class RiskCalculationService:
             Dict with calculated metrics
         """
         # Get or create asset_metrics row
-        metric = db_session.query(AssetMetric).filter(
-            AssetMetric.asset_id == asset_id
-        ).first()
-        
-        if not metric:
-            metric = AssetMetric(asset_id=asset_id)
-            db_session.add(metric)
-            db_session.flush()
+        metric = RiskCalculationService._get_or_create_asset_metric(asset_id)
         
         # Calculate penalties
         risk_penalty = RiskCalculationService.calculate_risk_penalty(asset_id, scan_id)

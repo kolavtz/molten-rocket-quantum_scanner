@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Admin API | QuantumShield{% endblock %}
+
+{% block content %}
+<header class="section-header">
+    <h1 class="hero-title">ADMIN API PORTAL</h1>
+    <p class="hero-subtitle">key lifecycle // machine access // integration controls</p>
+</header>
+
+<div class="container" style="max-width: 960px; margin: 2rem auto 3rem; padding: 0 1.5rem;">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          {% if category == 'api_key' %}
+            {% set raw_key = message | replace('NEW_API_KEY: ', '') %}
+            <div id="key-reveal" class="glass-card" style="padding:1.5rem; border:1px solid color-mix(in srgb, var(--safe) 45%, transparent); margin-bottom:1.25rem;">
+              <p style="color:var(--text-muted);font-size:.78rem;letter-spacing:.06em;margin-bottom:.65rem;">
+                NEW API KEY GENERATED — COPY NOW (THIS VALUE IS SHOWN ONLY ONCE)
+              </p>
+              <code id="api-key-value" style="display:block;font-size:.95rem;word-break:break-all;color:var(--safe);letter-spacing:.04em;">{{ raw_key }}</code>
+              <div style="display:flex; align-items:center; gap:.65rem; margin-top:1rem; flex-wrap:wrap;">
+                <button onclick="copyKey()" class="scan-button" style="min-height:44px;">COPY KEY</button>
+                <span id="copy-confirm" style="display:none;color:var(--safe);font-size:.82rem;">Copied.</span>
+              </div>
+            </div>
+          {% else %}
+            <div class="glass-card" style="padding:1rem 1.2rem; margin-bottom:1rem; border:1px solid color-mix(in srgb, var(--accent) 35%, transparent);">
+              {{ message }}
+            </div>
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <section class="glass-card" style="padding:1.5rem; margin-bottom:1.25rem;">
+      <h2 style="font-size:1rem; letter-spacing:.1em; margin-bottom:1rem;">API KEY MANAGEMENT</h2>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; margin-bottom:1rem;">
+        <div>
+          <p style="color:var(--text-muted); font-size:.72rem; letter-spacing:.09em; margin-bottom:.35rem;">USER</p>
+          <p style="font-weight:700;">{{ (user.username if user else current_user.username) | upper }}</p>
+        </div>
+        <div>
+          <p style="color:var(--text-muted); font-size:.72rem; letter-spacing:.09em; margin-bottom:.35rem;">ROLE</p>
+          <p style="font-weight:700;">{{ (user.role if user else current_user.role) | upper }}</p>
+        </div>
+        <div>
+          <p style="color:var(--text-muted); font-size:.72rem; letter-spacing:.09em; margin-bottom:.35rem;">KEY STATUS</p>
+          {% if key_issued %}
+            <p style="color:var(--safe); font-weight:700;">● ACTIVE</p>
+          {% else %}
+            <p style="color:var(--warn); font-weight:700;">○ NOT ISSUED</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <p style="color:var(--text-muted); font-size:.84rem; line-height:1.6; margin-bottom:1rem;">
+        Rotating a key immediately revokes the previous key. Update all CI/CD pipelines and automation clients right after rotation.
+      </p>
+
+      <form method="POST" action="{{ url_for('admin_rotate_api_key') }}" onsubmit="return confirm('Rotate API key now? Existing key will stop working immediately.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="scan-button" style="min-height:44px;">
+          {% if key_issued %}ROTATE API KEY{% else %}GENERATE API KEY{% endif %}
+        </button>
+      </form>
+    </section>
+
+    <section class="glass-card" style="padding:1.5rem;">
+      <h2 style="font-size:1rem; letter-spacing:.1em; margin-bottom:1rem;">API REFERENCE</h2>
+      <p style="color:var(--text-muted); font-size:.84rem; line-height:1.6; margin-bottom:1rem;">
+        Use this key in <code>X-API-Key</code> for machine endpoints. Full endpoint docs are available on the API docs page.
+      </p>
+      <div style="display:flex; gap:.6rem; flex-wrap:wrap;">
+        <a href="/docs" class="scan-button" style="display:inline-flex; align-items:center; min-height:44px; text-decoration:none;">
+          <i class="fa-solid fa-book" style="margin-right:.45rem;"></i>OPEN API DOCS
+        </a>
+        <a href="/admin/users" class="scan-button" style="display:inline-flex; align-items:center; min-height:44px; text-decoration:none; background:transparent; color:var(--text-secondary); border:1px solid var(--border-subtle);">
+          <i class="fa-solid fa-users" style="margin-right:.45rem;"></i>MANAGE USER KEYS
+        </a>
+      </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyKey() {
+  var el = document.getElementById('api-key-value');
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent.trim()).then(function() {
+    var c = document.getElementById('copy-confirm');
+    if (c) {
+      c.style.display = 'inline';
+      setTimeout(function(){ c.style.display = 'none'; }, 2500);
+    }
+  }).catch(function() {
+    var range = document.createRange();
+    range.selectNode(el);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+    document.execCommand('copy');
+  });
+}
+</script>
+{% endblock %}

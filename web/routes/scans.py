@@ -262,6 +262,38 @@ def _normalize_tls_row_from_report(raw_row: dict[str, Any], scan_id: str) -> dic
         else:
             cert_status = "Unknown"
 
+    certificate_details = raw_row.get("certificate_details") if isinstance(raw_row.get("certificate_details"), dict) else {}
+
+    if not certificate_details:
+        certificate_details = {
+            "certificate_version": "",
+            "serial_number": str(raw_row.get("serial_number") or ""),
+            "certificate_signature_algorithm": str(raw_row.get("signature_algorithm") or ""),
+            "certificate_signature": "",
+            "issuer": str(raw_row.get("issuer") or raw_row.get("issuer_cn") or raw_row.get("issuer_o") or ""),
+            "validity": {
+                "not_before": str(raw_row.get("valid_from") or ""),
+                "not_after": str(raw_row.get("valid_to") or ""),
+            },
+            "subject": str(raw_row.get("subject") or raw_row.get("subject_cn") or ""),
+            "subject_public_key_info": {
+                "subject_public_key_algorithm": str(raw_row.get("key_type") or ""),
+                "subject_public_key_bits": int(raw_row.get("key_length") or raw_row.get("key_size") or 0),
+                "subject_public_key": str(raw_row.get("public_key_pem") or ""),
+            },
+            "extensions": [],
+            "certificate_key_usage": [],
+            "extended_key_usage": [],
+            "certificate_basic_constraints": {},
+            "certificate_subject_key_id": "",
+            "certificate_authority_key_id": "",
+            "authority_information_access": [],
+            "certificate_subject_alternative_name": [str(item) for item in (raw_row.get("san_domains") or []) if str(item or "").strip()],
+            "certificate_policies": [],
+            "crl_distribution_points": [],
+            "signed_certificate_timestamp_list": [],
+        }
+
     return {
         "certificate_id": None,
         "scan_id": scan_id,
@@ -286,6 +318,7 @@ def _normalize_tls_row_from_report(raw_row: dict[str, Any], scan_id: str) -> dic
         "signature_algorithm": str(raw_row.get("signature_algorithm") or ""),
         "fingerprint_sha256": str(raw_row.get("cert_sha256") or ""),
         "san_domains": [str(item) for item in (raw_row.get("san_domains") or []) if str(item or "").strip()],
+        "certificate_details": certificate_details,
         "cert_chain_length": int(raw_row.get("certificate_chain_length") or 0),
         "valid_from": str(raw_row.get("valid_from") or "") or None,
         "valid_until": str(raw_row.get("valid_to") or "") or None,
@@ -1125,6 +1158,34 @@ def api_scan_certificates(scan_id: str):
                     "signature_algorithm": str(cert.signature_algorithm or ""),
                     "fingerprint_sha256": str(cert.fingerprint_sha256 or ""),
                     "san_domains": _safe_json_list(cert.san_domains),
+                    "certificate_details": {
+                        "certificate_version": "",
+                        "serial_number": str(cert.serial or ""),
+                        "certificate_signature_algorithm": str(cert.signature_algorithm or ""),
+                        "certificate_signature": "",
+                        "issuer": str(cert.issuer or cert.ca or ""),
+                        "validity": {
+                            "not_before": cert.valid_from.isoformat() if cert.valid_from else "",
+                            "not_after": cert.valid_until.isoformat() if cert.valid_until else "",
+                        },
+                        "subject": str(cert.subject or cert.subject_cn or ""),
+                        "subject_public_key_info": {
+                            "subject_public_key_algorithm": str(cert.public_key_type or cert.key_algorithm or ""),
+                            "subject_public_key_bits": int(cert.key_length or 0),
+                            "subject_public_key": str(cert.public_key_pem or ""),
+                        },
+                        "extensions": [],
+                        "certificate_key_usage": [],
+                        "extended_key_usage": [],
+                        "certificate_basic_constraints": {},
+                        "certificate_subject_key_id": "",
+                        "certificate_authority_key_id": "",
+                        "authority_information_access": [],
+                        "certificate_subject_alternative_name": _safe_json_list(cert.san_domains),
+                        "certificate_policies": [],
+                        "crl_distribution_points": [],
+                        "signed_certificate_timestamp_list": [],
+                    },
                     "cert_chain_length": int(cert.cert_chain_length or 0),
                     "valid_from": cert.valid_from.isoformat() if cert.valid_from else None,
                     "valid_until": cert.valid_until.isoformat() if cert.valid_until else None,

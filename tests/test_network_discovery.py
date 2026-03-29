@@ -28,8 +28,8 @@ class TestSanitizeTarget:
         assert host == "website.example"
         assert port is None
 
-    def test_http_url(self):
-        host, port = sanitize_target("http://example.org/login")
+    def test_url_with_scheme_and_path(self):
+        host, port = sanitize_target("https://example.org/login")
         assert host == "example.org"
         assert port is None
 

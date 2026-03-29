@@ -390,6 +390,7 @@
             try {
                 const resp = await fetch(apiEndpoint, {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRFToken': getCsrf(),
@@ -414,11 +415,12 @@
                     _updateInventoryCount(-( (data.deleted_count) || 1 ));
                     _flashBanner(data.message || 'Asset moved to Recycle Bin.', 'success');
                 } else {
-                    _flashBanner(data.message || 'Delete failed. Please try again.', 'error');
+                    _flashBanner(data.message || 'Delete failed via API, retrying secure form submit…', 'error');
+                    form.submit();
                 }
             } catch (err) {
-                _flashBanner('Network error during delete. Reloading…', 'error');
-                setTimeout(() => location.reload(), 2000);
+                _flashBanner('Network/API delete failed. Retrying via secure form submit…', 'error');
+                form.submit();
             }
         } else {
             /* Fallback: standard form submit */
@@ -645,6 +647,38 @@
         });
     }
 
+    /* ─── Selection Management ─── */
+    const tableShell = document.querySelector('[data-table-shell]');
+    const selectSummary = document.querySelector('[data-selected-count]');
+    
+    function updateSelectionUI() {
+        const checked = tableShell.querySelectorAll('[data-row-checkbox]:checked, input[name="asset_ids"]:checked');
+        if (selectSummary) {
+            selectSummary.textContent = `${checked.length} item(s) selected`;
+            selectSummary.classList.toggle('active', checked.length > 0);
+        }
+    }
+
+    if (tableShell) {
+        tableShell.addEventListener('change', (e) => {
+            if (e.target.matches('[data-row-checkbox], input[name="asset_ids"], [data-select-all]')) {
+                if (e.target.matches('[data-select-all]')) {
+                    const cbs = tableShell.querySelectorAll('[data-row-checkbox], input[name="asset_ids"]');
+                    cbs.forEach(cb => cb.checked = e.target.checked);
+                }
+                updateSelectionUI();
+            }
+        });
+    }
+
+    /* ─── Details Modal Wiring ─── */
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-open-asset-details]');
+        if (btn && window.AssetDetailModal) {
+            window.AssetDetailModal.open(btn.dataset.assetId);
+        }
+    });
+
     /* ─── Bulk Apply Button ─── */
     document.getElementById('bulkApplyBtn').addEventListener('click', async () => {
         const action = document.getElementById('bulkActionSelect').value;
@@ -667,8 +701,7 @@
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
-                        'X-CSRFToken': csrf,
-                        'X-CSRF-Token': csrf
+                        'X-CSRFToken': csrf
                     },
                     body: JSON.stringify({
                         selected_asset_ids: ids,
@@ -689,25 +722,24 @@
                         uniqueIds.forEach(id => _setRowScanStatus(id, 'Started'));
                     }
                     _flashBanner(data.message || `Submitting bulk scan for ${uniqueIds.length} asset(s)…`, 'success');
+                    _startPollingStatus();
                     return;
                 }
                 throw new Error(data.message || 'Bulk scan request failed.');
             } catch (err) {
                 uniqueIds.forEach(id => _setRowScanStatus(id, 'Failed'));
-                document.getElementById('bulkScanIds').value = ids;
-                _flashBanner('Bulk scan API fallback: submitting form…', 'error');
-                document.getElementById('bulkScanForm').submit();
+                _flashBanner('Error during bulk scan: ' + err.message, 'error');
             }
         } else if (action === 'bulk-delete') {
             if (!confirm(`Move ${uniqueIds.length} asset(s) to Recycle Bin?`)) return;
             try {
                 const resp = await fetch('/api/assets/bulk-delete', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
-                        'X-CSRFToken': csrf,
-                        'X-CSRF-Token': csrf
+                        'X-CSRFToken': csrf
                     },
                     body: JSON.stringify({
                         selected_asset_ids: ids,
@@ -718,30 +750,105 @@
                 const data = await resp.json();
                 if (resp.ok && data.status === 'success') {
                     _flashBanner(data.message || `Moved ${uniqueIds.length} asset(s) to Recycle Bin.`, 'success');
-                    setTimeout(() => location.reload(), 900);
+                    uniqueIds.forEach(id => {
+                        const tr = document.querySelector(`[data-asset-id="${id}"]`)?.closest('tr');
+                        if (tr) tr.remove();
+                    });
+                    _updateInventoryCount(-uniqueIds.length);
+                    updateSelectionUI();
+                } else {
+                    throw new Error(data.message || 'Bulk delete API failed.');
+                }
+            } catch (err) {
+                const bulkDeleteIds = document.getElementById('bulkDeleteIds');
+                const bulkDeleteForm = document.getElementById('bulkDeleteForm');
+                if (bulkDeleteIds && bulkDeleteForm) {
+                    bulkDeleteIds.value = ids;
+                    _flashBanner('Bulk delete API failed, retrying via secure form submit…', 'error');
+                    bulkDeleteForm.submit();
                     return;
                 }
-                throw new Error(data.message || 'Bulk delete request failed.');
-            } catch (err) {
-                document.getElementById('bulkDeleteIds').value = ids;
-                _flashBanner('Bulk delete API fallback: submitting form…', 'error');
-                document.getElementById('bulkDeleteForm').submit();
+                _flashBanner('Error during bulk delete: ' + err.message, 'error');
             }
         }
     });
 
-    /* ─── "Run Scan" row button: intercept form submit for scan feedback ─── */
-    document.addEventListener('submit', (e) => {
+    /* ─── "Run Scan" row button: upgrade to AJAX ─── */
+    document.addEventListener('submit', async (e) => {
         const form = e.target;
         if (!form.matches('.inline-form[action*="scan"]') || form.matches('[data-asset-delete-form]')) return;
-        /* Let the scan form submit normally (will reload with flash message from server) */
-        /* We only show a brief loading state */
+        
+        e.preventDefault();
         const btn = form.querySelector('button[type="submit"]');
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = '…';
+        const assetId = form.querySelector('input[name="asset_id"]')?.value;
+        const csrf = getCsrf();
+
+        if (btn) btn.disabled = true;
+        if (assetId) _setRowScanStatus(assetId, 'Queued');
+
+        try {
+            const formData = new FormData(form);
+            const resp = await fetch(form.action, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRFToken': csrf },
+                body: formData
+            });
+            const data = await resp.json();
+            const responseStatus = String(data.status || '').toLowerCase();
+            if (resp.ok && ['success', 'complete', 'warning'].includes(responseStatus)) {
+                if (assetId) {
+                    if (responseStatus === 'complete') {
+                        _setRowScanStatus(assetId, 'Complete');
+                    } else {
+                        _setRowScanStatus(assetId, 'Started');
+                    }
+                }
+                _flashBanner(data.message || 'Scan initialized.', responseStatus === 'warning' ? 'warning' : 'success');
+                _startPollingStatus();
+            } else {
+                throw new Error(data.message || 'Scan failed.');
+            }
+        } catch (err) {
+            if (assetId) _setRowScanStatus(assetId, 'Failed');
+            _flashBanner(err.message, 'error');
+        } finally {
+            if (btn) btn.disabled = false;
         }
     });
+
+    /* ─── Real-time Polling ─── */
+    let _pollingInterval = null;
+    function _startPollingStatus() {
+        if (_pollingInterval) return;
+        _pollingInterval = setInterval(async () => {
+            const activeRows = document.querySelectorAll('.row-scan-status-badge.status-queued, .row-scan-status-badge.status-started, .row-scan-status-badge.status-running');
+            if (activeRows.length === 0) {
+                clearInterval(_pollingInterval);
+                _pollingInterval = null;
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/assets', { headers: { 'Accept': 'application/json' } });
+                const result = await resp.json();
+                if (resp.ok && result.success && result.data.items) {
+                    result.data.items.forEach(item => {
+                        const status = String(item.scan_status || item.last_scan_status || 'complete').toLowerCase();
+                        if (status !== 'queued' && status !== 'started' && status !== 'running') {
+                            _setRowScanStatus(item.id, item.scan_status || item.last_scan_status || 'Complete');
+                        }
+                    });
+                }
+            } catch (err) {
+                console.warn('Polling fallback to idle due to network error.');
+            }
+        }, 5000);
+    }
+
+    // Initial check
+    if (document.querySelectorAll('.row-scan-status-badge.status-queued, .row-scan-status-badge.status-started, .row-scan-status-badge.status-running').length > 0) {
+        _startPollingStatus();
+    }
 
 })();
 </script>

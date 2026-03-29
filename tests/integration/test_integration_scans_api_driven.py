@@ -95,6 +95,33 @@ def test_scan_certificate_details_endpoint_works_with_report_fallback(app_client
                 "cert_sha256": "AABBCCDDEEFF00112233445566778899",
                 "san_domains": ["example.com", "www.example.com"],
                 "certificate_chain_length": 2,
+                "certificate_details": {
+                    "certificate_version": "v3",
+                    "serial_number": "ABC123",
+                    "certificate_signature_algorithm": "sha256WithRSAEncryption",
+                    "issuer": "CN=Test CA",
+                    "validity": {
+                        "not_before": "2024-01-01T00:00:00+00:00",
+                        "not_after": "2030-01-01T00:00:00+00:00",
+                    },
+                    "subject": "CN=example.com",
+                    "subject_public_key_info": {
+                        "subject_public_key_algorithm": "RSA",
+                        "subject_public_key_bits": 2048,
+                        "subject_public_key": "-----BEGIN PUBLIC KEY-----...",
+                    },
+                    "extensions": ["subjectAltName", "keyUsage"],
+                    "certificate_key_usage": ["digital_signature", "key_encipherment"],
+                    "extended_key_usage": ["serverAuth"],
+                    "certificate_basic_constraints": {"ca": False},
+                    "certificate_subject_key_id": "A1B2C3",
+                    "certificate_authority_key_id": "D4E5F6",
+                    "authority_information_access": ["ocsp:http://ocsp.example.com"],
+                    "certificate_subject_alternative_name": ["example.com", "www.example.com"],
+                    "certificate_policies": ["2.23.140.1.2.1"],
+                    "crl_distribution_points": ["http://crl.example.com/root.crl"],
+                    "signed_certificate_timestamp_list": ["present"],
+                },
                 "valid_to": "2030-01-01T00:00:00+00:00",
                 "cert_days_remaining": 120,
                 "cert_expired": False,
@@ -117,6 +144,9 @@ def test_scan_certificate_details_endpoint_works_with_report_fallback(app_client
     assert first.get("subject_cn") == "example.com"
     assert first.get("tls_version") == "TLS 1.3"
     assert first.get("key_length") == 2048
+    assert isinstance(first.get("certificate_details"), dict)
+    assert first["certificate_details"].get("certificate_version") == "v3"
+    assert first["certificate_details"].get("certificate_signature_algorithm") == "sha256WithRSAEncryption"
 
 
 def test_scans_list_supports_type_status_and_date_filters(app_client):
