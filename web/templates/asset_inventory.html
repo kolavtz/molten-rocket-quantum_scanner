@@ -275,6 +275,45 @@
             </div>
         </div>
 
+        <form
+            action="{{ url_for('assets.assets_index') }}"
+            method="get"
+            class="glass-card"
+            style="padding:1rem; margin-bottom:1rem; display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:0.75rem; align-items:end;"
+            aria-label="Inventory filters"
+        >
+            <input type="hidden" name="q" value="{{ page_data.search or '' }}">
+            <input type="hidden" name="sort" value="{{ page_data.sort or 'name' }}">
+            <input type="hidden" name="order" value="{{ page_data.order or 'asc' }}">
+            <input type="hidden" name="page_size" value="{{ page_data.page_size or 25 }}">
+            <input type="hidden" name="page" value="1">
+
+            <div>
+                <label for="assetTypeFilter" style="font-size:0.72rem; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:0.35rem;">Asset Type</label>
+                <select id="assetTypeFilter" name="asset_type" class="inventory-input" style="padding:0.6rem 0.8rem;">
+                    <option value="">All Types</option>
+                    {% for type in page_data.available_asset_types or [] %}
+                    <option value="{{ type }}" {% if page_data.asset_type == type %}selected{% endif %}>{{ type }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label for="riskMinFilter" style="font-size:0.72rem; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:0.35rem;">Min Risk Score</label>
+                <input id="riskMinFilter" name="risk_min" type="number" min="0" max="100" step="1" value="{{ page_data.risk_min if page_data.risk_min is not none else '' }}" class="inventory-input" style="padding:0.6rem 0.8rem;" placeholder="0">
+            </div>
+
+            <div>
+                <label for="riskMaxFilter" style="font-size:0.72rem; font-weight:700; color:var(--text-secondary); display:block; margin-bottom:0.35rem;">Max Risk Score</label>
+                <input id="riskMaxFilter" name="risk_max" type="number" min="0" max="100" step="1" value="{{ page_data.risk_max if page_data.risk_max is not none else '' }}" class="inventory-input" style="padding:0.6rem 0.8rem;" placeholder="100">
+            </div>
+
+            <div style="display:flex; gap:0.5rem; align-items:center;">
+                <button type="submit" class="button secondary" style="padding:0.6rem 1rem;">Filter</button>
+                <a href="{{ url_for('assets.assets_index', q=page_data.search or '', sort=page_data.sort or 'name', order=page_data.order or 'asc', page_size=page_data.page_size or 25) }}" class="button" style="padding:0.6rem 1rem; text-decoration:none;">Reset</a>
+            </div>
+        </form>
+
         {# Hidden bulk forms – submitted via JS #}
         <form id="bulkScanForm" action="{{ url_for('assets.asset_bulk_scan') }}" method="post" style="display:none;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -297,7 +336,11 @@
             sort=page_data.sort,
             order=page_data.order,
             endpoint='assets.assets_index',
-            base_params={},
+            base_params={
+                'asset_type': page_data.asset_type or '',
+                'risk_min': page_data.risk_min if page_data.risk_min is not none else '',
+                'risk_max': page_data.risk_max if page_data.risk_max is not none else ''
+            },
             empty_message='No inventory found. Initialize your first scan above.'
         ) }}
     </section>
@@ -860,11 +903,18 @@
     /* ── Asset Edit Modal ── */
     const editModal = document.getElementById('assetEditModal');
     if (!editModal) return;
+    const editModalBody = editModal.querySelector('.inv-modal-body');
+    let lastEditTrigger = null;
+
+    function _setBodyScrollLock(locked) {
+        document.body.style.overflow = locked ? 'hidden' : '';
+    }
 
     function openEditModal(data) {
         const assetId = data.assetId || data.asset_id || '';
         const riskValue = data.riskLevel || data.risk_level || data.risk || 'Medium';
         const lastScanValue = data.lastScan || data.last_scan || 'Never';
+        const assetName = data.name || 'Asset';
 
         document.getElementById('assetEditAssetId').value = assetId;
         document.getElementById('assetEditSelectedIds').value = assetId;
@@ -882,31 +932,38 @@
             form.action = `/api/assets/${assetId}/edit`;
         }
 
-        /* center the modal using the inv-modal-overlay pattern */
-        editModal.style.cssText = `
-            position:fixed; inset:0; width:100dvw; height:100dvh;
-            background:rgba(2,6,23,0.88); backdrop-filter:blur(8px);
-            display:flex; align-items:center; justify-content:center;
-            z-index:99000; padding:2rem;
-            opacity:1; visibility:visible; pointer-events:auto;
-        `;
-        /* style the card if needed */
-        const card = editModal.querySelector('.asset-modal-card');
-        if (card) {
-            card.style.cssText = `
-                width:100%; max-width:560px; background:var(--bg-card,#0a0e14);
-                border:1px solid rgba(255,255,255,0.1); border-radius:18px;
-                box-shadow:0 24px 80px rgba(0,0,0,0.7); padding:2rem;
-                max-height:90vh; overflow-y:auto;
-            `;
+        const subtitle = document.getElementById('assetEditSubtitle');
+        if (subtitle) {
+            subtitle.textContent = `Update owner and risk classification for ${assetName}.`;
+        }
+
+        editModal.style.display = 'flex';
+        editModal.classList.add('open');
+        editModal.setAttribute('aria-hidden', 'false');
+        _setBodyScrollLock(true);
+
+        if (editModalBody) {
+            editModalBody.scrollTop = 0;
+        }
+
+        const ownerField = document.getElementById('assetEditOwner');
+        if (ownerField) {
+            requestAnimationFrame(() => {
+                ownerField.focus({ preventScroll: true });
+                ownerField.select();
+            });
         }
     }
 
     function closeEditModal() {
+        editModal.classList.remove('open');
+        editModal.setAttribute('aria-hidden', 'true');
         editModal.style.display = 'none';
-        editModal.style.opacity = '0';
-        editModal.style.visibility = 'hidden';
-        editModal.style.pointerEvents = 'none';
+        _setBodyScrollLock(false);
+
+        if (lastEditTrigger && typeof lastEditTrigger.focus === 'function') {
+            lastEditTrigger.focus({ preventScroll: true });
+        }
     }
 
     /* Initially hide */
@@ -916,6 +973,9 @@
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-open-asset-edit]');
         if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        lastEditTrigger = btn;
         openEditModal(btn.dataset);
     });
 
@@ -933,7 +993,7 @@
 
     /* Escape */
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && editModal.style.visibility === 'visible') closeEditModal();
+        if (e.key === 'Escape' && editModal.classList.contains('open')) closeEditModal();
     });
 
     /* Handle edit form submit via AJAX */

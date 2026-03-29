@@ -37,6 +37,13 @@ ALLOWED_DELETE_ROLES = {"Admin", "Manager"}
 ALLOWED_RISK_LEVELS = {"Low", "Medium", "High", "Critical"}
 _deleted_by_user_id_accepts_text: bool | None = None
 
+RISK_SCORE_MAP = {
+    "low": 25,
+    "medium": 50,
+    "high": 75,
+    "critical": 100,
+}
+
 
 def _invalidate_caches() -> None:
     """Clear dashboard caches so KPI cards refresh immediately after writes."""
@@ -112,6 +119,40 @@ def _score_to_risk(score: float) -> str:
     if score >= 40:
         return "High"
     return "Critical"
+
+
+def _risk_level_to_score(level: str | None) -> int:
+    return int(RISK_SCORE_MAP.get(str(level or "").strip().lower(), 50))
+
+
+def _apply_inventory_filters(
+    assets: list[dict[str, Any]],
+    *,
+    asset_type: str = "",
+    risk_min: int | None = None,
+    risk_max: int | None = None,
+) -> list[dict[str, Any]]:
+    normalized_asset_type = str(asset_type or "").strip().lower()
+    bounded_min = max(0, int(risk_min)) if isinstance(risk_min, int) else None
+    bounded_max = min(100, int(risk_max)) if isinstance(risk_max, int) else None
+
+    if bounded_min is not None and bounded_max is not None and bounded_min > bounded_max:
+        bounded_min, bounded_max = bounded_max, bounded_min
+
+    def _matches(asset: dict[str, Any]) -> bool:
+        if normalized_asset_type:
+            item_type = str(asset.get("asset_type") or asset.get("type") or "").strip().lower()
+            if item_type != normalized_asset_type:
+                return False
+
+        score = _risk_level_to_score(str(asset.get("risk_level") or asset.get("risk") or ""))
+        if bounded_min is not None and score < bounded_min:
+            return False
+        if bounded_max is not None and score > bounded_max:
+            return False
+        return True
+
+    return [asset for asset in assets if _matches(asset)]
 
 
 def _get_inventory_kpis() -> dict:
@@ -318,6 +359,24 @@ def build_assets_page_context():
 
     assets = list(vm.get("assets", []))
     assets = [asset for asset in assets if not asset.get("is_deleted")]
+
+    asset_type_filter = request.args.get("asset_type", "", type=str).strip()
+    risk_min = request.args.get("risk_min", None, type=int)
+    risk_max = request.args.get("risk_max", None, type=int)
+    assets = _apply_inventory_filters(
+        assets,
+        asset_type=asset_type_filter,
+        risk_min=risk_min,
+        risk_max=risk_max,
+    )
+
+    available_asset_types = sorted(
+        {
+            str(asset.get("asset_type") or "").strip()
+            for asset in vm.get("assets", [])
+            if str(asset.get("asset_type") or "").strip() and not asset.get("is_deleted")
+        }
+    )
     vm["assets"] = assets
     page = request.args.get("page", 1, type=int)
     page_size = request.args.get("page_size", 25, type=int)
@@ -334,6 +393,10 @@ def build_assets_page_context():
         search=search,
         searchable_columns=["name", "url", "owner", "asset_type", "risk_level", "cert_status", "last_scan"],
     )
+    page_data["asset_type"] = asset_type_filter
+    page_data["risk_min"] = risk_min
+    page_data["risk_max"] = risk_max
+    page_data["available_asset_types"] = available_asset_types
 
     asset_csrf_token = generate_csrf()
     page_data["items"] = _decorate_asset_rows(list(page_data["items"]), asset_csrf_token)
@@ -393,8 +456,17 @@ def build_assets_api_response(
     sort: str = "name",
     order: str = "asc",
     search: str = "",
+    asset_type: str = "",
+    risk_min: int | None = None,
+    risk_max: int | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     vm, assets = _inventory_assets_vm()
+    assets = _apply_inventory_filters(
+        assets,
+        asset_type=asset_type,
+        risk_min=risk_min,
+        risk_max=risk_max,
+    )
     page_data = paginate_query(
         assets,
         page=page,
@@ -420,7 +492,7 @@ def build_assets_api_response(
         "page_size": int(page_data["page_size"]),
         "total_pages": int(page_data["total_pages"]),
         "kpis": {
-            "total_assets": int(page_data["total"]),
+            "total_assets": int(vm.get("kpis", {}).get("total_assets") or 0),
             "assets_in_view": int(page_data["total"]),
             "total_scans": int(vm.get("kpis", {}).get("total_scans") or 0),
             "quantum_safe_percent": float(vm.get("kpis", {}).get("quantum_safe_percent") or 0),
@@ -433,6 +505,9 @@ def build_assets_api_response(
         "sort": page_data.get("sort") or sort,
         "order": page_data.get("order") or order,
         "search": page_data.get("search") or search,
+        "asset_type": str(asset_type or "").strip(),
+        "risk_min": risk_min,
+        "risk_max": risk_max,
     }
     return data, filters
 
@@ -914,6 +989,43 @@ def asset_details(asset_id: int):
 @login_required
 def assets_index():
     return render_assets_inventory_page()
+
+
+@assets_bp.route("/api/assets/<int:asset_id>/scans", methods=["GET"])
+@login_required
+def api_asset_scans(asset_id: int):
+    page = request.args.get("page", default=1, type=int)
+    page_size = request.args.get("page_size", default=20, type=int)
+    data = build_asset_scans_api_response(asset_id, page=page, page_size=page_size)
+    if data is None:
+        return jsonify({"success": False, "message": "Asset not found"}), 404
+    return jsonify({"success": True, "data": data}), 200
+
+
+@assets_bp.route("/api/assets/<int:asset_id>/comprehensive", methods=["GET"])
+@login_required
+def api_asset_comprehensive(asset_id: int):
+    data = build_comprehensive_asset_dto(asset_id)
+    if data is None:
+        return jsonify({"success": False, "message": "Asset not found"}), 404
+    return jsonify({"success": True, "data": data}), 200
+
+
+@assets_bp.route("/api/assets/<int:asset_id>", methods=["GET"])
+@login_required
+def api_asset_detail(asset_id: int):
+    data = build_asset_detail_api_response(asset_id)
+    if data is None:
+        return jsonify({"success": False, "message": "Asset not found"}), 404
+    return jsonify({"success": True, "data": data}), 200
+
+
+@assets_bp.route("/api/assets", methods=["POST"])
+@login_required
+def api_asset_create_or_scan():
+    payload = request.get_json(silent=True) or request.form.to_dict(flat=False)
+    response, status_code = create_or_scan_asset_api(payload)
+    return jsonify(response), status_code
 
 
 @assets_bp.route("/assets/scan", methods=["POST"])

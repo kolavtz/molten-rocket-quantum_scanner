@@ -114,6 +114,34 @@ def _parse_ports(value: Any) -> list[int] | None:
     return None
 
 
+def _normalize_target_entry(raw_entry: Any) -> dict[str, Any] | None:
+    """Normalize scan target entries from API payloads.
+
+    Supports either plain string targets or objects like:
+    {"target": "10.0.0.1", "ports": [443, 8443]}
+    """
+    if isinstance(raw_entry, dict):
+        target = str(
+            raw_entry.get("target")
+            or raw_entry.get("ip")
+            or raw_entry.get("host")
+            or raw_entry.get("domain")
+            or ""
+        ).strip()
+        if not target:
+            return None
+        ports = _parse_ports(raw_entry.get("ports"))
+        entry: dict[str, Any] = {"target": target}
+        if ports:
+            entry["ports"] = ports
+        return entry
+
+    target = str(raw_entry or "").strip()
+    if not target:
+        return None
+    return {"target": target}
+
+
 def _normalize_status(value: Any) -> str:
     text = str(value or "").strip().lower()
     if text in {"complete", "completed", "done", "success"}:
@@ -531,12 +559,17 @@ def _process_job(
         job["status"] = "running"
         job["started_at"] = _now_iso()
         scan_ids = list(job.get("scan_ids") or [])
-        targets = list(job.get("targets") or [])
+        target_entries = list(job.get("target_entries") or [])
+        if not target_entries:
+            target_entries = [{"target": t} for t in (job.get("targets") or [])]
 
     try:
         import web.app as web_app_module
 
-        for idx, target in enumerate(targets):
+        for idx, entry in enumerate(target_entries):
+            target = str((entry or {}).get("target") or "").strip()
+            if not target:
+                continue
             tracking_scan_id = scan_ids[idx]
             with _scan_jobs_lock:
                 running_job = _scan_jobs.get(job_id)
@@ -549,7 +582,8 @@ def _process_job(
 
             try:
                 clean_target, _ = web_app_module.sanitize_target(target)
-                effective_ports = ports
+                entry_ports = _parse_ports((entry or {}).get("ports"))
+                effective_ports = entry_ports or ports
                 if not effective_ports and bool(job_options.get("autodiscovery")):
                     try:
                         from config import AUTODISCOVERY_PORTS
@@ -562,7 +596,7 @@ def _process_job(
                     clean_target,
                     ports=effective_ports,
                     asset_class_hint=(str(job_options.get("asset_class_hint") or "").strip() or None),
-                    scan_kind=str(job_options.get("scan_type") or ("api_bulk" if len(targets) > 1 else "api_single")),
+                    scan_kind=str(job_options.get("scan_type") or ("api_bulk" if len(target_entries) > 1 else "api_single")),
                     scanned_by=requested_by,
                     add_to_inventory=bool(job_options.get("add_to_inventory")),
                 )
@@ -589,11 +623,12 @@ def _process_job(
                     statuses[tracking_scan_id] = {
                         "scan_id": tracking_scan_id,
                         "target": clean_target,
-                        "scan_type": _normalize_scan_type(job_options.get("scan_type") or ("api_bulk" if len(targets) > 1 else "api_single")),
+                        "scan_type": _normalize_scan_type(job_options.get("scan_type") or ("api_bulk" if len(target_entries) > 1 else "api_single")),
                         "status": "completed",
                         "assets_found": int(report.get("total_assets") or len(report.get("discovered_services") or [])),
                         "pqc_score": float((report.get("overview") or {}).get("average_compliance_score") or report.get("overall_pqc_score") or 0),
                         "result_scan_id": report.get("scan_id"),
+                        "ports": effective_ports or [],
                         "started_at": str(running_job.get("started_at") or ""),
                         "completed_at": _now_iso(),
                         "updated_at": _now_iso(),
@@ -610,7 +645,7 @@ def _process_job(
                     statuses[tracking_scan_id] = {
                         "scan_id": tracking_scan_id,
                         "target": target,
-                        "scan_type": _normalize_scan_type(job_options.get("scan_type") or ("api_bulk" if len(targets) > 1 else "api_single")),
+                        "scan_type": _normalize_scan_type(job_options.get("scan_type") or ("api_bulk" if len(target_entries) > 1 else "api_single")),
                         "status": "failed",
                         "error": str(exc),
                         "started_at": str(running_job.get("started_at") or ""),
@@ -637,16 +672,26 @@ def _process_job(
                 failed_job["updated_at"] = _now_iso()
 
 
-def _start_job(targets: list[str], ports: list[int] | None, options: dict[str, Any] | None = None) -> dict[str, Any]:
+def _start_job(targets: list[Any], ports: list[int] | None, options: dict[str, Any] | None = None) -> dict[str, Any]:
+    normalized_entries: list[dict[str, Any]] = []
+    for target in targets:
+        normalized = _normalize_target_entry(target)
+        if normalized:
+            normalized_entries.append(normalized)
+
+    if not normalized_entries:
+        raise ValueError("At least one valid target is required.")
+
     job_id = uuid.uuid4().hex[:12]
-    tracking_scan_ids = [uuid.uuid4().hex[:10] for _ in targets]
+    tracking_scan_ids = [uuid.uuid4().hex[:10] for _ in normalized_entries]
     statuses = {
         sid: {
             "scan_id": sid,
-            "target": targets[idx],
+            "target": normalized_entries[idx].get("target"),
             "status": "queued",
             "updated_at": _now_iso(),
             "options": dict(options or {}),
+            "ports": normalized_entries[idx].get("ports") or [],
         }
         for idx, sid in enumerate(tracking_scan_ids)
     }
@@ -654,11 +699,12 @@ def _start_job(targets: list[str], ports: list[int] | None, options: dict[str, A
         _scan_jobs[job_id] = {
             "job_id": job_id,
             "status": "queued",
-            "targets": list(targets),
+            "targets": [str(entry.get("target") or "") for entry in normalized_entries],
+            "target_entries": normalized_entries,
             "scan_ids": list(tracking_scan_ids),
             "statuses": statuses,
-            "scan_type": _normalize_scan_type((options or {}).get("scan_type") or ("bulk" if len(targets) > 1 else "single")),
-            "total": len(targets),
+            "scan_type": _normalize_scan_type((options or {}).get("scan_type") or ("bulk" if len(normalized_entries) > 1 else "single")),
+            "total": len(normalized_entries),
             "completed": 0,
             "failed": 0,
             "created_at": _now_iso(),
@@ -816,7 +862,7 @@ def api_scan_single():
         return jsonify({"status": "error", "message": "Missing 'target'."}), 400
 
     job = _start_job(
-        [target],
+        [{"target": target}],
         ports,
         options={
             "scan_type": "single",
@@ -842,6 +888,7 @@ def api_scan_bulk():
 
     payload = request.get_json(silent=True) or {}
     raw_targets = payload.get("targets")
+    raw_target_entries = payload.get("target_entries")
     ports = _parse_ports(payload.get("ports"))
     autodiscovery = bool(payload.get("autodiscovery", False))
     add_to_inventory = bool(payload.get("add_to_inventory", False))
@@ -853,15 +900,26 @@ def api_scan_bulk():
     asset_class_value = str(payload.get("asset_class_value") or "").strip()
     asset_class_hint = asset_class_value if asset_class_mode == "manual" and asset_class_value else None
 
-    if not isinstance(raw_targets, list):
-        return jsonify({"status": "error", "message": "'targets' must be an array."}), 400
+    target_entries: list[dict[str, Any]] = []
+    if isinstance(raw_target_entries, list):
+        for raw_entry in raw_target_entries:
+            normalized = _normalize_target_entry(raw_entry)
+            if normalized:
+                target_entries.append(normalized)
 
-    targets = [str(t).strip() for t in raw_targets if str(t).strip()]
-    if not targets:
+    if not target_entries:
+        if not isinstance(raw_targets, list):
+            return jsonify({"status": "error", "message": "Provide either 'targets' array or 'target_entries' array."}), 400
+        for raw_target in raw_targets:
+            normalized = _normalize_target_entry(raw_target)
+            if normalized:
+                target_entries.append(normalized)
+
+    if not target_entries:
         return jsonify({"status": "error", "message": "At least one valid target is required."}), 400
 
     job = _start_job(
-        targets,
+        target_entries,
         ports,
         options={
             "scan_type": "bulk",

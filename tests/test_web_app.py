@@ -150,7 +150,92 @@ class TestModulePages:
         resp = client.get('/admin/theme')
         assert resp.status_code == 200
         assert b'name="reset_colors"' in resp.data
-        assert b'RESET TO MONOCHROME' in resp.data
+        assert b'RESET BOTH TO SYSTEM DEFAULTS' in resp.data
+
+    def test_admin_theme_quick_switch_dark_mode_persists(self, client, mock_admin, tmp_path):
+        theme_file = tmp_path / "theme.json"
+        with patch.object(web_app_module, "THEME_FILE", str(theme_file)):
+            resp = client.post('/admin/theme', data={'quick_mode': 'dark'})
+            assert resp.status_code == 302
+            assert theme_file.exists()
+
+            with open(theme_file, 'r', encoding='utf-8') as f:
+                saved = json.load(f)
+
+            assert saved.get('mode') == 'dark'
+            assert isinstance(saved.get('dark'), dict)
+            assert isinstance(saved.get('light'), dict)
+
+    def test_admin_theme_reset_night_defaults_restores_dark_palette(self, client, mock_admin, tmp_path):
+        theme_file = tmp_path / "theme.json"
+        custom_theme = {
+            "mode": "light",
+            "dark": {
+                "bg_navbar": "#111111",
+                "bg_primary": "#111111",
+                "bg_secondary": "#111111",
+                "bg_card": "#111111",
+                "bg_input": "#111111",
+                "border_subtle": "#111111",
+                "border_hover": "#111111",
+                "text_primary": "#eeeeee",
+                "text_secondary": "#dddddd",
+                "text_muted": "#cccccc",
+                "accent_color": "#ff00ff",
+                "text_on_accent": "#ffffff",
+                "safe": "#22c55e",
+                "warn": "#f59e0b",
+                "danger": "#ef4444",
+            },
+            "light": dict(web_app_module.THEME_DEFAULTS["light"]),
+        }
+        with open(theme_file, 'w', encoding='utf-8') as f:
+            json.dump(custom_theme, f)
+
+        with patch.object(web_app_module, "THEME_FILE", str(theme_file)):
+            resp = client.post('/admin/theme', data={'reset_palette': 'dark'})
+            assert resp.status_code == 302
+
+            with open(theme_file, 'r', encoding='utf-8') as f:
+                saved = json.load(f)
+
+            assert saved.get('dark', {}).get('bg_primary') == web_app_module.THEME_DEFAULTS['dark']['bg_primary']
+            assert saved.get('dark', {}).get('accent_color') == web_app_module.THEME_DEFAULTS['dark']['accent_color']
+            assert saved.get('mode') == 'dark'
+
+    def test_admin_audit_export_rejects_short_password_json(self, client, mock_admin):
+        resp = client.post(
+            '/admin/audit/export',
+            data=json.dumps({'password': 'short', 'limit': 200}),
+            content_type='application/json',
+        )
+        assert resp.status_code == 400
+        payload = json.loads(resp.data)
+        assert payload.get('status') == 'error'
+
+    def test_admin_audit_export_returns_encrypted_attachment(self, client, mock_admin):
+        fake_logs = [
+            {
+                'id': 1,
+                'event_category': 'auth',
+                'event_type': 'login_success',
+                'status': 'success',
+                'created_at': datetime.now(timezone.utc).isoformat(),
+            }
+        ]
+        with patch('web.app.db.list_audit_logs', return_value=fake_logs), \
+             patch('web.app.db.verify_audit_log_chain', return_value=(True, [])), \
+             patch('web.app._build_encrypted_audit_export_blob', return_value=b'{"ok":true}'):
+            resp = client.post(
+                '/admin/audit/export',
+                data=json.dumps({'password': 'VeryStrong#123', 'limit': 200}),
+                content_type='application/json',
+            )
+
+        assert resp.status_code == 200
+        assert resp.headers.get('X-Audit-Encrypted') == 'true'
+        assert 'attachment; filename="audit_export_encrypted_' in (resp.headers.get('Content-Disposition') or '')
+        assert resp.data == b'{"ok":true}'
 
     def test_asset_inventory_context_excludes_deleted_assets(self, client, mock_admin):
         active = Asset(target=_new_target('inventory-active'), asset_type='Web App', is_deleted=False)

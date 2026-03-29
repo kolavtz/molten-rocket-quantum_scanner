@@ -3,6 +3,7 @@ API Blueprint Initialization
 Registers all API endpoints with Flask application
 """
 
+import os
 from flask import Blueprint, Flask
 
 def register_api_blueprints(app: Flask):
@@ -13,28 +14,35 @@ def register_api_blueprints(app: Flask):
     """
     
     try:
-        from web.blueprints.api_home import api_home
-        from web.blueprints.api_assets import api_assets
         from web.blueprints.api_incidents import api_incidents
-        from web.blueprints.api_cbom import api_cbom
-        from web.blueprints.api_pqc import api_pqc
-        from web.blueprints.api_cyber import api_cyber
-        from web.blueprints.api_reports import api_reports
         # from web.blueprints.api_admin import api_admin  # TODO: APIKey model not yet implemented
         from web.blueprints.api_docs import api_docs
-        
-        # Register all blueprints
-        app.register_blueprint(api_home)
-        app.register_blueprint(api_assets)
+
+        # Register only non-overlapping blueprints by default.
+        # Authoritative dashboard endpoints are served from web.routes.dashboard_api.
         app.register_blueprint(api_incidents)
-        app.register_blueprint(api_cbom)
-        app.register_blueprint(api_pqc)
-        app.register_blueprint(api_cyber)
-        app.register_blueprint(api_reports)
         # app.register_blueprint(api_admin)  # TODO: APIKey model not yet implemented
         app.register_blueprint(api_docs)
+
+        # Optional fallback switch to restore legacy overlapping blueprint registrations.
+        # Use only for temporary migration compatibility.
+        if str(os.environ.get("QSS_ENABLE_LEGACY_DASHBOARD_API_BLUEPRINTS", "")).strip().lower() in {"1", "true", "yes", "on"}:
+            from web.blueprints.api_home import api_home
+            from web.blueprints.api_assets import api_assets
+            from web.blueprints.api_cbom import api_cbom
+            from web.blueprints.api_pqc import api_pqc
+            from web.blueprints.api_cyber import api_cyber
+            from web.blueprints.api_reports import api_reports
+
+            app.register_blueprint(api_home)
+            app.register_blueprint(api_assets)
+            app.register_blueprint(api_cbom)
+            app.register_blueprint(api_pqc)
+            app.register_blueprint(api_cyber)
+            app.register_blueprint(api_reports)
+            print("⚠️ Legacy overlapping dashboard API blueprints are enabled via QSS_ENABLE_LEGACY_DASHBOARD_API_BLUEPRINTS")
         
-        print("✅ All API blueprints registered successfully")
+        print("✅ API blueprints registered successfully")
         return True
     
     except ImportError as e:

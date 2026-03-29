@@ -2,6 +2,11 @@
 <div class="search-container glass-card">
   <form action="{{ url_for(endpoint, **custom_params) }}" method="get" class="table-search-form" data-table-search>
     <input type="hidden" name="page" value="1">
+    {% for key, value in request.args.items() %}
+      {% if key not in ['page', 'q', 'page_size'] %}
+      <input type="hidden" name="{{ key }}" value="{{ value }}">
+      {% endif %}
+    {% endfor %}
     {% if request.args.get('sort') %}
     <input type="hidden" name="sort" value="{{ request.args.get('sort') }}">
     <input type="hidden" name="order" value="{{ request.args.get('order', 'asc') }}">
@@ -65,10 +70,14 @@
     {% set _ = next_params.update({'page': page_data.page + 1}) %}
     <a href="{{ url_for(endpoint, **prev_params) }}" class="scan-button pagination-button{% if not page_data.has_prev %} disabled-link{% endif %}">Prev</a>
     <form action="{{ url_for(endpoint, **params) }}" method="get" class="goto-page-form">
-      <input type="hidden" name="q" value="{{ request.args.get('q', '') }}">
-      <input type="hidden" name="sort" value="{{ request.args.get('sort', '') }}">
-      <input type="hidden" name="order" value="{{ request.args.get('order', 'asc') }}">
+      {% for key, value in request.args.items() %}
+        {% if key != 'page' %}
+        <input type="hidden" name="{{ key }}" value="{{ value }}">
+        {% endif %}
+      {% endfor %}
+      {% if request.args.get('page_size') is none %}
       <input type="hidden" name="page_size" value="{{ page_data.page_size }}">
+      {% endif %}
       <label class="table-control-label" for="gotoPageInput">Go to</label>
       <input id="gotoPageInput" type="number" name="page" min="1" max="{{ page_data.total_pages }}" value="{{ page_data.page }}" class="goto-page-input">
       <button type="submit" class="scan-button pagination-button">Go</button>

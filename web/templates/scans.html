@@ -9,6 +9,7 @@
 <section class="hero" style="padding-bottom:1rem;">
   <h2 class="hero-title" style="font-size:2rem;">SCAN CENTER</h2>
   <p class="hero-subtitle">API-first orchestration with role-aware controls, autodiscovery, and live status telemetry.</p>
+  <div id="scanApiState" style="font-size:0.72rem; color:var(--text-muted); margin-top:0.75rem; text-transform:uppercase;">Ready.</div>
 </section>
 
 <section class="glass-card" style="padding:1rem; margin-bottom:1rem;">
@@ -19,7 +20,7 @@
   <div id="scanProgress" style="display:grid; gap:0.4rem; font-size:0.85rem;"></div>
 </section>
 
-<section id="scanDetailPanel" class="glass-card" style="padding:1rem; margin-bottom:1rem; display:none;">
+<section id="scanDetailPanel" class="glass-card" style="padding:1rem; margin-bottom:1rem; display:block;">
   <div style="display:flex; justify-content:space-between; gap:0.8rem; flex-wrap:wrap; margin-bottom:0.8rem; align-items:center;">
     <h3 style="margin:0; text-transform:uppercase;">Initialize Scan</h3>
     <span id="scanActionMsg" style="color:var(--text-secondary); font-size:0.8rem;" aria-live="polite"></span>
@@ -36,10 +37,7 @@
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
       <div>
         <label for="singleTarget" style="display:block; margin-bottom:0.3rem;">Single Target</label>
-        <div style="display:flex; gap:0.6rem;">
-          <input id="singleTarget" class="scan-input" type="text" placeholder="example.com / 192.168.1.1 / https://api.example.com" style="flex:1;" />
-          <button id="singleScanBtn" class="scan-button" type="button">Run Single Scan</button>
-        </div>
+        <input id="singleTarget" class="scan-input" type="text" placeholder="example.com / 192.168.1.1 / https://api.example.com" style="width:100%;" />
       </div>
       <div>
         <label for="portsInput" style="display:block; margin-bottom:0.3rem;">Ports (optional)</label>
@@ -100,6 +98,11 @@
       <button class="quick-btn" type="button" data-target-quick="test.openquantumsafe.org">OQS Test</button>
       <button class="quick-btn" type="button" data-target-quick="pnbnet.pnb.bank.in">PNB Net</button>
     </div>
+
+    <div style="margin-top:0.9rem; display:flex; justify-content:flex-end; align-items:center; gap:0.7rem; flex-wrap:wrap;">
+      <span style="font-size:0.75rem; color:var(--text-secondary);">Review selection toggles above, then start scan.</span>
+      <button id="singleScanBtn" class="scan-button" type="button">Run Single Scan</button>
+    </div>
   </div>
 
   {% if can_bulk_scan %}
@@ -107,8 +110,12 @@
     <div style="margin-top:0.4rem;">
       <label for="bulkTargets" style="display:block; margin-bottom:0.3rem;">Bulk Targets (one per line)</label>
       <textarea id="bulkTargets" class="scan-input" style="width:100%; min-height:130px; padding-left:0.8rem;" placeholder="example.com&#10;10.10.10.0/24&#10;api.example.com:8443"></textarea>
-      <div style="margin-top:0.6rem; display:flex; gap:0.6rem; align-items:center;">
-        <button id="bulkScanBtn" class="scan-button" type="button">Run Bulk Scan (Sequential)</button>
+      <div style="margin-top:0.65rem;">
+        <label for="bulkCsvFile" style="display:block; margin-bottom:0.3rem;">Bulk CSV Upload (optional)</label>
+        <input id="bulkCsvFile" class="scan-input" type="file" accept=".csv,text/csv" style="padding:0.45rem 0.55rem;" />
+        <div id="bulkCsvHint" style="margin-top:0.35rem; font-size:0.75rem; color:var(--text-secondary);">
+          CSV format: <code>ip,[ports separated by comma or space]</code>
+        </div>
       </div>
     </div>
 
@@ -158,6 +165,11 @@
       </div>
       <label for="bulkAssetClassValue">Asset Class (manual mode)</label>
       <input id="bulkAssetClassValue" class="scan-input" type="text" placeholder="e.g., Banking Server" style="padding-left:0.8rem;" />
+    </div>
+
+    <div style="margin-top:0.9rem; display:flex; justify-content:flex-end; align-items:center; gap:0.7rem; flex-wrap:wrap;">
+      <span style="font-size:0.75rem; color:var(--text-secondary);">After target and option selection, run the bulk queue.</span>
+      <button id="bulkScanBtn" class="scan-button" type="button">Run Bulk Scan (Sequential)</button>
     </div>
   </div>
   {% endif %}
@@ -297,6 +309,38 @@
     </div>
   </div>
 
+  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:0.6rem; margin-bottom:0.8rem;">
+    <div>
+      <label for="scanFilterStatus" style="display:block; margin-bottom:0.2rem; color:var(--text-secondary); font-size:0.75rem;">Status</label>
+      <select id="scanFilterStatus" class="scan-input" style="padding-left:0.8rem;">
+        <option value="">All</option>
+        <option value="running">Running</option>
+        <option value="completed">Completed</option>
+        <option value="failed">Failed</option>
+      </select>
+    </div>
+    <div>
+      <label for="scanFilterType" style="display:block; margin-bottom:0.2rem; color:var(--text-secondary); font-size:0.75rem;">Scan Type</label>
+      <select id="scanFilterType" class="scan-input" style="padding-left:0.8rem;">
+        <option value="">All</option>
+        <option value="single">Single</option>
+        <option value="bulk">Bulk</option>
+      </select>
+    </div>
+    <div>
+      <label for="scanFilterFrom" style="display:block; margin-bottom:0.2rem; color:var(--text-secondary); font-size:0.75rem;">Date From</label>
+      <input id="scanFilterFrom" class="scan-input" type="date" style="padding-left:0.8rem;" />
+    </div>
+    <div>
+      <label for="scanFilterTo" style="display:block; margin-bottom:0.2rem; color:var(--text-secondary); font-size:0.75rem;">Date To</label>
+      <input id="scanFilterTo" class="scan-input" type="date" style="padding-left:0.8rem;" />
+    </div>
+    <div style="display:flex; align-items:flex-end; gap:0.5rem;">
+      <button id="scanFilterApply" class="scan-button" type="button">Apply</button>
+      <button id="scanFilterReset" class="scan-button scan-button-secondary" type="button">Reset</button>
+    </div>
+  </div>
+
   <div data-api-kpis style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:0.6rem; margin-bottom:0.8rem;"></div>
   <div data-api-error style="display:none; color:var(--danger); margin-bottom:0.6rem;"></div>
 
@@ -321,28 +365,146 @@
 <script src="{{ url_for('static', filename='js/api-table.js') }}"></script>
 <script src="{{ url_for('static', filename='js/scans.js') }}"></script>
 <script>
-  window.QuantumShieldApiTable.initApiTablePage({
+  function scanStatusBadge(value) {
+    const state = String(value || 'unknown').toLowerCase();
+    const color = state === 'completed' ? 'var(--safe)' : (state === 'running' ? 'var(--warn)' : (state === 'failed' ? 'var(--danger)' : 'var(--text-secondary)'));
+    return '<span class="status-pill" style="border-color:' + color + '; color:' + color + ';">' + state.toUpperCase() + '</span>';
+  }
+
+  function scanDateDisplay(value) {
+    if (!value) return '—';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return String(value);
+    return parsed.toLocaleString();
+  }
+
+  function scanActionsCell(_value, row) {
+    const scanId = String((row && row.scan_id) || '').trim();
+    if (!scanId) return '—';
+    const safeScanId = scanId.replace(/'/g, "\\'");
+    const actions = [];
+    if (row && row.actions) {
+      actions.push('<a class="scan-button scan-button-secondary" href="' + String(row.actions) + '">Open Result</a>');
+    }
+    actions.push('<button class="scan-button" type="button" onclick="window.QuantumShieldScans.promote(\'' + safeScanId + '\', \'inventory\')">Add to Inventory</button>');
+    actions.push('<button class="scan-button scan-button-secondary" type="button" onclick="window.QuantumShieldScans.promote(\'' + safeScanId + '\', \'cbom\')">Enable CBOM</button>');
+    return '<div style="display:flex; gap:0.35rem; flex-wrap:wrap;">' + actions.join('') + '</div>';
+  }
+
+  var scanSyncOriginalRefresh = null;
+  var scanPollTimer = null;
+
+  function setScanApiState(message, error = false) {
+    const stateEl = document.getElementById('scanApiState');
+    if (!stateEl) return;
+    stateEl.textContent = message;
+    stateEl.style.color = error ? 'var(--risk-critical)' : 'var(--text-muted)';
+  }
+
+  const scanTableController = window.QuantumShieldApiTable.initApiTablePage({
     rootSelector: '[data-api-table-page]',
     apiUrl: '/api/scans',
     page: 1,
     pageSize: 25,
     sort: 'date',
     order: 'desc',
+    emptyMessage: 'No scans found. Please run a scan to populate the scan center.',
     columns: [
       { field: 'scan_id', label: 'Scan ID' },
       { field: 'target', label: 'Target' },
-      { field: 'status', label: 'Status' },
+      { field: 'scan_type', label: 'Scan Type' },
+      { field: 'started_at', label: 'Started At', render: function(v){ return scanDateDisplay(v); } },
+      { field: 'completed_at', label: 'Completed At', render: function(v){ return scanDateDisplay(v); } },
+      { field: 'status', label: 'Status', render: function(v){ return scanStatusBadge(v); } },
       { field: 'assets_found', label: 'Assets Found' },
       { field: 'pqc_score', label: 'PQC Score' },
-      { field: 'date', label: 'Date' },
-      { field: 'actions', label: 'Actions', actionLabel: 'Open Result' }
+      { field: 'actions', label: 'Actions', render: scanActionsCell }
     ],
+    getExtraParams: function () {
+      return {
+        status: document.getElementById('scanFilterStatus')?.value || '',
+        scan_type: document.getElementById('scanFilterType')?.value || '',
+        date_from: document.getElementById('scanFilterFrom')?.value || '',
+        date_to: document.getElementById('scanFilterTo')?.value || ''
+      };
+    },
     onRowClick: function (row) {
       if (window.QuantumShieldScans && typeof window.QuantumShieldScans.showRecordDetails === 'function') {
         window.QuantumShieldScans.showRecordDetails(row);
       }
     }
   });
+
+  // Wrap refresh to show sync state
+  if (scanTableController && typeof scanTableController.refresh === 'function') {
+    scanSyncOriginalRefresh = scanTableController.refresh;
+    scanTableController.refresh = function () {
+      setScanApiState('Syncing scan records...');
+      try {
+        const result = scanSyncOriginalRefresh.call(this);
+        if (result && typeof result.then === 'function') {
+          result
+            .then(() => {
+              setScanApiState('Scan records synced successfully.');
+            })
+            .catch(() => {
+              setScanApiState('Scan sync failed. Showing cached data.', true);
+            });
+        }
+        return result;
+      } catch (e) {
+        setScanApiState('Scan sync error.', true);
+        throw e;
+      }
+    };
+  }
+
+  document.getElementById('scanFilterApply')?.addEventListener('click', function () {
+    setScanApiState('Applying scan filters...');
+    if (scanTableController && typeof scanTableController.setPage === 'function') {
+      scanTableController.setPage(1);
+    }
+    if (scanTableController && typeof scanTableController.refresh === 'function') {
+      scanTableController.refresh();
+    }
+  });
+
+  document.getElementById('scanFilterReset')?.addEventListener('click', function () {
+    const status = document.getElementById('scanFilterStatus');
+    const scanType = document.getElementById('scanFilterType');
+    const from = document.getElementById('scanFilterFrom');
+    const to = document.getElementById('scanFilterTo');
+    if (status) status.value = '';
+    if (scanType) scanType.value = '';
+    if (from) from.value = '';
+    if (to) to.value = '';
+    if (scanTableController && typeof scanTableController.setPage === 'function') {
+      scanTableController.setPage(1);
+    }
+    if (scanTableController && typeof scanTableController.refresh === 'function') {
+      scanTableController.refresh();
+    }
+  });
+
+  scanPollTimer = window.setInterval(function () {
+    if (!document.hidden && scanTableController && typeof scanTableController.refresh === 'function') {
+      scanTableController.refresh();
+    }
+  }, 30000);
+
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && scanTableController && typeof scanTableController.refresh === 'function') {
+      scanTableController.refresh();
+    }
+  });
+
+  window.addEventListener('beforeunload', function () {
+    if (scanPollTimer) {
+      window.clearInterval(scanPollTimer);
+      scanPollTimer = null;
+    }
+  });
+
   window.QuantumShieldScans.init({
     canBulkScan: {{ 'true' if can_bulk_scan else 'false' }}
   });

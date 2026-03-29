@@ -1,5 +1,49 @@
 [
   {
+    "id": "07b9034a155a",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-03-29T04:01:23",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
+    "id": "22a18348726c",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-03-29T03:57:59",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
     "id": "1b308ec92b10",
     "created_by_id": null,
     "created_by": "unknown",
@@ -264,10 +308,10 @@
     "status": "scheduled"
   },
   {
-    "id": "ce30fc3923d3",
-    "created_by_id": "<AsyncMock name='current_user.id' id='2719000677744'>",
+    "id": "27449b1681de",
+    "created_by_id": "<AsyncMock name='current_user.id' id='2726918620224'>",
     "created_by": "admin",
-    "created_at": "2026-03-28T15:49:03.627454+00:00",
+    "created_at": "2026-03-29T16:13:31.930243+00:00",
     "enabled": true,
     "report_type": "Executive Summary Report",
     "frequency": "Weekly",

@@ -61,10 +61,29 @@
         <!-- Registered Users List -->
         <div class="glass-card" style="padding: 1.5rem;">
             <h3 style="margin-bottom: 1.5rem; text-transform: uppercase; font-size: 1rem; letter-spacing: 1px; border-bottom: 1px solid var(--text-muted); padding-bottom: 0.5rem;">ACTIVE DIRECTORY</h3>
+            <div class="glass-card" style="padding:0.9rem; margin-bottom:1rem; background:rgba(255,255,255,0.02);">
+                <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+                    <label style="display:flex; align-items:center; gap:0.45rem; font-size:0.78rem; color:var(--text-secondary);">
+                        <input id="selectAllUsers" type="checkbox">
+                        SELECT_ALL
+                    </label>
+                    <select id="bulkRoleSelect" class="form-input" style="padding: 0.35rem; font-size:0.75rem; width:130px;">
+                        <option value="Viewer">VIEWER</option>
+                        <option value="SingleScan">SINGLE_SCAN</option>
+                        <option value="Manager">MANAGER</option>
+                        <option value="Admin">ADMIN</option>
+                    </select>
+                    <button id="bulkRoleBtn" type="button" class="scan-button" style="padding:0.38rem 0.6rem; font-size:0.7rem; min-height:44px;">APPLY_ROLE</button>
+                    <button id="bulkDeleteBtn" type="button" class="scan-button" style="padding:0.38rem 0.6rem; font-size:0.7rem; min-height:44px; border-color:var(--danger); color:var(--danger); background:transparent;">BULK_DELETE</button>
+                    <span id="bulkUserMeta" style="font-size:0.73rem; color:var(--text-muted);">0 SELECTED</span>
+                </div>
+                <div style="margin-top:0.45rem; font-size:0.72rem; color:var(--text-muted);">NOTE: Current logged-in user cannot be deleted.</div>
+            </div>
             <div class="scans-table-wrapper">
                 <table class="scans-table">
                     <thead>
                         <tr>
+                            <th>SEL</th>
                             <th>ID</th>
                             <th>USER</th>
                             <th>ROLE</th>
@@ -76,6 +95,15 @@
                     <tbody>
                         {% for user in users %}
                         <tr class="scan-row">
+                            <td style="text-align:center;">
+                                <input
+                                    class="js-user-select"
+                                    type="checkbox"
+                                    value="{{ user.id }}"
+                                    data-username="{{ user.username }}"
+                                    {% if user.id == current_user.id %}disabled title="Current logged-in user is protected"{% endif %}
+                                >
+                            </td>
                             <td class="time-cell">{{ user.employee_id or '---' }}</td>
                             <td class="target-cell">{{ user.username }}</td>
                             <td>
@@ -117,7 +145,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="6" class="text-center" style="padding: 2rem; color: var(--text-muted);">EMPTYSET // NO USERS</td>
+                            <td colspan="7" class="text-center" style="padding: 2rem; color: var(--text-muted);">EMPTYSET // NO USERS</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -162,7 +190,7 @@ function updateRoleBadge(row, role) {
 
 // Helper: update status badge in row
 function updateStatusBadge(row, isActive) {
-    const statusCell = row.querySelector('td:nth-child(4)');
+    const statusCell = row.querySelector('td:nth-child(5)');
     if (statusCell) {
         statusCell.innerHTML = isActive
             ? '<span class="status-badge" style="color: var(--safe); border-color: var(--safe);">ACTIVE</span>'
@@ -204,6 +232,86 @@ document.querySelectorAll('.js-admin-user-update').forEach(form => {
             console.error('Admin user update error:', error);
         }
     });
+});
+
+function selectedUserIds() {
+    return Array.from(document.querySelectorAll('.js-user-select:checked')).map(cb => cb.value);
+}
+
+function updateBulkMeta() {
+    const selected = selectedUserIds();
+    const meta = document.getElementById('bulkUserMeta');
+    if (meta) {
+        meta.textContent = `${selected.length} SELECTED`;
+    }
+}
+
+document.getElementById('selectAllUsers')?.addEventListener('change', (e) => {
+    const checked = e.target.checked;
+    document.querySelectorAll('.js-user-select:not(:disabled)').forEach(cb => {
+        cb.checked = checked;
+    });
+    updateBulkMeta();
+});
+
+document.querySelectorAll('.js-user-select').forEach(cb => cb.addEventListener('change', updateBulkMeta));
+
+document.getElementById('bulkRoleBtn')?.addEventListener('click', async () => {
+    const ids = selectedUserIds();
+    const role = document.getElementById('bulkRoleSelect')?.value || 'Viewer';
+    if (!ids.length) {
+        showFlash('Select at least one user.', 'error');
+        return;
+    }
+    try {
+        const response = await fetch('/admin/users/bulk', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ action: 'update_role', user_ids: ids, role })
+        });
+        const payload = await response.json();
+        if (!response.ok || payload.status === 'error') {
+            throw new Error(payload.message || 'Bulk role update failed.');
+        }
+        showFlash(payload.message || 'Bulk role update completed.', 'success');
+        window.location.reload();
+    } catch (error) {
+        showFlash(error.message, 'error');
+    }
+});
+
+document.getElementById('bulkDeleteBtn')?.addEventListener('click', async () => {
+    const ids = selectedUserIds();
+    if (!ids.length) {
+        showFlash('Select at least one user.', 'error');
+        return;
+    }
+    if (!confirm(`Delete ${ids.length} selected user(s)? Current logged-in user is protected.`)) {
+        return;
+    }
+    try {
+        const response = await fetch('/admin/users/bulk', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ action: 'delete', user_ids: ids })
+        });
+        const payload = await response.json();
+        if (!response.ok || payload.status === 'error') {
+            throw new Error(payload.message || 'Bulk deletion failed.');
+        }
+        showFlash(payload.message || 'Bulk deletion completed.', 'success');
+        window.location.reload();
+    } catch (error) {
+        showFlash(error.message, 'error');
+    }
 });
 
 // Reset password button

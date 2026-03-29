@@ -9,8 +9,26 @@
   .report-api { border:1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent); border-radius:10px; padding:0.72rem 0.9rem; color:var(--text-secondary); font-size:0.78rem; }
   .report-api.error { color:var(--danger); border-color: color-mix(in srgb, var(--danger) 44%, transparent); }
   .report-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:0.85rem; }
-  .report-nav { cursor:pointer; text-align:left; border-color:var(--border-subtle); }
-  .report-nav:hover { transform:translateY(-2px); }
+  .report-nav {
+    cursor: pointer;
+    text-align: left;
+    border-color: var(--border-subtle);
+    padding: 1rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    background: var(--bg-card);
+  }
+  .report-nav:hover,
+  .report-nav:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+    outline: none;
+    border-color: var(--accent);
+  }
+  .report-nav:focus-visible {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
   .report-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:0.75rem; }
   .report-kpi { padding:0.95rem; border-left:3px solid var(--accent); }
   .report-kpi.warn { border-left-color:var(--warn); }
@@ -32,6 +50,14 @@
   }
   .report-table-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
   .report-title { margin:0 0 0.65rem; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-secondary); }
+  .report-toolbar { display:flex; justify-content:space-between; align-items:center; gap:0.6rem; margin-bottom:0.7rem; flex-wrap:wrap; }
+  .report-toolbar input { width:100%; max-width:220px; }
+  .report-pager { display:flex; align-items:center; gap:0.4rem; }
+  .report-pager-meta { font-size:0.72rem; color:var(--text-secondary); }
+  .report-detail { margin-top:1rem; border:1px solid var(--border-subtle); border-radius:10px; padding:0.85rem; background:rgba(255,255,255,0.02); }
+  .report-detail h4 { margin:0 0 0.5rem; font-size:0.84rem; }
+  .report-detail-list { display:grid; gap:0.45rem; }
+  .report-detail-item { border:1px solid var(--border-subtle); border-radius:8px; padding:0.55rem; }
   @media (max-width: 1180px) { .reporting-grid, .report-table-grid { grid-template-columns:1fr; } }
 </style>
 {% endblock %}
@@ -179,6 +205,13 @@
   <section class="report-table-grid">
     <article class="glass-card" style="padding:1rem;">
       <h3 class="report-title">Scheduled reports (live)</h3>
+      <div class="report-toolbar">
+        <input id="scheduledSearch" type="text" placeholder="Search type/frequency/status..." />
+        <div class="report-pager">
+          <button id="scheduledPrev" class="button secondary" style="padding:0.35rem 0.7rem;">Prev</button>
+          <button id="scheduledNext" class="button secondary" style="padding:0.35rem 0.7rem;">Next</button>
+        </div>
+      </div>
       <div class="scans-table-wrapper">
         <table class="scans-table">
           <thead><tr><th>ID</th><th>Type</th><th>Frequency</th><th>Status</th><th>Created By</th></tr></thead>
@@ -187,9 +220,17 @@
           </tbody>
         </table>
       </div>
+      <div id="scheduledPagerMeta" class="report-pager-meta">Ready.</div>
     </article>
     <article class="glass-card" style="padding:1rem;">
       <h3 class="report-title">On-demand reports (live)</h3>
+      <div class="report-toolbar">
+        <input id="ondemandSearch" type="text" placeholder="Search target/scan/status..." />
+        <div class="report-pager">
+          <button id="ondemandPrev" class="button secondary" style="padding:0.35rem 0.7rem;">Prev</button>
+          <button id="ondemandNext" class="button secondary" style="padding:0.35rem 0.7rem;">Next</button>
+        </div>
+      </div>
       <div class="scans-table-wrapper">
         <table class="scans-table">
           <thead><tr><th>ID</th><th>Target</th><th>Scan ID</th><th>Status</th><th>Generated At</th></tr></thead>
@@ -197,6 +238,14 @@
             <tr><td colspan="5" style="padding:1rem;color:var(--text-secondary);">Loading on-demand reports…</td></tr>
           </tbody>
         </table>
+      </div>
+      <div id="ondemandPagerMeta" class="report-pager-meta">Ready.</div>
+      <div id="ondemandDetail" class="report-detail" style="display:none;">
+        <h4>On-demand report details</h4>
+        <div id="ondemandDetailMeta" style="font-size:0.76rem; color:var(--text-secondary); margin-bottom:0.7rem;"></div>
+        <div id="ondemandSeverity" class="report-detail-list"></div>
+        <div id="ondemandFindings" class="report-detail-list" style="margin-top:0.7rem;"></div>
+        <div id="ondemandRecommendations" class="report-detail-list" style="margin-top:0.7rem;"></div>
       </div>
     </article>
   </section>
@@ -219,6 +268,21 @@
 <script>
 (function(){
   const apiState = document.getElementById('reportApiState');
+  let scheduledPage = 1;
+  let ondemandPage = 1;
+  const pageSize = 8;
+  let scheduledTotal = 0;
+  let ondemandTotal = 0;
+  let reportingPollTimer = null;
+
+  function esc(v){
+    return String(v ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
 
   function setApiState(msg, isError){
     if(!apiState) return;
@@ -230,6 +294,17 @@
     const el = document.getElementById(id);
     if(!el) return;
     el.textContent = value;
+  }
+
+  function updatePager(metaId, prevId, nextId, total, page){
+    const start = total ? ((page - 1) * pageSize + 1) : 0;
+    const end = Math.min(page * pageSize, total);
+    const meta = document.getElementById(metaId);
+    if(meta) meta.textContent = `Showing ${start}-${end} of ${total}`;
+    const prev = document.getElementById(prevId);
+    const next = document.getElementById(nextId);
+    if(prev) prev.disabled = page <= 1;
+    if(next) next.disabled = end >= total;
   }
 
   document.getElementById('odEmail').addEventListener('change', function(){
@@ -350,11 +425,11 @@
     }
     body.innerHTML = items.map((it) => `
       <tr>
-        <td>${it.id ?? '-'}</td>
-        <td>${String(it.report_type || '-')}</td>
-        <td>${String(it.frequency || '-')}</td>
-        <td>${String(it.status || (it.enabled ? 'enabled' : 'disabled') || '-')}</td>
-        <td>${String(it.created_by_name || '-')}</td>
+        <td>${esc(it.id ?? '-')}</td>
+        <td>${esc(String(it.report_type || '-'))}</td>
+        <td>${esc(String(it.frequency || '-'))}</td>
+        <td>${esc(String(it.status || (it.enabled ? 'enabled' : 'disabled') || '-'))}</td>
+        <td>${esc(String(it.created_by_name || '-'))}</td>
       </tr>
     `).join('');
   }
@@ -367,22 +442,71 @@
       return;
     }
     body.innerHTML = items.map((it) => `
-      <tr>
-        <td>${it.id ?? '-'}</td>
-        <td>${String(it.target || '-')}</td>
-        <td>${String(it.scan_id || '-')}</td>
-        <td>${String(it.status || '-')}</td>
-        <td>${String(it.generated_at || '-')}</td>
+      <tr data-scan-id="${esc(it.scan_id || '')}" style="cursor:pointer;">
+        <td>${esc(it.id ?? '-')}</td>
+        <td>${esc(String(it.target || '-'))}</td>
+        <td>${esc(String(it.scan_id || '-'))}</td>
+        <td>${esc(String(it.status || '-'))}</td>
+        <td>${esc(String(it.generated_at || '-'))}</td>
       </tr>
     `).join('');
+  }
+
+  function renderOndemandDetail(payload){
+    const detail = document.getElementById('ondemandDetail');
+    if(!detail || !payload){
+      if(detail) detail.style.display = 'none';
+      return;
+    }
+    detail.style.display = 'block';
+    const meta = document.getElementById('ondemandDetailMeta');
+    const severity = document.getElementById('ondemandSeverity');
+    const findings = document.getElementById('ondemandFindings');
+    const recs = document.getElementById('ondemandRecommendations');
+    if(meta){
+      meta.innerHTML = `<strong>Scan:</strong> ${esc(payload.scan_id || '-')} · <strong>Target:</strong> ${esc(payload.target || '-')} · <strong>Status:</strong> ${esc(payload.status || '-')} · <strong>Generated:</strong> ${esc(payload.generated_at || '-')}`;
+    }
+    const sev = payload.severity_breakdown || {};
+    if(severity){
+      const pairs = Object.entries(sev);
+      severity.innerHTML = `<div class="report-detail-item"><strong>Severity Breakdown:</strong> ${pairs.length ? pairs.map(([k,v]) => `${esc(k)}=${esc(v)}`).join(' · ') : 'No breakdown available'}</div>`;
+    }
+    if(findings){
+      const rows = payload.findings || [];
+      findings.innerHTML = rows.length
+        ? rows.slice(0, 5).map((f) => `<div class="report-detail-item"><strong>${esc(f.severity || 'INFO')} — ${esc(f.title || 'Finding')}</strong><div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.25rem;">${esc(f.description || '')}</div></div>`).join('')
+        : '<div class="report-detail-item">No findings captured.</div>';
+    }
+    if(recs){
+      const rows = payload.recommendations || [];
+      recs.innerHTML = rows.length
+        ? rows.slice(0, 5).map((r) => {
+            if(typeof r === 'string') return `<div class="report-detail-item">${esc(r)}</div>`;
+            return `<div class="report-detail-item"><strong>${esc(r.title || 'Recommendation')}</strong><div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.25rem;">${esc(r.description || '')}</div></div>`;
+          }).join('')
+        : '<div class="report-detail-item">No recommendations available.</div>';
+    }
+  }
+
+  async function loadOndemandDetail(scanId){
+    if(!scanId) return;
+    try {
+      const detailResp = await fetchJson('/api/reports/ondemand/' + encodeURIComponent(scanId));
+      const payload = (detailResp?.data?.items || [])[0] || null;
+      renderOndemandDetail(payload);
+    } catch (_e) {
+      renderOndemandDetail(null);
+    }
   }
 
   async function syncReportingData(){
     try {
       setApiState('Syncing reporting datasets from API…');
+      const scheduledQ = document.getElementById('scheduledSearch')?.value || '';
+      const ondemandQ = document.getElementById('ondemandSearch')?.value || '';
       const [scheduled, ondemand] = await Promise.all([
-        fetchJson('/api/reports/scheduled?page=1&page_size=8'),
-        fetchJson('/api/reports/ondemand?page=1&page_size=8')
+        fetchJson('/api/reports/scheduled?page=' + scheduledPage + '&page_size=' + pageSize + '&search=' + encodeURIComponent(scheduledQ)),
+        fetchJson('/api/reports/ondemand?page=' + ondemandPage + '&page_size=' + pageSize + '&search=' + encodeURIComponent(ondemandQ))
       ]);
 
       const sk = scheduled?.data?.kpis || {};
@@ -395,6 +519,10 @@
 
       renderScheduled(scheduled?.data?.items || []);
       renderOndemand(ondemand?.data?.items || []);
+      scheduledTotal = Number(scheduled?.data?.total || 0);
+      ondemandTotal = Number(ondemand?.data?.total || 0);
+      updatePager('scheduledPagerMeta', 'scheduledPrev', 'scheduledNext', scheduledTotal, scheduledPage);
+      updatePager('ondemandPagerMeta', 'ondemandPrev', 'ondemandNext', ondemandTotal, ondemandPage);
       setApiState('Reporting datasets synced successfully.');
     } catch (_e) {
       setApiState('Live reporting sync failed. Showing existing server-rendered metrics.', true);
@@ -408,7 +536,60 @@
     return m ? decodeURIComponent(m[1]) : '';
   }
 
+  document.getElementById('scheduledSearch')?.addEventListener('input', () => {
+    scheduledPage = 1;
+    syncReportingData();
+  });
+  document.getElementById('ondemandSearch')?.addEventListener('input', () => {
+    ondemandPage = 1;
+    syncReportingData();
+  });
+  document.getElementById('scheduledPrev')?.addEventListener('click', () => {
+    if(scheduledPage <= 1) return;
+    scheduledPage -= 1;
+    syncReportingData();
+  });
+  document.getElementById('scheduledNext')?.addEventListener('click', () => {
+    if(scheduledPage * pageSize >= scheduledTotal) return;
+    scheduledPage += 1;
+    syncReportingData();
+  });
+  document.getElementById('ondemandPrev')?.addEventListener('click', () => {
+    if(ondemandPage <= 1) return;
+    ondemandPage -= 1;
+    syncReportingData();
+  });
+  document.getElementById('ondemandNext')?.addEventListener('click', () => {
+    if(ondemandPage * pageSize >= ondemandTotal) return;
+    ondemandPage += 1;
+    syncReportingData();
+  });
+
+  document.getElementById('ondemandTableBody')?.addEventListener('click', (event) => {
+    const row = event.target.closest('tr[data-scan-id]');
+    if(!row) return;
+    loadOndemandDetail(row.getAttribute('data-scan-id'));
+  });
+
   syncReportingData();
+  reportingPollTimer = window.setInterval(() => {
+    if (!document.hidden) {
+      syncReportingData();
+    }
+  }, 30000);
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      syncReportingData();
+    }
+  });
+
+  window.addEventListener('beforeunload', () => {
+    if (reportingPollTimer) {
+      window.clearInterval(reportingPollTimer);
+      reportingPollTimer = null;
+    }
+  });
 })();
 </script>
 {% endblock %}

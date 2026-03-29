@@ -23,18 +23,25 @@ table,
     border-collapse: collapse;
 }
 
-/* 2b. Mobile Table Scroll Safety (Breakpoint) */
-@media (max-width: 1024px) {
-    table, 
-    .universal-table, 
-    .scans-table, 
-    .assets-table {
-        min-width: 800px; /* Only force min-width when horizontal scroll is needed */
-    }
-}
-
 th, td {
     white-space: nowrap !important;
+}
+
+@media (max-width: 1024px) {
+    th, td {
+        white-space: normal !important;
+    }
+
+    .scans-table th,
+    .scans-table td,
+    .asset-table th,
+    .asset-table td,
+    .assets-table th,
+    .assets-table td,
+    .universal-table th,
+    .universal-table td {
+        white-space: nowrap !important;
+    }
 }
 
 /* Special case for long text columns that SHOULD wrap but not stack chars */

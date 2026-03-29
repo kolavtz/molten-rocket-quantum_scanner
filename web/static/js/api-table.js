@@ -106,7 +106,8 @@
 
     if (!tableBody) return;
     if (!Array.isArray(items) || items.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="' + columns.length + '">No records found.</td></tr>';
+      var emptyMessage = (options && options.emptyMessage) ? String(options.emptyMessage) : 'No records found.';
+      tableBody.innerHTML = '<tr><td colspan="' + columns.length + '">' + escapeHtml(emptyMessage) + '</td></tr>';
       return;
     }
 

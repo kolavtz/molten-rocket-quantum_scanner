@@ -47,9 +47,9 @@
                 
                 <!-- Tab Headers -->
                 <div class="theme-tabs">
-                    <button type="button" class="tab-btn active" onclick="switchThemeTab('night')">Night Palette</button>
-                    <button type="button" class="tab-btn" onclick="switchThemeTab('day')">Day Palette</button>
-                    <button type="button" class="tab-btn" onclick="switchThemeTab('global')">Global Mode</button>
+                    <button type="button" class="tab-btn active" data-theme-tab="night" onclick="switchThemeTab('night', this)">Night Palette</button>
+                    <button type="button" class="tab-btn" data-theme-tab="day" onclick="switchThemeTab('day', this)">Day Palette</button>
+                    <button type="button" class="tab-btn" data-theme-tab="global" onclick="switchThemeTab('global', this)">Global Mode</button>
                 </div>
 
                 <!-- Tab: Global Mode -->
@@ -127,11 +127,25 @@
                 </div>
 
                 <div class="mt-4 pt-3 border-top border-secondary">
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <button type="submit" name="quick_mode" value="dark" class="btn btn-outline-info btn-sm">
+                            <i class="fa-solid fa-moon me-1"></i> QUICK SWITCH: NIGHT
+                        </button>
+                        <button type="submit" name="quick_mode" value="light" class="btn btn-outline-warning btn-sm text-dark">
+                            <i class="fa-solid fa-sun me-1"></i> QUICK SWITCH: DAY
+                        </button>
+                        <button type="submit" name="reset_palette" value="dark" class="btn btn-outline-secondary btn-sm">
+                            <i class="fa-solid fa-rotate-left me-1"></i> RESET NIGHT DEFAULTS
+                        </button>
+                        <button type="submit" name="reset_palette" value="light" class="btn btn-outline-secondary btn-sm">
+                            <i class="fa-solid fa-rotate-left me-1"></i> RESET DAY DEFAULTS
+                        </button>
+                    </div>
                     <button type="submit" class="btn btn-info text-dark fw-bold px-4 py-2" style="border-radius:6px;">
                         <i class="fa-solid fa-floppy-disk me-1"></i> SAVE CHANGES
                     </button>
                     <button type="submit" name="reset_colors" value="1" class="btn btn-outline-light text-dark fw-bold px-4 py-2 ms-2" style="border-radius:6px;">
-                        <i class="fa-solid fa-rotate-right me-1"></i> RESET TO MONOCHROME
+                        <i class="fa-solid fa-rotate-right me-1"></i> RESET BOTH TO SYSTEM DEFAULTS
                     </button>
                     <span class="text-muted small ms-2">Contrast ratio and thresholds verified on save.</span>
                 </div>
@@ -281,13 +295,25 @@
 
 <script>
     // Tab switching
-    function switchThemeTab(tabId) {
+    function switchThemeTab(tabId, btnEl = null) {
         document.querySelectorAll('.tab-view').forEach(v => v.classList.add('d-none'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById('tab-content-' + tabId).classList.remove('d-none');
-        event.target.classList.add('active');
-        updateSandboxScope(tabId === 'day' ? 'light_' : 'dark_');
+        if (btnEl) {
+            btnEl.classList.add('active');
+        } else {
+            const activeBtn = document.querySelector(`.tab-btn[data-theme-tab="${tabId}"]`);
+            if (activeBtn) activeBtn.classList.add('active');
+        }
+
+        if (tabId === 'global') {
+            const mode = document.getElementById('mode')?.value || 'system';
+            updateSandboxScope(mode === 'light' ? 'light_' : 'dark_');
+        } else {
+            updateSandboxScope(tabId === 'day' ? 'light_' : 'dark_');
+        }
     }
+
 
     // Live CSS Preview Injections
     const sandbox = document.getElementById('sandbox-mockup');
@@ -349,6 +375,22 @@
 
     // Boot initialize active view
     updateSandboxScope('dark_');
+
+    // Global mode selection should also update the sandbox preview instantly
+    const modeSelect = document.getElementById('mode');
+    if (modeSelect) {
+        modeSelect.addEventListener('change', (event) => {
+            const selected = event.target.value;
+            if (selected === 'light') {
+                updateSandboxScope('light_');
+            } else if (selected === 'dark') {
+                updateSandboxScope('dark_');
+            } else {
+                const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+                updateSandboxScope(prefersLight ? 'light_' : 'dark_');
+            }
+        });
+    }
 </script>
 
 {% endblock %}

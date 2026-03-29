@@ -267,14 +267,16 @@ def extract_pagination_params(request_obj=None) -> Dict[str, Any]:
     page_size = request_obj.args.get("page_size", 25, type=int)
     sort = request_obj.args.get("sort", None, type=str)
     order = request_obj.args.get("order", "asc", type=str)
-    q = request_obj.args.get("q", "", type=str)
+    search = request_obj.args.get("search", "", type=str)
+    if not search:
+        search = request_obj.args.get("q", "", type=str)
     
     return {
         "page": page,
         "page_size": page_size,
         "sort": sort,
         "order": order,
-        "search": q
+        "search": search
     }
 
 
@@ -373,6 +375,8 @@ def parse_paging_args(request_obj=None, default_sort: str = "id") -> Dict[str, A
     sort = request_obj.args.get("sort", default_sort, type=str)
     order = request_obj.args.get("order", "asc", type=str)
     search = request_obj.args.get("search", "", type=str)
+    if not search:
+        search = request_obj.args.get("q", "", type=str)
     
     page, page_size = validate_pagination_params(page, page_size)
     

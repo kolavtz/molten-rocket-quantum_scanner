@@ -10,6 +10,26 @@
 
 <div class="admin-container" style="margin-top: 2rem;">
 
+    <div class="glass-card" style="margin-bottom: 1.25rem; padding: 1rem 1.25rem;">
+        <form method="POST" action="{{ url_for('admin_audit_logs_export') }}" style="display:flex; gap:0.65rem; flex-wrap:wrap; align-items:flex-end;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="min-width:220px; flex:1;">
+                <label for="auditExportPassword" style="display:block; font-size:0.72rem; color:var(--text-secondary); margin-bottom:0.25rem;">Export Password</label>
+                <input id="auditExportPassword" name="password" type="password" minlength="12" required class="discovery-input" placeholder="Minimum 12 characters">
+            </div>
+            <div style="min-width:130px;">
+                <label for="auditExportLimit" style="display:block; font-size:0.72rem; color:var(--text-secondary); margin-bottom:0.25rem;">Rows</label>
+                <input id="auditExportLimit" name="limit" type="number" min="100" max="50000" value="1000" class="discovery-input">
+            </div>
+            <button type="submit" class="button secondary" style="padding:0.55rem 0.95rem; font-size:0.75rem;">
+                <i class="fa-solid fa-file-export" style="margin-right:0.35rem;"></i> Export Encrypted Audit
+            </button>
+        </form>
+        <div style="font-size:0.72rem; color:var(--text-muted); margin-top:0.4rem;">
+            Export contains immutable chain records with hash verification metadata and password-based encryption.
+        </div>
+    </div>
+
     <!-- Chain Integrity Status -->
     <div class="glass-card" style="margin-bottom: 2rem; padding: 1.5rem;">
         <h3 style="margin-bottom: 1rem; text-transform: uppercase; font-size: 1rem; letter-spacing: 1px;">CHAIN INTEGRITY STATUS</h3>

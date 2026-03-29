@@ -110,6 +110,23 @@ def test_pqc_metrics_status_bars_include_descriptions_and_pct_bounds(app_client)
         assert 0 <= float(row.get("pct", 0)) <= 100
 
 
+def test_pqc_metrics_includes_tier_readiness_chart_payload(app_client):
+    resp = app_client.get("/api/pqc-posture/metrics")
+    assert resp.status_code == 200
+
+    payload = json.loads(resp.data)
+    items = payload.get("data", {}).get("items", [])
+    assert len(items) == 1
+
+    readiness = items[0].get("readiness_tier_bars", [])
+    assert isinstance(readiness, list)
+    assert {"elite", "standard", "legacy", "critical"}.issubset({str(r.get("tier") or "").lower() for r in readiness})
+    for row in readiness:
+        assert 0 <= float(row.get("pct", 0)) <= 100
+        assert isinstance(row.get("description"), str)
+        assert row.get("description")
+
+
 def test_api_docs_lists_new_cbom_minimum_elements_endpoint(app_client):
     resp = app_client.get("/api/docs")
     assert resp.status_code == 200
