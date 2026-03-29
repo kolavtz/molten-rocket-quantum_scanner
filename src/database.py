@@ -1011,6 +1011,8 @@ def init_db() -> bool:
                 "deleted_by_user_id": "BIGINT NULL",
             },
             "discovery_ssl": {
+                "pqc_score": "DOUBLE NULL",
+                "pqc_assessment": "VARCHAR(50) NULL",
                 "is_deleted": "BOOLEAN DEFAULT FALSE",
                 "deleted_at": "DATETIME NULL",
                 "deleted_by_user_id": "BIGINT NULL",
@@ -1592,6 +1594,22 @@ def get_enterprise_metrics() -> Dict[str, Any]:
 
                 issuer = tr.get("issuer") if isinstance(tr.get("issuer"), dict) else {}
                 subject = tr.get("subject") if isinstance(tr.get("subject"), dict) else {}
+                cert_details = tr.get("certificate_details") if isinstance(tr.get("certificate_details"), dict) else {}
+
+                fallback_subject = str(
+                    tr.get("subject_cn")
+                    or subject.get("CN")
+                    or subject.get("commonName")
+                    or scan.get("target", "")
+                )
+                fallback_issuer = str(
+                    tr.get("issuer_cn")
+                    or tr.get("issuer_o")
+                    or issuer.get("O")
+                    or issuer.get("CN")
+                    or issuer.get("commonName")
+                    or "Unknown"
+                )
                 
                 metrics["crypto_overview"].append({
                     "asset": scan.get("target", ""),
@@ -1603,14 +1621,15 @@ def get_enterprise_metrics() -> Dict[str, Any]:
 
                 metrics["certificate_inventory"].append({
                     "asset": scan.get("target", ""),
-                    "common_name": subject.get("CN") or subject.get("commonName") or scan.get("target", ""),
-                    "issuer": issuer.get("O") or issuer.get("CN") or "Unknown",
+                    "common_name": fallback_subject,
+                    "issuer": fallback_issuer,
                     "signature_algorithm": tr.get("signature_algorithm") or "Unknown",
                     "key_length": tr.get("key_size") or tr.get("key_length") or 0,
                     "tls_version": tr.get("tls_version") or "Unknown",
                     "valid_to": tr.get("valid_to") or "",
                     "days_remaining": days if isinstance(days, (int, float)) else None,
                     "status": tr.get("cert_status") or "Unknown",
+                    "certificate_details": cert_details,
                 })
 
         metrics["crypto_overview"] = metrics["crypto_overview"][:20]

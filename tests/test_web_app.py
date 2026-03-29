@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from web.app import app
 import web.app as web_app_module
-from web.routes.assets import build_asset_detail_api_response, build_assets_page_context
+from web.routes.assets import build_asset_detail_api_response, build_assets_page_context, build_comprehensive_asset_dto
 from src.db import db_session
 from src.models import Asset, Certificate, Scan, User
 from sqlalchemy import text
@@ -196,6 +196,57 @@ class TestModulePages:
         assert resp.status_code == 200
         assert b'ASSET DETAILS' in resp.data
         assert target.encode() in resp.data
+
+    def test_dashboard_home_ssl_table_exposes_certificate_details_column(self, client, mock_admin):
+        with open('web/templates/index.html', 'r', encoding='utf-8') as f:
+            html = f.read()
+        assert 'SSL Certificate Intelligence' in html
+        assert 'CERTIFICATE DETAILS' in html
+        assert 'Show X.509 details' in html
+
+    def test_build_comprehensive_asset_dto_includes_certificate_details(self, client, mock_admin):
+        target = _new_target('asset-comprehensive-cert-details')
+        asset = Asset(
+            target=target,
+            url=f"https://{target}",
+            asset_type='Web App',
+            owner='Security Team',
+            risk_level='Medium',
+            is_deleted=False,
+        )
+        db_session.add(asset)
+        db_session.commit()
+
+        cert_payload = {
+            'subject': f'CN={target}',
+            'issuer': 'CN=Test Root CA',
+            'valid_from': '2026-01-01T00:00:00+00:00',
+            'valid_until': '2027-01-01T00:00:00+00:00',
+            'days_to_expiry': 250,
+            'is_expired': False,
+            'key_algorithm': 'RSA',
+            'key_length': 2048,
+            'signature_algorithm': 'sha256WithRSAEncryption',
+            'tls_version': 'TLS 1.3',
+            'certificate_details': {
+                'certificate_version': 'v3',
+                'serial_number': 'ABCD1234',
+                'certificate_signature_algorithm': 'sha256WithRSAEncryption',
+                'certificate_subject_alternative_name': [target, f'www.{target}'],
+            },
+        }
+
+        with patch('web.routes.assets.CertificateTelemetryService.get_latest_certificate_for_asset', return_value=cert_payload):
+            dto = build_comprehensive_asset_dto(int(asset.id))
+
+        assert dto is not None
+        certificate = ((dto or {}).get('security') or {}).get('certificate') or {}
+        assert certificate.get('subject') == f'CN={target}'
+        assert certificate.get('issuer') == 'CN=Test Root CA'
+        assert certificate.get('tls_version') == 'TLS 1.3'
+        assert isinstance(certificate.get('certificate_details'), dict)
+        assert certificate['certificate_details'].get('certificate_version') == 'v3'
+        assert certificate['certificate_details'].get('serial_number') == 'ABCD1234'
 
     def test_asset_inventory_pagination_count_after_delete(self, client, mock_admin):
         """Verify asset count decreases in pagination after soft-delete."""
@@ -660,11 +711,30 @@ class TestScanPipelinePersistence:
         ).scalar()
         assert int(detail_resp or 0) >= 1
 
+        discovery_row = db_session.execute(
+            text(
+                """
+                SELECT pqc_score, pqc_assessment, promoted_to_inventory
+                FROM discovery_ssl
+                WHERE asset_id = :asset_id
+                ORDER BY id DESC
+                LIMIT 1
+                """
+            ),
+            {"asset_id": int(asset.id)},
+        ).mappings().first()
+        assert discovery_row is not None
+        assert float(discovery_row.get("pqc_score") or 0) == pytest.approx(92.0)
+        assert str(discovery_row.get("pqc_assessment") or "").lower() == "safe"
+        assert bool(discovery_row.get("promoted_to_inventory")) is False
+
         asset_detail = build_asset_detail_api_response(int(asset.id))
         latest_cert = (asset_detail or {}).get('latest_certificate') or {}
         assert latest_cert.get('subject_o') == 'Example Corp'
         assert latest_cert.get('issuer_cn') == 'Test Root CA'
         assert latest_cert.get('fingerprint_sha256') == fingerprint
+        assert isinstance(latest_cert.get('certificate_details'), dict)
+        assert latest_cert['certificate_details'].get('certificate_signature_algorithm') == 'sha256WithRSAEncryption'
 
 
 class TestAssetDeletionRoutes:

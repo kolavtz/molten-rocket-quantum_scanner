@@ -46,6 +46,75 @@ class CertificateTelemetryService:
         """Get SQLAlchemy session from app context."""
         from src.db import db_session
         return db_session
+
+    def _certificate_details_from_row(self, cert: Certificate) -> Dict:
+        base = {
+            "certificate_version": "",
+            "serial_number": str(cert.serial or ""),
+            "certificate_signature_algorithm": str(cert.signature_algorithm or ""),
+            "certificate_signature": "",
+            "issuer": str(cert.issuer or cert.ca or ""),
+            "validity": {
+                "not_before": cert.valid_from.isoformat() if cert.valid_from is not None else "",
+                "not_after": cert.valid_until.isoformat() if cert.valid_until is not None else "",
+            },
+            "subject": str(cert.subject or cert.subject_cn or ""),
+            "subject_public_key_info": {
+                "subject_public_key_algorithm": str(cert.public_key_type or cert.key_algorithm or ""),
+                "subject_public_key_bits": int(cert.key_length or 0),
+                "subject_public_key": str(cert.public_key_pem or ""),
+            },
+            "extensions": [],
+            "certificate_key_usage": [],
+            "extended_key_usage": [],
+            "certificate_basic_constraints": {},
+            "certificate_subject_key_id": "",
+            "certificate_authority_key_id": "",
+            "authority_information_access": [],
+            "certificate_subject_alternative_name": self._load_json_list(cert.san_domains),
+            "certificate_policies": [],
+            "crl_distribution_points": [],
+            "signed_certificate_timestamp_list": [],
+        }
+
+        try:
+            report_raw = getattr(getattr(cert, "scan", None), "report_json", None)
+            report = {}
+            if isinstance(report_raw, dict):
+                report = report_raw
+            elif isinstance(report_raw, str) and report_raw.strip():
+                report = json.loads(report_raw)
+
+            tls_rows = report.get("tls_results") if isinstance(report.get("tls_results"), list) else []
+            cert_serial = str(cert.serial or "").strip().upper()
+            cert_subject_cn = str(cert.subject_cn or "").strip().lower()
+            cert_endpoint = str(cert.endpoint or "").strip().lower()
+
+            for row in tls_rows:
+                if not isinstance(row, dict):
+                    continue
+                row_serial = str(row.get("serial_number") or "").strip().upper()
+                row_subject_cn = str(row.get("subject_cn") or "").strip().lower()
+                row_host = str(row.get("host") or "").strip().lower()
+                row_port = int(row.get("port") or 0) if str(row.get("port") or "").strip() else 0
+                row_endpoint = f"{row_host}:{row_port}" if row_host and row_port else row_host
+
+                if cert_serial and row_serial and cert_serial == row_serial:
+                    details = row.get("certificate_details")
+                    if isinstance(details, dict):
+                        return {**base, **details}
+                if cert_subject_cn and row_subject_cn and cert_subject_cn == row_subject_cn:
+                    details = row.get("certificate_details")
+                    if isinstance(details, dict):
+                        return {**base, **details}
+                if cert_endpoint and row_endpoint and cert_endpoint == row_endpoint:
+                    details = row.get("certificate_details")
+                    if isinstance(details, dict):
+                        return {**base, **details}
+        except Exception:
+            pass
+
+        return base
     
     # ════════════════════════════════════════════════════════════════════
     # 1. EXPIRING CERTIFICATES — Core Metric
@@ -226,6 +295,7 @@ class CertificateTelemetryService:
                 "fingerprint_sha256": str(cert.fingerprint_sha256 or ""),
                 "san_domains": self._load_json_list(cert.san_domains),
                 "cert_chain_length": int(cert.cert_chain_length or 0),
+                "certificate_details": self._certificate_details_from_row(cert),
             })
         
         return inventory
@@ -534,6 +604,7 @@ class CertificateTelemetryService:
             "fingerprint_sha256": str(cert.fingerprint_sha256 or ""),
             "san_domains": self._load_json_list(cert.san_domains),
             "cert_chain_length": int(cert.cert_chain_length or 0),
+            "certificate_details": self._certificate_details_from_row(cert),
         }
     
     # ════════════════════════════════════════════════════════════════════

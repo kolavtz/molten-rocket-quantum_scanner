@@ -167,10 +167,12 @@ class AssetService:
             target_key = self._normalize_target(meta.name or meta.target or "")
             latest_scan = latest_scan_by_target.get(target_key)
             latest_cert = latest_cert_by_asset.get(int(getattr(meta, "id", 0) or 0))
+            latest_scan_report = self._safe_json_dict(getattr(latest_scan, "report_json", None)) if latest_scan else {}
 
             risk_score = 0.0
             risk_level = str(getattr(meta, "risk_level", "") or "").strip()
             cert_days = None
+            cert_valid_until = None
             key_length = 0
             cert_status = "Not Scanned"
             tls_version = "Unknown"
@@ -189,6 +191,7 @@ class AssetService:
                 ca_name = str(getattr(latest_cert, "ca", "") or getattr(latest_cert, "issuer", "") or "Unknown")
                 valid_until = getattr(latest_cert, "valid_until", None)
                 if valid_until:
+                    cert_valid_until = valid_until.strftime("%Y-%m-%d")
                     cert_days = int((valid_until - now_naive_utc).days)
                     if cert_days < 0:
                         cert_status = "Expired"
@@ -197,14 +200,35 @@ class AssetService:
                     else:
                         cert_status = "Valid"
                 else:
-                    cert_status = "Unknown"
+                    scan_tls_results = latest_scan_report.get("tls_results") if isinstance(latest_scan_report.get("tls_results"), list) else []
+                    first_tls = scan_tls_results[0] if scan_tls_results else {}
+                    if isinstance(first_tls, dict):
+                        tls_valid_to = str(first_tls.get("valid_to") or "").strip()
+                        tls_cert_status = str(first_tls.get("cert_status") or "").strip().title()
+                        if tls_valid_to:
+                            cert_valid_until = tls_valid_to[:10]
+                        if tls_cert_status in {"Valid", "Expiring", "Expired"}:
+                            cert_status = tls_cert_status
+                        else:
+                            cert_status = "Expired" if bool(getattr(latest_cert, "is_expired", False)) else "Valid"
+                    else:
+                        cert_status = "Expired" if bool(getattr(latest_cert, "is_expired", False)) else "Valid"
+
+            certificate_details = {}
+            scan_tls_results = latest_scan_report.get("tls_results") if isinstance(latest_scan_report.get("tls_results"), list) else []
+            for tls_row in scan_tls_results:
+                if not isinstance(tls_row, dict):
+                    continue
+                details = tls_row.get("certificate_details")
+                if isinstance(details, dict) and details:
+                    certificate_details = details
+                    break
 
             last_scan_ts = None
             last_scan_id = None
             scan_status = "Never"
             scan_kind = "N/A"
             scanned_by = "N/A"
-            latest_scan_report = {}
             if latest_scan is not None:
                 last_scan_ts = (
                     getattr(latest_scan, "completed_at", None)
@@ -213,7 +237,6 @@ class AssetService:
                 )
                 last_scan_id = getattr(latest_scan, "scan_id", None) or getattr(latest_scan, "id", None)
                 scan_status = str(getattr(latest_scan, "status", "") or "Unknown").title()
-                latest_scan_report = self._safe_json_dict(getattr(latest_scan, "report_json", None))
                 if "overall_pqc_score" not in latest_scan_report and getattr(latest_scan, "overall_pqc_score", None) is not None:
                     latest_scan_report["overall_pqc_score"] = float(latest_scan.overall_pqc_score)
                 scan_kind = str(latest_scan_report.get("scan_kind") or "N/A")
@@ -237,6 +260,8 @@ class AssetService:
                 "risk_score": risk_score,
                 "cert_status": cert_status,
                 "cert_days": cert_days,
+                "cert_valid_until": cert_valid_until,
+                "certificate_details": certificate_details,
                 "key_length": key_length,
                 "tls_version": tls_version,
                 "cipher_suite": cipher_suite,

@@ -1,5 +1,71 @@
 [
   {
+    "id": "1b308ec92b10",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-03-28T13:41:14",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
+    "id": "53f890a4cf23",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-03-28T13:40:59",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
+    "id": "99f785318beb",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-03-28T13:21:18",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
     "id": "ae696f9b260f",
     "created_by_id": null,
     "created_by": "unknown",
@@ -198,10 +264,10 @@
     "status": "scheduled"
   },
   {
-    "id": "d3baf503990f",
-    "created_by_id": "<AsyncMock name='current_user.id' id='1914609980752'>",
+    "id": "ce30fc3923d3",
+    "created_by_id": "<AsyncMock name='current_user.id' id='2719000677744'>",
     "created_by": "admin",
-    "created_at": "2026-03-27T15:45:52.602052+00:00",
+    "created_at": "2026-03-28T15:49:03.627454+00:00",
     "enabled": true,
     "report_type": "Executive Summary Report",
     "frequency": "Weekly",

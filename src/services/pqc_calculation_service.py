@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import Dict, Optional
 
 from sqlalchemy import and_, func
+from sqlalchemy.exc import IntegrityError
 
 from config import (
     PQC_THRESHOLDS, RISK_WEIGHTS, PENALTY_ALPHA
@@ -27,6 +28,32 @@ from src.models import (
 
 class PQCCalculationService:
     """Service for PQC score calculations per Math Spec Section 3."""
+
+    @staticmethod
+    def _get_or_create_asset_metric(asset_id: int) -> AssetMetric:
+        """Get or create AssetMetric row safely under concurrent writes."""
+        metric = db_session.query(AssetMetric).filter(
+            AssetMetric.asset_id == asset_id
+        ).first()
+        if metric:
+            return metric
+
+        savepoint = db_session.begin_nested()
+        try:
+            metric = AssetMetric(asset_id=asset_id)
+            db_session.add(metric)
+            db_session.flush()
+            savepoint.commit()
+            return metric
+        except IntegrityError:
+            # Another transaction likely created this row concurrently.
+            savepoint.rollback()
+            existing = db_session.query(AssetMetric).filter(
+                AssetMetric.asset_id == asset_id
+            ).first()
+            if existing:
+                return existing
+            raise
 
     @staticmethod
     def calculate_endpoint_pqc_score(asset_id: int, scan_id: int) -> float:
@@ -237,13 +264,7 @@ class PQCCalculationService:
         asset_cyber_score = max(0.0, pqc_score - PENALTY_ALPHA * risk_penalty)
         
         # Upsert to asset_metrics
-        metric = db_session.query(AssetMetric).filter(
-            AssetMetric.asset_id == asset_id
-        ).first()
-        
-        if not metric:
-            metric = AssetMetric(asset_id=asset_id)
-            db_session.add(metric)
+        metric = PQCCalculationService._get_or_create_asset_metric(asset_id)
         
         metric.pqc_score = pqc_score
         metric.pqc_score_timestamp = datetime.utcnow()

@@ -394,6 +394,14 @@ from flask_wtf.csrf import CSRFError
 def handle_csrf_error(e):
     """Provide a helpful feedback path for missing/invalid CSRF tokens."""
     logger.warning("CSRF validation failed: %s", str(e))
+    
+    # Check if the request wants JSON (e.g., from AJAX bulk operations)
+    if request.is_json or (request.accept_mimetypes.best or "") == "application/json":
+        return jsonify({
+            "status": "error",
+            "message": "Security check failed: CSRF token missing or invalid. Please refresh the page and try again."
+        }), 403
+    
     flash("Security check failed (CSRF token missing or invalid). Please reload the login page and try again.", "error")
 
     # If the user was already on login page, preserve feedback and show login form.
@@ -790,21 +798,32 @@ def _db_table_exists(table_name: str) -> bool:
 
 def _persist_split_discovery_rows(
     scan_pk: int | None,
-    asset_id: int,
+    asset_id: int | None,
     target: str,
     discovered_services: list[dict[str, Any]],
     tls_results: list[dict[str, Any]],
+    pqc_assessments: list[dict[str, Any]],
     location_points: list[dict[str, Any]],
+    promoted_to_inventory: bool = False,
 ) -> None:
     """Persist discovery telemetry into the live split discovery tables when present."""
-    if not scan_pk or asset_id <= 0:
+    if not scan_pk:
         return
 
     from sqlalchemy import text
 
     now = datetime.now()
+    is_promoted = bool(promoted_to_inventory and asset_id is not None and int(asset_id) > 0)
+    promoted_at = now if is_promoted else None
     host = _host_from_target(target).strip().lower()
     geo_by_ip = {str(item.get("ip") or ""): item for item in (location_points or [])}
+    pqc_by_endpoint: dict[tuple[str, int], dict[str, Any]] = {}
+    pqc_by_index = list(pqc_assessments or [])
+    for pq in pqc_by_index:
+        endpoint_host = _host_from_target(str(pq.get("host") or "")).strip().lower()
+        endpoint_port = _coerce_int(pq.get("port")) or 443
+        if endpoint_host:
+            pqc_by_endpoint[(endpoint_host, endpoint_port)] = pq
 
     if _db_table_exists("discovery_domains"):
         seen_domains: set[str] = set()
@@ -836,8 +855,8 @@ def _persist_split_discovery_rows(
                     "asset_id": asset_id,
                     "domain": normalized,
                     "status": "confirmed",
-                    "promoted_to_inventory": True,
-                    "promoted_at": now,
+                    "promoted_to_inventory": is_promoted,
+                    "promoted_at": promoted_at,
                     "created_at": now,
                     "updated_at": now,
                 },
@@ -885,8 +904,8 @@ def _persist_split_discovery_rows(
                     "subnet": subnet,
                     "location": location or None,
                     "status": "confirmed",
-                    "promoted_to_inventory": True,
-                    "promoted_at": now,
+                    "promoted_to_inventory": is_promoted,
+                    "promoted_at": promoted_at,
                     "created_at": now,
                     "updated_at": now,
                 },
@@ -925,28 +944,39 @@ def _persist_split_discovery_rows(
                     "version": version or None,
                     "category": service or "software",
                     "status": "confirmed",
-                    "promoted_to_inventory": True,
-                    "promoted_at": now,
+                    "promoted_to_inventory": is_promoted,
+                    "promoted_at": promoted_at,
                     "created_at": now,
                     "updated_at": now,
                 },
             )
 
     if _db_table_exists("discovery_ssl"):
-        for tls in tls_results:
+        for idx, tls in enumerate(tls_results):
             endpoint_host = str(tls.get("host") or host or "").strip()
             endpoint_port = int(tls.get("port") or 443)
             endpoint = f"{endpoint_host}:{endpoint_port}" if endpoint_host else host
+            endpoint_key = (_host_from_target(endpoint_host).strip().lower(), endpoint_port)
+            endpoint_pqc = pqc_by_endpoint.get(endpoint_key, {})
+            if not endpoint_pqc and idx < len(pqc_by_index):
+                endpoint_pqc = pqc_by_index[idx] if isinstance(pqc_by_index[idx], dict) else {}
+            pqc_score_raw = endpoint_pqc.get("score")
+            pqc_score = float(pqc_score_raw) if isinstance(pqc_score_raw, (int, float)) else None
+            pqc_assessment = str(
+                endpoint_pqc.get("status")
+                or endpoint_pqc.get("overall_status")
+                or ""
+            ).strip() or None
             db_session.execute(
                 text(
                     """
                     INSERT INTO discovery_ssl (
                         scan_id, asset_id, endpoint, tls_version, cipher_suite, key_exchange,
-                        key_length, subject_cn, issuer, valid_until, status,
+                        key_length, subject_cn, issuer, valid_until, pqc_score, pqc_assessment, status,
                         promoted_to_inventory, promoted_at, created_at, updated_at
                     ) VALUES (
                         :scan_id, :asset_id, :endpoint, :tls_version, :cipher_suite, :key_exchange,
-                        :key_length, :subject_cn, :issuer, :valid_until, :status,
+                        :key_length, :subject_cn, :issuer, :valid_until, :pqc_score, :pqc_assessment, :status,
                         :promoted_to_inventory, :promoted_at, :created_at, :updated_at
                     )
                     """
@@ -962,9 +992,11 @@ def _persist_split_discovery_rows(
                     "subject_cn": tls.get("subject_cn") or None,
                     "issuer": tls.get("issuer_cn") or tls.get("issuer_o") or None,
                     "valid_until": tls.get("valid_until_dt"),
+                    "pqc_score": pqc_score,
+                    "pqc_assessment": pqc_assessment,
                     "status": "confirmed",
-                    "promoted_to_inventory": True,
-                    "promoted_at": now,
+                    "promoted_to_inventory": is_promoted,
+                    "promoted_at": promoted_at,
                     "created_at": now,
                     "updated_at": now,
                 },
@@ -1008,6 +1040,8 @@ def _normalize_tls_result(raw_result: dict) -> dict:
     valid_from = _parse_cert_time(str(cert.get("not_before") or ""))
     valid_to = _parse_cert_time(str(cert.get("not_after") or ""))
 
+    certificate_details = cert.get("certificate_details") if isinstance(cert.get("certificate_details"), dict) else {}
+
     return {
         "host": raw.get("host"),
         "port": raw.get("port"),
@@ -1035,6 +1069,7 @@ def _normalize_tls_result(raw_result: dict) -> dict:
         "signature_algorithm": str(cert.get("signature_algorithm") or ""),
         "cert_sha256": str(cert.get("fingerprint_sha256") or ""),
         "san_domains": cert.get("san_domains") if isinstance(cert.get("san_domains"), list) else [],
+        "certificate_details": certificate_details,
         "valid_from": valid_from,
         "valid_to": valid_to,
         "valid_from_dt": _parse_cert_datetime(str(cert.get("not_before") or "")),
@@ -1445,41 +1480,40 @@ def run_scan_pipeline(
 
         scan_pk = getattr(db_scan, "id", None) or getattr(db_scan, "scan_id", None)
         
-        # Resolve Asset (only when the user chooses to persist to inventory)
+        # Resolve Asset for relational sync across discovery/certificates/PQC/CBOM.
         asset_id = None
-        if add_to_inventory:
-            inventory_asset = (
-                db_session.query(Asset)
-                .filter(func.lower(Asset.name) == canonical_target)
-                .first()
+        inventory_asset = (
+            db_session.query(Asset)
+            .filter(func.lower(Asset.name) == canonical_target)
+            .first()
+        )
+        if inventory_asset and getattr(inventory_asset, "is_deleted", False):
+            inventory_asset.is_deleted = False
+        if not inventory_asset:
+            score_risk = "Critical"
+            if overall_score >= 80:
+                score_risk = "Low"
+            elif overall_score >= 60:
+                score_risk = "Medium"
+            elif overall_score >= 40:
+                score_risk = "High"
+            inventory_asset = Asset(
+                name=canonical_target,
+                url=f"https://{canonical_target}" if canonical_target and not canonical_target.startswith(("http://", "https://")) else canonical_target,
+                asset_type="Web App",
+                owner=str(scanned_by or "Unassigned"),
+                risk_level=score_risk,
+                notes="Auto-created from scan pipeline",
+                is_deleted=False,
             )
-            if inventory_asset and getattr(inventory_asset, "is_deleted", False):
-                inventory_asset.is_deleted = False
-            if not inventory_asset:
-                score_risk = "Critical"
-                if overall_score >= 80:
-                    score_risk = "Low"
-                elif overall_score >= 60:
-                    score_risk = "Medium"
-                elif overall_score >= 40:
-                    score_risk = "High"
-                inventory_asset = Asset(
-                    name=canonical_target,
-                    url=f"https://{canonical_target}" if canonical_target and not canonical_target.startswith(("http://", "https://")) else canonical_target,
-                    asset_type="Web App",
-                    owner=str(scanned_by or "Unassigned"),
-                    risk_level=score_risk,
-                    notes="Auto-created from scan pipeline",
-                    is_deleted=False,
-                )
-                db_session.add(inventory_asset)
-                db_session.flush()
-            asset_id = int(getattr(inventory_asset, "id", 0) or 0)
-            inventory_asset.last_scan_id = int(getattr(db_scan, "id", 0) or 0)
-            if not str(getattr(inventory_asset, "url", "") or "") and canonical_target:
-                inventory_asset.url = f"https://{canonical_target}"
-            if not str(getattr(inventory_asset, "owner", "") or "").strip() and scanned_by:
-                inventory_asset.owner = str(scanned_by)
+            db_session.add(inventory_asset)
+            db_session.flush()
+        asset_id = int(getattr(inventory_asset, "id", 0) or 0)
+        inventory_asset.last_scan_id = int(getattr(db_scan, "id", 0) or 0)
+        if not str(getattr(inventory_asset, "url", "") or "") and canonical_target:
+            inventory_asset.url = f"https://{canonical_target}"
+        if not str(getattr(inventory_asset, "owner", "") or "").strip() and scanned_by:
+            inventory_asset.owner = str(scanned_by)
         
         if inventory_asset is not None:
             for svc in discovered_services:
@@ -1495,7 +1529,9 @@ def run_scan_pipeline(
             target=canonical_target,
             discovered_services=discovered_services,
             tls_results=tls_results,
+            pqc_assessments=pqc_dicts,
             location_points=location_points,
+            promoted_to_inventory=bool(add_to_inventory),
         )
             
         # TLS & Certificates
@@ -2127,6 +2163,30 @@ def admin_audit_logs():
     logs = db.list_audit_logs(limit=AUDIT_LOG_PAGE_SIZE)
     is_valid, issues = db.verify_audit_log_chain(limit=max(AUDIT_LOG_PAGE_SIZE, 500))
     return render_template("admin_audit.html", logs=logs, chain_valid=is_valid, chain_issues=issues)
+
+
+@app.route("/admin/api", methods=["GET"])
+@role_required(list(ADMIN_PANEL_ROLES))
+def admin_api():
+    """Admin API portal for key management and integration guidance."""
+    user_data = db.get_user_by_id(current_user.id)
+    key_issued = db.has_api_key(current_user.id)
+    return render_template("admin_api.html", user=user_data, key_issued=key_issued)
+
+
+@app.route("/admin/api/rotate-key", methods=["POST"])
+@role_required(list(ADMIN_PANEL_ROLES))
+def admin_rotate_api_key():
+    """Rotate the current admin user's API key from the admin API portal."""
+    db.revoke_api_key(current_user.id)
+    new_key = db.generate_api_key(current_user.id)
+    if new_key:
+        _audit("admin", "api_key_rotated", "success", target_user_id=current_user.id)
+        flash(f"NEW_API_KEY: {new_key}", "api_key")
+    else:
+        _audit("admin", "api_key_rotated", "failed", target_user_id=current_user.id)
+        flash("Failed to rotate API key. Try again.", "error")
+    return redirect(url_for("admin_api"))
 
 
 @app.route("/admin/users/<user_id>/reset-password", methods=["POST"])
@@ -3860,28 +3920,19 @@ def docs():
 @app.route("/profile", methods=["GET"])
 @login_required
 def profile():
-    """User profile page showing API key info."""
+    """User profile page for account details."""
     user_data = db.get_user_by_id(current_user.id)
-    # Auto-issue an API key on first visit if none exists
-    new_key = None
-    if user_data and not user_data.get("api_key_hash"):
-        new_key = db.generate_api_key(current_user.id)
-        if new_key:
-            _audit("api", "api_key_auto_issued", "success",
-                   details={"reason": "first_visit"})
-    key_issued = db.has_api_key(current_user.id)
-    return render_template(
-        "profile.html",
-        user=user_data,
-        key_issued=key_issued,
-        new_key=new_key,  # Only shown once on auto-issue
-    )
+    return render_template("profile.html", user=user_data)
 
 
 @app.route("/profile/rotate-api-key", methods=["POST"])
 @login_required
 def rotate_api_key():
-    """Revoke the current API key and issue a fresh one."""
+    """Legacy route: API key rotation now lives in the admin API portal."""
+    if str(getattr(current_user, "role", "") or "").strip().lower() != "admin":
+        flash("API key rotation is managed by administrators.", "error")
+        return redirect(url_for("profile"))
+
     db.revoke_api_key(current_user.id)
     new_key = db.generate_api_key(current_user.id)
     if new_key:
@@ -3890,7 +3941,7 @@ def rotate_api_key():
     else:
         _audit("api", "api_key_rotated", "failed")
         flash("Failed to rotate API key. Try again.", "error")
-    return redirect(url_for("profile"))
+    return redirect(url_for("admin_api"))
 
 
 @app.route("/admin/users/<user_id>/regen-api-key", methods=["POST"])

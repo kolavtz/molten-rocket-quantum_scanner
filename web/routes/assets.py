@@ -241,12 +241,20 @@ def _decorate_asset_rows(rows: list[dict], csrf_token: str) -> list[dict]:
     for row in rows:
         risk = str(row.get("risk_level") or row.get("risk") or "Medium")
         cert_status = str(row.get("cert_status") or "Not Scanned")
+        cert_days = row.get("cert_days")
+        cert_valid_until = str(row.get("cert_valid_until") or "").strip()
+        cert_meta = []
+        if cert_valid_until:
+            cert_meta.append(f"Valid till: {cert_valid_until}")
+        if isinstance(cert_days, (int, float)):
+            cert_meta.append(f"Days remaining: {int(cert_days)}")
+        cert_title_attr = f' title="{escape(" | ".join(cert_meta))}"' if cert_meta else ""
         decorated.append(
             {
                 **row,
                 "select_html": f'<input type="checkbox" class="asset-select-checkbox" name="asset_ids" value="{escape(str(row.get("id") or ""))}" data-row-checkbox>',
                 "risk_html": f'<span class="risk-pill risk-{escape(risk.lower())}">{escape(risk)}</span>',
-                "cert_status_html": f'<span class="cert-pill cert-{escape(cert_status.lower().replace(" ", "-"))}">{escape(cert_status)}</span>',
+                "cert_status_html": f'<span class="cert-pill cert-{escape(cert_status.lower().replace(" ", "-"))}"{cert_title_attr}>{escape(cert_status)}</span>',
                 "actions_html": _make_action_html(row, csrf_token),
                 "last_scan": row.get("last_scan") or "Never",
                 "key_length": row.get("key_length") or "-",
@@ -366,6 +374,7 @@ def _serialize_asset_api_row(row: dict[str, Any]) -> dict[str, Any]:
         "cipher_suite": str(row.get("cipher_suite") or "Unknown"),
         "ca": str(row.get("ca") or "Unknown"),
         "cert_days": row.get("cert_days"),
+        "certificate_details": row.get("certificate_details") if isinstance(row.get("certificate_details"), dict) else {},
         "notes": str(row.get("notes") or ""),
     }
 
@@ -619,6 +628,137 @@ def build_asset_detail_api_response(asset_id: int) -> dict[str, Any] | None:
     row["workflow"] = _build_workflow_payload(asset, scan)
     row["kpis"] = vm.get("kpis", {})
     return row
+
+
+def build_comprehensive_asset_dto(asset_id: int) -> dict[str, Any] | None:
+    """Build a complete telemetry DTO for the Asset Intelligence Details modal."""
+    asset = (
+        db_session.query(Asset)
+        .filter(Asset.id == asset_id, Asset.is_deleted == False, Asset.deleted_at.is_(None))
+        .first()
+    )
+    if not asset:
+        return None
+
+    scan = _latest_asset_scan(asset)
+    report = _scan_report_payload(scan)
+
+    # Security components
+    cert_service = CertificateTelemetryService()
+    latest_cert = cert_service.get_latest_certificate_for_asset(int(asset.id))
+    latest_cert_payload = latest_cert if isinstance(latest_cert, dict) else {}
+    certificate_details = (
+        latest_cert_payload.get("certificate_details")
+        if isinstance(latest_cert_payload.get("certificate_details"), dict)
+        else {}
+    )
+    
+    cbom_entries = (
+        db_session.query(CBOMEntry)
+        .filter(CBOMEntry.asset_id == asset.id, CBOMEntry.is_deleted == False)
+        .all()
+    )
+    
+    pqc_results = (
+        db_session.query(PQCClassification)
+        .filter(PQCClassification.asset_id == asset.id, PQCClassification.is_deleted == False)
+        .all()
+    )
+
+    # Network components
+    dns_records = (
+        db_session.query(DiscoveryDomain)
+        .filter(DiscoveryDomain.asset_id == asset.id, DiscoveryDomain.is_deleted == False)
+        .all()
+    )
+    
+    # Discovery timeline
+    discovery_log = []
+    for model, label in [
+        (DiscoveryDomain, "Domain"),
+        (DiscoverySSL, "SSL"),
+        (DiscoveryIP, "IP"),
+        (DiscoverySoftware, "Software")
+    ]:
+        items = db_session.query(model).filter(model.asset_id == asset.id).all()
+        for item in items:
+            discovery_log.append({
+                "type": label,
+                "status": getattr(item, "status", "detected"),
+                "date": item.created_at.strftime("%Y-%m-%d %H:%M") if item.created_at else "N/A"
+            })
+    discovery_log.sort(key=lambda x: x["date"], reverse=True)
+
+    # Geo logic
+    geo_data = report.get("geo") or report.get("asset_locations", [{}])[0] if report.get("asset_locations") else {}
+    
+    # Build DTO
+    return {
+        "id": int(asset.id),
+        "target": str(asset.target or ""),
+        "ipv4": str(getattr(asset, "ipv4", "") or ""),
+        "ipv6": str(getattr(asset, "ipv6", "") or ""),
+        "type": str(asset.asset_type or "Web App"),
+        "risk_level": str(asset.risk_level or "Medium"),
+        "owner": str(asset.owner or "Unassigned"),
+        "network": {
+            "discovery": discovery_log,
+            "dns": [{"type": "A", "name": r.domain, "value": r.domain} for r in dns_records],
+            "geo": {
+                "lat": float(geo_data.get("lat") or 0),
+                "lon": float(geo_data.get("lon") or 0),
+                "city": str(geo_data.get("city") or "Unknown"),
+                "country": str(geo_data.get("country") or "Unknown"),
+                "isp": str(geo_data.get("isp") or "Unknown")
+            },
+            "graph": {"nodes": [], "edges": []} # Simplified or dynamically populated in JS if needed
+        },
+        "security": {
+            "certificate": {
+                "subject": str(
+                    latest_cert_payload.get("subject")
+                    or latest_cert_payload.get("subject_cn")
+                    or "None"
+                ),
+                "issuer": str(
+                    latest_cert_payload.get("issuer")
+                    or latest_cert_payload.get("issuer_cn")
+                    or latest_cert_payload.get("ca")
+                    or "None"
+                ),
+                "valid_from": str(latest_cert_payload.get("valid_from") or "N/A"),
+                "valid_until": str(latest_cert_payload.get("valid_until") or "N/A"),
+                "expiry_days": int(latest_cert_payload.get("days_to_expiry") or 0),
+                "is_expired": bool(latest_cert_payload.get("is_expired", False)),
+                "key_algorithm": str(
+                    latest_cert_payload.get("key_algorithm")
+                    or latest_cert_payload.get("public_key_type")
+                    or "Unknown"
+                ),
+                "key_length": int(latest_cert_payload.get("key_length") or 0),
+                "signature_algorithm": str(latest_cert_payload.get("signature_algorithm") or "Unknown"),
+                "tls_version": str(latest_cert_payload.get("tls_version") or "Unknown"),
+                "certificate_details": certificate_details,
+            } if latest_cert_payload else None,
+            "cbom": [{
+                "algorithm": e.algorithm,
+                "category": e.category,
+                "key_length": e.key_length,
+                "nist_status": e.nist_status,
+                "quantum_safe": e.quantum_safe
+            } for e in cbom_entries],
+            "pqc": {
+                "score": float(scan.overall_pqc_score or 0) if scan else 0.0,
+                "status": str(asset.risk_level or "Medium"), # Or derived from score
+                "classifications": [{
+                    "algorithm": p.algorithm,
+                    "status": p.quantum_safe_status,
+                    "nist_category": p.nist_category,
+                    "score": float(p.pqc_score or 0)
+                } for p in pqc_results]
+            }
+        }
+    }
 
 
 def build_asset_scans_api_response(asset_id: int, page: int = 1, page_size: int = 20) -> dict[str, Any] | None:
@@ -1114,7 +1254,23 @@ def _soft_delete_asset(asset: Asset) -> None:
 
     canonical_target = _normalize_target(asset.target or asset.name or "")
     if canonical_target:
-        scans = db_session.query(Scan).filter(func.lower(Scan.target) == canonical_target, Scan.is_deleted == False).all()
+        try:
+            scans = (
+                db_session.query(Scan)
+                .filter(func.lower(Scan.target) == canonical_target, Scan.is_deleted == False)
+                .all()
+            )
+        except Exception as scan_query_exc:
+            # Keep delete operations resilient when legacy DB schemas drift from ORM fields
+            # (e.g., historical tables without Scan.target).
+            logger.warning(
+                "Skipping scan cascade lookup for asset_id=%s target=%s due to schema/query error: %s",
+                getattr(asset, "id", "unknown"),
+                canonical_target,
+                scan_query_exc,
+            )
+            scans = []
+
         for scan in scans:
             scan.is_deleted = True
             scan.deleted_at = now

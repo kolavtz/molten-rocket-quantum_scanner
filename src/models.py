@@ -187,6 +187,8 @@ class DiscoverySSL(Base, SoftDeleteMixin):
     subject_cn = Column(String(255))
     issuer = Column(String(255))
     valid_until = Column(DateTime)
+    pqc_score = Column(Float, nullable=True)
+    pqc_assessment = Column(String(50), nullable=True, index=True)
     status = Column(Enum('new', 'confirmed', 'ignored', 'false_positive'), default='new')
     promoted_to_inventory = Column(Boolean, default=False)
     promoted_at = Column(DateTime)

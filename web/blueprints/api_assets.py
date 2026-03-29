@@ -158,6 +158,20 @@ def get_discovery():
         return api_response(success=False, message=str(e), status_code=500)[0], 500
 
 
+@api_assets.route("/assets/<int:asset_id>/comprehensive", methods=["GET"])
+@login_required
+def get_asset_comprehensive_detail(asset_id):
+    """
+    GET /api/assets/<asset_id>/comprehensive
+    Returns a unified DTO for the Intelligence modal.
+    """
+    from web.routes.assets import build_comprehensive_asset_dto
+    data = build_comprehensive_asset_dto(asset_id)
+    if data is None:
+        return api_response(success=False, message="Asset not found", status_code=404)[0], 404
+    return api_response(success=True, data=data)[0], 200
+
+
 @api_assets.route("/assets/<int:asset_id>", methods=["GET"])
 @login_required
 def get_asset_detail(asset_id):

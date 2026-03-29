@@ -24,6 +24,12 @@
 
     .protocol-donut { width: 150px; height: 150px; border-radius: 50%; margin: 0 auto; position: relative; }
     .protocol-donut-center { position: absolute; inset: 15px; background: var(--bg-primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-direction: column; border: 1px solid var(--border-subtle); }
+    .cert-details-box { margin-top: 0.35rem; padding: 0.5rem; border: 1px solid var(--border-subtle); border-radius: 8px; background: rgba(255,255,255,0.02); }
+    .cert-details-box summary { cursor: pointer; font-size: 0.68rem; color: var(--text-secondary); }
+    .cert-details-grid { margin-top: 0.5rem; display: grid; grid-template-columns: 1fr; gap: 0.3rem; }
+    .cert-details-grid .row { display: flex; gap: 0.35rem; flex-wrap: wrap; font-size: 0.66rem; }
+    .cert-details-grid .key { color: var(--text-secondary); font-weight: 700; }
+    .cert-details-grid .val { color: var(--text-primary); font-family: var(--font-mono); word-break: break-word; }
 
     @media (max-width: 1200px) {
         .cbom-stats-grid { grid-template-columns: repeat(3, 1fr); }
@@ -130,10 +136,14 @@
                         <th>Cipher Suite</th>
                         <th>CA</th>
                         <th>Expires On</th>
+                        <th>Certificate Details</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for row in page_data['items'] %}
+                    {% set cert = row.certificate_details or {} %}
+                    {% set validity = cert.get('validity', {}) if cert else {} %}
+                    {% set spki = cert.get('subject_public_key_info', {}) if cert else {} %}
                     <tr>
                         <td><div style="font-weight:700;">{{ row.asset_name }}</div><div style="font-size:0.65rem; color:var(--text-secondary);">{{ row.subject_cn }}</div></td>
                         <td><span class="status-pill" style="border-color:var(--pqc-safe); color:var(--pqc-safe);">Valid</span></td>
@@ -142,6 +152,36 @@
                         <td style="font-size:0.7rem;">{{ row.cipher_suite }}</td>
                         <td style="font-size:0.7rem;">{{ row.ca }}</td>
                         <td style="font-size:0.75rem;">{{ (row.valid_until or '-')[:10] }}</td>
+                        <td>
+                            <div class="cert-details-box">
+                                <details>
+                                    <summary>Show full X.509 details</summary>
+                                    <div class="cert-details-grid">
+                                        <div class="row"><span class="key">Certificate Version:</span><span class="val">{{ cert.get('certificate_version', '-') }}</span></div>
+                                        <div class="row"><span class="key">Serial Number:</span><span class="val">{{ cert.get('serial_number', row.serial or '-') }}</span></div>
+                                        <div class="row"><span class="key">Certificate Signature Algorithm:</span><span class="val">{{ cert.get('certificate_signature_algorithm', row.signature_algorithm or '-') }}</span></div>
+                                        <div class="row"><span class="key">Issuer:</span><span class="val">{{ cert.get('issuer', row.issuer_name or row.ca or '-') }}</span></div>
+                                        <div class="row"><span class="key">Validity Not Before:</span><span class="val">{{ validity.get('not_before', row.valid_from or '-') }}</span></div>
+                                        <div class="row"><span class="key">Validity Not After:</span><span class="val">{{ validity.get('not_after', row.valid_until or '-') }}</span></div>
+                                        <div class="row"><span class="key">Subject:</span><span class="val">{{ cert.get('subject', row.subject_name or '-') }}</span></div>
+                                        <div class="row"><span class="key">Subject Public Key Info:</span><span class="val">{{ spki }}</span></div>
+                                        <div class="row"><span class="key">Subject Public Key Algorithm:</span><span class="val">{{ spki.get('subject_public_key_algorithm', row.public_key_type or '-') }}</span></div>
+                                        <div class="row"><span class="key">Subject's Public Key:</span><span class="val">{{ spki.get('subject_public_key', '-') }}</span></div>
+                                        <div class="row"><span class="key">Extensions:</span><span class="val">{{ cert.get('extensions', []) }}</span></div>
+                                        <div class="row"><span class="key">Certificate Key Usage:</span><span class="val">{{ cert.get('certificate_key_usage', []) }}</span></div>
+                                        <div class="row"><span class="key">Extended Key Usage:</span><span class="val">{{ cert.get('extended_key_usage', []) }}</span></div>
+                                        <div class="row"><span class="key">Certificate Basicconstraints:</span><span class="val">{{ cert.get('certificate_basic_constraints', {}) }}</span></div>
+                                        <div class="row"><span class="key">Certificate Subject Key ID:</span><span class="val">{{ cert.get('certificate_subject_key_id', '-') }}</span></div>
+                                        <div class="row"><span class="key">Certification Authority Key ID:</span><span class="val">{{ cert.get('certificate_authority_key_id', '-') }}</span></div>
+                                        <div class="row"><span class="key">Authority Information Access:</span><span class="val">{{ cert.get('authority_information_access', []) }}</span></div>
+                                        <div class="row"><span class="key">Certificate Subject Alternative Name:</span><span class="val">{{ cert.get('certificate_subject_alternative_name', []) }}</span></div>
+                                        <div class="row"><span class="key">Certificate Policies:</span><span class="val">{{ cert.get('certificate_policies', []) }}</span></div>
+                                        <div class="row"><span class="key">CRL Distribution Points:</span><span class="val">{{ cert.get('crl_distribution_points', []) }}</span></div>
+                                        <div class="row"><span class="key">Signed Certificate Timestamp List:</span><span class="val">{{ cert.get('signed_certificate_timestamp_list', []) }}</span></div>
+                                    </div>
+                                </details>
+                            </div>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>

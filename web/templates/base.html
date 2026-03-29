@@ -215,6 +215,7 @@
         '/cyber-rating': 'Cyber Rating',
         '/reporting': 'Reporting',
         '/profile': 'Profile',
+        '/admin/api': 'Admin API',
         '/docs': 'Docs'
     } %}
     {% set section_title = section_map.get(request.path, 'Dashboard') %}    <!-- Navigation -->
@@ -269,6 +270,8 @@
                         <div class="nav-dropdown-menu">
                             <a href="/admin/users" class="dropdown-link"><i class="fa-solid fa-users"></i> Users</a>
                             <a href="/admin/audit" class="dropdown-link"><i class="fa-solid fa-clock-rotate-left"></i> Audit</a>
+                            <a href="/admin/api" class="dropdown-link"><i class="fa-solid fa-key"></i> API Keys</a>
+                            <a href="/docs" class="dropdown-link"><i class="fa-solid fa-book"></i> API Docs</a>
                             <a href="/recycle-bin" class="dropdown-link"><i class="fa-solid fa-trash-can"></i> Recycle Bin</a>
                             <a href="/admin/theme" class="dropdown-link"><i class="fa-solid fa-palette"></i> Theme</a>
                         </div>
@@ -282,7 +285,7 @@
                                 <span class="nav-text">{{ current_user.username[:8] }}</span> <span class="arrow">▾</span>
                             </button>
                             <div class="nav-dropdown-menu">
-                                <a href="/profile" class="dropdown-link"><i class="fa-solid fa-key"></i> API Keys</a>
+                                <a href="/profile" class="dropdown-link"><i class="fa-solid fa-user"></i> Profile</a>
                                 <form action="/logout" method="POST" style="margin: 0;">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="dropdown-link logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
@@ -332,6 +335,7 @@
 
     {% if current_user.is_authenticated %}
     {% include 'common/asset_detail_modal.html' %}
+    {% include 'common/scan_detail_modal.html' %}
     {% endif %}
 
     <!-- Footer -->

@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Dict, Tuple
 
 from sqlalchemy import and_
+from sqlalchemy.exc import IntegrityError
 
 from config import DIGITAL_LABELS_CONFIG
 from src.db import db_session
@@ -20,6 +21,27 @@ from src.models import AssetMetric, CyberRating, DigitalLabel, Finding
 
 class DigitalLabelService:
     """Assign and persist digital labels for scanned assets."""
+
+    @staticmethod
+    def _get_or_create_asset_metric(asset_id: int) -> AssetMetric:
+        """Get or create AssetMetric row safely under concurrent writes."""
+        metric = db_session.query(AssetMetric).filter(AssetMetric.asset_id == asset_id).first()
+        if metric:
+            return metric
+
+        savepoint = db_session.begin_nested()
+        try:
+            metric = AssetMetric(asset_id=asset_id)
+            db_session.add(metric)
+            db_session.flush()
+            savepoint.commit()
+            return metric
+        except IntegrityError:
+            savepoint.rollback()
+            existing = db_session.query(AssetMetric).filter(AssetMetric.asset_id == asset_id).first()
+            if existing:
+                return existing
+            raise
 
     @staticmethod
     def assign_label(
@@ -136,11 +158,7 @@ class DigitalLabelService:
     @staticmethod
     def calculate_and_store_digital_label(asset_id: int, scan_id: int, auto_commit: bool = True) -> Dict:
         """Calculate and persist digital label for a single asset/scan."""
-        metric = db_session.query(AssetMetric).filter(AssetMetric.asset_id == asset_id).first()
-        if not metric:
-            metric = AssetMetric(asset_id=asset_id)
-            db_session.add(metric)
-            db_session.flush()
+        metric = DigitalLabelService._get_or_create_asset_metric(asset_id)
 
         findings_count = db_session.query(Finding).filter(
             and_(
