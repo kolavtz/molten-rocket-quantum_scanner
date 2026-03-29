@@ -29,6 +29,11 @@ class PQCService:
         "critical": 0,    # Score < 40% (mostly quantum-vulnerable)
     }
 
+    _SAFE_STATUSES = {"safe", "quantum_safe", "quantum-safe"}
+    _UNSAFE_STATUSES = {"unsafe", "quantum_vulnerable", "quantum-vulnerable", "vulnerable", "migration_advised", "migration-advised", "migration advised"}
+    _WEAK_TRANSPORT_MARKERS = {"sslv2", "sslv3", "tls1.0", "tls1.1", "tlsv1", "tlsv1.0", "tlsv1.1"}
+    _PLAINTEXT_MARKERS = {"", "unknown", "none", "plaintext", "http"}
+
     @staticmethod
     def _score_to_pqc_tier(score: float) -> str:
         """Convert PQC score (0-100) to posture tier."""
@@ -42,6 +47,23 @@ class PQCService:
         return "Critical"
 
     @staticmethod
+    def _normalize_status(value: object) -> str:
+        return str(value or "").strip().lower().replace(" ", "_")
+
+    @staticmethod
+    def _normalize_tier(value: object) -> str:
+        normalized = str(value or "").strip().lower()
+        if normalized == "elite":
+            return "Elite"
+        if normalized == "standard":
+            return "Standard"
+        if normalized == "legacy":
+            return "Legacy"
+        if normalized == "critical":
+            return "Critical"
+        return ""
+
+    @staticmethod
     def get_pqc_dashboard_data(
         asset_id: Optional[int] = None,
         start_date: Optional[datetime] = None,
@@ -52,6 +74,8 @@ class PQCService:
         sort_field: str = "asset_name",
         sort_order: str = "asc",
         search_term: str = "",
+        status_filter: str = "",
+        pqc_ready_only: bool = False,
     ) -> Dict:
         """
         Build comprehensive PQC posture dashboard metrics.
@@ -109,59 +133,17 @@ class PQCService:
 
             pqc_records = pqc_query.all()
 
-            # ===== Aggregate by asset: determine each asset's overall PQC tier =====
-            asset_scores = {}  # asset_id -> best_pqc_score
+            # ===== Aggregate PQC records by asset =====
             asset_classifications = defaultdict(list)  # asset_id -> [classifications]
 
             for pqc_record in pqc_records:
                 asset_classifications[pqc_record.asset_id].append(pqc_record)
-                # Take highest score for this asset (latest best assessment)
-                if pqc_record.asset_id not in asset_scores:
-                    asset_scores[pqc_record.asset_id] = pqc_record.pqc_score or 0
-
-            # ===== Calculate per-asset tiers and aggregate metrics =====
-            tier_counts = Counter()
-            asset_tier_map = {}  # asset_id -> tier
-
-            for asset in assets:
-                # Score = best PQC score from classifications, or 0 if no data
-                score = asset_scores.get(asset.id, 0)
-                tier = PQCService._score_to_pqc_tier(score)
-                tier_counts[tier] += 1
-                asset_tier_map[asset.id] = (tier, score)
-
-            # ===== Calculate percentages and metrics =====
-            elite_count = tier_counts.get("Elite", 0)
-            standard_count = tier_counts.get("Standard", 0)
-            legacy_count = tier_counts.get("Legacy", 0)
-            critical_count = tier_counts.get("Critical", 0)
-
-            # Percentages based on total active assets
-            elite_pct = round((elite_count / total_assets * 100), 1) if total_assets > 0 else 0
-            standard_pct = round((standard_count / total_assets * 100), 1) if total_assets > 0 else 0
-            legacy_pct = round((legacy_count / total_assets * 100), 1) if total_assets > 0 else 0
-            critical_pct = round((critical_count / total_assets * 100), 1) if total_assets > 0 else 0
-
-            # Average score across all assets
-            scores = list(asset_scores.values())
-            avg_score = sum(scores) / len(scores) if scores else 0
-
-            # ===== Build risk heatmap (asset counts per tier) =====
-            risk_heatmap = [
-                {"x": "PQC Grade", "y": "Elite", "value": elite_count},
-                {"x": "PQC Grade", "y": "Standard", "value": standard_count},
-                {"x": "PQC Grade", "y": "Legacy", "value": legacy_count},
-                {"x": "PQC Grade", "y": "Critical", "value": critical_count},
-            ]
-
-            # ===== Build recommendations =====
-            recommendations = PQCService._build_recommendations(
-                total_assets, elite_count, standard_count, legacy_count, critical_count, avg_score
-            )
-
             # ===== Build applications/telemetry table (asset-based, not scan-based) =====
+            # Build with full asset set first so KPI math and table rows stay consistent.
             applications = PQCService._build_applications_table(
-                assets, asset_tier_map, asset_classifications, limit
+                assets,
+                asset_classifications,
+                max(int(limit or 0), len(assets)) if assets else int(limit or 0),
             )
 
             # Search + sort + pagination for posture support telemetry table.
@@ -173,7 +155,48 @@ class PQCService:
                     if search_term in str(r.get("asset_name", "")).lower()
                     or search_term in str(r.get("status", "")).lower()
                     or search_term in str(r.get("scan_kind", "")).lower()
+                    or search_term in str(r.get("pqc_algorithms_display", "")).lower()
+                    or search_term in str(r.get("classical_algorithms_display", "")).lower()
+                    or search_term in str(r.get("crypto_profile", "")).lower()
                 ]
+
+            normalized_status_filter = PQCService._normalize_tier(status_filter)
+            if normalized_status_filter:
+                applications = [
+                    r for r in applications
+                    if str(r.get("status") or "") == normalized_status_filter
+                ]
+
+            if pqc_ready_only:
+                applications = [r for r in applications if bool(r.get("supports_pqc"))]
+
+            # ===== Calculate percentages and metrics from final, consistently filtered rows =====
+            effective_total = len(applications)
+            tier_counts = Counter(str(row.get("status") or "Critical") for row in applications)
+            elite_count = int(tier_counts.get("Elite", 0))
+            standard_count = int(tier_counts.get("Standard", 0))
+            legacy_count = int(tier_counts.get("Legacy", 0))
+            critical_count = int(tier_counts.get("Critical", 0))
+
+            elite_pct = round((elite_count / effective_total * 100), 1) if effective_total > 0 else 0
+            standard_pct = round((standard_count / effective_total * 100), 1) if effective_total > 0 else 0
+            legacy_pct = round((legacy_count / effective_total * 100), 1) if effective_total > 0 else 0
+            critical_pct = round((critical_count / effective_total * 100), 1) if effective_total > 0 else 0
+
+            scores = [float(row.get("score") or 0) for row in applications]
+            avg_score = (sum(scores) / len(scores)) if scores else 0
+
+            # ===== Build risk heatmap (asset counts per tier) =====
+            risk_heatmap = [
+                {"x": "PQC Grade", "y": "Elite", "value": elite_count},
+                {"x": "PQC Grade", "y": "Standard", "value": standard_count},
+                {"x": "PQC Grade", "y": "Legacy", "value": legacy_count},
+                {"x": "PQC Grade", "y": "Critical", "value": critical_count},
+            ]
+
+            recommendations = PQCService._build_recommendations(
+                effective_total, elite_count, standard_count, legacy_count, critical_count, avg_score
+            )
 
             sort_field = (sort_field or "asset_name").strip().lower()
             sort_order = (sort_order or "asc").strip().lower()
@@ -197,8 +220,8 @@ class PQCService:
             offset = (page - 1) * page_size
             applications_page = applications[offset:offset + page_size]
 
-            # ===== Count scanned assets (assets with PQC records) =====
-            scanned_assets = len(set(a_id for a_id in asset_scores.keys()))
+            # ===== Count scanned assets (assets with crypto telemetry evidence) =====
+            scanned_assets = sum(1 for row in applications if bool(row.get("telemetry_available")))
 
             return {
                 "kpis": {
@@ -233,7 +256,7 @@ class PQCService:
                     "has_prev": page > 1,
                 },
                 "meta": {
-                    "total_assets": total_assets,
+                    "total_assets": effective_total,
                     "scanned_assets": scanned_assets,
                 },
             }
@@ -306,7 +329,6 @@ class PQCService:
     @staticmethod
     def _build_applications_table(
         assets: List[Asset],
-        asset_tier_map: Dict[int, Tuple[str, float]],
         asset_classifications: Dict[int, List[PQCClassification]],
         limit: int
     ) -> List[Dict]:
@@ -371,9 +393,9 @@ class PQCService:
                 if aid > 0 and aid not in latest_cert_by_asset:
                     latest_cert_by_asset[aid] = cert
 
-        for asset in assets[:limit]:
+        max_rows = len(assets) if int(limit or 0) <= 0 else min(int(limit or 0), len(assets))
+        for asset in assets[:max_rows]:
             asset_id = int(getattr(asset, "id", 0) or 0)
-            tier, score = asset_tier_map.get(asset_id, ("Unknown", 0))
             target_key = str(getattr(asset, "target", "") or "").strip().lower()
             latest_scan = latest_scan_by_target.get(target_key)
             latest_cert = latest_cert_by_asset.get(asset_id)
@@ -396,37 +418,118 @@ class PQCService:
 
             # Count quantum-safe vs vulnerable algorithms for this asset
             classifications = asset_classifications.get(asset_id, [])
-            safe_count = sum(
-                1 for c in classifications
-                if str(getattr(c, "quantum_safe_status", "") or "") == "quantum_safe"
-            )
-            vulnerable_count = sum(
-                1 for c in classifications
-                if str(getattr(c, "quantum_safe_status", "") or "") == "quantum_vulnerable"
-            )
+            safe_algorithms: List[str] = []
+            classical_algorithms: List[str] = []
+            for c in classifications:
+                status = PQCService._normalize_status(getattr(c, "quantum_safe_status", ""))
+                algo_name = str(getattr(c, "algorithm_name", "") or "").strip()
+                normalized_algo = algo_name or str(getattr(c, "algorithm_type", "") or "").strip() or "Unknown"
+                if status in PQCService._SAFE_STATUSES:
+                    if normalized_algo not in safe_algorithms:
+                        safe_algorithms.append(normalized_algo)
+                elif status in PQCService._UNSAFE_STATUSES or status:
+                    if normalized_algo not in classical_algorithms:
+                        classical_algorithms.append(normalized_algo)
+
+            safe_count = len(safe_algorithms)
+            vulnerable_count = len(classical_algorithms)
 
             tls_version = str(getattr(latest_cert, "tls_version", "") or "Unknown") if latest_cert else "Unknown"
             cipher_suite = str(getattr(latest_cert, "cipher_suite", "") or "Unknown") if latest_cert else "Unknown"
-            if score >= 80:
-                recommendation = "Maintain current posture; keep cert and cipher baselines patched."
+            key_length = int(getattr(latest_cert, "key_length", 0) or 0) if latest_cert else 0
+            key_algorithm = str(getattr(latest_cert, "key_algorithm", "") or "Unknown") if latest_cert else "Unknown"
+            signature_algorithm = str(getattr(latest_cert, "signature_algorithm", "") or "Unknown") if latest_cert else "Unknown"
+
+            normalized_tls = tls_version.strip().lower().replace(" ", "")
+            has_pqc = safe_count > 0
+            has_telemetry = bool(classifications) or latest_cert is not None
+            plaintext_or_no_crypto = normalized_tls in PQCService._PLAINTEXT_MARKERS or not has_telemetry
+            weak_transport = normalized_tls in PQCService._WEAK_TRANSPORT_MARKERS
+            strong_transport = normalized_tls.startswith("tls1.2") or normalized_tls.startswith("tls1.3")
+
+            signature_norm = signature_algorithm.lower()
+            classical_standard = (
+                ("sha256" in signature_norm or "sha384" in signature_norm or "sha512" in signature_norm)
+                or key_length >= 128
+            )
+
+            score = 0.0
+            if has_pqc:
+                score += 70.0
+            if strong_transport:
+                score += 15.0
+            elif weak_transport:
+                score += 5.0
+
+            if key_length >= 256:
+                score += 10.0
+            elif key_length >= 128:
+                score += 8.0
+            elif key_length > 0:
+                score += 4.0
+
+            if classical_standard:
+                score += 7.0
+
+            if vulnerable_count > 0:
+                score -= min(35.0, float(vulnerable_count * 8))
+
+            if plaintext_or_no_crypto:
+                score -= 55.0
+
+            score = max(0.0, min(100.0, score))
+
+            if plaintext_or_no_crypto:
+                tier = "Critical"
+            elif has_pqc and score >= 80:
+                tier = "Elite"
+            elif weak_transport or (0 < key_length < 128) or vulnerable_count > 0:
+                tier = "Legacy" if score >= 40 else "Critical"
+            elif classical_standard and strong_transport:
+                tier = "Standard"
             elif score >= 60:
-                recommendation = "Prioritize migration to NIST-approved PQC where feasible."
+                tier = "Standard"
             elif score >= 40:
-                recommendation = "Upgrade weak TLS/cipher suites and begin staged PQC rollout."
+                tier = "Legacy"
             else:
-                recommendation = "Immediate remediation required: replace vulnerable algorithms and legacy TLS."
+                tier = "Critical"
+
+            if tier == "Elite":
+                recommendation = "PQC-ready posture detected. Maintain controls and continuously monitor algorithm inventory."
+            elif tier == "Standard":
+                recommendation = "Strong classical cryptography detected. Plan migration to NIST-approved PQC algorithms."
+            elif tier == "Legacy":
+                recommendation = "Legacy or vulnerable crypto present. Prioritize TLS/cipher upgrades before phased PQC rollout."
+            else:
+                recommendation = "Critical exposure: missing/weak cryptography or plaintext transport. Immediate remediation required."
+
+            pqc_algorithms_display = ", ".join(safe_algorithms[:4]) if safe_algorithms else "None detected"
+            classical_algorithms_display = ", ".join(classical_algorithms[:4]) if classical_algorithms else "None detected"
+            crypto_profile = f"TLS {tls_version} | {key_algorithm} {key_length if key_length > 0 else '--'} | {signature_algorithm}"
 
             rows.append({
                 "target": asset.target,
                 "asset_name": asset.name or asset.target,
                 "name": asset.name or asset.target,
+                "domain": asset.target,
                 "status": tier,
                 "score": round(score, 1),
-                "readiness": "YES" if score >= 70 else "NO",  # >=70 considered ready
+                "readiness": "YES" if tier in {"Elite", "Standard"} else "NO",
                 "quantum_safe_algorithms": safe_count,
                 "quantum_vulnerable_algorithms": vulnerable_count,
+                "pqc_algorithms": safe_algorithms,
+                "vulnerable_algorithms": classical_algorithms,
+                "pqc_algorithms_display": pqc_algorithms_display,
+                "classical_algorithms_display": classical_algorithms_display,
                 "tls_version": tls_version,
                 "cipher_suite": cipher_suite,
+                "key_length": key_length,
+                "key_algorithm": key_algorithm,
+                "signature_algorithm": signature_algorithm,
+                "crypto_profile": crypto_profile,
+                "supports_pqc": has_pqc,
+                "telemetry_available": has_telemetry,
+                "plaintext_or_no_crypto": plaintext_or_no_crypto,
                 "recommendation": recommendation,
                 "last_scan": last_scan.isoformat() if hasattr(last_scan, "isoformat") and last_scan else "",
                 "scan_kind": scan_kind,

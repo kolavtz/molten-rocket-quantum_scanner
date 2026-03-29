@@ -9,7 +9,7 @@ from typing import Dict, List, Any, Optional
 import json
 
 import logging
-from sqlalchemy import text, func, desc
+from sqlalchemy import text, func, desc, and_
 
 from src.models import (
     Asset, Scan, Certificate, CBOMEntry, PQCClassification,
@@ -373,23 +373,39 @@ class AssetService:
             
         # 2. Discovery Items (Not yet promoted)
         # We'll peak into DiscoveryDomain and DiscoverySoftware as they are most representative
-        new_domains = db_session.query(DiscoveryDomain).filter(
-            and_(
-                DiscoveryDomain.created_at >= threshold,
-                DiscoveryDomain.promoted_to_inventory == False
+        detected_at_expr = self._discovery_detected_at_expr(DiscoveryDomain)
+        new_domains = (
+            db_session.query(DiscoveryDomain, detected_at_expr.label("detected_at"))
+            .outerjoin(Scan, DiscoveryDomain.scan_id == Scan.id)
+            .filter(
+                and_(
+                    DiscoveryDomain.is_deleted == False,
+                    DiscoveryDomain.promoted_to_inventory == False,
+                    detected_at_expr >= threshold,
+                )
             )
-        ).all()
+            .all()
+        )
         
-        for d in new_domains:
+        for d, detected_at in new_domains:
+            detected_value = self._coerce_datetime(detected_at)
             recent_items.append({
                 "name": d.domain,
                 "type": "Domain",
-                "date": d.created_at.strftime("%Y-%m-%d"),
+                "date": detected_value.strftime("%Y-%m-%d") if detected_value else "Unknown",
                 "risk": "New",
-                "source": "Discovery"
+                "source": "Discovery",
+                "_sort_at": detected_value or datetime.min,
             })
-            
-        return sorted(recent_items, key=lambda x: x['date'], reverse=True)[:10]
+
+        for item in recent_items:
+            if "_sort_at" not in item:
+                item["_sort_at"] = self._coerce_datetime(item.get("date")) or datetime.min
+
+        sorted_items = sorted(recent_items, key=lambda x: x["_sort_at"], reverse=True)[:10]
+        for item in sorted_items:
+            item.pop("_sort_at", None)
+        return sorted_items
 
     def get_top_vulnerable_software(self, limit: int = 5) -> List[Dict[str, Any]]:
         """Get top vulnerable software from discovery or CBOM."""
@@ -517,6 +533,31 @@ class AssetService:
         if score >= 25: return "High"
         return "Critical"
 
+    def _discovery_detected_at_expr(self, model):
+        return func.coalesce(
+            getattr(model, "promoted_at", None),
+            Scan.completed_at,
+            Scan.scanned_at,
+            Scan.started_at,
+            Scan.created_at,
+        )
+
+    def _discovery_detected_at_value(self, item):
+        promoted_at = getattr(item, "promoted_at", None)
+        if promoted_at is not None:
+            return promoted_at
+
+        scan = getattr(item, "scan", None)
+        if scan is None:
+            return None
+
+        return (
+            getattr(scan, "completed_at", None)
+            or getattr(scan, "scanned_at", None)
+            or getattr(scan, "started_at", None)
+            or getattr(scan, "created_at", None)
+        )
+
     def get_comprehensive_asset_detail(self, asset_id: int) -> dict:
         """
         Consolidates ALL telemetry for a single asset into a unified DTO.
@@ -532,10 +573,18 @@ class AssetService:
             discovery_software = db_session.query(DiscoverySoftware).filter(DiscoverySoftware.asset_id == asset_id).all()
 
             discovery_events = []
-            for d in discovery_domains: discovery_events.append({"date": d.created_at.isoformat(), "type": "Domain", "status": d.status})
-            for d in discovery_ssl: discovery_events.append({"date": d.created_at.isoformat(), "type": "SSL", "status": d.status})
-            for d in discovery_ips: discovery_events.append({"date": d.created_at.isoformat(), "type": "IP", "status": d.status})
-            for d in discovery_software: discovery_events.append({"date": d.created_at.isoformat(), "type": "Software", "status": d.status})
+            for d in discovery_domains:
+                detected_at = self._discovery_detected_at_value(d)
+                discovery_events.append({"date": detected_at.isoformat() if detected_at else None, "type": "Domain", "status": d.status})
+            for d in discovery_ssl:
+                detected_at = self._discovery_detected_at_value(d)
+                discovery_events.append({"date": detected_at.isoformat() if detected_at else None, "type": "SSL", "status": d.status})
+            for d in discovery_ips:
+                detected_at = self._discovery_detected_at_value(d)
+                discovery_events.append({"date": detected_at.isoformat() if detected_at else None, "type": "IP", "status": d.status})
+            for d in discovery_software:
+                detected_at = self._discovery_detected_at_value(d)
+                discovery_events.append({"date": detected_at.isoformat() if detected_at else None, "type": "Software", "status": d.status})
             
             latest_scan = db_session.query(Scan).filter(Scan.asset_id == asset_id, Scan.status == "complete").order_by(Scan.completed_at.desc()).first()
             geo_info = self.ip_locator.get_location(asset.ipv4 or asset.target)

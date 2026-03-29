@@ -21,6 +21,8 @@ except Exception:
 
 import json
 import re
+import base64
+import hashlib
 
 import os
 import uuid
@@ -233,38 +235,38 @@ _HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 THEME_DEFAULTS = {
     "dark": {
-        "bg_navbar": "#0f172a",
-        "bg_primary": "#020617",
-        "bg_secondary": "#0b1120",
-        "bg_card": "#0f172a",
-        "bg_input": "#111827",
-        "border_subtle": "#334155",
-        "border_hover": "#60a5fa",
-        "text_primary": "#e5e7eb",
-        "text_secondary": "#9ca3af",
-        "text_muted": "#6b7280",
-        "accent_color": "#2563eb",
-        "text_on_accent": "#f9fafb",
-        "safe": "#22c55e",
-        "warn": "#f59e0b",
-        "danger": "#ef4444",
+        "bg_navbar": "#0b1220",
+        "bg_primary": "#060b16",
+        "bg_secondary": "#0f1b2d",
+        "bg_card": "#111a2e",
+        "bg_input": "#0d1628",
+        "border_subtle": "#2a3a55",
+        "border_hover": "#38bdf8",
+        "text_primary": "#e6edf7",
+        "text_secondary": "#b3c0d4",
+        "text_muted": "#8a99b2",
+        "accent_color": "#22d3ee",
+        "text_on_accent": "#06202a",
+        "safe": "#34d399",
+        "warn": "#fbbf24",
+        "danger": "#f87171",
     },
     "light": {
-        "bg_navbar": "#ffffff",
-        "bg_primary": "#f3f4f6",
+        "bg_navbar": "#f8fafc",
+        "bg_primary": "#eef3fb",
         "bg_secondary": "#ffffff",
         "bg_card": "#ffffff",
-        "bg_input": "#ffffff",
-        "border_subtle": "#cbd5f5",
-        "border_hover": "#2563eb",
-        "text_primary": "#0f172a",
-        "text_secondary": "#475569",
-        "text_muted": "#9ca3af",
-        "accent_color": "#2563eb",
+        "bg_input": "#f8fbff",
+        "border_subtle": "#c7d2e5",
+        "border_hover": "#0ea5e9",
+        "text_primary": "#0b1324",
+        "text_secondary": "#334155",
+        "text_muted": "#64748b",
+        "accent_color": "#0ea5e9",
         "text_on_accent": "#ffffff",
-        "safe": "#22c55e",
-        "warn": "#f59e0b",
-        "danger": "#ef4444",
+        "safe": "#059669",
+        "warn": "#d97706",
+        "danger": "#dc2626",
     },
 }
 
@@ -322,17 +324,29 @@ def _sanitize_theme_palette(raw_palette: dict | None, defaults: dict) -> dict:
         "danger": _normalize_hex_color(raw_palette.get("danger"), defaults["danger"]),
     }
 
-    if _contrast_ratio(palette["bg_primary"], palette["text_primary"]) < 4.5:
+    def _best_text_for_background(bg_color: str) -> str:
         dark_text = "#0b1120"
         light_text = "#f3f4f6"
-        dark_ratio = _contrast_ratio(palette["bg_primary"], dark_text)
-        light_ratio = _contrast_ratio(palette["bg_primary"], light_text)
-        palette["text_primary"] = dark_text if dark_ratio >= light_ratio else light_text
+        dark_ratio = _contrast_ratio(bg_color, dark_text)
+        light_ratio = _contrast_ratio(bg_color, light_text)
+        return dark_text if dark_ratio >= light_ratio else light_text
+
+    if _contrast_ratio(palette["bg_primary"], palette["text_primary"]) < 4.5:
+        palette["text_primary"] = _best_text_for_background(palette["bg_primary"])
+
+    if _contrast_ratio(palette["bg_card"], palette["text_primary"]) < 4.5:
+        palette["text_primary"] = _best_text_for_background(palette["bg_card"])
+
+    if _contrast_ratio(palette["bg_navbar"], palette["text_primary"]) < 4.5:
+        palette["text_primary"] = _best_text_for_background(palette["bg_navbar"])
 
     if _contrast_ratio(palette["bg_card"], palette["text_secondary"]) < 3.0:
         palette["text_secondary"] = palette["text_primary"]
     if _contrast_ratio(palette["bg_card"], palette["text_muted"]) < 2.5:
         palette["text_muted"] = palette["text_secondary"]
+
+    if _contrast_ratio(palette["accent_color"], palette["text_on_accent"]) < 4.5:
+        palette["text_on_accent"] = _best_text_for_background(palette["accent_color"])
 
     return palette
 
@@ -590,6 +604,68 @@ def _audit(
         request_path=request.path,
         details=details or {},
     )
+
+
+def _build_encrypted_audit_export_blob(
+    logs: list[dict[str, Any]],
+    chain_valid: bool,
+    chain_issues: list[str],
+    password: str,
+    exported_by: str,
+) -> bytes:
+    """Build password-encrypted immutable audit export payload."""
+    from cryptography.fernet import Fernet
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+    normalized_password = str(password or "").strip()
+    if len(normalized_password) < 12:
+        raise ValueError("Export password must be at least 12 characters long.")
+
+    plaintext_payload = {
+        "format": "quantumshield.audit.chain.v1",
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "exported_by": exported_by,
+        "chain_verified": bool(chain_valid),
+        "chain_issues": list(chain_issues or []),
+        "record_count": int(len(logs or [])),
+        "records": logs or [],
+    }
+    plaintext_bytes = json.dumps(
+        plaintext_payload,
+        default=_json_default,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+    iterations = 390000
+    salt = os.urandom(16)
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=iterations,
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(normalized_password.encode("utf-8")))
+    encrypted_token = Fernet(key).encrypt(plaintext_bytes)
+
+    export_envelope = {
+        "format": "quantumshield.audit.encrypted-export.v1",
+        "encryption": {
+            "scheme": "fernet",
+            "kdf": "PBKDF2-HMAC-SHA256",
+            "iterations": iterations,
+            "salt_b64": base64.b64encode(salt).decode("ascii"),
+        },
+        "integrity": {
+            "plaintext_sha256": hashlib.sha256(plaintext_bytes).hexdigest(),
+            "ciphertext_sha256": hashlib.sha256(encrypted_token).hexdigest(),
+        },
+        "record_count": int(len(logs or [])),
+        "chain_verified": bool(chain_valid),
+        "ciphertext_b64": encrypted_token.decode("utf-8"),
+    }
+    return json.dumps(export_envelope, indent=2).encode("utf-8")
 
 
 @app.before_request
@@ -1903,6 +1979,7 @@ def login():
         username = (request.form.get("username") or "").strip()
         password = request.form.get("password") or ""
         remember = bool(request.form.get("remember"))
+        request_ip = _get_request_ip()
 
         user_data = db.get_user_by_username(username)
 
@@ -1914,11 +1991,14 @@ def login():
                 status="denied",
                 actor_user_id=user_data.get("id"),
                 actor_username=username,
-                ip_address=_get_request_ip(),
+                ip_address=request_ip,
                 user_agent=request.headers.get("User-Agent", "")[:512],
                 request_method=request.method,
                 request_path=request.path,
-                details={"lockout_until": user_data.get("lockout_until").isoformat() if user_data.get("lockout_until") else None},
+                details={
+                    "lockout_until": user_data.get("lockout_until").isoformat() if user_data.get("lockout_until") else None,
+                    "login_ip": request_ip,
+                },
             )
             flash("Account temporarily locked due to repeated failed login attempts. Please try again later or use Forgot Password.", "error")
             locked = True
@@ -1934,7 +2014,13 @@ def login():
             user = User(user_data)
             session.clear()
             login_user(user, remember=remember)
-            _audit("auth", "login_success", "success", target_user_id=user_data["id"], details={"role": user.role, "remember": remember})
+            _audit(
+                "auth",
+                "login_success",
+                "success",
+                target_user_id=user_data["id"],
+                details={"role": user.role, "remember": remember, "login_ip": request_ip},
+            )
 
             if user_data.get("must_change_password"):
                 token = db.create_password_setup_token(user_data["id"], expires_hours=2)
@@ -1953,11 +2039,11 @@ def login():
                 status="failed",
                 actor_user_id=user_data.get("id") if user_data else None,
                 actor_username=username,
-                ip_address=_get_request_ip(),
+                ip_address=request_ip,
                 user_agent=request.headers.get("User-Agent", "")[:512],
                 request_method=request.method,
                 request_path=request.path,
-                details={"user_exists": bool(user_data)},
+                details={"user_exists": bool(user_data), "login_ip": request_ip},
             )
             flash("Invalid credentials. Access denied.", "error")
 
@@ -2038,54 +2124,69 @@ def admin_theme():
     """Admin panel to configure dynamic UI theme colors."""
     current_theme = load_theme()
     if request.method == "POST":
+        requested_theme = {
+            "mode": request.form.get("mode", current_theme.get("mode", "system")),
+            "dark": {
+                "bg_navbar": request.form.get("dark_bg_navbar", current_theme["dark"]["bg_navbar"]),
+                "bg_primary": request.form.get("dark_bg_primary", current_theme["dark"]["bg_primary"]),
+                "bg_secondary": request.form.get("dark_bg_secondary", current_theme["dark"]["bg_secondary"]),
+                "bg_card": request.form.get("dark_bg_card", current_theme["dark"]["bg_card"]),
+                "bg_input": request.form.get("dark_bg_input", current_theme["dark"]["bg_input"]),
+                "border_subtle": request.form.get("dark_border_subtle", current_theme["dark"]["border_subtle"]),
+                "border_hover": request.form.get("dark_border_hover", current_theme["dark"]["border_hover"]),
+                "text_primary": request.form.get("dark_text_primary", current_theme["dark"]["text_primary"]),
+                "text_secondary": request.form.get("dark_text_secondary", current_theme["dark"]["text_secondary"]),
+                "text_muted": request.form.get("dark_text_muted", current_theme["dark"]["text_muted"]),
+                "accent_color": request.form.get("dark_accent_color", current_theme["dark"]["accent_color"]),
+                "safe": request.form.get("dark_safe", current_theme["dark"]["safe"]),
+                "warn": request.form.get("dark_warn", current_theme["dark"]["warn"]),
+                "danger": request.form.get("dark_danger", current_theme["dark"]["danger"]),
+            },
+            "light": {
+                "bg_navbar": request.form.get("light_bg_navbar", current_theme["light"]["bg_navbar"]),
+                "bg_primary": request.form.get("light_bg_primary", current_theme["light"]["bg_primary"]),
+                "bg_secondary": request.form.get("light_bg_secondary", current_theme["light"]["bg_secondary"]),
+                "bg_card": request.form.get("light_bg_card", current_theme["light"]["bg_card"]),
+                "bg_input": request.form.get("light_bg_input", current_theme["light"]["bg_input"]),
+                "border_subtle": request.form.get("light_border_subtle", current_theme["light"]["border_subtle"]),
+                "border_hover": request.form.get("light_border_hover", current_theme["light"]["border_hover"]),
+                "text_primary": request.form.get("light_text_primary", current_theme["light"]["text_primary"]),
+                "text_secondary": request.form.get("light_text_secondary", current_theme["light"]["text_secondary"]),
+                "text_muted": request.form.get("light_text_muted", current_theme["light"]["text_muted"]),
+                "accent_color": request.form.get("light_accent_color", current_theme["light"]["accent_color"]),
+                "safe": request.form.get("light_safe", current_theme["light"]["safe"]),
+                "warn": request.form.get("light_warn", current_theme["light"]["warn"]),
+                "danger": request.form.get("light_danger", current_theme["light"]["danger"]),
+            },
+        }
+
+        action_taken = "save_custom_theme"
+        quick_mode = str(request.form.get("quick_mode") or "").strip().lower()
+        reset_palette = str(request.form.get("reset_palette") or "").strip().lower()
+
         if request.form.get("reset_colors"):
             requested_theme = {
                 "mode": "system",
                 "dark": dict(THEME_DEFAULTS["dark"]),
                 "light": dict(THEME_DEFAULTS["light"]),
             }
-        else:
-            requested_theme = {
-                "mode": request.form.get("mode", current_theme.get("mode", "system")),
-                "dark": {
-                    "bg_navbar": request.form.get("dark_bg_navbar", current_theme["dark"]["bg_navbar"]),
-                    "bg_primary": request.form.get("dark_bg_primary", current_theme["dark"]["bg_primary"]),
-                    "bg_secondary": request.form.get("dark_bg_secondary", current_theme["dark"]["bg_secondary"]),
-                    "bg_card": request.form.get("dark_bg_card", current_theme["dark"]["bg_card"]),
-                    "bg_input": request.form.get("dark_bg_input", current_theme["dark"]["bg_input"]),
-                    "border_subtle": request.form.get("dark_border_subtle", current_theme["dark"]["border_subtle"]),
-                    "border_hover": request.form.get("dark_border_hover", current_theme["dark"]["border_hover"]),
-                    "text_primary": request.form.get("dark_text_primary", current_theme["dark"]["text_primary"]),
-                    "text_secondary": request.form.get("dark_text_secondary", current_theme["dark"]["text_secondary"]),
-                    "text_muted": request.form.get("dark_text_muted", current_theme["dark"]["text_muted"]),
-                    "accent_color": request.form.get("dark_accent_color", current_theme["dark"]["accent_color"]),
-                    "safe": request.form.get("dark_safe", current_theme["dark"]["safe"]),
-                    "warn": request.form.get("dark_warn", current_theme["dark"]["warn"]),
-                    "danger": request.form.get("dark_danger", current_theme["dark"]["danger"]),
-                },
-                "light": {
-                    "bg_navbar": request.form.get("light_bg_navbar", current_theme["light"]["bg_navbar"]),
-                    "bg_primary": request.form.get("light_bg_primary", current_theme["light"]["bg_primary"]),
-                    "bg_secondary": request.form.get("light_bg_secondary", current_theme["light"]["bg_secondary"]),
-                    "bg_card": request.form.get("light_bg_card", current_theme["light"]["bg_card"]),
-                    "bg_input": request.form.get("light_bg_input", current_theme["light"]["bg_input"]),
-                    "border_subtle": request.form.get("light_border_subtle", current_theme["light"]["border_subtle"]),
-                    "border_hover": request.form.get("light_border_hover", current_theme["light"]["border_hover"]),
-                    "text_primary": request.form.get("light_text_primary", current_theme["light"]["text_primary"]),
-                    "text_secondary": request.form.get("light_text_secondary", current_theme["light"]["text_secondary"]),
-                    "text_muted": request.form.get("light_text_muted", current_theme["light"]["text_muted"]),
-                    "accent_color": request.form.get("light_accent_color", current_theme["light"]["accent_color"]),
-                    "safe": request.form.get("light_safe", current_theme["light"]["safe"]),
-                    "warn": request.form.get("light_warn", current_theme["light"]["warn"]),
-                    "danger": request.form.get("light_danger", current_theme["light"]["danger"]),
-                },
-            }
+            action_taken = "reset_all_defaults"
+        elif reset_palette in {"dark", "light"}:
+            requested_theme[reset_palette] = dict(THEME_DEFAULTS[reset_palette])
+            # Operator intent: resetting a palette should immediately preview that mode.
+            requested_theme["mode"] = reset_palette
+            action_taken = f"reset_{reset_palette}_defaults"
+
+        if quick_mode in {"dark", "light", "system"}:
+            requested_theme["mode"] = quick_mode
+            action_taken = f"quick_switch_{quick_mode}"
+
         new_theme = _sanitize_theme(requested_theme)
         try:
             with open(THEME_FILE, 'w') as f:
                 json.dump(new_theme, f, indent=4)
-            _audit("admin", "update_theme", "success", details={"mode": new_theme.get("mode"), "theme": new_theme})
-            flash("Theme configurations updated successfully!", "success")
+            _audit("admin", "update_theme", "success", details={"mode": new_theme.get("mode"), "action": action_taken})
+            flash("Theme settings saved successfully.", "success")
         except Exception as e:
             _audit("admin", "update_theme_failed", "failed", details={"error": str(e)})
             flash(f"Failed to save theme: {e}", "danger")
@@ -2163,6 +2264,69 @@ def admin_audit_logs():
     logs = db.list_audit_logs(limit=AUDIT_LOG_PAGE_SIZE)
     is_valid, issues = db.verify_audit_log_chain(limit=max(AUDIT_LOG_PAGE_SIZE, 500))
     return render_template("admin_audit.html", logs=logs, chain_valid=is_valid, chain_issues=issues)
+
+
+@app.route("/admin/audit/export", methods=["POST"])
+@role_required(list(ADMIN_PANEL_ROLES))
+def admin_audit_logs_export():
+    """Admin-only encrypted export of immutable audit chain records."""
+    payload = request.get_json(silent=True) if request.is_json else request.form
+    payload = payload or {}
+    password = str(payload.get("password") or "").strip()
+    try:
+        limit = int(payload.get("limit") or max(AUDIT_LOG_PAGE_SIZE, 1000))
+    except (TypeError, ValueError):
+        limit = max(AUDIT_LOG_PAGE_SIZE, 1000)
+    limit = max(100, min(limit, 50000))
+
+    if len(password) < 12:
+        message = "Password is required and must be at least 12 characters."
+        if request.is_json:
+            return jsonify({"status": "error", "message": message}), 400
+        flash(message, "error")
+        return redirect(url_for("admin_audit_logs"))
+
+    logs = db.list_audit_logs(limit=limit)
+    chain_valid, issues = db.verify_audit_log_chain(limit=max(limit, 500))
+    exported_by = str(getattr(current_user, "username", "admin") or "admin")
+
+    try:
+        encrypted_blob = _build_encrypted_audit_export_blob(
+            logs=logs,
+            chain_valid=chain_valid,
+            chain_issues=issues,
+            password=password,
+            exported_by=exported_by,
+        )
+    except Exception as exc:
+        _audit("admin", "audit_export_encrypted", "failed", details={"error": str(exc)[:200], "limit": limit})
+        if request.is_json:
+            return jsonify({"status": "error", "message": "Failed to generate encrypted export."}), 500
+        flash("Failed to generate encrypted export.", "error")
+        return redirect(url_for("admin_audit_logs"))
+
+    _audit(
+        "admin",
+        "audit_export_encrypted",
+        "success",
+        details={
+            "limit": limit,
+            "record_count": len(logs),
+            "chain_valid": bool(chain_valid),
+        },
+    )
+
+    filename = f"audit_export_encrypted_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
+    return Response(
+        encrypted_blob,
+        status=200,
+        mimetype="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(encrypted_blob)),
+            "X-Audit-Encrypted": "true",
+        },
+    )
 
 
 @app.route("/admin/api", methods=["GET"])
@@ -2282,7 +2446,78 @@ def admin_update_user(user_id: str):
     return redirect(url_for("admin_users"))
 
 
+@app.route("/admin/users/bulk", methods=["POST"])
+@role_required(list(ADMIN_PANEL_ROLES))
+def admin_bulk_users():
+    """Bulk user management endpoint for role updates and deletion."""
+    data = request.get_json(silent=True) or {}
+    action = str(data.get("action") or "").strip().lower()
+    raw_user_ids = data.get("user_ids")
+
+    if not isinstance(raw_user_ids, list):
+        return jsonify({"status": "error", "message": "'user_ids' must be an array."}), 400
+
+    user_ids = [str(uid).strip() for uid in raw_user_ids if str(uid).strip()]
+    if not user_ids:
+        return jsonify({"status": "error", "message": "Select at least one user."}), 400
+
+    current_uid = str(getattr(current_user, "id", "") or "").strip()
+    protected_ids = [uid for uid in user_ids if uid == current_uid]
+
+    if action == "update_role":
+        role = db.normalize_role(data.get("role") or "Viewer")
+        updated_count = db.bulk_update_user_role(user_ids, role=role)
+        _audit(
+            "admin",
+            "bulk_update_user_role",
+            "success",
+            details={"updated_count": updated_count, "requested_count": len(user_ids), "role": role},
+        )
+        return jsonify(
+            {
+                "status": "success",
+                "message": f"Updated role for {updated_count} user(s).",
+                "updated_count": int(updated_count),
+                "role": role,
+            }
+        ), 200
+
+    if action == "delete":
+        deletable_ids = [uid for uid in user_ids if uid != current_uid]
+        deleted_count = db.bulk_delete_users(deletable_ids)
+        _audit(
+            "admin",
+            "bulk_delete_users",
+            "success",
+            details={
+                "deleted_count": deleted_count,
+                "requested_count": len(user_ids),
+                "protected_count": len(protected_ids),
+            },
+        )
+        if protected_ids:
+            return jsonify(
+                {
+                    "status": "success",
+                    "message": "Bulk delete completed. Logged-in user was protected from deletion.",
+                    "deleted_count": int(deleted_count),
+                    "protected_ids": protected_ids,
+                }
+            ), 200
+
+        return jsonify(
+            {
+                "status": "success",
+                "message": f"Deleted {deleted_count} user(s).",
+                "deleted_count": int(deleted_count),
+            }
+        ), 200
+
+    return jsonify({"status": "error", "message": "Invalid bulk action. Use 'update_role' or 'delete'."}), 400
+
+
 @app.route("/setup-password/<token>", methods=["GET", "POST"])
+@app.route("/SETUP-PASSWORD/<token>", methods=["GET", "POST"])  # Accept uppercase variant (user typo/paste tolerance)
 def setup_password(token):
     """Secure link to allow new users to set their password."""
     user_data = db.get_user_by_setup_token(token)
@@ -3419,19 +3654,35 @@ def cyber_rating():
     try:
         data = CyberReportingService.get_cyber_rating_data(limit=200)
 
-        avg_score = data.get("kpis", {}).get("avg_score", 0)
-        if avg_score >= 90:
-            label = "A"
-        elif avg_score >= 80:
-            label = "B"
-        elif avg_score >= 70:
-            label = "C"
-        elif avg_score >= 60:
-            label = "D"
+        avg_score_100 = float(data.get("kpis", {}).get("avg_score", 0) or 0)
+        avg_score = max(0.0, min(1000.0, avg_score_100 * 10.0))
+        if avg_score >= 700:
+            label = "Elite"
+        elif avg_score >= 400:
+            label = "Standard"
+        elif avg_score >= 200:
+            label = "Legacy"
         else:
-            label = "F"
+            label = "Critical"
 
-        items = data.get("applications", [])
+        items = []
+        for row in data.get("applications", []):
+            row_score = max(0.0, min(1000.0, float(row.get("score", 0) or 0) * 10.0))
+            if row_score >= 700:
+                row_tier = "Elite"
+            elif row_score >= 400:
+                row_tier = "Standard"
+            elif row_score >= 200:
+                row_tier = "Legacy"
+            else:
+                row_tier = "Critical"
+            items.append(
+                {
+                    **row,
+                    "score": round(row_score, 1),
+                    "tier": row_tier,
+                }
+            )
         page_data: typing.Dict[str, typing.Any] = {
             "items": items,
             "total_count": len(items),
@@ -3450,7 +3701,7 @@ def cyber_rating():
                 "Critical": data.get("grade_counts", {}).get("Critical", 0),
                 "Legacy": data.get("grade_counts", {}).get("Legacy", 0),
                 "Standard": data.get("grade_counts", {}).get("Standard", 0),
-                "Elite-PQC": data.get("grade_counts", {}).get("Elite", 0),
+                "Elite": data.get("grade_counts", {}).get("Elite", 0),
             },
             "tier_heatmap": data.get("risk_heatmap", []),
             "recommendations": data.get("recommendations", []),

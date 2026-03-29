@@ -2066,6 +2066,71 @@ def update_user_profile(user_id: str, role: Optional[str] = None, is_active: Opt
         conn.close()
 
 
+def bulk_update_user_role(user_ids: List[str], role: str, exclude_user_id: Optional[str] = None) -> int:
+    """Bulk update user role for selected users.
+
+    Returns number of updated rows.
+    """
+    normalized_ids = [str(uid).strip() for uid in (user_ids or []) if str(uid).strip()]
+    if not normalized_ids:
+        return 0
+
+    if exclude_user_id is not None:
+        exclude = str(exclude_user_id).strip()
+        normalized_ids = [uid for uid in normalized_ids if uid != exclude]
+    if not normalized_ids:
+        return 0
+
+    conn = _get_connection()
+    if conn is None:
+        return 0
+    try:
+        placeholders = ", ".join(["%s"] * len(normalized_ids))
+        params: List[Any] = [normalize_role(role)] + normalized_ids
+        sql = f"UPDATE users SET role = %s WHERE id IN ({placeholders})"
+        cur = conn.cursor()
+        cur.execute(sql, tuple(params))
+        conn.commit()
+        return int(cur.rowcount or 0)
+    except Exception as exc:
+        logger.error("MySQL bulk_update_user_role error: %s", exc)
+        return 0
+    finally:
+        conn.close()
+
+
+def bulk_delete_users(user_ids: List[str], exclude_user_id: Optional[str] = None) -> int:
+    """Bulk delete selected users.
+
+    Returns number of deleted rows.
+    """
+    normalized_ids = [str(uid).strip() for uid in (user_ids or []) if str(uid).strip()]
+    if not normalized_ids:
+        return 0
+
+    if exclude_user_id is not None:
+        exclude = str(exclude_user_id).strip()
+        normalized_ids = [uid for uid in normalized_ids if uid != exclude]
+    if not normalized_ids:
+        return 0
+
+    conn = _get_connection()
+    if conn is None:
+        return 0
+    try:
+        placeholders = ", ".join(["%s"] * len(normalized_ids))
+        sql = f"DELETE FROM users WHERE id IN ({placeholders})"
+        cur = conn.cursor()
+        cur.execute(sql, tuple(normalized_ids))
+        conn.commit()
+        return int(cur.rowcount or 0)
+    except Exception as exc:
+        logger.error("MySQL bulk_delete_users error: %s", exc)
+        return 0
+    finally:
+        conn.close()
+
+
 def mark_login_success(user_id: str) -> None:
     conn = _get_connection()
     if conn is None:

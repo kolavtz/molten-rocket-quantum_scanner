@@ -9,9 +9,57 @@
   function parsePorts(raw) {
     var text = String(raw || '').trim();
     if (!text) return undefined;
-    return text.split(',').map(function (x) { return Number(String(x).trim()); }).filter(function (n) {
+    return text.replace(/\s+/g, ',').split(',').map(function (x) { return Number(String(x).trim()); }).filter(function (n) {
       return Number.isInteger(n) && n >= 1 && n <= 65535;
     });
+  }
+
+  function readFileAsText(file) {
+    return new Promise(function (resolve, reject) {
+      if (!file) {
+        resolve('');
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function () {
+        resolve(String(reader.result || ''));
+      };
+      reader.onerror = function () {
+        reject(new Error('Unable to read CSV file.'));
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  function parseCsvTargetEntries(csvText) {
+    var text = String(csvText || '');
+    if (!text.trim()) return [];
+
+    return text.split(/\r?\n/).map(function (line) {
+      return String(line || '').trim();
+    }).filter(function (line) {
+      return !!line;
+    }).map(function (line, idx) {
+      var isHeader = idx === 0 && /^(ip|target|host)\b/i.test(line);
+      if (isHeader) return null;
+
+      var firstComma = line.indexOf(',');
+      var target = '';
+      var portSegment = '';
+      if (firstComma >= 0) {
+        target = line.slice(0, firstComma).trim();
+        portSegment = line.slice(firstComma + 1).trim();
+      } else {
+        target = line.trim();
+      }
+
+      if (!target) return null;
+      var ports = parsePorts(portSegment);
+      if (ports && ports.length) {
+        return { target: target, ports: ports };
+      }
+      return { target: target };
+    }).filter(function (row) { return !!row; });
   }
 
   function setActionMessage(msg, isError) {
@@ -277,6 +325,8 @@
     var bulkBtn = document.getElementById('bulkScanBtn');
     var singleTarget = document.getElementById('singleTarget');
     var bulkTargets = document.getElementById('bulkTargets');
+    var bulkCsvFile = document.getElementById('bulkCsvFile');
+    var bulkCsvHint = document.getElementById('bulkCsvHint');
     var portsInput = document.getElementById('portsInput');
     var autodiscoverySingle = document.getElementById('autodiscoverySingle');
     var autodiscoveryBulk = document.getElementById('autodiscoveryBulk');
@@ -553,16 +603,38 @@
         }
 
         var lines = String((bulkTargets && bulkTargets.value) || '').split(/\r?\n/);
-        var targets = lines.map(function (x) { return x.trim(); }).filter(Boolean);
-        if (!targets.length) {
+        var targetEntries = lines.map(function (x) { return x.trim(); }).filter(Boolean).map(function (target) {
+          return { target: target };
+        });
+
+        if (bulkCsvFile && bulkCsvFile.files && bulkCsvFile.files.length > 0) {
+          try {
+            var csvRows = await readFileAsText(bulkCsvFile.files[0]);
+            var csvEntries = parseCsvTargetEntries(csvRows);
+            if (csvEntries.length) {
+              targetEntries = targetEntries.concat(csvEntries);
+              if (bulkCsvHint) {
+                bulkCsvHint.textContent = 'Loaded ' + csvEntries.length + ' target(s) from CSV.';
+              }
+            } else if (bulkCsvHint) {
+              bulkCsvHint.textContent = 'CSV loaded but no valid targets were found.';
+            }
+          } catch (csvError) {
+            setActionMessage(csvError.message || 'Unable to parse CSV file.', true);
+            return;
+          }
+        }
+
+        if (!targetEntries.length) {
           setActionMessage('Please provide at least one target for bulk scan.', true);
           return;
         }
 
         try {
-          setActionMessage('Submitting bulk scan (' + targets.length + ' targets)...');
+          setActionMessage('Submitting bulk scan (' + targetEntries.length + ' targets)...');
           var payload = await postJson('/api/scans/bulk', {
-            targets: targets,
+            targets: targetEntries.map(function (entry) { return entry.target; }),
+            target_entries: targetEntries,
             ports: parsePorts(portsInput && portsInput.value),
             autodiscovery: !!(autodiscoveryBulk && autodiscoveryBulk.checked),
             add_to_inventory: !!(addToInventoryBulk && addToInventoryBulk.checked),
@@ -576,6 +648,8 @@
           setActionMessage('Bulk scan queued: ' + payload.queued_count + ' targets');
           startPolling(payload.scan_ids || []);
           if (bulkTargets) bulkTargets.value = '';
+          if (bulkCsvFile) bulkCsvFile.value = '';
+          if (bulkCsvHint) bulkCsvHint.textContent = 'CSV format: ip,[ports separated by comma or space]';
         } catch (err) {
           setActionMessage(err.message || 'Failed to submit bulk scan.', true);
         }

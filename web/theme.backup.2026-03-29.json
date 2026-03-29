@@ -1,5 +1,5 @@
 {
-    "mode": "dark",
+    "mode": "system",
     "dark": {
         "bg_navbar": "#0b1220",
         "bg_primary": "#060b16",
@@ -29,7 +29,7 @@
         "text_secondary": "#334155",
         "text_muted": "#64748b",
         "accent_color": "#0ea5e9",
-        "text_on_accent": "#0b1120",
+        "text_on_accent": "#ffffff",
         "safe": "#059669",
         "warn": "#d97706",
         "danger": "#dc2626"

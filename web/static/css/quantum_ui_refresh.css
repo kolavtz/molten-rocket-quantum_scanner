@@ -1,11 +1,11 @@
 /* Quantum UI refresh: shared obsidian + neon styling across pages */
 :root {
-  --ui-depth-shadow: 0 18px 36px color-mix(in srgb, var(--accent) 12%, rgba(2, 6, 23, 0.45));
-  --glass-bg: rgba(15, 23, 42, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.08);
+  --ui-depth-shadow: 0 18px 36px color-mix(in srgb, var(--accent) 12%, transparent);
+  --glass-bg: color-mix(in srgb, var(--surface-elevated) 86%, transparent);
+  --glass-border: color-mix(in srgb, var(--border) 68%, transparent);
   --glass-blur: blur(14px);
   
-  /* Sentinel Color Palette */
+  /* Security Color Palette */
   --risk-critical: #ff2d55;
   --risk-high: #ff9500;
   --risk-medium: #ffcc00;
@@ -31,7 +31,11 @@
   border: 1px solid var(--glass-border);
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 12%, transparent), transparent 45%),
-    linear-gradient(180deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8));
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--surface-elevated) 92%, transparent),
+      color-mix(in srgb, var(--surface) 96%, transparent)
+    );
   backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow-sm);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -190,8 +194,8 @@ button,
   --ui-radius-sm: 8px;
   --ui-radius-md: 12px;
   --ui-radius-lg: 16px;
-  --ui-elev-1: 0 6px 18px color-mix(in srgb, #020617 24%, transparent);
-  --ui-elev-2: 0 14px 30px color-mix(in srgb, #020617 36%, transparent);
+  --ui-elev-1: var(--shadow-sm);
+  --ui-elev-2: var(--shadow-md);
 }
 
 body {
@@ -200,8 +204,8 @@ body {
 }
 
 .main-content {
-  max-width: 1600px;
-  margin-inline: auto;
+  max-width: 100%;
+  margin-inline: 0;
 }
 
 .glass-card,
@@ -282,7 +286,7 @@ table thead th {
   display: none;
   align-items: center;
   justify-content: center;
-  background: rgba(2, 6, 23, 0.82);
+  background: color-mix(in srgb, var(--surface) 72%, #000000 28%);
   backdrop-filter: blur(6px);
   z-index: 95000;
   padding: clamp(0.8rem, 4vw, 2rem);

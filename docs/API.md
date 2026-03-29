@@ -115,6 +115,7 @@ Queue sequential bulk scans (Admin/Manager only).
 
 Body fields:
 - `targets` (required array)
+- `target_entries` (optional array of `{target, ports}`; supports per-target ports, preferred for CSV uploads)
 - `ports` (optional list/comma-string)
 - `autodiscovery` (optional bool)
 - `add_to_inventory` (optional bool)

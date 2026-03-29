@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from flask import Blueprint, request
+from flask import Blueprint, Response, request
 from flask_login import login_required
 from sqlalchemy import func, inspect, or_, text
 
@@ -26,6 +27,8 @@ from src.services.cyber_reporting_service import CyberReportingService
 from src.services.distribution_service import DistributionService
 from src.services.pqc_service import PQCService
 from src.services.risk_calculation_service import RiskCalculationService
+from src.services.asset_service import AssetService
+from src.services.geo_service import GeoService
 from utils.api_helper import (
     apply_sort,
     build_data_envelope,
@@ -43,6 +46,16 @@ PQC_STATUS_EXPLANATIONS = {
     "migration_advised": "Still operational but migration to stronger/PQC alternatives is advised.",
     "unknown": "Insufficient telemetry to confidently classify PQC status.",
 }
+
+PQC_TIER_EXPLANATIONS = {
+    "elite": "PQC-ready workloads using post-quantum algorithms with strong transport posture.",
+    "standard": "Strong classical cryptography (e.g., SHA-2/modern key sizes) but PQC migration still pending.",
+    "legacy": "Weak or aging cryptographic posture that requires prioritized upgrade and migration planning.",
+    "critical": "No trustworthy crypto telemetry, plaintext exposure, or critically weak cryptography requiring immediate action.",
+}
+
+asset_service = AssetService()
+geo_service = GeoService()
 
 
 def _safe_ratio(numerator: float, denominator: float) -> float:
@@ -546,6 +559,262 @@ def api_distribution_cert_expiry():
     return success_response(data, filters=_filters_payload(params))
 
 
+@api_dashboards_bp.route("/api/assets/distribution/by-type", methods=["GET"])
+@login_required
+@api_guard
+def api_assets_distribution_by_type():
+    distribution = DistributionService.get_asset_type_distribution()
+    items = [
+        {
+            "asset_type": key,
+            "count": int((value or {}).get("count", 0) or 0),
+            "pct": float((value or {}).get("pct", 0) or 0.0),
+        }
+        for key, value in distribution.items()
+    ]
+    total = sum(int(item["count"]) for item in items)
+    return success_response(
+        {
+            "items": items,
+            "total": len(items),
+            "kpis": {
+                "total_assets": int(total),
+                "categories": int(len(items)),
+            },
+        },
+        filters={},
+    )
+
+
+@api_dashboards_bp.route("/api/assets/distribution/by-risk", methods=["GET"])
+@login_required
+@api_guard
+def api_assets_distribution_by_risk():
+    distribution = DistributionService.get_risk_level_distribution()
+    order = ["Critical", "High", "Medium", "Low"]
+    items = [
+        {
+            "risk_level": level,
+            "count": int((distribution.get(level) or {}).get("count", 0) or 0),
+            "pct": float((distribution.get(level) or {}).get("pct", 0) or 0.0),
+        }
+        for level in order
+    ]
+    total = sum(int(item["count"]) for item in items)
+    return success_response(
+        {
+            "items": items,
+            "total": len(items),
+            "kpis": {
+                "total_assets": int(total),
+                "critical": int((distribution.get("Critical") or {}).get("count", 0) or 0),
+                "high": int((distribution.get("High") or {}).get("count", 0) or 0),
+            },
+        },
+        filters={},
+    )
+
+
+@api_dashboards_bp.route("/api/assets/risk-percentage", methods=["GET"])
+@login_required
+@api_guard
+def api_assets_risk_percentage():
+    metrics = DistributionService.get_high_risk_metrics()
+    return success_response(
+        {
+            "items": [
+                {
+                    "high_risk_count": int(metrics.get("high_risk_count", 0) or 0),
+                    "total_assets": int(metrics.get("total_assets", 0) or 0),
+                    "high_risk_pct": float(metrics.get("high_risk_pct", 0.0) or 0.0),
+                    "distribution": metrics.get("distribution", {}),
+                }
+            ],
+            "total": 1,
+            "kpis": {
+                "high_risk_pct": float(metrics.get("high_risk_pct", 0.0) or 0.0),
+            },
+        },
+        filters={},
+    )
+
+
+@api_dashboards_bp.route("/api/certificates/expiry-timeline", methods=["GET"])
+@login_required
+@api_guard
+def api_certificates_expiry_timeline():
+    buckets = DistributionService.calculate_cert_expiry_buckets()
+    items = [
+        {
+            "bucket": "0-30",
+            "count": int(buckets.get("count_0_to_30_days", 0) or 0),
+        },
+        {
+            "bucket": "30-60",
+            "count": int(buckets.get("count_31_to_60_days", 0) or 0),
+        },
+        {
+            "bucket": "60-90",
+            "count": int(buckets.get("count_61_to_90_days", 0) or 0),
+        },
+        {
+            "bucket": "90+",
+            "count": int(buckets.get("count_greater_90_days", 0) or 0),
+        },
+    ]
+    return success_response(
+        {
+            "items": items,
+            "total": len(items),
+            "kpis": {
+                "total_active": int(buckets.get("total_active", 0) or 0),
+                "total_expired": int(buckets.get("total_expired", 0) or 0),
+                "expiring_30_days": int(buckets.get("count_0_to_30_days", 0) or 0),
+            },
+        },
+        filters={},
+    )
+
+
+@api_dashboards_bp.route("/api/assets/high-risk", methods=["GET"])
+@login_required
+@api_guard
+def api_assets_high_risk():
+    limit = max(1, min(request.args.get("limit", default=10, type=int), 100))
+    rows = [
+        asset
+        for asset in asset_service.load_combined_assets()
+        if str(asset.get("risk_level") or "").strip() in {"Critical", "High"}
+    ]
+    rows = sorted(rows, key=lambda row: float(row.get("risk_score") or 0), reverse=True)[:limit]
+
+    items = [
+        {
+            "asset_id": int(row.get("id") or 0),
+            "asset_name": row.get("name") or row.get("asset_name"),
+            "asset_type": row.get("asset_type") or row.get("type") or "Unknown",
+            "risk_score": float(row.get("risk_score") or 0.0),
+            "last_scan_date": row.get("last_scan"),
+            "url": row.get("url"),
+        }
+        for row in rows
+    ]
+
+    return success_response(
+        {
+            "items": items,
+            "total": len(items),
+            "kpis": {
+                "high_risk_count": len(items),
+                "limit": limit,
+            },
+        },
+        filters={"limit": limit},
+    )
+
+
+@api_dashboards_bp.route("/api/assets/recent-discoveries", methods=["GET"])
+@login_required
+@api_guard
+def api_assets_recent_discoveries():
+    days = max(1, min(request.args.get("days", default=7, type=int), 90))
+    discoveries = asset_service.get_recent_discoveries(days=days)
+
+    items = [
+        {
+            "asset_name": row.get("name"),
+            "asset_type": row.get("type"),
+            "discovery_date": row.get("date"),
+            "risk_score": row.get("risk"),
+            "source": row.get("source"),
+        }
+        for row in discoveries
+    ]
+
+    return success_response(
+        {
+            "items": items,
+            "total": len(items),
+            "kpis": {
+                "days": days,
+                "count": len(items),
+            },
+        },
+        filters={"days": days},
+    )
+
+
+@api_dashboards_bp.route("/api/vulnerabilities/top-software", methods=["GET"])
+@login_required
+@api_guard
+def api_vulnerabilities_top_software():
+    limit = max(1, min(request.args.get("limit", default=5, type=int), 50))
+    top_software = asset_service.get_top_vulnerable_software(limit=limit)
+    items = [
+        {
+            "software_name": row.get("product"),
+            "occurrence_count": int(row.get("count", 0) or 0),
+        }
+        for row in top_software
+    ]
+
+    return success_response(
+        {
+            "items": items,
+            "total": len(items),
+            "kpis": {
+                "limit": limit,
+            },
+        },
+        filters={"limit": limit},
+    )
+
+
+@api_dashboards_bp.route("/api/assets/geo-locations", methods=["GET"])
+@login_required
+@api_guard
+def api_assets_geo_locations():
+    limit = max(1, min(request.args.get("limit", default=200, type=int), 500))
+    items = []
+    seen_targets = set()
+    for asset in asset_service.load_combined_assets():
+        target = str(asset.get("name") or asset.get("asset_name") or "").strip()
+        if not target or target in seen_targets:
+            continue
+        seen_targets.add(target)
+
+        loc = geo_service.get_location(target)
+        if str(loc.get("status") or "").lower() not in {"success", "private"}:
+            continue
+
+        items.append(
+            {
+                "asset_id": int(asset.get("id") or 0),
+                "asset_name": target,
+                "asset_type": asset.get("asset_type") or asset.get("type") or "Unknown",
+                "risk_level": asset.get("risk_level") or asset.get("risk") or "Medium",
+                "latitude": float(loc.get("lat") or 0.0),
+                "longitude": float(loc.get("lon") or 0.0),
+                "city": loc.get("city") or "Unknown",
+                "country": loc.get("country") or "Unknown",
+            }
+        )
+
+        if len(items) >= limit:
+            break
+
+    return success_response(
+        {
+            "items": items,
+            "total": len(items),
+            "kpis": {
+                "mapped_assets": len(items),
+            },
+        },
+        filters={"limit": limit},
+    )
+
+
 @api_dashboards_bp.route("/api/enterprise-metrics", methods=["GET"])
 @login_required
 @api_guard
@@ -881,25 +1150,63 @@ def api_cbom_alias():
     return api_cbom_entries()
 
 
+@api_dashboards_bp.route("/api/cbom/export", methods=["GET"])
+@login_required
+@api_guard
+def api_cbom_export():
+    params = parse_paging_args(default_sort="asset_name")
+    cbom_data = CbomService.get_cbom_dashboard_data(
+        page=params["page"],
+        page_size=max(params["page_size"], 250),
+        sort_field=params["sort"],
+        sort_order=params["order"],
+        search_term=params["search"],
+    )
+
+    payload = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "kpis": cbom_data.get("kpis", {}),
+        "entries": cbom_data.get("applications", []),
+        "charts": {
+            "key_length_distribution": cbom_data.get("key_length_distribution", {}),
+            "cipher_usage": cbom_data.get("cipher_usage", {}) or cbom_data.get("cipher_suite_usage", {}),
+            "protocols": cbom_data.get("protocols", {}) or cbom_data.get("protocol_distribution", {}),
+            "top_cas": cbom_data.get("top_cas", {}) or cbom_data.get("ca_distribution", {}),
+        },
+        "minimum_elements": cbom_data.get("minimum_elements", {}),
+    }
+    response = Response(json.dumps(payload, default=str), mimetype="application/json")
+    response.headers["Content-Disposition"] = "attachment; filename=cbom_export.json"
+    return response
+
+
 @api_dashboards_bp.route("/api/pqc-posture/metrics", methods=["GET"])
 @login_required
 @api_guard
 def api_pqc_metrics():
     params = parse_paging_args(default_sort="asset_name")
+    status_filter = str(request.args.get("status", "") or "").strip().lower()
     data_vm = PQCService.get_pqc_dashboard_data(
         page=params["page"],
         page_size=params["page_size"],
         sort_field=params["sort"],
         sort_order=params["order"],
         search_term=params["search"],
+        status_filter=status_filter,
+        pqc_ready_only=status_filter in {"pqc_ready", "elite_only"},
     )
     grade_counts = data_vm.get("grade_counts", {})
     total = max(1, sum(int(v or 0) for v in grade_counts.values()))
+    elite_count = int(grade_counts.get("Elite", 0) or 0)
+    standard_count = int(grade_counts.get("Standard", 0) or 0)
+    legacy_count = int(grade_counts.get("Legacy", 0) or 0)
+    critical_count = int(grade_counts.get("Critical", 0) or 0)
     kpis = {
-        "elite": _safe_ratio(float(grade_counts.get("Elite", 0)), float(total)),
-        "standard": _safe_ratio(float(grade_counts.get("Standard", 0)), float(total)),
-        "legacy": _safe_ratio(float(grade_counts.get("Legacy", 0)), float(total)),
-        "critical": _safe_ratio(float(grade_counts.get("Critical", 0)), float(total)),
+        "elite": _safe_ratio(float(elite_count), float(total)),
+        "standard": _safe_ratio(float(standard_count), float(total)),
+        "legacy": _safe_ratio(float(legacy_count), float(total)),
+        "critical": _safe_ratio(float(critical_count), float(total)),
+        "critical_count": critical_count,
         "avg_score": float(data_vm.get("kpis", {}).get("avg_score", 0) or 0),
     }
 
@@ -937,15 +1244,53 @@ def api_pqc_metrics():
         for key, value in normalized_status_counts.items()
     ]
 
+    readiness_tiers = [
+        {
+            "tier": "elite",
+            "label": "Elite",
+            "count": elite_count,
+            "pct": _safe_ratio(float(elite_count), float(total)),
+            "description": PQC_TIER_EXPLANATIONS["elite"],
+        },
+        {
+            "tier": "standard",
+            "label": "Standard",
+            "count": standard_count,
+            "pct": _safe_ratio(float(standard_count), float(total)),
+            "description": PQC_TIER_EXPLANATIONS["standard"],
+        },
+        {
+            "tier": "legacy",
+            "label": "Legacy",
+            "count": legacy_count,
+            "pct": _safe_ratio(float(legacy_count), float(total)),
+            "description": PQC_TIER_EXPLANATIONS["legacy"],
+        },
+        {
+            "tier": "critical",
+            "label": "Critical",
+            "count": critical_count,
+            "pct": _safe_ratio(float(critical_count), float(total)),
+            "description": PQC_TIER_EXPLANATIONS["critical"],
+        },
+    ]
+
     data = build_data_envelope(
         [
             {
                 "status_bar_chart": status_bars,
+                "readiness_tier_bars": readiness_tiers,
+                "readiness_pie_chart": readiness_tiers,
                 "chart_explanation": {
                     "chart_type": "bar",
                     "x_axis": "PQC status bucket",
                     "y_axis": "Percentage of classified observations",
                     "what_it_represents": "Each bar shows the share of PQC classifications in safe/unsafe/migration_advised/unknown status.",
+                },
+                "tier_chart_explanation": {
+                    "chart_type": "donut",
+                    "segments": "Elite, Standard, Legacy, Critical",
+                    "what_it_represents": "Asset-level PQC readiness posture used by dashboard KPIs and migration prioritization.",
                 },
             }
         ],
@@ -961,12 +1306,15 @@ def api_pqc_metrics():
 @api_guard
 def api_pqc_assets():
     params = parse_paging_args(default_sort="asset_name")
+    status_filter = str(request.args.get("status", "") or "").strip().lower()
     data_vm = PQCService.get_pqc_dashboard_data(
         page=params["page"],
         page_size=params["page_size"],
         sort_field=params["sort"],
         sort_order=params["order"],
         search_term=params["search"],
+        status_filter=status_filter,
+        pqc_ready_only=status_filter in {"pqc_ready", "elite_only"},
     )
     page_data = data_vm.get("page_data", {})
     items = data_vm.get("applications", [])
@@ -975,11 +1323,34 @@ def api_pqc_assets():
     out_items = [
         {
             "asset_name": row.get("asset_name"),
+            "domain": row.get("domain") or row.get("target"),
             "ip": row.get("ip") or row.get("ipv4") or row.get("ipv6"),
             "pqc_support": "✓" if str(row.get("status", "")).lower() in ("elite", "standard") else "✗",
+            "supports_pqc": bool(row.get("supports_pqc")),
             "score": row.get("score"),
             "status": row.get("status"),
             "last_scan": row.get("last_scan"),
+            "tls_version": row.get("tls_version"),
+            "key_length": row.get("key_length"),
+            "key_algorithm": row.get("key_algorithm"),
+            "signature_algorithm": row.get("signature_algorithm"),
+            "crypto_profile": row.get("crypto_profile"),
+            "quantum_safe_algorithms": row.get("quantum_safe_algorithms", 0),
+            "quantum_vulnerable_algorithms": row.get("quantum_vulnerable_algorithms", 0),
+            "pqc_algorithms": row.get("pqc_algorithms", []),
+            "vulnerable_algorithms": row.get("vulnerable_algorithms", []),
+            "pqc_algorithms_display": row.get("pqc_algorithms_display", "None detected"),
+            "classical_algorithms_display": row.get("classical_algorithms_display", "None detected"),
+            "plaintext_or_no_crypto": bool(row.get("plaintext_or_no_crypto")),
+            "recommendation": (
+                "Maintain controls and keep monitoring cryptographic inventory."
+                if str(row.get("status", "")).lower() == "elite"
+                else "Complete remaining migration and remove weak/deprecated suites."
+                if str(row.get("status", "")).lower() == "standard"
+                else "Prioritize migration to PQC-safe algorithms and TLS 1.3 baselines."
+                if str(row.get("status", "")).lower() == "legacy"
+                else "Immediate remediation required: isolate exposure and replace weak crypto."
+            ),
         }
         for row in items
     ]
@@ -999,14 +1370,28 @@ def api_pqc_alias():
 @login_required
 @api_guard
 def api_cyber_rating():
+    def _to_1000(score_100: float) -> float:
+        return max(0.0, min(1000.0, float(score_100 or 0.0) * 10.0))
+
+    def _tier_1000(score_1000: float) -> str:
+        value = float(score_1000 or 0.0)
+        if value >= 700:
+            return "Elite"
+        if value >= 400:
+            return "Standard"
+        if value >= 200:
+            return "Legacy"
+        return "Critical"
+
     params = parse_paging_args(default_sort="generated_at")
+    tier_filter = str(request.args.get("tier", "") or "").strip().lower()
     cyber = CyberReportingService.get_cyber_rating_data(limit=1000)
     rows = [
         {
             "id": int(row.get("asset_id") or 0),
             "url": row.get("target"),
-            "enterprise_score": float(row.get("score") or 0),
-            "tier": row.get("tier"),
+            "enterprise_score": _to_1000(float(row.get("score") or 0)),
+            "tier": _tier_1000(_to_1000(float(row.get("score") or 0))),
             "generated_at": to_iso(row.get("last_seen")),
         }
         for row in cyber.get("applications", [])
@@ -1018,6 +1403,12 @@ def api_cyber_rating():
             for row in rows
             if q in str(row.get("url") or "").lower()
             or q in str(row.get("tier") or "").lower()
+        ]
+    if tier_filter:
+        rows = [
+            row
+            for row in rows
+            if str(row.get("tier") or "").strip().lower() == tier_filter
         ]
     sort_field = str(params.get("sort") or "generated_at").lower()
     sort_map = {
@@ -1033,33 +1424,44 @@ def api_cyber_rating():
     end = start + params["page_size"]
     items = rows[start:end]
 
-    avg_score = float(cyber.get("kpis", {}).get("avg_score", 0) or 0)
-    if avg_score >= 80:
-        tier = "Elite-PQC"
-    elif avg_score >= 60:
-        tier = "Advanced"
-    elif avg_score >= 40:
-        tier = "Standard"
-    else:
-        tier = "Legacy"
+    avg_score_100 = float(cyber.get("kpis", {}).get("avg_score", 0) or 0)
+    avg_score = _to_1000(avg_score_100)
+    tier = _tier_1000(avg_score)
+
+    tier_counts = {
+        "critical": int(sum(1 for row in rows if str(row.get("tier") or "") == "Critical")),
+        "legacy": int(sum(1 for row in rows if str(row.get("tier") or "") == "Legacy")),
+        "standard": int(sum(1 for row in rows if str(row.get("tier") or "") == "Standard")),
+        "elite": int(sum(1 for row in rows if str(row.get("tier") or "") == "Elite")),
+    }
+    total_urls = max(1, int(cyber.get("meta", {}).get("total_assets", total) or total or 1))
 
     kpis = {
         "enterprise_score": round(avg_score, 1),
         "tier": tier,
-        "total_urls": int(cyber.get("meta", {}).get("total_assets", total) or total),
-        "elite_pct": float(cyber.get("kpis", {}).get("elite_pct", 0) or 0),
-        "standard_pct": float(cyber.get("kpis", {}).get("standard_pct", 0) or 0),
-        "legacy_pct": float(cyber.get("kpis", {}).get("legacy_pct", 0) or 0),
-        "critical_count": int(cyber.get("kpis", {}).get("critical_count", 0) or 0),
+        "total_urls": int(total_urls),
+        "elite_pct": round((tier_counts["elite"] / total_urls) * 100.0, 1),
+        "standard_pct": round((tier_counts["standard"] / total_urls) * 100.0, 1),
+        "legacy_pct": round((tier_counts["legacy"] / total_urls) * 100.0, 1),
+        "critical_pct": round((tier_counts["critical"] / total_urls) * 100.0, 1),
+        "critical_count": tier_counts["critical"],
+        "tier_counts": {
+            "critical": tier_counts["critical"],
+            "legacy": tier_counts["legacy"],
+            "standard": tier_counts["standard"],
+            "elite": tier_counts["elite"],
+        },
     }
     data = build_data_envelope(items, total, params, kpis)
-    return success_response(data, filters=_filters_payload(params))
+    return success_response(data, filters=_filters_payload(params, {"tier": tier_filter}))
 
 
 def _list_ondemand_reports() -> list[dict[str, Any]]:
-    rows = db.list_scans(limit=500)
+    rows = db.list_scans(limit=500) or []
     out: list[dict[str, Any]] = []
     for idx, row in enumerate(rows, start=1):
+        if not isinstance(row, dict):
+            continue
         out.append(
             {
                 "id": idx,
@@ -1141,6 +1543,62 @@ def api_reports_ondemand():
     }
     data = build_data_envelope(items, total, params, kpis)
     return success_response(data, filters=_filters_payload(params))
+
+
+@api_dashboards_bp.route("/api/reports/ondemand/<scan_id>", methods=["GET"])
+@login_required
+@api_guard
+def api_reports_ondemand_detail(scan_id: str):
+    report = db.get_scan(str(scan_id or "").strip())
+    if not isinstance(report, dict):
+        return error_response("Report not found.", 404)
+
+    findings = [
+        {
+            "severity": str(item.get("severity") or "").upper(),
+            "title": item.get("title") or "",
+            "description": item.get("description") or "",
+            "category": item.get("category") or "",
+        }
+        for item in (report.get("findings") or [])
+        if isinstance(item, dict)
+    ][:20]
+
+    recommendations_detailed = [
+        {
+            "priority": rec.get("priority"),
+            "title": rec.get("title") or "",
+            "description": rec.get("description") or "",
+            "timeline": rec.get("timeline") or "",
+            "impact": rec.get("impact") or "",
+        }
+        for rec in (report.get("recommendations_detailed") or [])
+        if isinstance(rec, dict)
+    ][:10]
+    recommendations_simple = [str(item) for item in (report.get("top_recommendations") or [])][:10]
+
+    data = build_data_envelope(
+        [
+            {
+                "scan_id": report.get("scan_id") or scan_id,
+                "target": report.get("target") or "",
+                "generated_at": report.get("generated_at") or "",
+                "status": report.get("status") or "",
+                "asset_class": report.get("asset_class") or "",
+                "overview": report.get("overview") or {},
+                "severity_breakdown": report.get("severity_breakdown") or {},
+                "findings": findings,
+                "recommendations": recommendations_detailed or recommendations_simple,
+            }
+        ],
+        total=1,
+        params={"page": 1, "page_size": 1},
+        kpis={
+            "finding_count": len(findings),
+            "recommendation_count": len(recommendations_detailed or recommendations_simple),
+        },
+    )
+    return success_response(data, filters={"scan_id": scan_id})
 
 
 @api_dashboards_bp.route("/api/reports", methods=["GET"])

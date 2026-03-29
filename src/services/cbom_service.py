@@ -9,8 +9,8 @@ from typing import Dict, List, Any, Optional
 import json
 
 from src.db import db_session
-from src.models import Asset, Scan, Certificate, CBOMEntry, CBOMSummary
-from sqlalchemy import func, distinct, desc, asc
+from src.models import Asset, Scan, Certificate, CBOMEntry, CBOMSummary, DiscoverySSL
+from sqlalchemy import func, distinct, desc, asc, inspect
 
 
 class CbomService:
@@ -66,6 +66,17 @@ class CbomService:
         "certificate_format": "Certificate format (for example X.509).",
         "certificate_extension": "Certificate file extension (for example .crt).",
     }
+
+    @staticmethod
+    def _table_exists(table_name: str) -> bool:
+        try:
+            bind = db_session.get_bind()
+            if bind is None:
+                return False
+            has_table_result = inspect(bind).has_table(table_name)
+            return has_table_result is True
+        except Exception:
+            return False
 
     @staticmethod
     def _safe_json_dict(value: Any) -> Dict[str, Any]:
@@ -150,7 +161,6 @@ class CbomService:
             Asset.is_deleted == False,
             Scan.is_deleted == False,
             Scan.status == "complete",
-            Scan.add_to_inventory == True,
         ]
         scan_time_expr = func.coalesce(Scan.scanned_at, Scan.completed_at, Scan.started_at)
         if start_date:
@@ -171,7 +181,6 @@ class CbomService:
             Asset.is_deleted == False,
             Scan.is_deleted == False,
             Scan.status == "complete",
-            Scan.add_to_inventory == True,
             Certificate.is_deleted == False,
         ]
         if asset_id is not None:
@@ -220,7 +229,6 @@ class CbomService:
                 CBOMEntry.is_deleted == False,
                 Scan.is_deleted == False,
                 Scan.status == "complete",
-                Scan.add_to_inventory == True,
             )
         )
         if asset_id is not None:
@@ -306,7 +314,6 @@ class CbomService:
                 CBOMEntry.is_deleted == False,
                 Scan.is_deleted == False,
                 Scan.status == "complete",
-                Scan.add_to_inventory == True,
             )
         )
         if asset_id is not None:
@@ -419,23 +426,89 @@ class CbomService:
             .filter(*cert_filters)
         )
 
+        discovery_ssl_query = None
+        if cls._table_exists("discovery_ssl"):
+            discovery_ssl_query = (
+                db_session.query(DiscoverySSL, Asset, Scan)
+                .join(Scan, DiscoverySSL.scan_id == Scan.id)
+                .outerjoin(Asset, DiscoverySSL.asset_id == Asset.id)
+                .filter(
+                    DiscoverySSL.is_deleted == False,
+                    Scan.is_deleted == False,
+                    Scan.status == "complete",
+                )
+            )
+            if asset_id is not None:
+                discovery_ssl_query = discovery_ssl_query.filter(DiscoverySSL.asset_id == asset_id)
+            if start_date or end_date:
+                scan_time_expr = func.coalesce(Scan.scanned_at, Scan.completed_at, Scan.started_at)
+                if start_date:
+                    try:
+                        discovery_ssl_query = discovery_ssl_query.filter(scan_time_expr >= datetime.fromisoformat(start_date))
+                    except ValueError:
+                        pass
+                if end_date:
+                    try:
+                        discovery_ssl_query = discovery_ssl_query.filter(scan_time_expr <= datetime.fromisoformat(end_date))
+                    except ValueError:
+                        pass
+            search_term_normalized = (search_term or "").strip()
+            if search_term_normalized:
+                like = f"%{search_term_normalized}%"
+                discovery_ssl_query = discovery_ssl_query.filter(
+                    func.coalesce(DiscoverySSL.endpoint, "").ilike(like)
+                    | func.coalesce(DiscoverySSL.issuer, "").ilike(like)
+                    | func.coalesce(DiscoverySSL.cipher_suite, "").ilike(like)
+                    | func.coalesce(DiscoverySSL.subject_cn, "").ilike(like)
+                    | func.coalesce(Asset.target, "").ilike(like)
+                )
+
         now = datetime.now()
 
         scan_count = scan_query.count()
         total_applications = cert_query.with_entities(func.count(distinct(Certificate.asset_id))).scalar() or 0
 
         cert_count = cert_query.count()
+
+        discovery_ssl_rows = []
+        discovery_ssl_count = 0
+        if discovery_ssl_query is not None:
+            discovery_ssl_rows = discovery_ssl_query.all()
+            discovery_ssl_count = len(discovery_ssl_rows)
+
         active_certificates = cert_query.filter(Certificate.valid_until != None, Certificate.valid_until >= now).count()
         weak_tls_count = cert_query.filter(Certificate.tls_version.in_(cls.WEAK_TLS_VERSIONS)).count()
         weak_key_count = cert_query.filter(Certificate.key_length != None, Certificate.key_length < 2048).count()
         expired_count = cert_query.filter(Certificate.valid_until != None, Certificate.valid_until < now).count()
         self_signed_count = cert_query.filter(Certificate.issuer != None, Certificate.subject != None, Certificate.issuer == Certificate.subject).count()
 
+        if discovery_ssl_rows:
+            for dssl, _asset, _scan in discovery_ssl_rows:
+                valid_until = getattr(dssl, "valid_until", None)
+                if valid_until is not None and valid_until >= now:
+                    active_certificates += 1
+                tls_version = str(getattr(dssl, "tls_version", "") or "")
+                if tls_version in cls.WEAK_TLS_VERSIONS:
+                    weak_tls_count += 1
+                key_length = getattr(dssl, "key_length", None)
+                if key_length is not None:
+                    try:
+                        if int(key_length) < 2048:
+                            weak_key_count += 1
+                    except (TypeError, ValueError):
+                        pass
+                if valid_until is not None and valid_until < now:
+                    expired_count += 1
+                issuer = str(getattr(dssl, "issuer", "") or "").strip().lower()
+                subject_cn = str(getattr(dssl, "subject_cn", "") or "").strip().lower()
+                if issuer and subject_cn and issuer == subject_cn:
+                    self_signed_count += 1
+
         cbom_entry_issue_count = (
             db_session.query(func.count(CBOMEntry.id))
             .join(Scan, CBOMEntry.scan_id == Scan.id)
             .join(Asset, func.lower(Asset.target) == func.lower(Scan.target))
-            .filter(Asset.is_deleted == False, Scan.is_deleted == False, Scan.status == "complete", Scan.add_to_inventory == True, CBOMEntry.quantum_safe_flag == False)
+            .filter(Asset.is_deleted == False, Scan.is_deleted == False, Scan.status == "complete", CBOMEntry.quantum_safe_flag == False)
         )
         if asset_id is not None:
             cbom_entry_issue_count = cbom_entry_issue_count.filter(Asset.id == asset_id)
@@ -448,7 +521,7 @@ class CbomService:
             db_session.query(func.sum(CBOMSummary.cert_issues_count))
             .join(Scan, CBOMSummary.scan_id == Scan.id)
             .join(Asset, func.lower(Asset.target) == func.lower(Scan.target))
-            .filter(Asset.is_deleted == False, Scan.is_deleted == False, Scan.status == "complete", Scan.add_to_inventory == True)
+            .filter(Asset.is_deleted == False, Scan.is_deleted == False, Scan.status == "complete")
         )
         if asset_id is not None:
             cbom_summary_issue_sum = cbom_summary_issue_sum.filter(Asset.id == asset_id)
@@ -517,6 +590,38 @@ class CbomService:
         }
         if not tls_dist:
             tls_dist = {"No Data": 0}
+
+        if discovery_ssl_rows:
+            discovery_asset_ids = {
+                int(getattr(dssl, "asset_id", 0) or 0)
+                for dssl, _asset, _scan in discovery_ssl_rows
+                if getattr(dssl, "asset_id", None) is not None
+            }
+            if discovery_asset_ids:
+                site_count = max(int(site_count or 0), len(discovery_asset_ids))
+
+            for dssl, _asset, _scan in discovery_ssl_rows:
+                key_len_val = getattr(dssl, "key_length", None)
+                key_bucket = "Unknown"
+                try:
+                    if key_len_val is not None:
+                        key_bucket = str(int(key_len_val))
+                except (TypeError, ValueError):
+                    key_bucket = "Unknown"
+                key_length_dist[key_bucket] = int(key_length_dist.get(key_bucket, 0) or 0) + 1
+
+                cipher_key = str(getattr(dssl, "cipher_suite", "") or "Unknown")[:40]
+                cipher_dist[cipher_key] = int(cipher_dist.get(cipher_key, 0) or 0) + 1
+
+                issuer_key = str(getattr(dssl, "issuer", "") or "Unknown")[:40]
+                ca_dist[issuer_key] = int(ca_dist.get(issuer_key, 0) or 0) + 1
+
+                tls_key = str(getattr(dssl, "tls_version", "") or "Unknown")
+                tls_dist[tls_key] = int(tls_dist.get(tls_key, 0) or 0) + 1
+
+            # Keep top lists bounded and ordered for chart payloads
+            cipher_dist = dict(sorted(cipher_dist.items(), key=lambda kv: int(kv[1] or 0), reverse=True)[:10])
+            ca_dist = dict(sorted(ca_dist.items(), key=lambda kv: int(kv[1] or 0), reverse=True)[:10])
 
         app_query = cls._build_applications_query(
             asset_id=asset_id,
@@ -597,6 +702,110 @@ class CbomService:
                 }
             )
 
+        existing_row_keys = {
+            (
+                int(app.get("asset_id") or 0),
+                str(app.get("endpoint") or "").strip().lower(),
+                str(app.get("tls_version") or "").strip().lower(),
+                str(app.get("cipher_suite") or "").strip().lower(),
+                str(app.get("subject_cn") or "").strip().lower(),
+                str(app.get("issuer") or app.get("ca") or "").strip().lower(),
+                int(app.get("key_length") or 0),
+            )
+            for app in applications
+        }
+
+        if discovery_ssl_rows:
+            for dssl, asset, scan in discovery_ssl_rows:
+                asset_id_value = int(getattr(dssl, "asset_id", 0) or 0)
+                endpoint_value = str(getattr(dssl, "endpoint", "") or "").strip()
+                tls_value = str(getattr(dssl, "tls_version", "") or "Unknown")
+                cipher_value = str(getattr(dssl, "cipher_suite", "") or "Unknown")
+                subject_cn_value = str(getattr(dssl, "subject_cn", "") or "")
+                issuer_value = str(getattr(dssl, "issuer", "") or "")
+                key_len_value = int(getattr(dssl, "key_length", 0) or 0)
+
+                dedupe_key = (
+                    asset_id_value,
+                    endpoint_value.lower(),
+                    tls_value.lower(),
+                    cipher_value.lower(),
+                    subject_cn_value.lower(),
+                    issuer_value.lower(),
+                    key_len_value,
+                )
+                if dedupe_key in existing_row_keys:
+                    continue
+                existing_row_keys.add(dedupe_key)
+
+                derived_asset_name = str(getattr(asset, "target", "") or "").strip()
+                if not derived_asset_name:
+                    derived_asset_name = endpoint_value or "Unknown Asset"
+
+                valid_until = getattr(dssl, "valid_until", None)
+                valid_from = None
+                applications.append(
+                    {
+                        "asset_id": asset_id_value,
+                        "asset_name": derived_asset_name,
+                        "endpoint": endpoint_value,
+                        "serial": "",
+                        "key_length": key_len_value,
+                        "public_key_type": "Unknown",
+                        "public_key_pem": "",
+                        "cipher_suite": cipher_value,
+                        "ca": issuer_value or "Unknown",
+                        "tls_version": tls_value,
+                        "subject_cn": subject_cn_value,
+                        "subject_o": "",
+                        "subject_ou": "",
+                        "issuer_cn": "",
+                        "issuer_o": "",
+                        "issuer_ou": "",
+                        "valid_from": valid_from.isoformat() if hasattr(valid_from, "isoformat") and valid_from else None,
+                        "valid_until": valid_until.isoformat() if hasattr(valid_until, "isoformat") and valid_until else None,
+                        "fingerprint_sha256": "",
+                        "certificate_details": {
+                            "certificate_version": "",
+                            "serial_number": "",
+                            "certificate_signature_algorithm": "",
+                            "certificate_signature": "",
+                            "issuer": issuer_value,
+                            "validity": {
+                                "not_before": "",
+                                "not_after": valid_until.isoformat() if hasattr(valid_until, "isoformat") and valid_until else "",
+                            },
+                            "subject": subject_cn_value,
+                            "subject_public_key_info": {
+                                "subject_public_key_algorithm": "",
+                                "subject_public_key_bits": key_len_value,
+                                "subject_public_key": "",
+                            },
+                            "extensions": [],
+                            "certificate_key_usage": [],
+                            "extended_key_usage": [],
+                            "certificate_basic_constraints": {},
+                            "certificate_subject_key_id": "",
+                            "certificate_authority_key_id": "",
+                            "authority_information_access": [],
+                            "certificate_subject_alternative_name": [],
+                            "certificate_policies": [],
+                            "crl_distribution_points": [],
+                            "signed_certificate_timestamp_list": [],
+                        },
+                        "last_scan": (
+                            getattr(scan, "scanned_at", None)
+                            or getattr(scan, "completed_at", None)
+                            or getattr(scan, "started_at", None)
+                        ),
+                        "source": "discovery_ssl",
+                    }
+                )
+
+        total_applications = len({int(app.get("asset_id") or 0) for app in applications if int(app.get("asset_id") or 0) > 0})
+        if total_applications <= 0:
+            total_applications = int(cert_query.with_entities(func.count(distinct(Certificate.asset_id))).scalar() or 0)
+
         if limit:
             applications = applications[: max(1, int(limit))]
 
@@ -643,6 +852,8 @@ class CbomService:
             ),
             "meta": {
                 "scan_count": scan_count,
-                "certificate_count": cert_count,
+                "certificate_count": cert_count + discovery_ssl_count,
+                "certificate_inventory_count": cert_count,
+                "discovery_ssl_count": discovery_ssl_count,
             },
         }

@@ -11,6 +11,7 @@
     --bg-input: #111827;
     --border-subtle: #334155;
     --border-hover: #60a5fa;
+    --metric-border: #334155;
 
     --text-primary: #e5e7eb;
     --text-secondary: #9ca3af;
@@ -103,6 +104,7 @@ html[data-theme='light'] {
     --bg-input: #ffffff;
     --border-subtle: #cbd5f5;
     --border-hover: #2563eb;
+    --metric-border: #94a3b8;
     --text-primary: #0f172a;
     --text-secondary: #475569;
     --text-muted: #9ca3af;
@@ -279,6 +281,14 @@ a:hover {
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
     transition: border-color var(--transition-base) var(--easing-out), box-shadow var(--transition-base) var(--easing-out), background-color var(--transition-base) var(--easing-out);
+}
+
+.home-metric-grid .glass-card {
+    border-color: var(--metric-border);
+}
+
+.home-metric-grid .glass-card:hover {
+    border-color: var(--border-hover);
 }
 
 .glass-card:hover {

@@ -44,27 +44,28 @@
         <h1 style="font-size: 2.5rem; font-weight: 900; letter-spacing: -0.02em; margin: 0;">CBOM INTELLIGENCE</h1>
         <p style="color: var(--text-secondary); margin-top: 0.5rem;">Cryptographic Bill of Materials: Visualizing protocol health and key length distribution.</p>
     </div>
+    <div id="cbomApiState" style="font-size:0.72rem; color:var(--text-muted); margin-bottom:1rem; text-transform:uppercase;">Syncing CBOM telemetry…</div>
 
     <!-- KPI Grid -->
     <div class="cbom-stats-grid">
         <div class="glass-card cbom-kpi">
-            <div class="value">{{ vm.kpis.total_applications or 0 }}</div>
+            <div class="value" id="kpiApplications">{{ vm.kpis.total_applications or 0 }}</div>
             <div class="label">Applications</div>
         </div>
         <div class="glass-card cbom-kpi">
-            <div class="value">{{ vm.kpis.sites_surveyed or 0 }}</div>
+            <div class="value" id="kpiSites">{{ vm.kpis.sites_surveyed or 0 }}</div>
             <div class="label">Sites</div>
         </div>
         <div class="glass-card cbom-kpi">
-            <div class="value" style="color:var(--pqc-safe);">{{ vm.kpis.active_certificates or 0 }}</div>
+            <div class="value" id="kpiActiveCerts" style="color:var(--pqc-safe);">{{ vm.kpis.active_certificates or 0 }}</div>
             <div class="label">Active Certs</div>
         </div>
         <div class="glass-card cbom-kpi">
-            <div class="value" style="color:var(--risk-critical);">{{ vm.kpis.weak_cryptography or 0 }}</div>
+            <div class="value" id="kpiWeakCrypto" style="color:var(--risk-critical);">{{ vm.kpis.weak_cryptography or 0 }}</div>
             <div class="label">Weak Crypto</div>
         </div>
         <div class="glass-card cbom-kpi">
-            <div class="value" style="color:var(--risk-high);">{{ vm.kpis.certificate_issues or 0 }}</div>
+            <div class="value" id="kpiIssues" style="color:var(--risk-high);">{{ vm.kpis.certificate_issues or 0 }}</div>
             <div class="label">Issues</div>
         </div>
     </div>
@@ -73,28 +74,26 @@
     <div class="cbom-charts-grid">
         <div class="glass-card chart-card">
             <h3>Key Length Distribution</h3>
-            {% for k, v in vm.key_length_distribution.items() %}
-            <div class="bar-row">
-                <div class="bar-row-meta">
-                    <span>{{ k }}</span>
-                    <span style="font-weight:700;">{{ v }}</span>
+            <div id="keyLengthRows">
+                {% for k, v in vm.key_length_distribution.items() %}
+                <div class="bar-row">
+                    <div class="bar-row-meta">
+                        <span>{{ k }}</span>
+                        <span style="font-weight:700;">{{ v }}</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width: 60%;"></div>
+                    </div>
                 </div>
-                <div class="bar-track">
-                    <div class="bar-fill" style="width: {{ (v / (vm.kpis.total_applications or 1) * 100)|int }}%;"></div>
-                </div>
+                {% endfor %}
             </div>
-            {% endfor %}
         </div>
 
         <div class="glass-card chart-card" style="text-align:center;">
             <h3>Protocol Health</h3>
-            {% set protocols = vm.protocols or {} %}
-            {% set total = (protocols.values()|sum) or 1 %}
-            {% set tls13 = ((protocols.get('TLS 1.3', 0) / total) * 100)|int %}
-            {% set tls12 = ((protocols.get('TLS 1.2', 0) / total) * 100)|int %}
-            <div class="protocol-donut" style="background: conic-gradient(var(--pqc-safe) 0% {{ tls13 }}%, var(--accent) {{ tls13 }}% {{ tls13 + tls12 }}%, var(--risk-critical) {{ tls13 + tls12 }}% 100%);">
+            <div id="protocolDonut" class="protocol-donut" style="background: conic-gradient(var(--pqc-safe) 0% 45%, var(--accent) 45% 80%, var(--risk-critical) 80% 100%);">
                 <div class="protocol-donut-center">
-                    <div style="font-size:1.2rem; font-weight:800;">{{ tls13 }}%</div>
+                    <div id="protocolDonutCenter" style="font-size:1.2rem; font-weight:800;">45%</div>
                     <div style="font-size:0.6rem; font-weight:700; color:var(--text-secondary);">TLS 1.3</div>
                 </div>
             </div>
@@ -107,7 +106,7 @@
 
         <div class="glass-card chart-card">
             <h3>Top Cipher Suites</h3>
-            <div style="display:flex; flex-direction:column; gap:0.75rem;">
+            <div id="cipherTopList" style="display:flex; flex-direction:column; gap:0.75rem;">
                 {% for k, v in (vm.cipher_usage.items()|list)[:5] %}
                 <div class="glass-card" style="padding:0.6rem 0.8rem; display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02);">
                     <div style="font-size:0.7rem; font-weight:600; font-family:var(--font-mono); max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ k }}</div>
@@ -122,7 +121,11 @@
     <div class="glass-card" style="padding: 1.5rem;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
             <div class="metric-title">CBOM Element Inventory</div>
-            <button id="exportCbomBtn" class="button secondary" style="padding: 0.5rem 1rem; font-size: 0.75rem;">Export CBOM JSON</button>
+            <div style="display:flex; gap:0.6rem; align-items:center;">
+                <input id="cbomSearchInput" type="text" class="inventory-input" placeholder="Search asset/cipher/issuer..." style="width:260px;" />
+                <button id="cbomSearchBtn" class="button secondary" style="padding: 0.5rem 1rem; font-size: 0.75rem;">Search</button>
+                <button id="exportCbomBtn" class="button secondary" style="padding: 0.5rem 1rem; font-size: 0.75rem;">Export CBOM JSON</button>
+            </div>
         </div>
 
         <div class="table-scroll">
@@ -139,7 +142,7 @@
                         <th>Certificate Details</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="cbomEntriesBody">
                     {% for row in page_data['items'] %}
                     {% set cert = row.certificate_details or {} %}
                     {% set validity = cert.get('validity', {}) if cert else {} %}
@@ -187,20 +190,169 @@
                 </tbody>
             </table>
         </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem; gap:1rem;">
+            <div id="cbomPagerMeta" style="font-size:0.75rem; color:var(--text-secondary);">Ready.</div>
+            <div style="display:flex; gap:0.5rem;">
+                <button id="cbomPrevBtn" class="button secondary" style="padding:0.45rem 0.75rem;">Prev</button>
+                <button id="cbomNextBtn" class="button secondary" style="padding:0.45rem 0.75rem;">Next</button>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    let cbomPage = 1;
+    let cbomHasNext = false;
+    let cbomHasPrev = false;
+    let cbomPollTimer = null;
+
+    function esc(value) {
+        return String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
+    }
+
+    function setCbomState(message, error = false) {
+        const stateEl = document.getElementById('cbomApiState');
+        if (!stateEl) return;
+        stateEl.textContent = message;
+        stateEl.style.color = error ? 'var(--risk-critical)' : 'var(--text-muted)';
+    }
+
+    function updateKpis(kpis) {
+        document.getElementById('kpiApplications').textContent = Number(kpis.total_applications || 0).toLocaleString();
+        document.getElementById('kpiSites').textContent = Number(kpis.sites_surveyed || 0).toLocaleString();
+        document.getElementById('kpiActiveCerts').textContent = Number(kpis.active_certificates || 0).toLocaleString();
+        document.getElementById('kpiWeakCrypto').textContent = Number(kpis.weak_cryptography || 0).toLocaleString();
+        document.getElementById('kpiIssues').textContent = Number(kpis.certificate_issues || 0).toLocaleString();
+    }
+
+    function renderKeyLengths(dist, totalApps) {
+        const host = document.getElementById('keyLengthRows');
+        if (!host) return;
+        const entries = Object.entries(dist || {});
+        if (!entries.length) {
+            host.innerHTML = '<div style="color:var(--text-muted); font-size:0.8rem;">No key-length data available.</div>';
+            return;
+        }
+        const denom = Math.max(1, Number(totalApps || 1));
+        host.innerHTML = entries.map(([k, v]) => `
+            <div class="bar-row">
+                <div class="bar-row-meta"><span>${esc(k)}</span><span style="font-weight:700;">${Number(v || 0)}</span></div>
+                <div class="bar-track"><div class="bar-fill" style="width:${Math.max(2, Math.round((Number(v || 0) / denom) * 100))}%;"></div></div>
+            </div>
+        `).join('');
+    }
+
+    function renderProtocolDonut(protocols) {
+        const donut = document.getElementById('protocolDonut');
+        const center = document.getElementById('protocolDonutCenter');
+        if (!donut || !center) return;
+        const total = Object.values(protocols || {}).reduce((a, b) => a + Number(b || 0), 0) || 1;
+        const tls13 = Math.round(((Number(protocols?.['TLS 1.3'] || 0)) / total) * 100);
+        const tls12 = Math.round(((Number(protocols?.['TLS 1.2'] || 0)) / total) * 100);
+        donut.style.background = `conic-gradient(var(--pqc-safe) 0% ${tls13}%, var(--accent) ${tls13}% ${tls13 + tls12}%, var(--risk-critical) ${tls13 + tls12}% 100%)`;
+        center.textContent = `${tls13}%`;
+    }
+
+    function renderCiphers(cipherUsage) {
+        const host = document.getElementById('cipherTopList');
+        if (!host) return;
+        const rows = Object.entries(cipherUsage || {}).sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0)).slice(0, 5);
+        if (!rows.length) {
+            host.innerHTML = '<div style="color:var(--text-muted); font-size:0.8rem;">No cipher telemetry available.</div>';
+            return;
+        }
+        host.innerHTML = rows.map(([k, v]) => `
+            <div class="glass-card" style="padding:0.6rem 0.8rem; display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.02);">
+                <div style="font-size:0.7rem; font-weight:600; font-family:var(--font-mono); max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(k)}</div>
+                <div class="status-pill" style="font-size:0.6rem; padding:2px 8px;">${Number(v || 0)} Apps</div>
+            </div>
+        `).join('');
+    }
+
+    function renderEntries(items) {
+        const body = document.getElementById('cbomEntriesBody');
+        if (!body) return;
+        if (!items.length) {
+            body.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No CBOM entries found. Run scans to populate CBOM.</td></tr>';
+            return;
+        }
+        body.innerHTML = items.map((row) => `
+            <tr>
+                <td><div style="font-weight:700;">${esc(row.asset_name || '--')}</div><div style="font-size:0.65rem; color:var(--text-secondary);">${esc(row.subject_cn || '--')}</div></td>
+                <td><span class="status-pill" style="border-color:var(--pqc-safe); color:var(--pqc-safe);">${esc(row.cert_status || 'Valid')}</span></td>
+                <td style="font-family:var(--font-mono);">${esc(row.key_length || '--')}</td>
+                <td>${esc(row.tls_version || '--')}</td>
+                <td style="font-size:0.7rem;">${esc(row.cipher_suite || '--')}</td>
+                <td style="font-size:0.7rem;">${esc(row.ca || '--')}</td>
+                <td style="font-size:0.75rem;">${esc(String(row.valid_until || '-').slice(0, 10))}</td>
+                <td style="font-size:0.7rem; color:var(--text-secondary);">${esc(row.serial || '--')}</td>
+            </tr>
+        `).join('');
+    }
+
+    function updatePager(total, page, pageSize) {
+        cbomHasPrev = page > 1;
+        cbomHasNext = page * pageSize < total;
+        const meta = document.getElementById('cbomPagerMeta');
+        if (meta) {
+            const start = total ? ((page - 1) * pageSize + 1) : 0;
+            const end = Math.min(page * pageSize, total);
+            meta.textContent = `Showing ${start}-${end} of ${total} entries`;
+        }
+        document.getElementById('cbomPrevBtn').disabled = !cbomHasPrev;
+        document.getElementById('cbomNextBtn').disabled = !cbomHasNext;
+    }
+
+    async function syncCbom() {
+        const searchTerm = document.getElementById('cbomSearchInput')?.value || '';
+        setCbomState('Syncing CBOM telemetry…');
+        try {
+            const [metricsResp, chartsResp, entriesResp] = await Promise.all([
+                fetch('/api/cbom/metrics?page=1&page_size=25&search=' + encodeURIComponent(searchTerm), { headers: { Accept: 'application/json' }, credentials: 'same-origin' }),
+                fetch('/api/cbom/charts?page=1&page_size=25&search=' + encodeURIComponent(searchTerm), { headers: { Accept: 'application/json' }, credentials: 'same-origin' }),
+                fetch('/api/cbom/entries?page=' + cbomPage + '&page_size=25&search=' + encodeURIComponent(searchTerm), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+            ]);
+
+            const metrics = await metricsResp.json();
+            const charts = await chartsResp.json();
+            const entries = await entriesResp.json();
+            if (!metricsResp.ok || !chartsResp.ok || !entriesResp.ok || !metrics.success || !charts.success || !entries.success) {
+                throw new Error('CBOM API sync failed');
+            }
+
+            updateKpis(metrics.data.kpis || {});
+            const chartItem = (charts.data.items || [])[0] || {};
+            const keyDist = chartItem.key_length_distribution || {};
+            const protocols = chartItem.protocol_versions || chartItem.protocols || {};
+            const ciphers = chartItem.cipher_suite_usage || chartItem.cipher_usage || {};
+            renderKeyLengths(keyDist, Number(metrics.data.kpis?.total_applications || 0));
+            renderProtocolDonut(protocols);
+            renderCiphers(ciphers);
+
+            const data = entries.data || {};
+            renderEntries(data.items || []);
+            updatePager(Number(data.total || 0), Number(data.page || cbomPage), Number(data.page_size || 25));
+            setCbomState('CBOM telemetry synced successfully.');
+        } catch (_err) {
+            setCbomState('CBOM sync failed. Showing latest available data.', true);
+        }
+    }
+
     document.getElementById('exportCbomBtn').addEventListener('click', async () => {
         const btn = document.getElementById('exportCbomBtn');
         btn.disabled = true;
         btn.textContent = 'Preparing...';
         
         try {
-            // Internal export logic matching original backend
-            window.location.href = '/api/cbom/export'; // Suggested endpoint
+            const searchTerm = document.getElementById('cbomSearchInput')?.value || '';
+            window.location.href = '/api/cbom/export?search=' + encodeURIComponent(searchTerm);
         } catch (e) {
             alert('Export failed. Check connection.');
         } finally {
@@ -210,5 +362,49 @@
             }, 2000);
         }
     });
+
+    document.getElementById('cbomSearchBtn').addEventListener('click', () => {
+        cbomPage = 1;
+        syncCbom();
+    });
+    document.getElementById('cbomPrevBtn').addEventListener('click', () => {
+        if (!cbomHasPrev) return;
+        cbomPage = Math.max(1, cbomPage - 1);
+        syncCbom();
+    });
+    document.getElementById('cbomNextBtn').addEventListener('click', () => {
+        if (!cbomHasNext) return;
+        cbomPage += 1;
+        syncCbom();
+    });
+
+    function startCbomPolling() {
+        if (cbomPollTimer) return;
+        cbomPollTimer = window.setInterval(() => {
+            if (!document.hidden) {
+                syncCbom();
+            }
+        }, 30000);
+    }
+
+    function stopCbomPolling() {
+        if (!cbomPollTimer) return;
+        window.clearInterval(cbomPollTimer);
+        cbomPollTimer = null;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        syncCbom();
+        startCbomPolling();
+    });
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopCbomPolling();
+        } else {
+            syncCbom();
+            startCbomPolling();
+        }
+    });
+    window.addEventListener('beforeunload', stopCbomPolling);
 </script>
 {% endblock %}

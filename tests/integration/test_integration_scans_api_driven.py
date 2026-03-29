@@ -61,6 +61,36 @@ def test_bulk_scan_submission_returns_tracking_scan_ids(app_client):
     assert len(payload.get("scan_ids", [])) == 2
 
 
+def test_bulk_scan_accepts_target_entries_with_ports(app_client):
+    fake_report = {
+        "scan_id": "bulk-real-csv-1",
+        "target": "10.10.10.10",
+        "status": "complete",
+        "total_assets": 1,
+        "overview": {"average_compliance_score": 70},
+    }
+
+    with patch("web.routes.scans._can_bulk_scan", return_value=True), patch("web.app.run_scan_pipeline", return_value=fake_report):
+        resp = app_client.post(
+            "/api/scans/bulk",
+            data=json.dumps(
+                {
+                    "target_entries": [
+                        {"target": "10.10.10.10", "ports": [443, 8443]},
+                        {"target": "192.168.1.0/24", "ports": "80 443"},
+                    ],
+                    "autodiscovery": False,
+                }
+            ),
+            content_type="application/json",
+        )
+
+    assert resp.status_code == 202
+    payload = json.loads(resp.data)
+    assert payload["status"] == "accepted"
+    assert len(payload.get("scan_ids", [])) == 2
+
+
 def test_scan_metrics_endpoint_returns_universal_envelope(app_client):
     resp = app_client.get("/api/scans/metrics")
     assert resp.status_code == 200
