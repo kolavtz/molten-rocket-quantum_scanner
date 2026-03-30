@@ -67,23 +67,23 @@ tests/
 
 ```bash
 # Unified dashboard payload (session-authenticated app clients)
-curl -X GET "http://127.0.0.1:5000/api/dashboard"
+curl -X GET "https://127.0.0.1:5000/api/dashboard"
 
 # Unified action API (example: refresh)
-curl -X POST http://127.0.0.1:5000/api/dashboard \
+curl -X POST https://127.0.0.1:5000/api/dashboard \
   -H "Content-Type: application/json" \
   -d '{"action":"dashboard.refresh"}'
 
 # REST API scan
-curl "http://127.0.0.1:5000/api/scan?target=google.com"
+curl "https://127.0.0.1:5000/api/scan?target=google.com"
 
 # POST scan
-curl -X POST http://127.0.0.1:5000/api/scan \
+curl -X POST https://127.0.0.1:5000/api/scan \
   -H "Content-Type: application/json" \
   -d '{"target": "example.com"}'
 
 # Download CBOM
-curl "http://127.0.0.1:5000/cbom/<scan_id>" -o cbom.json
+curl "https://127.0.0.1:5000/cbom/<scan_id>" -o cbom.json
 ```
 
 ## 🧪 Testing
@@ -125,6 +125,6 @@ Helper scripts included:
 - **Chart.js** — Interactive dashboard charts
 - **Pure CSS** — Glassmorphism dark-mode design (no Tailwind)
 
-## 📄 License
 
-MIT — Built for the PNB Cybersecurity Hackathon 2026
+
+## Built for the PNB Cybersecurity Hackathon 2026
