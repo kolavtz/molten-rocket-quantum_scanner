@@ -88,6 +88,56 @@ class TestQuantumSafeChecker:
         # "api" keyword in host should give HIGH risk
         assert result.hndl_risk_level == "HIGH"
 
+    def test_hndl_risk_low_for_public_pqc_tls13(self):
+        tls = {
+            "host": "www.public-site.example",
+            "port": 443,
+            "protocol_version": "TLSv1.3",
+            "cipher_suite": "TLS_AES_256_GCM_SHA384",
+            "key_exchange": "ML-KEM-768",
+            "certificate": {
+                "signature_algorithm": "ML-DSA-65",
+                "public_key_type": "ML-DSA-65",
+                "public_key_bits": 0,
+                "is_expired": False,
+                "days_until_expiry": 180,
+                "not_after": "Dec 31 2026",
+            },
+        }
+        pqc = {
+            "overall_status": "quantum_safe",
+            "is_quantum_safe": True,
+            "risk_level": "LOW",
+        }
+
+        result = self.checker.validate(tls, pqc)
+        assert result.hndl_risk_level == "LOW"
+
+    def test_hndl_risk_medium_for_public_classical_tls12(self):
+        tls = {
+            "host": "www.public-site.example",
+            "port": 443,
+            "protocol_version": "TLSv1.2",
+            "cipher_suite": "ECDHE-RSA-AES256-GCM-SHA384",
+            "key_exchange": "ECDHE",
+            "certificate": {
+                "signature_algorithm": "sha256WithRSAEncryption",
+                "public_key_type": "RSA",
+                "public_key_bits": 2048,
+                "is_expired": False,
+                "days_until_expiry": 180,
+                "not_after": "Dec 31 2026",
+            },
+        }
+        pqc = {
+            "overall_status": "quantum_vulnerable",
+            "is_quantum_safe": False,
+            "risk_level": "HIGH",
+        }
+
+        result = self.checker.validate(tls, pqc)
+        assert result.hndl_risk_level == "MEDIUM"
+
     def test_to_dict_structure(self):
         result = self.checker.validate(VULNERABLE_TLS, VULNERABLE_PQC)
         d = result.to_dict()
