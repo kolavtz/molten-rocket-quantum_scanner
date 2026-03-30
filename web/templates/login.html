@@ -204,35 +204,39 @@ body.login-page {
 .lf-input-wrap {
     position: relative;
 }
-.lf-input-wrap .lf-icon {
+.login-card .lf-input-wrap .lf-icon {
     position: absolute;
-    left: 0.75rem; top: 50%;
+    left: 0.95rem;
+    top: 50%;
+    width: 1rem;
+    text-align: center;
     transform: translateY(-50%);
     color: var(--text-muted, #5a6a7e);
     font-size: 0.78rem;
     pointer-events: none;
     transition: color 0.2s;
 }
-.lf-input {
+.login-card .lf-input-wrap input.lf-input {
     width: 100%;
     box-sizing: border-box;
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(74,158,173,0.15);
     border-radius: 8px;
-    padding: 0.7rem 0.85rem 0.7rem 2.1rem;
+    padding: 0.7rem 0.9rem 0.7rem 2.9rem;
     color: var(--text-primary, #f3f4f6);
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.875rem;
+    line-height: 1.2;
     outline: none;
     transition: border-color 0.22s, background 0.22s, box-shadow 0.22s;
 }
-.lf-input::placeholder { color: rgba(142, 165, 184, 0.35); }
-.lf-input:focus {
+.login-card .lf-input-wrap input.lf-input::placeholder { color: rgba(142, 165, 184, 0.35); }
+.login-card .lf-input-wrap input.lf-input:focus {
     border-color: var(--accent, #4a9ead);
     background: rgba(74,158,173,0.06);
     box-shadow: 0 0 0 3px rgba(74,158,173,0.12);
 }
-.lf-input:focus + .lf-icon,
+.login-card .lf-input-wrap input.lf-input:focus + .lf-icon,
 .lf-input-wrap:focus-within .lf-icon {
     color: var(--accent, #4a9ead);
 }
@@ -241,15 +245,34 @@ body.login-page {
     position: absolute;
     right: 0.75rem; top: 50%;
     transform: translateY(-50%);
-    background: none; border: none;
+    min-height: 32px;
+    min-width: 32px;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 6px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    text-transform: none;
+    letter-spacing: normal;
     color: var(--text-muted, #5a6a7e);
     cursor: pointer; padding: 0;
     font-size: 0.78rem;
     transition: color 0.2s;
 }
-.lf-pw-toggle:hover { color: var(--accent, #4a9ead); }
+.lf-pw-toggle:hover,
+.lf-pw-toggle:focus-visible {
+    color: var(--accent, #4a9ead);
+    background: rgba(74, 158, 173, 0.14);
+    outline: 2px solid rgba(74, 158, 173, 0.35);
+    outline-offset: 1px;
+}
 /* Password input needs right padding for toggle */
-.lf-input.has-toggle { padding-right: 2.4rem; }
+.login-card .lf-input-wrap input.lf-input.has-toggle { padding-right: 3.2rem; }
 
 /* ── Remember-me + forgot row ───────────────────────────────────── */
 .lf-bottom-row {
@@ -270,6 +293,10 @@ body.login-page {
     appearance: none;
     -webkit-appearance: none;
     width: 15px; height: 15px;
+    min-width: 15px;
+    min-height: 15px;
+    margin: 0;
+    align-self: center;
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(74,158,173,0.25);
     border-radius: 4px;
@@ -290,6 +317,10 @@ body.login-page {
     color: #0f1219;
     font-weight: 700;
 }
+.lf-remember input[type="checkbox"]:focus-visible {
+    outline: 2px solid rgba(74, 158, 173, 0.45);
+    outline-offset: 2px;
+}
 .lf-remember span {
     font-size: 0.72rem;
     color: var(--text-muted, #5a6a7e);
@@ -305,6 +336,20 @@ body.login-page {
     white-space: nowrap;
 }
 .lf-forgot:hover { color: var(--accent, #4a9ead); }
+
+.lf-link-stack {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.lf-link-sep {
+    color: var(--text-muted, #5a6a7e);
+    opacity: 0.6;
+    font-size: 0.7rem;
+}
 
 /* ── Submit button ──────────────────────────────────────────────── */
 .btn-authorize {
@@ -405,6 +450,120 @@ body.login-page {
 .role-pill.manager { color: #e0a632; border-color: rgba(224,166,50,0.35); background: rgba(224,166,50,0.07); }
 .role-pill.operator{ color: #4a9ead; border-color: rgba(74,158,173,0.35); background: rgba(74,158,173,0.07); }
 .role-pill.viewer  { color: #70cc96; border-color: rgba(72,187,120,0.3);  background: rgba(72,187,120,0.07); }
+
+/* ── Theme-specific readability tuning (light/dark/system) ─────── */
+html[data-theme='dark'] .login-card,
+html[data-theme='system'] .login-card {
+    background: rgba(17, 21, 32, 0.84);
+    border-color: rgba(74, 158, 173, 0.22);
+}
+
+html[data-theme='dark'] .login-card-header p,
+html[data-theme='dark'] .lf-label,
+html[data-theme='dark'] .lf-remember span,
+html[data-theme='dark'] .lf-forgot,
+html[data-theme='dark'] .lf-link-sep,
+html[data-theme='dark'] .login-security-note,
+html[data-theme='dark'] .login-alt-auth p,
+html[data-theme='dark'] .login-banner .banner-tagline,
+html[data-theme='dark'] .login-banner .banner-collab {
+    color: color-mix(in srgb, var(--text-secondary) 75%, var(--text-primary) 25%);
+}
+
+html[data-theme='light'] body.login-page {
+    background:
+        radial-gradient(ellipse 60% 50% at 20% 40%, rgba(74,158,173,0.11) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 80% 70%, rgba(74,158,173,0.08) 0%, transparent 70%),
+        var(--bg-primary, #f5f7fb);
+}
+
+html[data-theme='light'] .login-card {
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, var(--text-primary) 20%);
+    box-shadow:
+        0 12px 32px rgba(15, 23, 42, 0.14),
+        inset 0 1px 0 rgba(255,255,255,0.75);
+}
+
+html[data-theme='light'] .login-card-header h1,
+html[data-theme='light'] .login-banner .banner-org-name {
+    color: var(--text-primary, #0f172a);
+}
+
+html[data-theme='light'] .login-card-header p,
+html[data-theme='light'] .lf-label,
+html[data-theme='light'] .lf-remember span,
+html[data-theme='light'] .lf-forgot,
+html[data-theme='light'] .lf-link-sep,
+html[data-theme='light'] .login-security-note,
+html[data-theme='light'] .login-alt-auth p,
+html[data-theme='light'] .login-banner .banner-tagline,
+html[data-theme='light'] .login-banner .banner-collab,
+html[data-theme='light'] .login-banner .banner-series {
+    color: color-mix(in srgb, var(--text-primary) 68%, var(--text-secondary) 32%);
+}
+
+html[data-theme='light'] .login-card .lf-input-wrap .lf-icon,
+html[data-theme='light'] .lf-pw-toggle {
+    color: color-mix(in srgb, var(--text-secondary) 75%, var(--text-primary) 25%);
+}
+
+html[data-theme='light'] .login-card .lf-input-wrap input.lf-input {
+    background: color-mix(in srgb, var(--bg-input) 85%, #ffffff 15%);
+    border-color: color-mix(in srgb, var(--border-subtle) 70%, var(--text-secondary) 30%);
+    color: var(--text-primary, #0f172a);
+}
+
+html[data-theme='light'] .login-card .lf-input-wrap input.lf-input::placeholder {
+    color: color-mix(in srgb, var(--text-secondary) 85%, #64748b 15%);
+    opacity: 1;
+}
+
+@media (prefers-color-scheme: light) {
+    html[data-theme='system'] body.login-page {
+        background:
+            radial-gradient(ellipse 60% 50% at 20% 40%, rgba(74,158,173,0.11) 0%, transparent 70%),
+            radial-gradient(ellipse 50% 40% at 80% 70%, rgba(74,158,173,0.08) 0%, transparent 70%),
+            var(--bg-primary, #f5f7fb);
+    }
+
+    html[data-theme='system'] .login-card {
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, var(--text-primary) 20%);
+        box-shadow:
+            0 12px 32px rgba(15, 23, 42, 0.14),
+            inset 0 1px 0 rgba(255,255,255,0.75);
+    }
+
+    html[data-theme='system'] .login-card-header p,
+    html[data-theme='system'] .lf-label,
+    html[data-theme='system'] .lf-remember span,
+    html[data-theme='system'] .lf-forgot,
+    html[data-theme='system'] .lf-link-sep,
+    html[data-theme='system'] .login-security-note,
+    html[data-theme='system'] .login-alt-auth p,
+    html[data-theme='system'] .login-banner .banner-tagline,
+    html[data-theme='system'] .login-banner .banner-collab,
+    html[data-theme='system'] .login-banner .banner-series {
+        color: color-mix(in srgb, var(--text-primary) 68%, var(--text-secondary) 32%);
+    }
+
+    html[data-theme='system'] .login-card .lf-input-wrap .lf-icon,
+    html[data-theme='system'] .lf-pw-toggle {
+        color: color-mix(in srgb, var(--text-secondary) 75%, var(--text-primary) 25%);
+    }
+
+    html[data-theme='system'] .login-card .lf-input-wrap input.lf-input {
+        background: color-mix(in srgb, var(--bg-input) 85%, #ffffff 15%);
+        border-color: color-mix(in srgb, var(--border-subtle) 70%, var(--text-secondary) 30%);
+        color: var(--text-primary, #0f172a);
+    }
+
+    html[data-theme='system'] .login-card .lf-input-wrap input.lf-input::placeholder {
+        color: color-mix(in srgb, var(--text-secondary) 85%, #64748b 15%);
+        opacity: 1;
+    }
+}
 </style>
 {% endblock %}
 
@@ -497,7 +656,7 @@ body.login-page {
                            placeholder="••••••••••••"
                            {% if locked %}disabled{% endif %}>
                     <i class="fa-solid fa-key lf-icon"></i>
-                    <button type="button" class="lf-pw-toggle" id="pwToggle" tabindex="-1"
+                        <button type="button" class="lf-pw-toggle" id="pwToggle"
                             aria-label="Show/hide password" title="Show/hide password">
                         <i class="fa-regular fa-eye" id="pwToggleIcon"></i>
                     </button>
@@ -511,9 +670,11 @@ body.login-page {
                            {% if locked %}disabled{% endif %}>
                     <span>Stay signed in</span>
                 </label>
-                <a href="{{ url_for('forgot_password') }}" class="lf-forgot">
-                    Forgot password?
-                </a>
+                <div class="lf-link-stack">
+                    <a href="{{ url_for('forgot_password') }}" class="lf-forgot">Forgot password?</a>
+                    <span class="lf-link-sep">•</span>
+                    <a href="{{ url_for('docs') }}" class="lf-forgot">Docs</a>
+                </div>
             </div>
 
             {# Submit #}

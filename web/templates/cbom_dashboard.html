@@ -283,16 +283,53 @@
             body.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No CBOM entries found. Run scans to populate CBOM.</td></tr>';
             return;
         }
+        const printable = (value, fallback = '--') => {
+            if (value === null || value === undefined) return fallback;
+            if (Array.isArray(value)) return value.length ? value.join(', ') : fallback;
+            if (typeof value === 'object') {
+                const keys = Object.keys(value);
+                return keys.length ? JSON.stringify(value) : fallback;
+            }
+            const text = String(value).trim();
+            return text || fallback;
+        };
+
         body.innerHTML = items.map((row) => `
             <tr>
+                ${(() => {
+                    const cert = (row && typeof row.certificate_details === 'object' && row.certificate_details) ? row.certificate_details : {};
+                    const validity = (cert && typeof cert.validity === 'object' && cert.validity) ? cert.validity : {};
+                    const spki = (cert && typeof cert.subject_public_key_info === 'object' && cert.subject_public_key_info) ? cert.subject_public_key_info : {};
+                    const validUntil = printable(row.valid_until || row.not_valid_after || row.valid_to || validity.not_after, '-');
+                    const fingerprint = printable(row.fingerprint_sha256 || row.cert_sha256 || cert.fingerprint_sha256 || cert.fingerprint, '--');
+                    return `
                 <td><div style="font-weight:700;">${esc(row.asset_name || '--')}</div><div style="font-size:0.65rem; color:var(--text-secondary);">${esc(row.subject_cn || '--')}</div></td>
                 <td><span class="status-pill" style="border-color:var(--pqc-safe); color:var(--pqc-safe);">${esc(row.cert_status || 'Valid')}</span></td>
                 <td style="font-family:var(--font-mono);">${esc(row.key_length || '--')}</td>
                 <td>${esc(row.tls_version || '--')}</td>
                 <td style="font-size:0.7rem;">${esc(row.cipher_suite || '--')}</td>
                 <td style="font-size:0.7rem;">${esc(row.ca || '--')}</td>
-                <td style="font-size:0.75rem;">${esc(String(row.valid_until || '-').slice(0, 10))}</td>
-                <td style="font-size:0.7rem; color:var(--text-secondary);">${esc(row.serial || '--')}</td>
+                <td style="font-size:0.75rem;">${esc(String(validUntil).slice(0, 10))}</td>
+                <td>
+                    <div class="cert-details-box">
+                        <details>
+                            <summary>Show full X.509 details</summary>
+                            <div class="cert-details-grid">
+                                <div class="row"><span class="key">Serial Number:</span><span class="val">${esc(printable(cert.serial_number || row.serial))}</span></div>
+                                <div class="row"><span class="key">Certificate Signature Algorithm:</span><span class="val">${esc(printable(cert.certificate_signature_algorithm || row.signature_algorithm))}</span></div>
+                                <div class="row"><span class="key">Issuer:</span><span class="val">${esc(printable(cert.issuer || row.issuer_name || row.ca))}</span></div>
+                                <div class="row"><span class="key">Validity Not Before:</span><span class="val">${esc(printable(validity.not_before || row.valid_from, '-'))}</span></div>
+                                <div class="row"><span class="key">Validity Not After:</span><span class="val">${esc(printable(validUntil, '-'))}</span></div>
+                                <div class="row"><span class="key">Subject:</span><span class="val">${esc(printable(cert.subject || row.subject_name || row.subject_cn))}</span></div>
+                                <div class="row"><span class="key">Subject Public Key Algorithm:</span><span class="val">${esc(printable(spki.subject_public_key_algorithm || row.public_key_type))}</span></div>
+                                <div class="row"><span class="key">Subject Public Key:</span><span class="val">${esc(printable(spki.subject_public_key || spki.subject_public_key_bits, '-'))}</span></div>
+                                <div class="row"><span class="key">SHA-256 Fingerprint:</span><span class="val">${esc(fingerprint)}</span></div>
+                            </div>
+                        </details>
+                    </div>
+                </td>
+                    `;
+                })()}
             </tr>
         `).join('');
     }

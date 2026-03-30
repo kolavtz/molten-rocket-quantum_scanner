@@ -180,6 +180,22 @@ function showFlash(message, category = 'success') {
     setTimeout(() => flashDiv.remove(), 5000);
 }
 
+async function parseJsonResponse(response) {
+    const raw = await response.text();
+    if (!raw || !raw.trim()) {
+        return {};
+    }
+    try {
+        return JSON.parse(raw);
+    } catch (_err) {
+        const trimmed = raw.trim().toLowerCase();
+        if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<html')) {
+            throw new Error('Session expired or access denied. Please refresh and log in again.');
+        }
+        throw new Error('Server returned an invalid JSON response.');
+    }
+}
+
 // Helper: update role badge in row
 function updateRoleBadge(row, role) {
     const badge = row.querySelector('.status-badge[style*="accent"]');
@@ -212,12 +228,14 @@ document.querySelectorAll('.js-admin-user-update').forEach(form => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken()
+                    'Accept': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: JSON.stringify({ role, is_active: isActive })
             });
             
-            const payload = await response.json();
+            const payload = await parseJsonResponse(response);
             if (!response.ok || payload.status === 'error') {
                 throw new Error(payload.message || 'Failed to update user');
             }
@@ -269,11 +287,12 @@ document.getElementById('bulkRoleBtn')?.addEventListener('click', async () => {
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCsrfToken(),
-                'Accept': 'application/json'
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
             },
             body: JSON.stringify({ action: 'update_role', user_ids: ids, role })
         });
-        const payload = await response.json();
+        const payload = await parseJsonResponse(response);
         if (!response.ok || payload.status === 'error') {
             throw new Error(payload.message || 'Bulk role update failed.');
         }
@@ -299,11 +318,12 @@ document.getElementById('bulkDeleteBtn')?.addEventListener('click', async () => 
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCsrfToken(),
-                'Accept': 'application/json'
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
             },
             body: JSON.stringify({ action: 'delete', user_ids: ids })
         });
-        const payload = await response.json();
+        const payload = await parseJsonResponse(response);
         if (!response.ok || payload.status === 'error') {
             throw new Error(payload.message || 'Bulk deletion failed.');
         }
@@ -325,12 +345,14 @@ document.querySelectorAll('.js-admin-reset-pass').forEach(btn => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken()
+                    'Accept': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: JSON.stringify({})
             });
             
-            const payload = await response.json();
+            const payload = await parseJsonResponse(response);
             if (!response.ok || payload.status === 'error') {
                 throw new Error(payload.message || 'Failed to reset password');
             }
@@ -358,12 +380,14 @@ document.querySelectorAll('.js-admin-regen-key').forEach(btn => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken()
+                    'Accept': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: JSON.stringify({})
             });
             
-            const payload = await response.json();
+            const payload = await parseJsonResponse(response);
             if (!response.ok || payload.status === 'error') {
                 throw new Error(payload.message || 'Failed to regenerate API key');
             }

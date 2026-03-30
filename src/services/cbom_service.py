@@ -125,7 +125,7 @@ class CbomService:
         }
 
     @staticmethod
-    def _find_report_certificate_details(scan: Scan, cert: Certificate) -> Dict[str, Any]:
+    def _find_report_certificate_row(scan: Scan, cert: Certificate) -> Dict[str, Any]:
         report = CbomService._safe_json_dict(getattr(scan, "report_json", None))
         raw_tls_rows = report.get("tls_results")
         tls_rows = raw_tls_rows if isinstance(raw_tls_rows, list) else []
@@ -144,14 +144,11 @@ class CbomService:
             row_endpoint = f"{row_host}:{row_port}" if row_host and row_port else row_host
 
             if serial and row_serial and serial == row_serial:
-                details = row.get("certificate_details")
-                return dict(details) if isinstance(details, dict) else {}
+                return dict(row)
             if subject_cn and row_subject_cn and subject_cn == row_subject_cn:
-                details = row.get("certificate_details")
-                return dict(details) if isinstance(details, dict) else {}
+                return dict(row)
             if endpoint and row_endpoint and endpoint == row_endpoint:
-                details = row.get("certificate_details")
-                return dict(details) if isinstance(details, dict) else {}
+                return dict(row)
 
         return {}
 
@@ -666,12 +663,22 @@ class CbomService:
             valid_from = getattr(cert, "valid_from", None)
             valid_until = getattr(cert, "valid_until", None)
             certificate_details = cls._certificate_details_from_cert_row(cert)
-            report_certificate_details = cls._find_report_certificate_details(scan, cert)
+            report_row = cls._find_report_certificate_row(scan, cert)
+            report_certificate_details = report_row.get("certificate_details") if isinstance(report_row.get("certificate_details"), dict) else {}
             if report_certificate_details:
                 certificate_details = {
                     **certificate_details,
                     **report_certificate_details,
                 }
+            validity = certificate_details.get("validity") if isinstance(certificate_details.get("validity"), dict) else {}
+            cert_valid_until = valid_until.isoformat() if hasattr(valid_until, "isoformat") and valid_until else None
+            if not cert_valid_until:
+                cert_valid_until = str(report_row.get("valid_to") or "").strip() or str(validity.get("not_after") or "").strip() or None
+
+            cert_fingerprint = str(getattr(cert, "fingerprint_sha256", "") or "").strip()
+            if not cert_fingerprint:
+                cert_fingerprint = str(report_row.get("cert_sha256") or "").strip() or str(certificate_details.get("fingerprint_sha256") or "").strip()
+
             applications.append(
                 {
                     "asset_id": int(getattr(asset, "id", 0) or 0),
@@ -691,8 +698,9 @@ class CbomService:
                     "issuer_o": str(getattr(cert, "issuer_o", "") or ""),
                     "issuer_ou": str(getattr(cert, "issuer_ou", "") or ""),
                     "valid_from": valid_from.isoformat() if hasattr(valid_from, "isoformat") and valid_from else None,
-                    "valid_until": valid_until.isoformat() if hasattr(valid_until, "isoformat") and valid_until else None,
-                    "fingerprint_sha256": str(getattr(cert, "fingerprint_sha256", "") or ""),
+                    "valid_until": cert_valid_until,
+                    "fingerprint_sha256": cert_fingerprint,
+                    "cert_status": str(report_row.get("cert_status") or "").strip() or "Valid",
                     "certificate_details": certificate_details,
                     "last_scan": (
                         getattr(scan, "scanned_at", None)

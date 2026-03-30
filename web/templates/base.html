@@ -271,7 +271,7 @@
                             <a href="/admin/users" class="dropdown-link"><i class="fa-solid fa-users"></i> Users</a>
                             <a href="/admin/audit" class="dropdown-link"><i class="fa-solid fa-clock-rotate-left"></i> Audit</a>
                             <a href="/admin/api" class="dropdown-link"><i class="fa-solid fa-key"></i> API Keys</a>
-                            <a href="/docs" class="dropdown-link"><i class="fa-solid fa-book"></i> API Docs</a>
+                            <a href="/docs" class="dropdown-link"><i class="fa-solid fa-book"></i> Docs</a>
                             <a href="/recycle-bin" class="dropdown-link"><i class="fa-solid fa-trash-can"></i> Recycle Bin</a>
                             <a href="/admin/theme" class="dropdown-link"><i class="fa-solid fa-palette"></i> Theme</a>
                         </div>
@@ -294,6 +294,9 @@
                         </div>
                     </div>
                 {% else %}
+                    <a href="/docs" class="nav-link {% if request.path == '/docs' %}active{% endif %}" title="Documentation">
+                        <i class="fa-solid fa-book"></i> <span class="nav-text">DOCS</span>
+                    </a>
                     <a href="/login" class="nav-link" title="Secure Login">
                         <i class="fa-solid fa-right-to-bracket"></i> <span class="nav-text">LOGIN</span>
                     </a>
@@ -325,6 +328,96 @@
                 btn.setAttribute('aria-expanded', open ? 'true' : 'false');
             });
         }
+    })();
+
+    (function () {
+        if (window.__qsNetworkHardeningInstalled) {
+            return;
+        }
+        window.__qsNetworkHardeningInstalled = true;
+
+        function getCsrfToken() {
+            var meta = document.querySelector('meta[name="csrf-token"]');
+            return meta ? (meta.getAttribute('content') || '') : '';
+        }
+
+        function isSameOriginRequest(input) {
+            try {
+                var rawUrl = (typeof input === 'string') ? input : (input && input.url ? input.url : '');
+                var parsed = new URL(rawUrl || window.location.href, window.location.href);
+                return parsed.origin === window.location.origin;
+            } catch (_err) {
+                return true;
+            }
+        }
+
+        function looksLikeHtml(raw) {
+            var sample = String(raw || '').trim().toLowerCase();
+            return sample.startsWith('<!doctype') || sample.startsWith('<html') || sample.includes('<body');
+        }
+
+        var nativeFetch = window.fetch.bind(window);
+        window.fetch = function (input, init) {
+            var requestInit = Object.assign({}, init || {});
+            var method = String(requestInit.method || 'GET').toUpperCase();
+            var isMutation = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
+            var sameOrigin = isSameOriginRequest(input);
+            var headers = new Headers(requestInit.headers || {});
+
+            if (sameOrigin) {
+                if (!headers.has('X-Requested-With')) {
+                    headers.set('X-Requested-With', 'XMLHttpRequest');
+                }
+
+                var contentType = String(headers.get('Content-Type') || '').toLowerCase();
+                if (!headers.has('Accept') && (isMutation || contentType.includes('application/json'))) {
+                    headers.set('Accept', 'application/json');
+                }
+
+                if (isMutation && !headers.has('X-CSRFToken')) {
+                    var token = getCsrfToken();
+                    if (token) {
+                        headers.set('X-CSRFToken', token);
+                    }
+                }
+
+                if (!requestInit.credentials) {
+                    requestInit.credentials = 'same-origin';
+                }
+            }
+
+            requestInit.headers = headers;
+            return nativeFetch(input, requestInit);
+        };
+
+        var nativeJson = Response.prototype.json;
+        Response.prototype.json = async function () {
+            var cloned = this.clone();
+            try {
+                return await nativeJson.call(this);
+            } catch (_err) {
+                var text = '';
+                try {
+                    text = await cloned.text();
+                } catch (_readErr) {
+                    text = '';
+                }
+
+                if (!String(text || '').trim()) {
+                    return {};
+                }
+
+                if (looksLikeHtml(text)) {
+                    throw new Error('Received HTML instead of JSON. Your session may have expired, or access is denied.');
+                }
+
+                throw new Error('Received an invalid JSON response from server.');
+            }
+        };
+
+        window.qsParseJsonResponse = async function (response) {
+            return response.json();
+        };
     })();
     </script>
 

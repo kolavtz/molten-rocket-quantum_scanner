@@ -32,6 +32,7 @@ python web/app.py
 | **🌐 Unified Dashboard API** | `/api/dashboard` for all in-app dashboard + scan actions |
 | **🤖 CI/CD Scan API** | `/api/scan?target=example.com` for automation pipelines |
 | **📈 Visual Dashboard** | Chart.js charts, glassmorphism dark-mode UI, responsive design |
+| **🎨 UI Accessibility** | Improved login page text contrast for light/dark/system theme modes |
 
 ## 🏗️ Architecture
 
@@ -65,25 +66,69 @@ tests/
 
 ## 📡 API Usage
 
+### Authentication
+- This API supports API key auth with `X-API-Key` request header (preferred) and fallback via `?api_key=...` query string or `api_key` in JSON body.
+- Missing/wrong key returns 401 + JSON: `{"error": "API key required"}` or `{"error": "Invalid or revoked API key"}`.
+
+### Examples (API key required for non-browser endpoints)
 ```bash
 # Unified dashboard payload (session-authenticated app clients)
-curl -X GET "https://127.0.0.1:5000/api/dashboard"
+# If using API key:
+# -H "X-API-Key: sk_..."
+
+curl -X GET "https://127.0.0.1:5000/api/dashboard" \
+  -H "X-API-Key: sk_your_api_key_here"
 
 # Unified action API (example: refresh)
 curl -X POST https://127.0.0.1:5000/api/dashboard \
+  -H "X-API-Key: sk_your_api_key_here" \
   -H "Content-Type: application/json" \
   -d '{"action":"dashboard.refresh"}'
 
-# REST API scan
-curl "https://127.0.0.1:5000/api/scan?target=google.com"
+# REST API scan (GET)
+curl -X GET "https://127.0.0.1:5000/api/scan?target=google.com" \
+  -H "X-API-Key: sk_your_api_key_here"
 
-# POST scan
+# POST scan (JSON body)
 curl -X POST https://127.0.0.1:5000/api/scan \
+  -H "X-API-Key: sk_your_api_key_here" \
   -H "Content-Type: application/json" \
   -d '{"target": "example.com"}'
 
 # Download CBOM
-curl "https://127.0.0.1:5000/cbom/<scan_id>" -o cbom.json
+curl -X GET "https://127.0.0.1:5000/cbom/<scan_id>" \
+  -H "X-API-Key: sk_your_api_key_here" \
+  -o cbom.json
+
+# Admin: list API keys
+curl -X GET "https://127.0.0.1:5000/api/admin/api-keys" \
+  -H "X-API-Key: sk_your_admin_api_key_here"
+```
+
+### Useful query parameters
+- `page`, `page_size` — pagination
+- `sort`, `order` — sorting field and direction
+- `q` — full-text search filter (if supported)
+- `tab=domains|ssl|ips|software` — discovery modes (e.g., `/api/discovery`)
+
+### Sample dashboard response structure
+```json
+{
+  "success": true,
+  "data": {
+    "items": [...],
+    "total": 150,
+    "page": 1,
+    "page_size": 25,
+    "total_pages": 6,
+    "kpis": {...}
+  },
+  "filters": {
+    "sort": "field",
+    "order": "asc",
+    "search": "query"
+  }
+}
 ```
 
 ## 🧪 Testing

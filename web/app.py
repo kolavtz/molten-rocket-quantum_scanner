@@ -437,6 +437,17 @@ login_manager = LoginManager()
 login_manager.login_view = "login"
 login_manager.init_app(app)
 
+
+@login_manager.unauthorized_handler
+def _unauthorized_handler():
+    if _expects_json_response():
+        return jsonify({
+            "status": "error",
+            "message": "Authentication required.",
+            "login_url": url_for("login"),
+        }), 401
+    return redirect(url_for("login"))
+
 class User(UserMixin):
     def __init__(self, user_dict):
         self.id = user_dict["id"]
@@ -455,6 +466,28 @@ def load_user(user_id):
         return User(user_data)
     return None
 
+
+def _expects_json_response() -> bool:
+    """Return True when caller expects JSON (AJAX/API), not HTML redirects."""
+    if request.is_json:
+        return True
+
+    x_requested_with = str(request.headers.get("X-Requested-With", "") or "").strip().lower()
+    if x_requested_with == "xmlhttprequest":
+        return True
+
+    best = str(request.accept_mimetypes.best or "").strip().lower()
+    if best == "application/json":
+        return True
+
+    try:
+        return (
+            request.accept_mimetypes["application/json"] > 0
+            and request.accept_mimetypes["application/json"] >= request.accept_mimetypes["text/html"]
+        )
+    except Exception:
+        return False
+
 def role_required(roles):
     def decorator(f):
         @wraps(f)
@@ -470,9 +503,21 @@ def role_required(roles):
                     request_path=request.path,
                     details={"required_roles": roles},
                 )
+                if _expects_json_response():
+                    return jsonify({
+                        "status": "error",
+                        "message": "Authentication required.",
+                        "login_url": url_for("login"),
+                    }), 401
                 return redirect(url_for('login'))
             if current_user.role not in roles:
                 _audit("auth", "authorization_denied", "denied", details={"required_roles": roles, "actual_role": current_user.role})
+                if _expects_json_response():
+                    return jsonify({
+                        "status": "error",
+                        "message": "You do not have permission to access this resource.",
+                        "home_url": url_for("quantumshield_dashboard.dashboard_home"),
+                    }), 403
                 flash("You do not have permission to access this resource.", "error")
                 return redirect(url_for('quantumshield_dashboard.dashboard_home'))
             return f(*args, **kwargs)
@@ -2357,7 +2402,7 @@ def admin_rotate_api_key():
 @role_required(list(ADMIN_PANEL_ROLES))
 def admin_reset_user_password(user_id: str):
     """Admin-triggered password reset email for an existing user. Supports form OR JSON."""
-    wants_json = request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html
+    wants_json = _expects_json_response()
     
     user = db.get_user_by_id(user_id)
     if not user:
@@ -2417,7 +2462,7 @@ def admin_reset_user_password(user_id: str):
 @role_required(list(ADMIN_PANEL_ROLES))
 def admin_update_user(user_id: str):
     """Update user role and active status. Supports form OR JSON."""
-    wants_json = request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html
+    wants_json = _expects_json_response()
     
     if request.is_json:
         data = request.get_json() or {}
@@ -4199,7 +4244,7 @@ def rotate_api_key():
 @role_required(list(ADMIN_PANEL_ROLES))
 def admin_regen_api_key(user_id: str):
     """Admin: revoke and reissue an API key for any user. Supports form OR JSON."""
-    wants_json = request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html
+    wants_json = _expects_json_response()
     
     user = db.get_user_by_id(user_id)
     if not user:

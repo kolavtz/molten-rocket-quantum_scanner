@@ -612,6 +612,28 @@ button.loading::after,
     animation: spin var(--transition-slow) linear infinite;
 }
 
+/* Icon-only controls should not inherit heavy CTA chrome */
+button[aria-label],
+.icon-button,
+.table-action-button,
+.pagination-button,
+.nav-hamburger {
+    text-transform: none;
+    letter-spacing: normal;
+    line-height: 1;
+    box-shadow: none;
+    min-height: 36px;
+    min-width: 36px;
+}
+
+button,
+.button,
+.scan-button,
+[role="button"] {
+    line-height: 1.2;
+    touch-action: manipulation;
+}
+
 /* ── Enhanced Card Styling ── */
 .card {
     background:
