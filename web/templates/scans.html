@@ -1,0 +1,529 @@
+{% extends "base.html" %}
+{% block title %}Scan Center | QuantumShield{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/api_dashboards.css') }}" />
+{% endblock %}
+
+{% block content %}
+<section class="hero" style="padding-bottom:1rem;">
+  <h2 class="hero-title" style="font-size:2rem;">SCAN CENTER</h2>
+  <p class="hero-subtitle">API-first orchestration with role-aware controls, autodiscovery, and live status telemetry.</p>
+  <div id="scanApiState" style="font-size:0.72rem; color:var(--text-muted); margin-top:0.75rem; text-transform:uppercase;">Ready.</div>
+</section>
+
+<section class="glass-card" style="padding:1rem; margin-bottom:1rem;">
+  <h3 style="margin-bottom:0.8rem; text-transform:uppercase;">Operational Metrics</h3>
+  <div id="scanLiveKpis" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0.6rem; margin-bottom:0.8rem;"></div>
+
+  <h3 style="margin-bottom:0.8rem; text-transform:uppercase;">Progress</h3>
+  <div id="scanProgress" style="display:grid; gap:0.4rem; font-size:0.85rem;"></div>
+</section>
+
+<section id="scanDetailPanel" class="glass-card" style="padding:1rem; margin-bottom:1rem; display:block;">
+  <div style="display:flex; justify-content:space-between; gap:0.8rem; flex-wrap:wrap; margin-bottom:0.8rem; align-items:center;">
+    <h3 style="margin:0; text-transform:uppercase;">Initialize Scan</h3>
+    <span id="scanActionMsg" style="color:var(--text-secondary); font-size:0.8rem;" aria-live="polite"></span>
+  </div>
+
+  <div role="tablist" style="display:flex; gap:0.8rem; margin-bottom:1rem; border-bottom:1px solid var(--border-subtle); padding-bottom:0.6rem;">
+    <button id="tabSingle" class="scan-tab scan-tab-active" type="button" aria-selected="true">Single Target</button>
+    {% if can_bulk_scan %}
+    <button id="tabBulk" class="scan-tab" type="button" aria-selected="false">Bulk Sequential</button>
+    {% endif %}
+  </div>
+
+  <div id="modeSingle" style="display:block;">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <div>
+        <label for="singleTarget" style="display:block; margin-bottom:0.3rem;">Single Target</label>
+        <input id="singleTarget" class="scan-input" type="text" placeholder="example.com / 192.168.1.1 / https://api.example.com" style="width:100%;" />
+      </div>
+      <div>
+        <label for="portsInput" style="display:block; margin-bottom:0.3rem;">Ports (optional)</label>
+        <input id="portsInput" class="scan-input" type="text" placeholder="443,8443" style="width:100%;" />
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:1rem;">
+      <div class="glass-card" style="padding:0.8rem;">
+        <label class="checkbox" style="font-weight:700; color:var(--accent); margin-bottom:0.35rem;">
+          <input id="autodiscoverySingle" type="checkbox">
+          Autodiscovery
+        </label>
+        <p style="margin:0; font-size:0.75rem; color:var(--text-secondary);">Deep port sweep across approved discovery port set.</p>
+      </div>
+      <div class="glass-card" style="padding:0.8rem;">
+        <label class="checkbox" style="font-weight:700; color:var(--safe); margin-bottom:0.35rem;">
+          <input id="addToInventorySingle" type="checkbox">
+          Add to Inventory
+        </label>
+        <p style="margin:0; font-size:0.75rem; color:var(--text-secondary);">Persist asset metadata after scan completion.</p>
+      </div>
+    </div>
+
+    <div id="inventorySingleFields" class="glass-card" style="padding:0.9rem; margin-top:0.8rem; display:none;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem;">
+        <div>
+          <label for="singleOwner">Owner / Team</label>
+          <input id="singleOwner" class="scan-input" type="text" placeholder="Security Team" style="padding-left:0.8rem;" />
+        </div>
+        <div>
+          <label for="singleRisk">Risk Level</label>
+          <select id="singleRisk" class="scan-input" style="padding-left:0.8rem;">
+            <option value="Low">Low</option>
+            <option value="Medium" selected>Medium</option>
+            <option value="High">High</option>
+            <option value="Critical">Critical</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:0.7rem;">
+        <label for="singleNotes">Notes</label>
+        <input id="singleNotes" class="scan-input" type="text" placeholder="Optional notes" style="padding-left:0.8rem;" />
+      </div>
+    </div>
+
+    <div class="glass-card" style="padding:0.9rem; margin-top:0.8rem;">
+      <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:0.6rem;">
+        <label class="radio"><input type="radio" name="singleAssetClassMode" value="auto" checked> Auto detect asset class</label>
+        <label class="radio"><input type="radio" name="singleAssetClassMode" value="manual"> Manual asset class</label>
+      </div>
+      <label for="singleAssetClassValue">Asset Class (manual mode)</label>
+      <input id="singleAssetClassValue" class="scan-input" type="text" placeholder="e.g., Core Banking API" style="padding-left:0.8rem;" />
+    </div>
+
+    <div style="margin-top:0.8rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+      <button class="quick-btn" type="button" data-target-quick="google.com">google.com</button>
+      <button class="quick-btn" type="button" data-target-quick="test.openquantumsafe.org">OQS Test</button>
+      <button class="quick-btn" type="button" data-target-quick="pnbnet.pnb.bank.in">PNB Net</button>
+    </div>
+
+    <div style="margin-top:0.9rem; display:flex; justify-content:flex-end; align-items:center; gap:0.7rem; flex-wrap:wrap;">
+      <span style="font-size:0.75rem; color:var(--text-secondary);">Review selection toggles above, then start scan.</span>
+      <button id="singleScanBtn" class="scan-button" type="button">Run Single Scan</button>
+    </div>
+  </div>
+
+  {% if can_bulk_scan %}
+  <div id="modeBulk" style="display:none;">
+    <div style="margin-top:0.4rem;">
+      <label for="bulkTargets" style="display:block; margin-bottom:0.3rem;">Bulk Targets (one per line)</label>
+      <textarea id="bulkTargets" class="scan-input" style="width:100%; min-height:130px; padding-left:0.8rem;" placeholder="example.com&#10;10.10.10.0/24&#10;api.example.com:8443"></textarea>
+      <div style="margin-top:0.65rem;">
+        <label for="bulkCsvFile" style="display:block; margin-bottom:0.3rem;">Bulk CSV Upload (optional)</label>
+        <input id="bulkCsvFile" class="scan-input" type="file" accept=".csv,text/csv" style="padding:0.45rem 0.55rem;" />
+        <div id="bulkCsvHint" style="margin-top:0.35rem; font-size:0.75rem; color:var(--text-secondary);">
+          CSV format: <code>ip,[ports separated by comma or space]</code>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:1rem;">
+      <div class="glass-card" style="padding:0.8rem;">
+        <label class="checkbox" style="font-weight:700; color:var(--accent); margin-bottom:0.35rem;">
+          <input id="autodiscoveryBulk" type="checkbox">
+          Autodiscovery
+        </label>
+        <p style="margin:0; font-size:0.75rem; color:var(--text-secondary);">Deep scan mode across bulk targets.</p>
+      </div>
+      <div class="glass-card" style="padding:0.8rem;">
+        <label class="checkbox" style="font-weight:700; color:var(--safe); margin-bottom:0.35rem;">
+          <input id="addToInventoryBulk" type="checkbox">
+          Add all to Inventory
+        </label>
+        <p style="margin:0; font-size:0.75rem; color:var(--text-secondary);">Attach metadata to newly discovered targets.</p>
+      </div>
+    </div>
+
+    <div id="inventoryBulkFields" class="glass-card" style="padding:0.9rem; margin-top:0.8rem; display:none;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem;">
+        <div>
+          <label for="bulkOwner">Owner / Team</label>
+          <input id="bulkOwner" class="scan-input" type="text" placeholder="Infrastructure Team" style="padding-left:0.8rem;" />
+        </div>
+        <div>
+          <label for="bulkRisk">Risk Level</label>
+          <select id="bulkRisk" class="scan-input" style="padding-left:0.8rem;">
+            <option value="Low">Low</option>
+            <option value="Medium" selected>Medium</option>
+            <option value="High">High</option>
+            <option value="Critical">Critical</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:0.7rem;">
+        <label for="bulkNotes">Notes</label>
+        <input id="bulkNotes" class="scan-input" type="text" placeholder="Optional notes" style="padding-left:0.8rem;" />
+      </div>
+    </div>
+
+    <div class="glass-card" style="padding:0.9rem; margin-top:0.8rem;">
+      <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:0.6rem;">
+        <label class="radio"><input type="radio" name="bulkAssetClassMode" value="auto" checked> Auto detect asset class</label>
+        <label class="radio"><input type="radio" name="bulkAssetClassMode" value="manual"> Manual asset class</label>
+      </div>
+      <label for="bulkAssetClassValue">Asset Class (manual mode)</label>
+      <input id="bulkAssetClassValue" class="scan-input" type="text" placeholder="e.g., Banking Server" style="padding-left:0.8rem;" />
+    </div>
+
+    <div style="margin-top:0.9rem; display:flex; justify-content:flex-end; align-items:center; gap:0.7rem; flex-wrap:wrap;">
+      <span style="font-size:0.75rem; color:var(--text-secondary);">After target and option selection, run the bulk queue.</span>
+      <button id="bulkScanBtn" class="scan-button" type="button">Run Bulk Scan (Sequential)</button>
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+<section class="glass-card" style="padding:1rem; margin-bottom:1rem;">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.8rem; flex-wrap:wrap; margin-bottom:0.8rem;">
+    <div>
+      <h3 style="margin:0; text-transform:uppercase;">Scan Record Details</h3>
+      <p id="scanDetailSubtitle" style="margin:0.25rem 0 0; color:var(--text-secondary);">Select a scan record to inspect live status and result details.</p>
+    </div>
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+      <a id="scanDetailResultLink" class="scan-button scan-button-secondary" href="#" target="_blank" rel="noreferrer">Open Full Result</a>
+      <button id="scanDetailRefreshBtn" class="scan-button" type="button">Refresh Details</button>
+    </div>
+  </div>
+
+  <div id="scanDetailEmpty" style="color:var(--text-secondary); padding:0.6rem 0;">Choose a scan from the table below to view its record, live state, and full report.</div>
+
+  <div id="scanDetailContent" style="display:none;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:0.6rem; margin-bottom:0.8rem;">
+      <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Scan ID</div><div id="scanDetailId" style="font-weight:700; word-break:break-word;"></div></div>
+      <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Target</div><div id="scanDetailTarget" style="font-weight:700; word-break:break-word;"></div></div>
+      <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Status</div><div id="scanDetailStatus" style="font-weight:700;"></div></div>
+      <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Assets Found</div><div id="scanDetailAssets" style="font-weight:700;"></div></div>
+      <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">PQC Score</div><div id="scanDetailScore" style="font-weight:700;"></div></div>
+      <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Result Scan</div><div id="scanDetailResultId" style="font-weight:700;"></div></div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.8rem; margin-bottom:0.8rem;">
+      <div class="glass-card" style="padding:0.8rem;">
+        <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Started</div>
+        <div id="scanDetailStarted" style="font-weight:700;"></div>
+      </div>
+      <div class="glass-card" style="padding:0.8rem;">
+        <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Completed</div>
+        <div id="scanDetailCompleted" style="font-weight:700;"></div>
+      </div>
+      <div class="glass-card" style="padding:0.8rem;">
+        <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Source</div>
+        <div id="scanDetailSource" style="font-weight:700;"></div>
+      </div>
+      <div class="glass-card" style="padding:0.8rem;">
+        <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Job</div>
+        <div id="scanDetailJob" style="font-weight:700;"></div>
+      </div>
+    </div>
+
+    <div class="glass-card" style="padding:0.8rem; margin-bottom:0.8rem;">
+      <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase; margin-bottom:0.5rem;">Summary</div>
+      <div id="scanDetailSummary" style="display:grid; gap:0.4rem;"></div>
+    </div>
+
+    <div class="glass-card" style="padding:0.8rem;">
+      <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase; margin-bottom:0.5rem;">Raw Result Snapshot</div>
+      <pre id="scanDetailRaw" style="margin:0; white-space:pre-wrap; word-break:break-word; color:var(--text-primary); background:transparent; border:none; padding:0;"></pre>
+    </div>
+
+    <div class="glass-card" style="padding:0.8rem; margin-top:0.8rem;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.6rem; flex-wrap:wrap; margin-bottom:0.6rem;">
+        <div>
+          <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">SSL/TLS Certificate Details</div>
+          <div id="scanCertSummary" style="font-size:0.82rem; color:var(--text-secondary); margin-top:0.25rem;">No certificate telemetry loaded yet.</div>
+        </div>
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+          <button id="scanCertPrev" class="scan-button" type="button">Prev</button>
+          <span id="scanCertPageInfo" style="font-size:0.8rem; color:var(--text-secondary);">Page 1/1</span>
+          <button id="scanCertNext" class="scan-button" type="button">Next</button>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table class="scans-table" style="width:100%;">
+          <thead>
+            <tr>
+              <th>Endpoint</th>
+              <th>Subject CN</th>
+              <th>Issuer</th>
+              <th>Status</th>
+              <th>TLS</th>
+              <th>Key</th>
+              <th>Valid Until</th>
+              <th>Fingerprint</th>
+            </tr>
+          </thead>
+          <tbody id="scanCertTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% if can_bulk_scan %}
+<section class="glass-card" style="padding:1rem; margin-bottom:1rem;">
+  <h3 style="margin-bottom:0.8rem; text-transform:uppercase;">Scheduled Scans</h3>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem; margin-bottom:0.8rem;">
+    <div>
+      <label for="scheduleTarget">Target</label>
+      <input id="scheduleTarget" class="scan-input" type="text" placeholder="example.com" style="padding-left:0.8rem;" />
+    </div>
+    <div>
+      <label for="scheduleFrequency">Frequency</label>
+      <select id="scheduleFrequency" class="scan-input" style="padding-left:0.8rem;">
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+        <option value="monthly">Monthly</option>
+      </select>
+    </div>
+    <div>
+      <label for="scheduleTime">Time</label>
+      <input id="scheduleTime" class="scan-input" type="time" style="padding-left:0.8rem;" />
+    </div>
+    <div>
+      <label for="scheduleTimezone">Timezone</label>
+      <select id="scheduleTimezone" class="scan-input" style="padding-left:0.8rem;">
+        <option value="UTC">UTC</option>
+        <option value="Asia/Kolkata">Asia/Kolkata</option>
+        <option value="Europe/London">Europe/London</option>
+        <option value="America/New_York">America/New_York</option>
+      </select>
+    </div>
+  </div>
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:0.8rem; flex-wrap:wrap;">
+    <label class="checkbox"><input id="scheduleAutoAdd" type="checkbox"> Auto-add discovered assets to inventory</label>
+    <button id="scheduleCreateBtn" class="scan-button" type="button">Create Schedule</button>
+  </div>
+  <div id="schedulesList" style="display:grid; gap:0.4rem; margin-top:0.8rem;"></div>
+</section>
+{% endif %}
+
+<section class="glass-card" data-api-table-page style="padding:1rem;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.8rem; gap:0.8rem;">
+    <h3 style="margin:0; text-transform:uppercase;">All Scans</h3>
+    <div style="display:flex; gap:0.6rem;">
+      <input data-api-search-input class="scan-input" type="text" placeholder="Search scan id / target / status" />
+      <button data-api-search-btn class="scan-button" type="button">Search</button>
+    </div>
+  </div>
+
+  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:0.6rem; margin-bottom:0.8rem;">
+    <div>
+      <label for="scanFilterStatus" style="display:block; margin-bottom:0.2rem; color:var(--text-secondary); font-size:0.75rem;">Status</label>
+      <select id="scanFilterStatus" class="scan-input" style="padding-left:0.8rem;">
+        <option value="">All</option>
+        <option value="running">Running</option>
+        <option value="completed">Completed</option>
+        <option value="failed">Failed</option>
+      </select>
+    </div>
+    <div>
+      <label for="scanFilterType" style="display:block; margin-bottom:0.2rem; color:var(--text-secondary); font-size:0.75rem;">Scan Type</label>
+      <select id="scanFilterType" class="scan-input" style="padding-left:0.8rem;">
+        <option value="">All</option>
+        <option value="single">Single</option>
+        <option value="bulk">Bulk</option>
+      </select>
+    </div>
+    <div>
+      <label for="scanFilterFrom" style="display:block; margin-bottom:0.2rem; color:var(--text-secondary); font-size:0.75rem;">Date From</label>
+      <input id="scanFilterFrom" class="scan-input" type="date" style="padding-left:0.8rem;" />
+    </div>
+    <div>
+      <label for="scanFilterTo" style="display:block; margin-bottom:0.2rem; color:var(--text-secondary); font-size:0.75rem;">Date To</label>
+      <input id="scanFilterTo" class="scan-input" type="date" style="padding-left:0.8rem;" />
+    </div>
+    <div style="display:flex; align-items:flex-end; gap:0.5rem;">
+      <button id="scanFilterApply" class="scan-button" type="button">Apply</button>
+      <button id="scanFilterReset" class="scan-button scan-button-secondary" type="button">Reset</button>
+    </div>
+  </div>
+
+  <div data-api-kpis style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:0.6rem; margin-bottom:0.8rem;"></div>
+  <div data-api-error style="display:none; color:var(--danger); margin-bottom:0.6rem;"></div>
+
+  <table class="scans-table" style="width:100%;">
+    <thead><tr data-api-table-head></tr></thead>
+    <tbody data-api-table-body></tbody>
+  </table>
+
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.8rem;">
+    <div style="color:var(--text-secondary); font-size:0.8rem;">
+      Total: <strong data-api-total>0</strong> | Page <strong data-api-page>1</strong>/<strong data-api-total-pages>1</strong>
+    </div>
+    <div style="display:flex; gap:0.6rem;">
+      <button data-api-prev class="scan-button" type="button">Prev</button>
+      <button data-api-next class="scan-button" type="button">Next</button>
+    </div>
+  </div>
+</section>
+
+<script src="{{ url_for('static', filename='js/api_client.js') }}"></script>
+<script src="{{ url_for('static', filename='js/universal_table.js') }}"></script>
+<script src="{{ url_for('static', filename='js/api-table.js') }}"></script>
+<script src="{{ url_for('static', filename='js/scans.js') }}"></script>
+<script>
+  function scanStatusBadge(value) {
+    const state = String(value || 'unknown').toLowerCase();
+    const color = state === 'completed' ? 'var(--safe)' : (state === 'running' ? 'var(--warn)' : (state === 'failed' ? 'var(--danger)' : 'var(--text-secondary)'));
+    return '<span class="status-pill" style="border-color:' + color + '; color:' + color + ';">' + state.toUpperCase() + '</span>';
+  }
+
+  function scanDateDisplay(value) {
+    if (!value) return '—';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return String(value);
+    return parsed.toLocaleString();
+  }
+
+  function scanActionsCell(_value, row) {
+    const scanId = String((row && row.scan_id) || '').trim();
+    if (!scanId) return '—';
+    const safeScanId = scanId.replace(/'/g, "\\'");
+    const actions = [];
+    if (row && row.actions) {
+      actions.push('<a class="scan-button scan-button-secondary" href="' + String(row.actions) + '">Open Result</a>');
+    }
+    actions.push('<button class="scan-button" type="button" onclick="window.QuantumShieldScans.promote(\'' + safeScanId + '\', \'inventory\')">Add to Inventory</button>');
+    actions.push('<button class="scan-button scan-button-secondary" type="button" onclick="window.QuantumShieldScans.promote(\'' + safeScanId + '\', \'cbom\')">Enable CBOM</button>');
+    return '<div style="display:flex; gap:0.35rem; flex-wrap:wrap;">' + actions.join('') + '</div>';
+  }
+
+  var scanSyncOriginalRefresh = null;
+  var scanPollTimer = null;
+
+  function setScanApiState(message, error = false) {
+    const stateEl = document.getElementById('scanApiState');
+    if (!stateEl) return;
+    stateEl.textContent = message;
+    stateEl.style.color = error ? 'var(--risk-critical)' : 'var(--text-muted)';
+  }
+
+  const scanTableController = window.QuantumShieldApiTable.initApiTablePage({
+    rootSelector: '[data-api-table-page]',
+    apiUrl: '/api/scans',
+    page: 1,
+    pageSize: 25,
+    sort: 'date',
+    order: 'desc',
+    emptyMessage: 'No scans found. Please run a scan to populate the scan center.',
+    columns: [
+      { field: 'scan_id', label: 'Scan ID' },
+      { field: 'target', label: 'Target' },
+      { field: 'scan_type', label: 'Scan Type' },
+      { field: 'started_at', label: 'Started At', render: function(v){ return scanDateDisplay(v); } },
+      { field: 'completed_at', label: 'Completed At', render: function(v){ return scanDateDisplay(v); } },
+      { field: 'status', label: 'Status', render: function(v){ return scanStatusBadge(v); } },
+      { field: 'assets_found', label: 'Assets Found' },
+      { field: 'pqc_score', label: 'PQC Score' },
+      { field: 'actions', label: 'Actions', render: scanActionsCell }
+    ],
+    getExtraParams: function () {
+      return {
+        status: document.getElementById('scanFilterStatus')?.value || '',
+        scan_type: document.getElementById('scanFilterType')?.value || '',
+        date_from: document.getElementById('scanFilterFrom')?.value || '',
+        date_to: document.getElementById('scanFilterTo')?.value || ''
+      };
+    },
+    onRowClick: function (row) {
+      if (window.QuantumShieldScans && typeof window.QuantumShieldScans.showRecordDetails === 'function') {
+        window.QuantumShieldScans.showRecordDetails(row);
+      }
+    }
+  });
+
+  // Wrap refresh to show sync state
+  if (scanTableController && typeof scanTableController.refresh === 'function') {
+    scanSyncOriginalRefresh = scanTableController.refresh;
+    scanTableController.refresh = function () {
+      setScanApiState('Syncing scan records...');
+      try {
+        const result = scanSyncOriginalRefresh.call(this);
+        if (result && typeof result.then === 'function') {
+          result
+            .then(() => {
+              setScanApiState('Scan records synced successfully.');
+            })
+            .catch(() => {
+              setScanApiState('Scan sync failed. Showing cached data.', true);
+            });
+        }
+        return result;
+      } catch (e) {
+        setScanApiState('Scan sync error.', true);
+        throw e;
+      }
+    };
+  }
+
+  document.getElementById('scanFilterApply')?.addEventListener('click', function () {
+    setScanApiState('Applying scan filters...');
+    if (scanTableController && typeof scanTableController.setPage === 'function') {
+      scanTableController.setPage(1);
+    }
+    if (scanTableController && typeof scanTableController.refresh === 'function') {
+      scanTableController.refresh();
+    }
+  });
+
+  document.getElementById('scanFilterReset')?.addEventListener('click', function () {
+    const status = document.getElementById('scanFilterStatus');
+    const scanType = document.getElementById('scanFilterType');
+    const from = document.getElementById('scanFilterFrom');
+    const to = document.getElementById('scanFilterTo');
+    if (status) status.value = '';
+    if (scanType) scanType.value = '';
+    if (from) from.value = '';
+    if (to) to.value = '';
+    if (scanTableController && typeof scanTableController.setPage === 'function') {
+      scanTableController.setPage(1);
+    }
+    if (scanTableController && typeof scanTableController.refresh === 'function') {
+      scanTableController.refresh();
+    }
+  });
+
+  scanPollTimer = window.setInterval(function () {
+    if (!document.hidden && scanTableController && typeof scanTableController.refresh === 'function') {
+      scanTableController.refresh();
+    }
+  }, 30000);
+
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && scanTableController && typeof scanTableController.refresh === 'function') {
+      scanTableController.refresh();
+    }
+  });
+
+  window.addEventListener('beforeunload', function () {
+    if (scanPollTimer) {
+      window.clearInterval(scanPollTimer);
+      scanPollTimer = null;
+    }
+  });
+
+  window.QuantumShieldScans.init({
+    canBulkScan: {{ 'true' if can_bulk_scan else 'false' }}
+  });
+</script>
+
+<style>
+  .scan-tab {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 0.55rem 0.2rem;
+    font-size: 0.84rem;
+    font-weight: 700;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+  }
+  .scan-tab.scan-tab-active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+</style>
+{% endblock %}

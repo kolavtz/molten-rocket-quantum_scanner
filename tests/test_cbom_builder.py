@@ -107,6 +107,56 @@ class TestCBOMBuilder:
         assert "summary" in d
         assert d["summary"]["total_assets"] == 1
 
+    def test_build_matches_pqc_by_endpoint_not_index(self):
+        builder = CBOMBuilder()
+
+        tls_results = [
+            {
+                "host": "alpha.example.com",
+                "port": 443,
+                "protocol_version": "TLSv1.3",
+                "cipher_suite": "TLS_AES_256_GCM_SHA384",
+                "cipher_bits": 256,
+                "key_exchange": "ECDHE",
+                "certificate": {},
+            },
+            {
+                "host": "beta.example.com",
+                "port": 8443,
+                "protocol_version": "TLSv1.3",
+                "cipher_suite": "TLS_AES_128_GCM_SHA256",
+                "cipher_bits": 128,
+                "key_exchange": "ML-KEM-768",
+                "certificate": {},
+            },
+        ]
+
+        # Intentionally reversed order vs tls_results.
+        pqc_assessments = [
+            {
+                "host": "beta.example.com",
+                "port": 8443,
+                "is_quantum_safe": True,
+                "overall_status": "quantum_safe",
+                "risk_level": "LOW",
+            },
+            {
+                "host": "alpha.example.com",
+                "port": 443,
+                "is_quantum_safe": False,
+                "overall_status": "quantum_vulnerable",
+                "risk_level": "HIGH",
+            },
+        ]
+
+        cbom = builder.build(tls_results, pqc_assessments)
+        by_endpoint = {(a.host, a.port): a for a in cbom.assets}
+
+        assert by_endpoint[("alpha.example.com", 443)].risk_level == "HIGH"
+        assert by_endpoint[("alpha.example.com", 443)].is_quantum_safe is False
+        assert by_endpoint[("beta.example.com", 8443)].risk_level == "LOW"
+        assert by_endpoint[("beta.example.com", 8443)].is_quantum_safe is True
+
 
 class TestCycloneDXGenerator:
     """Tests for CycloneDXGenerator."""

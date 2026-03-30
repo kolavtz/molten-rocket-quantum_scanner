@@ -55,6 +55,13 @@ Integrate scanning into your CI/CD pipeline:
 curl "http://127.0.0.1:5000/api/scan?target=your-app.com"
 ```
 
+For dashboard and inventory app workflows, use the unified endpoint:
+```bash
+curl -X POST http://127.0.0.1:5000/api/dashboard \
+	-H "Content-Type: application/json" \
+	-d '{"action":"dashboard.refresh"}'
+```
+
 ---
 
 ## Understanding the Compliance Score

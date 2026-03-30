@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% import "macros/table_macros.html" as tb %}
+
+{% block title %}Recycle Bin | QuantumShield{% endblock %}
+
+{% block content %}
+<section class="hero" style="padding-bottom:1rem;">
+  <h2 class="hero-title" style="font-size:2rem; color: var(--warn);"><i class="fa-solid fa-trash-arrow-up"></i> RECYCLE BIN</h2>
+  <p class="hero-subtitle">Soft-deleted assets and scan snapshots. Restore items back to active dashboards.</p>
+</section>
+
+{% if vm.empty %}
+<section class="glass-card" style="padding:1.5rem; text-align:center; margin-bottom: 2rem;">
+  <div style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"><i class="fa-regular fa-folder-open"></i></div>
+  <strong style="font-size:1.1rem;">Your Recycle Bin is empty.</strong>
+  <p style="margin-top:0.5rem; color:var(--text-secondary);">Deleted scans and assets will appear here for 30 days before permanent purging.</p>
+</section>
+{% endif %}
+
+<div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+  <button class="tab-btn active" onclick="switchTab('assets')"><i class="fa-solid fa-boxes-stacked"></i> Deleted Assets ({{ vm.assets|length }})</button>
+  <button class="tab-btn" onclick="switchTab('scans')"><i class="fa-solid fa-magnifying-glass"></i> Deleted Scans ({{ vm.scans|length }})</button>
+</div>
+
+<!-- Deleted Assets Panel -->
+<div id="tab-assets" class="tab-panel active">
+  <form method="POST" action="/recycle-bin" data-api-recycle="assets" data-action="restore_assets">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="restore_assets">
+    
+    <div class="glass-card" style="padding:1rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <h3 style="margin-bottom:0;">Asset Inventory (Deleted)</h3>
+        <div>
+          <button type="submit" class="button secondary sm" id="btnRestoreAssets" disabled>
+            <i class="fa-solid fa-trash-can-arrow-up"></i> Restore Selected
+          </button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="scans-table">
+          <thead>
+            <tr>
+              <th style="width: 40px;"><input type="checkbox" id="selectAllAssets" onclick="toggleAll('asset_ids', this, 'btnRestoreAssets')"></th>
+              <th>Asset Name</th>
+              <th>Type</th>
+              <th>Owner</th>
+              <th>Risk</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for asset in vm.assets %}
+            <tr>
+              <td><input type="checkbox" name="asset_ids" value="{{ asset.id }}" onclick="updateButtonState('asset_ids', 'btnRestoreAssets')"></td>
+              <td><strong>{{ asset.name }}</strong></td>
+              <td>{{ asset.asset_type }}</td>
+              <td>{{ asset.owner or '--' }}</td>
+              <td>{{ asset.risk_level or 'Low' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" style="text-align:center; color:var(--text-secondary); padding: 2rem;">No deleted assets found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </form>
+
+  {% if vm.is_admin %}
+  <form method="POST" action="/recycle-bin" style="margin-top:0.75rem;" data-api-recycle="assets" data-action="delete_assets">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="delete_assets">
+    <div style="display:flex;justify-content:flex-end;">
+      <button type="submit" class="button danger sm" onclick="return confirm('Permanently destroy selected deleted assets? This cannot be undone.');">
+        <i class="fa-solid fa-skull-crossbones"></i> Destroy Selected Permanently
+      </button>
+    </div>
+    <div id="destroyAssetsMirror" style="display:none;"></div>
+  </form>
+  {% endif %}
+</div>
+
+<!-- Deleted Scans Panel -->
+<div id="tab-scans" class="tab-panel">
+  <form method="POST" action="/recycle-bin" data-api-recycle="scans" data-action="restore_scans">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="restore_scans">
+    
+    <div class="glass-card" style="padding:1rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <h3 style="margin-bottom:0;">Scan History (Deleted)</h3>
+        <div>
+          <button type="submit" class="button secondary sm" id="btnRestoreScans" disabled>
+            <i class="fa-solid fa-trash-can-arrow-up"></i> Restore Selected
+          </button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="scans-table">
+          <thead>
+            <tr>
+              <th style="width: 40px;"><input type="checkbox" id="selectAllScans" onclick="toggleAll('scan_ids', this, 'btnRestoreScans')"></th>
+              <th>Target</th>
+              <th>Status</th>
+              <th>Completed At</th>
+              <th>Compliance</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for scan in vm.scans %}
+            <tr>
+              <td><input type="checkbox" name="scan_ids" value="{{ scan.id }}" onclick="updateButtonState('scan_ids', 'btnRestoreScans')"></td>
+              <td><strong>{{ scan.target }}</strong></td>
+              <td>{{ scan.status }}</td>
+              <td>{{ scan.completed_at or '--' }}</td>
+              <td>{{ scan.compliance_score }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" style="text-align:center; color:var(--text-secondary); padding: 2rem;">No deleted scans found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </form>
+
+  {% if vm.is_admin %}
+  <form method="POST" action="/recycle-bin" style="margin-top:0.75rem;" data-api-recycle="scans" data-action="delete_scans">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="delete_scans">
+    <div style="display:flex;justify-content:flex-end;">
+      <button type="submit" class="button danger sm" onclick="return confirm('Permanently destroy selected deleted scans? This cannot be undone.');">
+        <i class="fa-solid fa-skull-crossbones"></i> Destroy Selected Permanently
+      </button>
+    </div>
+    <div id="destroyScansMirror" style="display:none;"></div>
+  </form>
+  {% endif %}
+</div>
+
+<style>
+  .tab-btn {
+    background: color-mix(in srgb, var(--bg-card) 92%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent);
+    color: var(--text-secondary);
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    transition: all 0.2s ease;
+    display: flex; gap: 0.5rem; align-items: center;
+  }
+  .tab-btn:hover { background: color-mix(in srgb, var(--accent) 10%, var(--bg-card) 90%); color: var(--text-primary); }
+  .tab-btn.active {
+    background: color-mix(in srgb, var(--warn) 14%, var(--bg-card) 86%);
+    color: var(--warn);
+    border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; animation: fadeIn 0.2s ease-out; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+
+<script>
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    
+    event.currentTarget.classList.add('active');
+    document.getElementById('tab-' + tabId).classList.add('active');
+  }
+
+  function toggleAll(name, sourceCheckbox, buttonId) {
+    const checkboxes = document.getElementsByName(name);
+    checkboxes.forEach(c => c.checked = sourceCheckbox.checked);
+    updateButtonState(name, buttonId);
+  }
+
+  function updateButtonState(name, buttonId) {
+    const checkboxes = document.getElementsByName(name);
+    const checkedCount = Array.from(checkboxes).filter(c => c.checked).length;
+    document.getElementById(buttonId).disabled = checkedCount === 0;
+
+    // Mirror checked IDs into destroy forms so destroy targets exactly selected rows.
+    if (name === 'asset_ids') {
+      const mirror = document.getElementById('destroyAssetsMirror');
+      if (mirror) {
+        mirror.innerHTML = '';
+        Array.from(checkboxes).filter(c => c.checked).forEach(c => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = 'asset_ids';
+          input.value = c.value;
+          mirror.appendChild(input);
+        });
+      }
+    }
+    if (name === 'scan_ids') {
+      const mirror = document.getElementById('destroyScansMirror');
+      if (mirror) {
+        mirror.innerHTML = '';
+        Array.from(checkboxes).filter(c => c.checked).forEach(c => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = 'scan_ids';
+          input.value = c.value;
+          mirror.appendChild(input);
+        });
+      }
+    }
+  }
+
+  (function () {
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+
+    function csrfToken() {
+      return csrfMeta ? (csrfMeta.getAttribute('content') || '') : '';
+    }
+
+    async function postRecycleAction(action, idsKey, ids) {
+      const response = await fetch('/recycle-bin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRFToken': csrfToken(),
+        },
+        body: JSON.stringify({ action, [idsKey]: ids }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.status === 'error') {
+        throw new Error(payload.message || 'Recycle Bin action failed.');
+      }
+      return payload;
+    }
+
+    function selectedIds(name) {
+      return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`))
+        .map((el) => String(el.value || '').trim())
+        .filter(Boolean);
+    }
+
+    function removeRowsByInputName(name, ids) {
+      const idSet = new Set((ids || []).map(String));
+      if (!idSet.size) return;
+      document.querySelectorAll(`input[name="${name}"]`).forEach((input) => {
+        if (idSet.has(String(input.value))) {
+          const row = input.closest('tr');
+          if (row) row.remove();
+        }
+      });
+    }
+
+    document.querySelectorAll('form[data-api-recycle]').forEach((form) => {
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const area = form.dataset.apiRecycle;
+        const action = form.dataset.action;
+        const idsKey = area === 'assets' ? 'asset_ids' : 'scan_ids';
+        const ids = selectedIds(idsKey);
+
+        if (!ids.length) {
+          return;
+        }
+
+        try {
+          await postRecycleAction(action, idsKey, ids);
+          removeRowsByInputName(idsKey, ids);
+          const buttonId = area === 'assets' ? 'btnRestoreAssets' : 'btnRestoreScans';
+          updateButtonState(idsKey, buttonId);
+        } catch (error) {
+          window.alert(error.message || 'Recycle Bin action failed.');
+        }
+      });
+    });
+  })();
+</script>
+{% endblock %}

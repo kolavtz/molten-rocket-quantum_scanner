@@ -1,117 +1,113 @@
 /**
- * QuantumShield — Frontend JavaScript
- * Particle animation + interactive enhancements
+ * QuantumShield frontend runtime: theme + global UX helpers.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    initParticles();
-    initScrollAnimations();
-});
+    const THEME_KEY = 'qss_theme';
+    const MOBILE_NAV_BREAKPOINT = 900;
+    const root = document.documentElement;
+    const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
 
-// ── Particle Background ──
-function initParticles() {
-    const container = document.getElementById('particles');
-    if (!container) return;
-
-    const canvas = document.createElement('canvas');
-    canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;';
-    container.appendChild(canvas);
-
-    const ctx = canvas.getContext('2d');
-    let particles = [];
-    const PARTICLE_COUNT = 50;
-
-    function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    }
-
-    function createParticle() {
-        return {
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height,
-            vx: (Math.random() - 0.5) * 0.3,
-            vy: (Math.random() - 0.5) * 0.3,
-            size: Math.random() * 2 + 0.5,
-            opacity: Math.random() * 0.3 + 0.1,
-        };
-    }
-
-    function initParticleList() {
-        particles = [];
-        for (let i = 0; i < PARTICLE_COUNT; i++) {
-            particles.push(createParticle());
+    function resolveTheme(pref) {
+        if (pref === 'light' || pref === 'dark') {
+            return pref;
         }
+        return systemPrefersDark && systemPrefersDark.matches ? 'dark' : 'light';
     }
 
-    function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    function applyTheme(pref) {
+        const mode = resolveTheme(pref);
+        root.setAttribute('data-theme', mode);
+    }
 
-        for (const p of particles) {
-            // Move
-            p.x += p.vx;
-            p.y += p.vy;
+    const saved = localStorage.getItem(THEME_KEY) || root.getAttribute('data-theme') || 'system';
+    applyTheme(saved);
 
-            // Wrap around
-            if (p.x < 0) p.x = canvas.width;
-            if (p.x > canvas.width) p.x = 0;
-            if (p.y < 0) p.y = canvas.height;
-            if (p.y > canvas.height) p.y = 0;
-
-            // Draw
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(99, 102, 241, ${p.opacity})`;
-            ctx.fill();
-        }
-
-        // Draw connections between nearby particles
-        for (let i = 0; i < particles.length; i++) {
-            for (let j = i + 1; j < particles.length; j++) {
-                const dx = particles[i].x - particles[j].x;
-                const dy = particles[i].y - particles[j].y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-
-                if (dist < 150) {
-                    ctx.beginPath();
-                    ctx.moveTo(particles[i].x, particles[i].y);
-                    ctx.lineTo(particles[j].x, particles[j].y);
-                    ctx.strokeStyle = `rgba(99, 102, 241, ${0.08 * (1 - dist / 150)})`;
-                    ctx.lineWidth = 0.5;
-                    ctx.stroke();
-                }
+    if (systemPrefersDark && systemPrefersDark.addEventListener) {
+        systemPrefersDark.addEventListener('change', () => {
+            const stored = localStorage.getItem(THEME_KEY) || 'system';
+            if (stored === 'system') {
+                applyTheme('system');
             }
-        }
-
-        requestAnimationFrame(draw);
+        });
     }
 
-    resize();
-    initParticleList();
-    draw();
+    // Mobile nav behavior.
+    const navBtn = document.getElementById('navHamburger');
+    const navLinks = document.getElementById('navLinks');
+    if (navBtn && navLinks) {
+        const dropdowns = Array.from(navLinks.querySelectorAll('.nav-dropdown'));
 
-    window.addEventListener('resize', () => {
-        resize();
-        initParticleList();
-    });
-}
-
-// ── Scroll Animations ──
-function initScrollAnimations() {
-    const observer = new IntersectionObserver(
-        (entries) => {
-            entries.forEach((entry) => {
-                if (entry.isIntersecting) {
-                    entry.target.style.animationPlayState = 'running';
-                    observer.unobserve(entry.target);
+        const closeDropdowns = () => {
+            dropdowns.forEach((dropdown) => {
+                dropdown.classList.remove('mobile-open');
+                const trigger = dropdown.querySelector('.nav-dropdown-trigger');
+                if (trigger) {
+                    trigger.setAttribute('aria-expanded', 'false');
                 }
             });
-        },
-        { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
-    );
+        };
 
-    document.querySelectorAll('.animate-fade-in, .animate-fade-in-up').forEach((el) => {
-        el.style.animationPlayState = 'paused';
-        observer.observe(el);
-    });
-}
+        const closeNav = () => {
+            navLinks.classList.remove('nav-open');
+            navBtn.setAttribute('aria-expanded', 'false');
+            closeDropdowns();
+        };
+
+        dropdowns.forEach((dropdown) => {
+            const trigger = dropdown.querySelector('.nav-dropdown-trigger');
+            if (!trigger) {
+                return;
+            }
+
+            trigger.setAttribute('aria-expanded', 'false');
+
+            trigger.addEventListener('click', (evt) => {
+                if (window.innerWidth > MOBILE_NAV_BREAKPOINT) {
+                    return;
+                }
+                evt.preventDefault();
+                evt.stopPropagation();
+
+                const isOpen = dropdown.classList.contains('mobile-open');
+                closeDropdowns();
+                if (!isOpen) {
+                    dropdown.classList.add('mobile-open');
+                    trigger.setAttribute('aria-expanded', 'true');
+                }
+            });
+        });
+
+        navLinks.querySelectorAll('a, button:not(.nav-dropdown-trigger)').forEach((el) => {
+            el.addEventListener('click', () => {
+                if (window.innerWidth <= MOBILE_NAV_BREAKPOINT) {
+                    closeNav();
+                }
+            });
+        });
+
+        document.addEventListener('keydown', (evt) => {
+            if (evt.key === 'Escape') {
+                closeNav();
+            }
+        });
+
+        document.addEventListener('click', (evt) => {
+            const target = evt.target;
+            if (!(target instanceof Element)) {
+                return;
+            }
+            if (window.innerWidth <= MOBILE_NAV_BREAKPOINT && navLinks.classList.contains('nav-open')) {
+                if (!navLinks.contains(target) && !navBtn.contains(target)) {
+                    closeNav();
+                }
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > MOBILE_NAV_BREAKPOINT) {
+                closeNav();
+            }
+        });
+    }
+});

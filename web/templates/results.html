@@ -1,34 +1,23 @@
 {% extends "base.html" %}
 
-{% block title %}Scan Results — {{ report.target }} | QuantumShield{% endblock %}
+{% block title %}SCAN_REPORT // {{ report.target }} // QUANTUMSHIELD{% endblock %}
 
 {% block content %}
 <section class="results-header">
     <div class="results-header-content">
-        <a href="/" class="back-link">&larr; Back to Dashboard</a>
-        <h1 class="results-title">
-            Scan Results: <span class="gradient-text">{{ report.target }}</span>
+        <a href="/" class="button ghost sm" style="padding:0.35rem 0.6rem;">Back to Console</a>
+        <h1 class="hero-title" style="margin-top: 1rem; font-size:2.5rem;">
+            SCAN_RESULTS:<br>
+            <span class="gradient-text">{{ report.target|upper }}</span>
         </h1>
-        <div class="results-meta">
-            <span class="meta-item"><strong>Scan ID:</strong> <code>{{ scan_id }}</code></span>
-            <span class="meta-item"><strong>Time:</strong> {{ report.generated_at[:19] if report.generated_at else 'N/A'
-                }}</span>
-            <span class="meta-item">
-                <strong>Status:</strong>
-                {% if report.status == 'complete' %}
-                <span class="status-badge status-complete">Complete</span>
-                {% elif report.status == 'no_endpoints' %}
-                <span class="status-badge status-error">No Endpoints</span>
-                {% else %}
-                <span class="status-badge status-error">{{ report.status }}</span>
-                {% endif %}
+        <div class="results-meta" style="margin-top: 1.5rem; display: flex; gap: 2rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem; font-size: 0.8rem;">
+            <span>ID: <code>{{ scan_id }}</code></span>
+            <span>TS: {{ report.generated_at[:19] if report.generated_at else '---' }}</span>
+            <span>STATUS: 
+                <span class="status-badge" style="color: {% if report.status == 'complete' %}var(--safe){% else %}var(--danger){% endif %};">
+                    {{ report.status|upper }}
+                </span>
             </span>
-            {% if report.discovered_services %}
-            <span class="meta-item"><strong>Services Found:</strong> {{ report.discovered_services|length }}</span>
-            {% endif %}
-            {% if report.tls_results %}
-            <span class="meta-item"><strong>TLS Endpoints:</strong> {{ report.tls_results|length }}</span>
-            {% endif %}
         </div>
     </div>
 </section>
@@ -39,127 +28,101 @@
 {% set vuln_count = report.overview.quantum_vulnerable %}
 {% set score = report.overview.average_compliance_score %}
 {% if vuln_count > 0 %}
-<section class="findings-section" style="margin-bottom:0;">
-    <div class="glass-card" style="border-left: 4px solid #c45c5c; padding: 1.25rem 1.5rem;">
-        <h3 style="color:#c45c5c; margin:0 0 0.5rem 0;">&#x26A0;&#xFE0F; Harvest Now, Decrypt Later (HNDL) Threat
-            Detected</h3>
-        <p style="color:#94a3b8; margin:0 0 0.75rem 0;">
-            <strong>{{ vuln_count }} endpoint{{ 's' if vuln_count > 1 }}</strong> using quantum-vulnerable cryptography.
-            Adversaries intercepting this traffic today could decrypt it once Cryptanalytically Relevant
-            Quantum Computers (CRQCs) become available (estimated 2029&ndash;2035).
-            For banking &amp; financial systems, this poses a <strong>critical systemic risk</strong> to
-            customer PII, authentication tokens, and transaction data.
+<section style="margin-top: 2rem;">
+    <div class="alert error hndl-banner" style="border-width:2px; padding:1.5rem;">
+        <h3 style="color: var(--danger); margin: 0 0 1rem 0; font-weight: 900; letter-spacing: 1px;">CRITICAL_THREAT: HARVEST NOW, DECRYPT LATER (HNDL)</h3>
+        <p style="color: var(--text-primary); margin: 0 0 1rem 0; font-size: 0.9rem; line-height: 1.6;">
+            {{ vuln_count }} endpoint{{ 's' if vuln_count > 1 }} utilizing quantum-vulnerable cryptography. 
+            Data intercepted today is subject to decryption upon availability of CRQCs (est. 2029-2035).
+            SYSTEMIC RISK: PII / AUTH_TOKENS / TRANSACTION_DATA.
         </p>
-        <div style="display:flex; gap:2rem; flex-wrap:wrap;">
-            <div><strong style="color:#c9a24e;">HNDL Window:</strong> <span style="color:#d4d7de;">Data encrypted today
-                    may be stored for 5&ndash;10+ years by nation-state actors</span></div>
-            <div><strong style="color:#c9a24e;">Risk Category:</strong> <span style="color:#d4d7de;">Financial APIs,
-                    PII, Authentication &amp; Payment Data</span></div>
-            <div><strong style="color:#c9a24e;">NIST Mandate:</strong> <span style="color:#d4d7de;">Migrate to PQC by
-                    2030 per CNSA 2.0 timeline</span></div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; font-size: 0.7rem; color: var(--text-secondary);">
+            <div>[ WINDOW ]: 5-10 YEAR DATA PERSISTENCE</div>
+            <div>[ PRIORITY ]: IMMEDIATE_MIGRATION_REQUIRED</div>
+            <div>[ MANDATE ]: NIST PQC COMPLIANCE BY 2030</div>
         </div>
     </div>
 </section>
 {% endif %}
 
 <!-- Overview Cards -->
-<section class="overview-section">
+<section class="overview-section" style="margin-top: 2rem;">
     <div class="overview-grid">
         <div class="overview-card glass-card">
-            <div class="overview-icon">&#x1F4E6;</div>
             <div class="overview-value">{{ report.overview.total_assets }}</div>
-            <div class="overview-label">Total Crypto Assets</div>
+            <div class="overview-label">CRYPTO_ASSETS</div>
         </div>
-        <div class="overview-card glass-card card-safe">
-            <div class="overview-icon">&#x2705;</div>
+        <div class="overview-card glass-card" style="border-top: 4px solid var(--safe);">
             <div class="overview-value">{{ report.overview.quantum_safe }}</div>
-            <div class="overview-label">Quantum Safe</div>
+            <div class="overview-label">PQC_SAFE</div>
         </div>
-        <div class="overview-card glass-card card-vuln">
-            <div class="overview-icon">&#x26A0;&#xFE0F;</div>
+        <div class="overview-card glass-card" style="border-top: 4px solid var(--danger);">
             <div class="overview-value">{{ report.overview.quantum_vulnerable }}</div>
-            <div class="overview-label">Quantum Vulnerable</div>
+            <div class="overview-label">VULNERABLE</div>
         </div>
         <div class="overview-card glass-card">
-            <div class="overview-icon">&#x1F4CA;</div>
-            <div class="overview-value">
-                <span
-                    class="{% if score >= 80 %}text-safe{% elif score >= 50 %}text-partial{% else %}text-vuln{% endif %}">
-                    {{ score }}%
-                </span>
+            <div class="overview-value" style="color: {% if score >= 80 %}var(--safe){% elif score >= 50 %}var(--warn){% else %}var(--danger){% endif %};">
+                {{ score }}%
             </div>
-            <div class="overview-label">PQC Compliance</div>
+            <div class="overview-label">COMPLIANCE</div>
         </div>
         <div class="overview-card glass-card">
-            <div class="overview-icon">&#x1F4E1;</div>
-            <div class="overview-value">{{ report.discovered_services|length if report.discovered_services else 0 }}
-            </div>
-            <div class="overview-label">Open Ports</div>
+            <div class="overview-value">{{ report.discovered_services|length if report.discovered_services else 0 }}</div>
+            <div class="overview-label">OPEN_PORTS</div>
+        </div>
+    </div>
+</section>
+
+<!-- Charts Row -->
+<section class="charts-section" style="margin-top: 2rem;">
+    <div class="charts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+        <div class="glass-card" style="padding: 1.5rem;">
+            <h3 style="font-size: 0.85rem; text-transform: uppercase; margin-bottom: 1.5rem; letter-spacing: 1px; color:var(--text-secondary);">PQC_READINESS_DISTRIBUTION</h3>
+            <canvas id="assetChart"></canvas>
+        </div>
+        <div class="glass-card" style="padding: 1.5rem;">
+            <h3 style="font-size: 0.85rem; text-transform: uppercase; margin-bottom: 1.5rem; letter-spacing: 1px; color:var(--text-secondary);">FINDING_SEVERITY_ANALYSIS</h3>
+            <canvas id="severityChart"></canvas>
+        </div>
+        <div class="glass-card" style="padding: 1.5rem;">
+            <h3 style="font-size: 0.85rem; text-transform: uppercase; margin-bottom: 1.5rem; letter-spacing: 1px; color:var(--text-secondary);">HNDL_RISK_MAP</h3>
+            <canvas id="riskChart"></canvas>
         </div>
     </div>
 </section>
 
 <!-- Discovered Services -->
 {% if report.discovered_services %}
-<section class="findings-section">
-    <h2 class="section-title">&#x1F4E1; Crypto Inventory Discovery ({{ report.discovered_services|length }} services)
-    </h2>
-    <p style="color:#94a3b8; margin: -0.5rem 0 1rem 0; font-size:0.9rem;">
-        Public-facing services scanned for TLS, API endpoints, and VPN configurations.
-    </p>
-    <div class="findings-table-wrapper glass-card">
-        <table class="findings-table">
+<section style="margin-top: 2rem;">
+    <h2 style="font-size: 1rem; text-transform: uppercase; margin-bottom: 1rem; border-left: 4px solid var(--accent); padding-left: 1rem;">CRYPTO_INVENTORY</h2>
+    <div class="scans-table-wrapper glass-card">
+        <table class="scans-table">
             <thead>
                 <tr>
-                    <th>Host</th>
-                    <th>Port</th>
-                    <th>Service Type</th>
-                    <th>TLS Status</th>
-                    <th>Protocol</th>
-                    <th>Risk Assessment</th>
+                    <th>HOST</th>
+                    <th>PORT</th>
+                    <th>SERVICE</th>
+                    <th>ENC</th>
+                    <th>BANNER</th>
+                    <th>RISK</th>
                 </tr>
             </thead>
             <tbody>
                 {% for svc in report.discovered_services %}
-                <tr>
+                <tr class="scan-row">
                     <td><code>{{ svc.host }}</code></td>
-                    <td><strong>{{ svc.port }}</strong></td>
+                    <td style="font-weight: 800;">{{ svc.port }}</td>
+                    <td style="font-size: 0.75rem;">{{ svc.service|upper }}</td>
                     <td>
-                        {{ svc.service }}
-                        {% if svc.port in [443, 8443, 636, 993, 995, 465, 990] %}
-                        <span class="rec-badge" style="font-size:0.65rem;">TLS</span>
-                        {% elif svc.port in [80, 8080, 8888] %}
-                        <span class="rec-badge" style="font-size:0.65rem;">HTTP</span>
-                        {% elif svc.port in [1194, 500, 4500] %}
-                        <span class="rec-badge" style="font-size:0.65rem;">VPN</span>
-                        {% elif svc.port in [3306, 5432, 1433, 1521, 27017, 6379, 9200] %}
-                        <span class="rec-badge" style="font-size:0.65rem;">DB</span>
-                        {% elif svc.port in [8080, 8443, 9090, 3000, 5000] %}
-                        <span class="rec-badge" style="font-size:0.65rem;">API</span>
-                        {% endif %}
+                        <span class="status-badge" style="color: {% if svc.is_tls %}var(--safe){% else %}var(--danger){% endif %};">
+                            {% if svc.is_tls %}TLS_ACTIVE{% else %}PLAINTEXT{% endif %}
+                        </span>
                     </td>
+                    <td class="time-cell" style="font-size: 0.65rem;">{{ svc.banner[:30] if svc.banner else '---' }}</td>
                     <td>
-                        {% if svc.is_tls %}
-                        <span class="severity-badge severity-info">TLS &#x2713;</span>
-                        {% else %}
-                        <span class="severity-badge severity-high">No TLS</span>
-                        {% endif %}
-                    </td>
-                    <td><code>{{ svc.banner or '&mdash;' }}</code></td>
-                    <td>
-                        {% if svc.is_tls %}
-                        <span class="severity-badge severity-info">Encrypted</span>
-                        {% elif svc.port in [80, 8080, 8888] %}
-                        <span class="severity-badge severity-medium">Plaintext HTTP</span>
-                        {% elif svc.port in [21, 25, 110, 143] %}
-                        <span class="severity-badge severity-critical">Unencrypted</span>
-                        {% elif svc.port in [3306, 5432, 6379, 27017, 9200, 1433, 1521] %}
-                        <span class="severity-badge severity-critical">Exposed DB</span>
-                        {% elif svc.port in [3389, 5900] %}
-                        <span class="severity-badge severity-critical">Remote Access</span>
-                        {% else %}
-                        <span class="severity-badge severity-low">Open</span>
-                        {% endif %}
+                        <span class="status-badge" style="font-size: 0.6rem;">
+                            {% if svc.is_tls %}LOW_PORT_RISK{% else %}CRIT_EXPOSURE{% endif %}
+                        </span>
                     </td>
                 </tr>
                 {% endfor %}
@@ -168,385 +131,96 @@
     </div>
 </section>
 {% endif %}
-
-<!-- Charts Row -->
-<section class="charts-section">
-    <div class="charts-grid">
-        <div class="chart-card glass-card">
-            <h3 class="chart-title">Quantum Readiness</h3>
-            <canvas id="assetChart" width="300" height="300"></canvas>
-        </div>
-        <div class="chart-card glass-card">
-            <h3 class="chart-title">Finding Severity</h3>
-            <canvas id="severityChart" width="300" height="300"></canvas>
-        </div>
-        <div class="chart-card glass-card">
-            <h3 class="chart-title">HNDL Risk Distribution</h3>
-            <canvas id="riskChart" width="300" height="300"></canvas>
-        </div>
-    </div>
-</section>
 
 <!-- PQC Assessment per Endpoint -->
 {% if report.pqc_assessments %}
-<section class="findings-section">
-    <h2 class="section-title">&#x1F9EC; PQC Assessment &mdash; Cryptographic Controls Analysis</h2>
-    <p style="color:#94a3b8; margin: -0.5rem 0 1rem 0; font-size:0.9rem;">
-        Each endpoint's cryptographic algorithms validated against NIST FIPS 203/204/205 standards.
-    </p>
+<section style="margin-top: 2rem;">
+    <h2 style="font-size: 1rem; text-transform: uppercase; margin-bottom: 1rem; border-left: 4px solid var(--accent); padding-left: 1rem;">ALGORITHM_VALIDATION</h2>
     {% for pqc in report.pqc_assessments %}
-    <div class="glass-card" style="padding:1.25rem; margin-bottom:1rem;">
-        <div
-            style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">
-            <h3 style="margin:0; color:#d4d7de;"><code>{{ pqc.host }}:{{ pqc.port }}</code></h3>
-            <div style="display:flex; gap:0.5rem; align-items:center;">
-                {% if pqc.overall_status == 'quantum_safe' %}
-                <span class="severity-badge severity-info">Fully Quantum Safe</span>
-                {% elif pqc.overall_status == 'hybrid' %}
-                <span class="severity-badge severity-medium">Hybrid (Partial PQC)</span>
-                {% else %}
-                <span class="severity-badge severity-critical">Quantum Vulnerable</span>
-                {% endif %}
-                <span
-                    class="severity-badge severity-{{ 'critical' if pqc.risk_level == 'HIGH' else 'medium' if pqc.risk_level == 'MEDIUM' else 'info' }}">
-                    HNDL Risk: {{ pqc.risk_level }}
+    <div class="glass-card" style="padding: 1.5rem; margin-bottom: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; border-bottom: 1px solid var(--text-muted); padding-bottom: 0.75rem;">
+            <h3 style="font-size: 0.9rem; margin: 0;">ADDR: <code>{{ pqc.host }}:{{ pqc.port }}</code></h3>
+            <div style="display: flex; gap: 0.5rem;">
+                <span class="status-badge" style="color: {% if pqc.risk_level == 'HIGH' %}var(--danger){% else %}var(--safe){% endif %};">
+                    RISK:{{ pqc.risk_level }}
+                </span>
+                <span class="status-badge">
+                    {{ pqc.overall_status|upper }}
                 </span>
             </div>
         </div>
-        <p style="color:#94a3b8; margin:0 0 0.75rem 0; font-size:0.9rem;">{{ pqc.details }}</p>
+        <p style="color: var(--text-secondary); font-size: 0.75rem; margin-bottom: 1.5rem;">{{ pqc.details|upper }}</p>
 
-        {% if pqc.quantum_vulnerable_algorithms %}
-        <div style="margin-bottom:0.75rem;">
-            <strong style="color:#c45c5c;">Quantum-Vulnerable Algorithms:</strong>
-            <div style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:0.4rem;">
-                {% for algo in pqc.quantum_vulnerable_algorithms %}
-                <div
-                    style="background:#c45c5c20; border:1px solid #c45c5c; border-radius:6px; padding:0.3rem 0.6rem; font-size:0.8rem;">
-                    <strong style="color:#c45c5c;">{{ algo.name }}</strong>
-                    <span style="color:#94a3b8;"> ({{ algo.category }})</span>
-                    {% if algo.notes %}<br><span style="color:#94a3b8; font-size:0.75rem;">{{ algo.notes }}</span>{%
-                    endif %}
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+            {% if pqc.quantum_vulnerable_algorithms %}
+            <div>
+                <strong style="font-size: 0.7rem; color: var(--danger);">[!] CRYPTO_VULN_VECTORS</strong>
+                <div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem;">
+                    {% for algo in pqc.quantum_vulnerable_algorithms %}
+                    <div style="border-left: 2px solid var(--danger); padding-left: 0.5rem;">
+                        <span style="font-size: 0.8rem; font-weight: 800;">{{ algo.name }}</span><br>
+                        <span style="font-size: 0.6rem; color: var(--text-muted);">CAT: {{ algo.category|upper }}</span>
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
-        </div>
-        {% endif %}
+            {% endif %}
 
-        {% if pqc.quantum_safe_algorithms %}
-        <div>
-            <strong style="color:#5b9e6f;">Quantum-Safe Algorithms:</strong>
-            <div style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:0.4rem;">
-                {% for algo in pqc.quantum_safe_algorithms %}
-                <div
-                    style="background:#5b9e6f20; border:1px solid #5b9e6f; border-radius:6px; padding:0.3rem 0.6rem; font-size:0.8rem;">
-                    <strong style="color:#5b9e6f;">{{ algo.name }}</strong>
-                    <span style="color:#94a3b8;"> ({{ algo.category }})</span>
-                    {% if algo.standard %}<br><span style="color:#94a3b8; font-size:0.75rem;">{{ algo.standard
-                        }}</span>{% endif %}
+            {% if pqc.quantum_safe_algorithms %}
+            <div>
+                <strong style="font-size: 0.7rem; color: var(--safe);">[+] PQC_COMPLIANT_CONTROLS</strong>
+                <div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem;">
+                    {% for algo in pqc.quantum_safe_algorithms %}
+                    <div style="border-left: 2px solid var(--safe); padding-left: 0.5rem;">
+                        <span style="font-size: 0.8rem; font-weight: 800;">{{ algo.name }}</span><br>
+                        <span style="font-size: 0.6rem; color: var(--text-muted);">STD: {{ algo.standard|upper }}</span>
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
+            {% endif %}
         </div>
-        {% endif %}
     </div>
     {% endfor %}
 </section>
 {% endif %}
 
-<!-- Quantum-Safe Labels / Certificates -->
-<section class="labels-section">
-    <h2 class="section-title">&#x1F3F7;&#xFE0F; Quantum-Safe Certification Labels</h2>
-    <p style="color:#94a3b8; margin: -0.5rem 0 1rem 0; font-size:0.9rem;">
-        Assets implementing NIST-standardized PQC are awarded digital certificates per the hackathon specification.
-    </p>
-    <div class="labels-grid">
+<!-- Certificates -->
+<section style="margin-top: 2rem;">
+    <h2 style="font-size: 1rem; text-transform: uppercase; margin-bottom: 1rem; border-left: 4px solid var(--accent); padding-left: 1rem;">TRUST_LABELS</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
         {% for label in report.labels %}
-        <div class="label-card glass-card">
-            <div class="label-badge" data-color="{{ label.badge_color }}">
-                {% if label.label == 'Fully Quantum Safe' %}&#x1F6E1;&#xFE0F; Fully Quantum Safe
-                {% elif label.label == 'PQC Ready' %}&#x1F6E1;&#xFE0F; PQC Ready
-                {% elif label.label == 'Partial' %}&#x26A1; Partial PQC
-                {% else %}&#x274C; Non-Compliant
-                {% endif %}
+        <div class="glass-card" style="padding: 1.5rem; border: 2px solid {{ label.badge_color }};">
+            <div style="background: {{ label.badge_color }}; color: var(--bg-primary); padding: 0.3rem 0.6rem; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; margin-bottom: 1rem; text-align: center;">
+                {{ label.label }}
             </div>
-            <div class="label-details">
-                <div class="label-host">{{ label.host }}:{{ label.port }}</div>
-                <div class="label-score">PQC Compliance: <strong>{{ label.compliance_score }}%</strong></div>
-                <div class="label-standard">{{ label.standard }}</div>
-                <div class="label-validity">Issued: {{ label.issued_at[:10] }}</div>
-                <div class="label-validity">Valid until: {{ label.valid_until[:10] }}</div>
-                <div class="label-id">Label ID: <code>{{ label.label_id[:12] }}...</code></div>
-                <div class="label-id">Integrity: <code>SHA256:{{ label.checksum[:16] }}...</code></div>
-                <div class="label-id">Issuer: {{ label.issuer }} v{{ label.issuer_version }}</div>
+            <div style="font-size: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                <span>TARGET: {{ label.host|upper }}:{{ label.port }}</span>
+                <span>COMPLIANCE: <strong>{{ label.compliance_score }}%</strong></span>
+                <span>ID: <code>{{ label.label_id[:20] }}...</code></span>
+                <span>VERIFY_HMAC: <code>{{ label.checksum[:16] }}</code></span>
+                <span style="border-top: 1px solid var(--text-muted); padding-top: 0.5rem; font-size: 0.65rem; color: var(--text-secondary);">ISSUER: {{ label.issuer|upper }} // v{{ label.issuer_version }}</span>
             </div>
         </div>
         {% endfor %}
-    </div>
-</section>
-
-<!-- Security Findings -->
-<section class="findings-section">
-    <h2 class="section-title">&#x1F50D; Security Findings ({{ report.findings|length }})</h2>
-    <div class="findings-table-wrapper glass-card">
-        <table class="findings-table">
-            <thead>
-                <tr>
-                    <th>Severity</th>
-                    <th>Category</th>
-                    <th>Finding</th>
-                    <th>Current Value</th>
-                    <th>Recommended (PQC)</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for finding in report.findings %}
-                <tr>
-                    <td>
-                        <span class="severity-badge severity-{{ finding.severity|lower }}">
-                            {{ finding.severity }}
-                        </span>
-                    </td>
-                    <td class="category-cell">{{ finding.category }}</td>
-                    <td>
-                        <strong>{{ finding.title }}</strong>
-                        <p class="finding-desc">{{ finding.description }}</p>
-                    </td>
-                    <td><code>{{ finding.current_value or '&mdash;' }}</code></td>
-                    <td><code>{{ finding.recommended_value or '&mdash;' }}</code></td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</section>
-
-<!-- Migration Recommendations -->
-{% if report.recommendations_detailed %}
-<section class="recommendations-section">
-    <h2 class="section-title">&#x1F527; Actionable Migration Recommendations</h2>
-    <p style="color:#94a3b8; margin: -0.5rem 0 1rem 0; font-size:0.9rem;">
-        Step-by-step guidance to transition public-facing systems from quantum-vulnerable to quantum-safe cryptography.
-    </p>
-    <div class="recommendations-list">
-        {% for rec in report.recommendations_detailed %}
-        <div class="rec-card glass-card">
-            <div class="rec-header">
-                <span class="rec-priority priority-{{ rec.priority }}">P{{ rec.priority }}</span>
-                <h3 class="rec-title">{{ rec.title }}</h3>
-                <div class="rec-meta">
-                    <span class="rec-badge rec-impact-{{ rec.impact|lower }}">{{ rec.impact }} Impact</span>
-                    <span class="rec-badge">{{ rec.effort }} Effort</span>
-                    <span class="rec-badge">&#x23F1; {{ rec.timeline }}</span>
-                </div>
-            </div>
-            <p class="rec-desc">{{ rec.description }}</p>
-            {% if rec.server_configs %}
-            <div class="rec-configs">
-                <h4 class="configs-title">Server Configuration Snippets</h4>
-                {% for server, config in rec.server_configs.items() %}
-                <div class="config-block">
-                    <div class="config-server">{{ server }}</div>
-                    <pre class="config-code"><code>{{ config }}</code></pre>
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-        {% endfor %}
-    </div>
-</section>
-{% endif %}
-
-<!-- TLS Endpoint Details -->
-<section class="tls-section">
-    <h2 class="section-title">&#x1F510; TLS Endpoint Details &mdash; Cryptographic Bill of Materials</h2>
-    {% for tls in report.tls_results %}
-    <div class="tls-card glass-card">
-        <div class="tls-header">
-            <h3>{{ tls.host }}:{{ tls.port }}</h3>
-            <div>
-                <span class="protocol-badge">{{ tls.protocol_version }}</span>
-                {% if tls.protocol_version == 'TLSv1.3' %}
-                <span class="severity-badge severity-info" style="margin-left:0.5rem;">Latest</span>
-                {% elif tls.protocol_version in ['TLSv1.0', 'TLSv1.1'] %}
-                <span class="severity-badge severity-critical" style="margin-left:0.5rem;">Deprecated</span>
-                {% endif %}
-            </div>
-        </div>
-        <div class="tls-grid">
-            <div class="tls-item">
-                <span class="tls-label">Cipher Suite</span>
-                <code class="tls-value">{{ tls.cipher_suite }}</code>
-            </div>
-            <div class="tls-item">
-                <span class="tls-label">Key Exchange</span>
-                <code class="tls-value">{{ tls.key_exchange }}</code>
-            </div>
-            <div class="tls-item">
-                <span class="tls-label">Cipher Strength</span>
-                <span class="tls-value">{{ tls.cipher_bits }} bit</span>
-            </div>
-            <div class="tls-item">
-                <span class="tls-label">Certificate Chain</span>
-                <span class="tls-value">{{ tls.certificate_chain_length }} certificates</span>
-            </div>
-            {% if tls.supported_protocols %}
-            <div class="tls-item">
-                <span class="tls-label">Supported Protocols</span>
-                <span class="tls-value">
-                    {% for proto in tls.supported_protocols %}
-                    <code style="margin-right:0.35rem;">{{ proto }}</code>
-                    {% endfor %}
-                </span>
-            </div>
-            {% endif %}
-            {% if tls.certificate %}
-            <div class="tls-item">
-                <span class="tls-label">Subject CN</span>
-                <span class="tls-value">{{ tls.certificate.subject.commonName if tls.certificate.subject else '&mdash;'
-                    }}</span>
-            </div>
-            <div class="tls-item">
-                <span class="tls-label">Issuer CN</span>
-                <span class="tls-value">{{ tls.certificate.issuer.commonName if tls.certificate.issuer else '&mdash;'
-                    }}</span>
-            </div>
-            <div class="tls-item">
-                <span class="tls-label">Issuer Organization</span>
-                <span class="tls-value">{{ tls.certificate.issuer.organizationName if tls.certificate.issuer else
-                    '&mdash;' }}</span>
-            </div>
-            <div class="tls-item">
-                <span class="tls-label">Public Key Algorithm</span>
-                <span class="tls-value">{{ tls.certificate.public_key_type }} ({{ tls.certificate.public_key_bits }}
-                    bit)</span>
-            </div>
-            <div class="tls-item">
-                <span class="tls-label">Signature Algorithm</span>
-                <code class="tls-value">{{ tls.certificate.signature_algorithm }}</code>
-            </div>
-            <div class="tls-item">
-                <span class="tls-label">Serial Number</span>
-                <code class="tls-value fingerprint">{{ tls.certificate.serial_number or '&mdash;' }}</code>
-            </div>
-            <div class="tls-item">
-                <span class="tls-label">Not Before</span>
-                <span class="tls-value">{{ tls.certificate.not_before or '&mdash;' }}</span>
-            </div>
-            <div class="tls-item">
-                <span class="tls-label">Expires</span>
-                <span
-                    class="tls-value {% if tls.certificate.is_expired %}text-vuln{% elif tls.certificate.days_until_expiry < 30 %}text-partial{% else %}text-safe{% endif %}">
-                    {{ tls.certificate.not_after }} ({{ tls.certificate.days_until_expiry }}d remaining)
-                </span>
-            </div>
-            {% if tls.certificate.san_domains %}
-            <div class="tls-item" style="grid-column: 1 / -1;">
-                <span class="tls-label">Subject Alternative Names ({{ tls.certificate.san_domains|length }})</span>
-                <span class="tls-value">
-                    {% for name in tls.certificate.san_domains[:12] %}
-                    <code
-                        style="margin-right:0.4rem; margin-bottom:0.25rem; display:inline-block; background:#1e293b; padding:0.15rem 0.4rem; border-radius:4px;">{{ name }}</code>
-                    {% endfor %}
-                    {% if tls.certificate.san_domains|length > 12 %}
-                    <em style="color:#64748b;">... +{{ tls.certificate.san_domains|length - 12 }} more</em>
-                    {% endif %}
-                </span>
-            </div>
-            {% endif %}
-            <div class="tls-item" style="grid-column: 1 / -1;">
-                <span class="tls-label">SHA-256 Fingerprint</span>
-                <code class="tls-value fingerprint"
-                    style="word-break:break-all;">{{ tls.certificate.fingerprint_sha256 }}</code>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-    {% endfor %}
-</section>
-
-<!-- CBOM Summary -->
-<section class="findings-section">
-    <h2 class="section-title">&#x1F4CB; Cryptographic Bill of Materials (CBOM)</h2>
-    <div class="glass-card" style="padding:1.25rem;">
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1rem;">
-            <div>
-                <strong style="color:#94a3b8;">Format:</strong>
-                <span style="color:#d4d7de;">CycloneDX 1.6 JSON</span>
-            </div>
-            <div>
-                <strong style="color:#94a3b8;">Components:</strong>
-                <span style="color:#d4d7de;">{{ report.tls_results|length }} TLS endpoint{{ 's' if
-                    report.tls_results|length > 1 }}</span>
-            </div>
-            <div>
-                <strong style="color:#94a3b8;">Standard:</strong>
-                <span style="color:#d4d7de;">NIST FIPS 203/204/205</span>
-            </div>
-            <div>
-                <strong style="color:#94a3b8;">Export:</strong>
-                <a href="/cbom/{{ scan_id }}" style="color:#60a5fa;" download>Download CBOM JSON &darr;</a>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- Trust Badge Summary -->
-<section class="findings-section">
-    <h2 class="section-title">&#x1F6E1;&#xFE0F; Site Trust Badge</h2>
-    <div class="glass-card" style="padding:1.25rem;">
-        <p style="color:#94a3b8; margin-bottom: 1rem;">Embed this dynamically updating badge on your website to show visitors your current Quantum-Safe compliance status.</p>
-        <div style="display: flex; flex-wrap: wrap; gap: 2rem; align-items: center;">
-            <div style="flex: 0 0 auto;">
-                <img src="/api/badge/{{ report.target }}" alt="QuantumShield Status">
-            </div>
-            <div style="flex: 1 1 300px;">
-                <strong style="color:#d4d7de; display: block; margin-bottom: 0.5rem;">Embed HTML Code:</strong>
-                <textarea readonly style="width: 100%; height: 80px; background: #111318; color: #5ba4b5; border: 1px solid #334155; border-radius: 4px; padding: 0.75rem; font-family: monospace; font-size: 0.85rem; resize: none;" onclick="this.select()">
-<a href="{{ request.url_root }}results/{{ scan_id }}" target="_blank">
-  <img src="{{ request.url_root }}api/badge/{{ report.target }}" alt="Quantum-Safe Status">
-</a>
-                </textarea>
-                <small style="color:#64748b; margin-top: 0.25rem; display: block;">Click to select and copy</small>
-            </div>
-        </div>
     </div>
 </section>
 
 <!-- Actions -->
-<section class="actions-section">
-    <div class="actions-grid">
-        <a href="/cbom/{{ scan_id }}" class="action-btn glass-card" download>
-            <span class="action-icon">&#x1F4E5;</span>
-            <span class="action-text">Download CBOM</span>
-        </a>
-        <button class="action-btn glass-card" onclick="window.print()">
-            <span class="action-icon">&#x1F5A8;&#xFE0F;</span>
-            <span class="action-text">Print Report</span>
-        </button>
-        <a href="/" class="action-btn glass-card">
-            <span class="action-icon">&#x1F504;</span>
-            <span class="action-text">New Scan</span>
-        </a>
+<section class="actions-section" style="margin-top: 3rem; margin-bottom: 4rem;">
+    <div class="actions-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+        <a href="/cbom/{{ scan_id }}" class="button" style="text-align: center; width:100%;" download>DOWNLOAD_CBOM_JSON</a>
+        <button class="button secondary" style="text-align: center; width:100%;" onclick="window.print()">GENERATE_PDF_EXP</button>
+        <a href="/" class="button outline" style="text-align: center; width:100%;">NULL_AND_RESET</a>
     </div>
 </section>
 
 {% else %}
-<!-- Error / No Results State -->
-<section class="empty-state">
-    <div class="empty-state-card glass-card">
-        <div class="empty-icon">&#x1F50E;</div>
-        <h2>{{ report.message or 'No results available' }}</h2>
-        <p>The scan could not find any TLS endpoints or the analysis failed.</p>
-        {% if report.discovered_services %}
-        <h3 style="margin-top:1rem;">Open ports discovered (no TLS detected):</h3>
-        <div style="margin-top:0.5rem;">
-            {% for svc in report.discovered_services %}
-            <code style="margin:0.2rem;">{{ svc.port }}:{{ svc.service }}</code>
-            {% endfor %}
-        </div>
-        {% endif %}
-        <a href="/" class="scan-button" style="margin-top:1.5rem;">&larr; Try Another Scan</a>
+<section style="margin-top: 4rem; text-align: center;">
+    <div class="glass-card" style="padding: 4rem; max-width: 600px; margin: 0 auto;">
+        <h2 style="text-transform: uppercase; margin-bottom: 1rem; color: var(--danger);">ERROR // NO_DATA</h2>
+        <p style="color: var(--text-secondary); font-size: 0.8rem;">THE SCAN OPERATION RETURNED AN EMPTY SET OR ANALYSIS FAILED.</p>
+        <a href="/" class="button" style="margin-top: 2rem; display: inline-flex;">RETRY_CONSOLE</a>
     </div>
 </section>
 {% endif %}
@@ -564,82 +238,75 @@
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-    // Parse chart data from JSON island (avoids template syntax in JS)
-    var chartData = JSON.parse(
-        document.getElementById('chartDataSource').textContent
-    );
+    const chartData = JSON.parse(document.getElementById('chartDataSource').textContent);
+    const monoFont = "'JetBrains Mono', monospace";
+    const cssVars = getComputedStyle(document.documentElement);
+    const textColor = cssVars.getPropertyValue('--text-primary').trim() || 'var(--text-primary)';
+    const gridColor = cssVars.getPropertyValue('--border-subtle').trim() || 'var(--border-subtle)';
+    const safeColor = cssVars.getPropertyValue('--safe').trim() || 'var(--safe)';
+    const warnColor = cssVars.getPropertyValue('--warn').trim() || 'var(--warn)';
+    const dangerColor = cssVars.getPropertyValue('--danger').trim() || 'var(--danger)';
+    const accentColor = cssVars.getPropertyValue('--accent').trim() || 'var(--accent)';
+    
+    // Global defaults
+    Chart.defaults.color = textColor;
+    Chart.defaults.font.family = monoFont;
+    Chart.defaults.font.size = 10;
 
-    // Quantum Readiness Donut
-    new Chart(document.getElementById('assetChart').getContext('2d'), {
+    // assetChart
+    new Chart(document.getElementById('assetChart'), {
         type: 'doughnut',
         data: {
-            labels: ['Quantum Safe', 'Quantum Vulnerable'],
+            labels: ['SAFE', 'VULN'],
             datasets: [{
                 data: [chartData.quantumSafe, chartData.quantumVuln],
-                backgroundColor: ['#5b9e6f', '#c45c5c'],
-                borderColor: ['#4d8a5e', '#b04a4a'],
+                backgroundColor: [safeColor, dangerColor],
                 borderWidth: 2,
-                hoverOffset: 8
+                borderColor: gridColor
             }]
         },
         options: {
-            responsive: true,
-            plugins: {
-                legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Inter' } } }
-            }
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 20 } } },
+            cutout: '80%'
         }
     });
 
-    // Severity Bar Chart
-    new Chart(document.getElementById('severityChart').getContext('2d'), {
+    // severityChart
+    new Chart(document.getElementById('severityChart'), {
         type: 'bar',
         data: {
-            labels: Object.keys(chartData.severity),
+            labels: Object.keys(chartData.severity).map(k => k.toUpperCase()),
             datasets: [{
-                label: 'Findings',
                 data: Object.values(chartData.severity),
-                backgroundColor: ['#c45c5c', '#c45c5c', '#c9a24e', '#5ba4b5', '#636a78'],
-                borderRadius: 8,
-                barThickness: 30
+                backgroundColor: accentColor,
+                borderWidth: 0
             }]
         },
         options: {
-            responsive: true,
             scales: {
-                y: { beginAtZero: true, ticks: { color: '#94a3b8', stepSize: 1 }, grid: { color: '#1e293b' } },
-                x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
+                y: { grid: { color: gridColor }, beginAtZero: true },
+                x: { grid: { display: false } }
             },
             plugins: { legend: { display: false } }
         }
     });
 
-    // HNDL Risk Distribution Donut
-    new Chart(document.getElementById('riskChart').getContext('2d'), {
+    // riskChart
+    new Chart(document.getElementById('riskChart'), {
         type: 'doughnut',
         data: {
-            labels: Object.keys(chartData.risk),
+            labels: Object.keys(chartData.risk).map(k => k.toUpperCase()),
             datasets: [{
                 data: Object.values(chartData.risk),
-                backgroundColor: ['#c45c5c', '#c9a24e', '#5b9e6f'],
-                borderColor: ['#b04a4a', '#b08d3f', '#4d8a5e'],
+                backgroundColor: [dangerColor, warnColor, safeColor],
                 borderWidth: 2,
-                hoverOffset: 8
+                borderColor: gridColor
             }]
         },
         options: {
-            responsive: true,
-            plugins: {
-                legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Inter' } } }
-            }
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 20 } } },
+            cutout: '0%'
         }
-    });
-
-    // Apply dynamic badge colors from data attributes
-    document.querySelectorAll('.label-badge[data-color]').forEach(function (el) {
-        var c = el.getAttribute('data-color');
-        el.style.background = c + '20';
-        el.style.borderColor = c;
-        el.style.color = c;
     });
 </script>
 {% endif %}

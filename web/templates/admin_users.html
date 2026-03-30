@@ -1,22 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}User Management - QuantumShield{% endblock %}
+{% block title %}User Management | QuantumShield{% endblock %}
 
 {% block content %}
-<header class="section-header animate-fade-in-up">
-    <div class="header-icon">👥</div>
-    <h1>User Management</h1>
-    <p class="subtitle">Invite and manage access for your team.</p>
+<header class="section-header">
+    <h1 class="hero-title">USER MANAGEMENT</h1>
+    <p class="hero-subtitle">access control // team provisioning</p>
 </header>
 
-<div class="admin-container animate-fade-in-up delay-1">
+<div class="admin-container" style="margin-top: 2rem;">
     
-    <!-- Flash Messages (specifically for this page) -->
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        <div class="flash-messages" style="margin-bottom: 2rem;">
+        <div class="flash-messages" style="margin-bottom: 2rem; border-left: 2px solid var(--accent); padding-left: 1rem;">
         {% for category, message in messages %}
-          <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+          <div class="flash-msg">{{ message|upper }}</div>
         {% endfor %}
         </div>
       {% endif %}
@@ -25,63 +23,129 @@
     <div class="admin-grid" style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem;">
         
         <!-- Invite Form -->
-        <div class="scan-card glass-card">
-            <h3 style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">Invite New User</h3>
-            <form action="{{ url_for('admin_users') }}" method="POST" class="auth-form">
+        <div class="glass-card" style="padding: 1.5rem;">
+            <h3 style="margin-bottom: 1.5rem; text-transform: uppercase; font-size: 1rem; letter-spacing: 1px; border-bottom: 1px solid var(--text-muted); padding-bottom: 0.5rem;">PROVISION USER</h3>
+            <form action="{{ url_for('admin_users') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
-                    <label for="email">Email Address</label>
-                    <input type="email" id="email" name="email" class="input-modern" placeholder="user@company.com" required>
+                    <label class="form-label" for="employee_id">EMPLOYEE_ID</label>
+                    <input type="text" id="employee_id" name="employee_id" class="form-input" placeholder="EMP-0000" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="username">AUTH_ID</label>
+                    <input type="text" id="username" name="username" class="form-input" placeholder="id.reference" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="email">CONTACT_EMAIL</label>
+                    <input type="email" id="email" name="email" class="form-input" placeholder="user@org.net" required>
                 </div>
                 
                 <div class="form-group">
-                    <label for="role">Access Role</label>
-                    <div class="select-wrapper">
-                        <select id="role" name="role" class="input-modern" required>
-                            <option value="Viewer" selected>Viewer (Read-only)</option>
-                            <option value="Scanner">Scanner (Single Scans only)</option>
-                            <option value="Manager">Manager (Single & Bulk Scans)</option>
-                            <option value="Admin">Admin (Full Access)</option>
-                        </select>
-                    </div>
-                    <small style="color: var(--text-secondary); margin-top: 0.5rem; display: block; line-height: 1.4;">
-                        Role definitions:<br>
-                        - <strong>Admin</strong>: Manages users, runs all scans.<br>
-                        - <strong>Manager</strong>: Runs bulk and single scans.<br>
-                        - <strong>Scanner</strong>: Runs single scans only.<br>
-                        - <strong>Viewer</strong>: Views historical results only.
-                    </small>
+                    <label class="form-label" for="role">ACCESS_LEVEL</label>
+                    <select id="role" name="role" class="form-input" required>
+                        <option value="Viewer" selected>VIEWER</option>
+                        <option value="SingleScan">SINGLE_SCAN</option>
+                        <option value="Manager">MANAGER</option>
+                        <option value="Admin">ADMIN</option>
+                    </select>
                 </div>
 
-                <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;">
-                    Send Invite
+                <button type="submit" class="scan-button" style="width: 100%; margin-top: 1rem;">
+                    ISSUE CREDENTIALS
                 </button>
             </form>
         </div>
 
         <!-- Registered Users List -->
-        <div class="scan-card glass-card">
-            <h3 style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">Registered Users</h3>
-            <div class="table-container">
-                <table class="data-table">
+        <div class="glass-card" style="padding: 1.5rem;">
+            <h3 style="margin-bottom: 1.5rem; text-transform: uppercase; font-size: 1rem; letter-spacing: 1px; border-bottom: 1px solid var(--text-muted); padding-bottom: 0.5rem;">ACTIVE DIRECTORY</h3>
+            <div class="glass-card" style="padding:0.9rem; margin-bottom:1rem; background:rgba(255,255,255,0.02);">
+                <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+                    <label style="display:flex; align-items:center; gap:0.45rem; font-size:0.78rem; color:var(--text-secondary);">
+                        <input id="selectAllUsers" type="checkbox">
+                        SELECT_ALL
+                    </label>
+                    <select id="bulkRoleSelect" class="form-input" style="padding: 0.35rem; font-size:0.75rem; width:130px;">
+                        <option value="Viewer">VIEWER</option>
+                        <option value="SingleScan">SINGLE_SCAN</option>
+                        <option value="Manager">MANAGER</option>
+                        <option value="Admin">ADMIN</option>
+                    </select>
+                    <button id="bulkRoleBtn" type="button" class="scan-button" style="padding:0.38rem 0.6rem; font-size:0.7rem; min-height:44px;">APPLY_ROLE</button>
+                    <button id="bulkDeleteBtn" type="button" class="scan-button" style="padding:0.38rem 0.6rem; font-size:0.7rem; min-height:44px; border-color:var(--danger); color:var(--danger); background:transparent;">BULK_DELETE</button>
+                    <span id="bulkUserMeta" style="font-size:0.73rem; color:var(--text-muted);">0 SELECTED</span>
+                </div>
+                <div style="margin-top:0.45rem; font-size:0.72rem; color:var(--text-muted);">NOTE: Current logged-in user cannot be deleted.</div>
+            </div>
+            <div class="scans-table-wrapper">
+                <table class="scans-table">
                     <thead>
                         <tr>
-                            <th>Username</th>
-                            <th>Email</th>
-                            <th>Role</th>
+                            <th>SEL</th>
+                            <th>ID</th>
+                            <th>USER</th>
+                            <th>ROLE</th>
+                            <th>STATUS</th>
+                            <th>API_KEY</th>
+                            <th>CTRL</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for user in users %}
-                        <tr>
-                            <td>{{ user.username }}</td>
-                            <td>{{ user.email or 'N/A' }}</td>
+                        <tr class="scan-row">
+                            <td style="text-align:center;">
+                                <input
+                                    class="js-user-select"
+                                    type="checkbox"
+                                    value="{{ user.id }}"
+                                    data-username="{{ user.username }}"
+                                    {% if user.id == current_user.id %}disabled title="Current logged-in user is protected"{% endif %}
+                                >
+                            </td>
+                            <td class="time-cell">{{ user.employee_id or '---' }}</td>
+                            <td class="target-cell">{{ user.username }}</td>
                             <td>
-                                <span class="role-badge role-{{ user.role|lower }}">{{ user.role }}</span>
+                                <span class="status-badge" style="color: var(--accent);">{{ user.role|upper }}</span>
+                            </td>
+                            <td>
+                                {% if user.is_active %}
+                                <span class="status-badge" style="color: var(--safe); border-color: var(--safe);">ACTIVE</span>
+                                {% else %}
+                                <span class="status-badge" style="color: var(--danger); border-color: var(--danger);">SUSPENDED</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.api_key_hash %}
+                                <span style="color:#5b9e6f;font-family:'JetBrains Mono',monospace;font-size:.7rem;">● ISSUED</span>
+                                {% else %}
+                                <span style="color:#c45c5c;font-family:'JetBrains Mono',monospace;font-size:.7rem;">○ NONE</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <form class="js-admin-user-update" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="display:flex; gap: 0.5rem; align-items: center;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <select name="role" class="form-input" style="padding: 0.2rem; font-size: 0.7rem; width: 100px;">
+                                        <option value="Viewer" {% if user.role|lower == 'viewer' %}selected{% endif %}>VIEWER</option>
+                                        <option value="SingleScan" {% if user.role|lower == 'singlescan' %}selected{% endif %}>SINGLE</option>
+                                        <option value="Manager" {% if user.role|lower == 'manager' %}selected{% endif %}>MANAGER</option>
+                                        <option value="Admin" {% if user.role|lower == 'admin' %}selected{% endif %}>ADMIN</option>
+                                    </select>
+                                    <input type="checkbox" name="is_active" {% if user.is_active %}checked{% endif %} title="Active Status">
+                                    <button type="submit" class="scan-button" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; min-height:44px;">COMMIT</button>
+                                </form>
+                                <div style="margin-top: 0.5rem; display:flex; gap: 0.4rem; flex-wrap:wrap;">
+                                    {% if user.email %}
+                                    <button class="js-admin-reset-pass scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; border-color: var(--text-muted); color: var(--text-muted); background: transparent; cursor: pointer;">RESET_PASS</button>
+                                    {% endif %}
+                                    <button class="js-admin-regen-key scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; min-height:44px; border-color: var(--safe); color: var(--safe); background: transparent; cursor: pointer;">REGEN_KEY</button>
+                                </div>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="3" class="text-center">No users found.</td>
+                            <td colspan="7" class="text-center" style="padding: 2rem; color: var(--text-muted);">EMPTYSET // NO USERS</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -92,9 +156,228 @@
     </div>
 </div>
 
-<style>
-/* Add missing role colors */
-.role-manager { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
-.role-scanner { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-</style>
+<script>
+// Helper: get CSRF token from meta tag
+function getCsrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+}
+
+// Helper: show flash message
+function showFlash(message, category = 'success') {
+    const flashDiv = document.createElement('div');
+    flashDiv.className = 'flash-msg';
+    flashDiv.textContent = message.toUpperCase();
+    flashDiv.style.position = 'fixed';
+    flashDiv.style.top = '1rem';
+    flashDiv.style.right = '1rem';
+    flashDiv.style.backgroundColor = category === 'success' ? 'var(--safe)' : 'var(--danger)';
+    flashDiv.style.color = '#000';
+    flashDiv.style.padding = '0.75rem 1.5rem';
+    flashDiv.style.borderRadius = 'var(--radius-md)';
+    flashDiv.style.zIndex = '9999';
+    flashDiv.style.maxWidth = '400px';
+    document.body.appendChild(flashDiv);
+    setTimeout(() => flashDiv.remove(), 5000);
+}
+
+// Helper: update role badge in row
+function updateRoleBadge(row, role) {
+    const badge = row.querySelector('.status-badge[style*="accent"]');
+    if (badge) {
+        badge.textContent = role.toUpperCase();
+    }
+}
+
+// Helper: update status badge in row
+function updateStatusBadge(row, isActive) {
+    const statusCell = row.querySelector('td:nth-child(5)');
+    if (statusCell) {
+        statusCell.innerHTML = isActive
+            ? '<span class="status-badge" style="color: var(--safe); border-color: var(--safe);">ACTIVE</span>'
+            : '<span class="status-badge" style="color: var(--danger); border-color: var(--danger);">SUSPENDED</span>';
+    }
+}
+
+// Role + Status update form
+document.querySelectorAll('.js-admin-user-update').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const userId = form.getAttribute('data-user-id');
+        const username = form.getAttribute('data-username');
+        const role = form.querySelector('[name="role"]').value;
+        const isActive = form.querySelector('[name="is_active"]').checked;
+        
+        try {
+            const response = await fetch(`/admin/users/${userId}/update`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({ role, is_active: isActive })
+            });
+            
+            const payload = await response.json();
+            if (!response.ok || payload.status === 'error') {
+                throw new Error(payload.message || 'Failed to update user');
+            }
+            
+            // Update display in-place
+            const row = form.closest('tr');
+            updateRoleBadge(row, role);
+            updateStatusBadge(row, isActive);
+            showFlash('User profile updated.', 'success');
+        } catch (error) {
+            showFlash(error.message, 'error');
+            console.error('Admin user update error:', error);
+        }
+    });
+});
+
+function selectedUserIds() {
+    return Array.from(document.querySelectorAll('.js-user-select:checked')).map(cb => cb.value);
+}
+
+function updateBulkMeta() {
+    const selected = selectedUserIds();
+    const meta = document.getElementById('bulkUserMeta');
+    if (meta) {
+        meta.textContent = `${selected.length} SELECTED`;
+    }
+}
+
+document.getElementById('selectAllUsers')?.addEventListener('change', (e) => {
+    const checked = e.target.checked;
+    document.querySelectorAll('.js-user-select:not(:disabled)').forEach(cb => {
+        cb.checked = checked;
+    });
+    updateBulkMeta();
+});
+
+document.querySelectorAll('.js-user-select').forEach(cb => cb.addEventListener('change', updateBulkMeta));
+
+document.getElementById('bulkRoleBtn')?.addEventListener('click', async () => {
+    const ids = selectedUserIds();
+    const role = document.getElementById('bulkRoleSelect')?.value || 'Viewer';
+    if (!ids.length) {
+        showFlash('Select at least one user.', 'error');
+        return;
+    }
+    try {
+        const response = await fetch('/admin/users/bulk', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ action: 'update_role', user_ids: ids, role })
+        });
+        const payload = await response.json();
+        if (!response.ok || payload.status === 'error') {
+            throw new Error(payload.message || 'Bulk role update failed.');
+        }
+        showFlash(payload.message || 'Bulk role update completed.', 'success');
+        window.location.reload();
+    } catch (error) {
+        showFlash(error.message, 'error');
+    }
+});
+
+document.getElementById('bulkDeleteBtn')?.addEventListener('click', async () => {
+    const ids = selectedUserIds();
+    if (!ids.length) {
+        showFlash('Select at least one user.', 'error');
+        return;
+    }
+    if (!confirm(`Delete ${ids.length} selected user(s)? Current logged-in user is protected.`)) {
+        return;
+    }
+    try {
+        const response = await fetch('/admin/users/bulk', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ action: 'delete', user_ids: ids })
+        });
+        const payload = await response.json();
+        if (!response.ok || payload.status === 'error') {
+            throw new Error(payload.message || 'Bulk deletion failed.');
+        }
+        showFlash(payload.message || 'Bulk deletion completed.', 'success');
+        window.location.reload();
+    } catch (error) {
+        showFlash(error.message, 'error');
+    }
+});
+
+// Reset password button
+document.querySelectorAll('.js-admin-reset-pass').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const userId = btn.getAttribute('data-user-id');
+        const username = btn.getAttribute('data-username');
+        
+        try {
+            const response = await fetch(`/admin/users/${userId}/reset-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({})
+            });
+            
+            const payload = await response.json();
+            if (!response.ok || payload.status === 'error') {
+                throw new Error(payload.message || 'Failed to reset password');
+            }
+            
+            showFlash('Password reset email sent.', 'success');
+        } catch (error) {
+            showFlash(error.message, 'error');
+            console.error('Admin reset password error:', error);
+        }
+    });
+});
+
+// Regenerate API key button
+document.querySelectorAll('.js-admin-regen-key').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const userId = btn.getAttribute('data-user-id');
+        const username = btn.getAttribute('data-username');
+        
+        if (!confirm(`Regenerate API key for ${username}? Current key will be revoked.`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/admin/users/${userId}/regen-api-key`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({})
+            });
+            
+            const payload = await response.json();
+            if (!response.ok || payload.status === 'error') {
+                throw new Error(payload.message || 'Failed to regenerate API key');
+            }
+            
+            // Show new key in a modal/alert for copy
+            const keyValue = payload.api_key;
+            const msg = `New API key: ${keyValue}\n\nCopy now. This will not be shown again.`;
+            alert(msg);
+            showFlash('API key regenerated.', 'success');
+        } catch (error) {
+            showFlash(error.message, 'error');
+            console.error('Admin regen key error:', error);
+        }
+    });
+});
+</script>
 {% endblock %}

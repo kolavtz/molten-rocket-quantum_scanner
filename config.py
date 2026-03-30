@@ -6,7 +6,7 @@ used across the application are defined here.
 """
 
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # type: ignore
 
 # Load user's .env file if present
 load_dotenv()
@@ -18,6 +18,14 @@ APP_NAME = "Quantum-Safe TLS Scanner"
 APP_VERSION = "1.0.0"
 SECRET_KEY = os.environ.get("QSS_SECRET_KEY", "dev-secret-change-in-production")
 DEBUG = os.environ.get("QSS_DEBUG", "true").lower() == "true"
+SESSION_COOKIE_NAME = os.environ.get("QSS_SESSION_COOKIE_NAME", "quantumshield_session")
+
+# ---------------------------------------------------------------------------
+# Network Scanning — Security & Scope
+# ---------------------------------------------------------------------------
+# Allow scanning of private/local networks (RFC 1918, loopback)
+# Set to 'false' only if you want to restrict scanning to public IPs
+ALLOW_LOCAL_SCANS = os.environ.get("ALLOW_LOCAL_SCANS", "true").lower() == "true"
 
 # ---------------------------------------------------------------------------
 # Network Discovery — Default Ports
@@ -450,6 +458,17 @@ MYSQL_USER     = os.environ.get("MYSQL_USER", os.environ.get("sql_user", "root")
 MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD", os.environ.get("sql_password", ""))
 MYSQL_DATABASE = os.environ.get("MYSQL_DATABASE", "quantumshield")
 
+from urllib.parse import quote_plus
+# Derived ORM Configuration Pattern
+_orm_host = str(MYSQL_HOST or "localhost").strip()
+if ":" in _orm_host and not _orm_host.startswith("["):
+    _orm_host = f"[{_orm_host}]"
+
+SQLALCHEMY_DATABASE_URI = (
+    f"mysql+pymysql://{quote_plus(MYSQL_USER)}:{quote_plus(MYSQL_PASSWORD)}"
+    f"@{_orm_host}:{MYSQL_PORT}/{quote_plus(MYSQL_DATABASE)}"
+)
+
 # ---------------------------------------------------------------------------
 # Web / Flask / Security
 # ---------------------------------------------------------------------------
@@ -472,17 +491,47 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE   = not DEBUG  # Only send over HTTPS if not in debug mode
 SESSION_COOKIE_SAMESITE = "Lax"
 PERMANENT_SESSION_LIFETIME = 3600    # 1 hour
+SESSION_IDLE_TIMEOUT_SECONDS = int(os.environ.get("QSS_SESSION_IDLE_TIMEOUT_SECONDS", str(PERMANENT_SESSION_LIFETIME)))
+
+# HTTPS / proxy hardening
+FORCE_HTTPS = os.environ.get("QSS_FORCE_HTTPS", str(not DEBUG)).lower() == "true"
+TRUST_PROXY_SSL_HEADER = os.environ.get("QSS_TRUST_PROXY_SSL", "true").lower() == "true"
+HSTS_SECONDS = int(os.environ.get("QSS_HSTS_SECONDS", "31536000"))
+# Backward-compatible lockout threshold key:
+# - Preferred: QSS_INVALID_USERNAME_LOCKOUT_ATTEMPTS
+# - Legacy:    QSS_MAX_LOGIN_ATTEMPTS
+MAX_LOGIN_ATTEMPTS = int(
+    os.environ.get(
+        "QSS_INVALID_USERNAME_LOCKOUT_ATTEMPTS",
+        os.environ.get("QSS_MAX_LOGIN_ATTEMPTS", "5"),
+    )
+)
+LOGIN_LOCKOUT_MINUTES = int(os.environ.get("QSS_LOGIN_LOCKOUT_MINUTES", "15"))
 
 # ---------------------------------------------------------------------------
 # SMTP / Email
 # ---------------------------------------------------------------------------
-MAIL_SERVER = os.environ.get("MAIL_SERVER", "smtp.gmail.com")
-MAIL_PORT = int(os.environ.get("MAIL_PORT", 587))
-MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", "true").lower() == "true"
-MAIL_USE_SSL = os.environ.get("MAIL_USE_SSL", "false").lower() == "true"
-MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
-MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
-MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER", MAIL_USERNAME)
+MAIL_SERVER = os.environ.get("MAIL_SERVER", os.environ.get("SMTP_SERVER", "smtp.gmail.com"))
+MAIL_PORT = int(os.environ.get("MAIL_PORT", os.environ.get("SMTP_PORT", 587)))
+MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", os.environ.get("SMTP_USE_TLS", "true")).lower() == "true"
+MAIL_USE_SSL = os.environ.get("MAIL_USE_SSL", os.environ.get("SMTP_USE_SSL", "false")).lower() == "true"
+MAIL_USERNAME = os.environ.get("MAIL_USERNAME", os.environ.get("SMTP_USERNAME"))
+MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD", os.environ.get("SMTP_PASSWORD"))
+MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER", os.environ.get("SMTP_FROM", MAIL_USERNAME))
+
+# ---------------------------------------------------------------------------
+# Audit / Tamper-Evident Logging
+# ---------------------------------------------------------------------------
+AUDIT_HASH_SECRET = os.environ.get("QSS_AUDIT_HASH_SECRET", SECRET_KEY)
+AUDIT_LOG_PAGE_SIZE = int(os.environ.get("QSS_AUDIT_LOG_PAGE_SIZE", "100"))
+
+# ---------------------------------------------------------------------------
+# Bootstrap / Production Placeholders
+# ---------------------------------------------------------------------------
+QSS_ADMIN_USERNAME = os.environ.get("QSS_ADMIN_USERNAME", "admin")
+QSS_ADMIN_EMAIL = os.environ.get("QSS_ADMIN_EMAIL", "admin@localhost")
+QSS_ADMIN_EMPLOYEE_ID = os.environ.get("QSS_ADMIN_EMPLOYEE_ID", "ADMIN-001")
+QSS_ADMIN_PASSWORD = os.environ.get("QSS_ADMIN_PASSWORD", "Admin@12345678")
 
 # ---------------------------------------------------------------------------
 # Data Security (Encryption at Rest)
@@ -490,3 +539,166 @@ MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER", MAIL_USERNAME)
 # Must be a 32-url-safe-base64-encoded bytes string for Fernet
 # Generate one via: cryptography.fernet.Fernet.generate_key()
 ENCRYPTION_KEY = os.environ.get("QSS_ENCRYPTION_KEY")
+
+# ---------------------------------------------------------------------------
+# Security Hardening (Harden Phase)
+# ---------------------------------------------------------------------------
+# Rate Limiting
+RATELIMIT_STORAGE_URI = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
+RATELIMIT_ENABLED = os.environ.get("RATELIMIT_ENABLED", "true").lower() == "true"
+# Format: comma-separated list of limits (e.g., "200 per day, 50 per hour")
+RATELIMIT_DEFAULT_LIMITS_STR = os.environ.get("RATELIMIT_DEFAULT_LIMITS", "200 per day,50 per hour")
+RATELIMIT_DEFAULT_LIMITS = [limit.strip() for limit in RATELIMIT_DEFAULT_LIMITS_STR.split(",")]
+
+# Content Security Policy (Simple restrictive policy)
+# Allows self, Google Fonts, and inline styles for the glassmorphism effects
+CSP_CONFIG = {
+    'default-src': ["'self'"],
+    'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com', 'https://unpkg.com'],
+    'font-src': ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'],
+    'img-src': ["'self'", 'data:', 'https://*'],
+    'script-src': ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", 'https://unpkg.com'], # app.js, inline scripts and Chart.js
+}
+
+# ---------------------------------------------------------------------------
+# Automated / Scheduled Scans
+# ---------------------------------------------------------------------------
+AUTOMATED_SCAN_ENABLED = os.environ.get("AUTOMATED_SCAN_ENABLED", "false").lower() == "true"
+AUTOMATED_SCAN_INTERVAL_HOURS = int(os.environ.get("AUTOMATED_SCAN_INTERVAL_HOURS", "24"))
+
+# ===============================================
+# PHASE 1: MATH-BASED KPI SYSTEM CONFIGURATION
+# ===============================================
+# All constants used in PQC scoring, risk calculations, and digital label assignments
+# Based on math-definition-for-quantumshield-app.md
+
+# ---------------------------------------------------------------------------
+# Risk Penalty Calculation (Math Section 5.1)
+# ---------------------------------------------------------------------------
+# Weight per finding severity: Σ(severity × weight)
+RISK_WEIGHTS = {
+    'critical': float(os.environ.get('RISK_WEIGHT_CRITICAL', '10.0')),
+    'high': float(os.environ.get('RISK_WEIGHT_HIGH', '5.0')),
+    'medium': float(os.environ.get('RISK_WEIGHT_MEDIUM', '2.0')),
+    'low': float(os.environ.get('RISK_WEIGHT_LOW', '0.5')),
+}
+
+# Alpha scaling factor for risk penalty impact on cyber score
+# Formula: max(0, pqc_score - PENALTY_ALPHA * risk_penalty)
+PENALTY_ALPHA = float(os.environ.get('PENALTY_ALPHA', '0.5'))
+
+# ---------------------------------------------------------------------------
+# PQC Score Thresholds (Math Section 3.3 - Asset Classification)
+# ---------------------------------------------------------------------------
+# Classification tiers based on PQC score ranges
+PQC_THRESHOLDS = {
+    'elite': int(os.environ.get('PQC_THRESHOLD_ELITE', '90')),        # ≥ 90
+    'standard': int(os.environ.get('PQC_THRESHOLD_STANDARD', '70')),  # 70-89
+    'legacy': int(os.environ.get('PQC_THRESHOLD_LEGACY', '40')),      # 40-69
+    'critical': int(os.environ.get('PQC_THRESHOLD_CRITICAL', '0')),   # < 40
+}
+
+# ---------------------------------------------------------------------------
+# Cyber Rating Tiers (Math Section 5.4 - Enterprise Score 0-1000)
+# ---------------------------------------------------------------------------
+# Enterprise-level tiers based on average asset cyber scores
+CYBER_RATING_TIERS = {
+    'tier1_elite': int(os.environ.get('CYBER_TIER_ELITE', '700')),       # ≥ 700
+    'tier2_standard': int(os.environ.get('CYBER_TIER_STANDARD', '400')), # 400-699
+    'tier3_legacy': int(os.environ.get('CYBER_TIER_LEGACY', '0')),       # 0-399
+}
+
+# ---------------------------------------------------------------------------
+# Cryptographic Weakness Thresholds
+# ---------------------------------------------------------------------------
+# Weak key length threshold (bits) - RFC 3394, NIST guidelines
+WEAK_KEY_LENGTH_BITS = int(os.environ.get('WEAK_KEY_LENGTH_BITS', '2048'))
+
+# Weak TLS versions (version < this value is considered weak)
+WEAK_TLS_VERSIONS = [
+    'SSLv2', 'SSLv3', 'TLS 1.0', 'TLS 1.1'
+]
+
+# Expired certificate threshold (days) - auto-flag if expiring within this period
+EXPIRING_CERT_THRESHOLD_DAYS = int(os.environ.get('EXPIRING_CERT_THRESHOLD', '30'))
+
+# ---------------------------------------------------------------------------
+# Certificate Expiry Buckets (Math Section 2.5 - Distribution)
+# ---------------------------------------------------------------------------
+# Defines ranges for certificate expiry timeline visualization
+CERT_EXPIRY_BUCKETS = {
+    'bucket_0_30_days': (0, 30),           # Expiring soon - alert
+    'bucket_31_60_days': (31, 60),         # Expiring soon - caution
+    'bucket_61_90_days': (61, 90),         # Expiring - plan renewal
+    'bucket_greater_90_days': (91, 36500), # Safe - no action
+}
+
+# ---------------------------------------------------------------------------
+# Digital Label Classification (Feature: Asset Labels)
+# ---------------------------------------------------------------------------
+# Asset classification labels based on PQC score + findings + enterprise score
+# Used in inventory and home dashboards
+
+DIGITAL_LABELS_CONFIG = {
+    'Quantum-Safe': {
+        'description': 'Fully quantum-safe with no critical findings',
+        'min_pqc_score': 90,
+        'max_critical_findings': 0,
+        'confidence_weight': 1.0,
+    },
+    'PQC Ready': {
+        'description': 'Post-quantum cryptography ready, minimal findings',
+        'min_pqc_score': 70,
+        'max_findings': 3,
+        'max_critical_findings': 0,
+        'confidence_weight': 0.8,
+    },
+    'Fully Quantum Safe': {
+        'description': 'Quantum-safe with zero findings and high enterprise score',
+        'min_pqc_score': 90,
+        'max_findings': 0,
+        'max_critical_findings': 0,
+        'min_enterprise_score': 700,
+        'confidence_weight': 1.0,
+    },
+    'At Risk': {
+        'description': 'Non-compliant with PQC standards or contains critical findings',
+        'max_pqc_score': 40,
+        'min_critical_findings': 1,
+        'confidence_weight': 0.9,
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Finding Severity Mapping (Math Section 5.1 - Findings & Issues)
+# ---------------------------------------------------------------------------
+# Maps issue types to default severity levels
+FINDING_SEVERITY_MAP = {
+    'weak_tls_version': 'high',             # TLS < 1.2
+    'weak_cipher': 'high',                  # Deprecated ciphers (SSLv3, RC4, etc.)
+    'weak_key_length': 'high',              # Key < WEAK_KEY_LENGTH_BITS
+    'expiring_certificate': 'medium',       # Expires within EXPIRING_CERT_THRESHOLD
+    'expired_certificate': 'critical',      # Already expired
+    'self_signed_cert': 'medium',           # Public endpoint with self-signed cert
+    'mismatched_hostname': 'high',          # Cert CN doesn't match domain
+    'weak_signature_algorithm': 'medium',   # MD5, SHA1 signatures
+}
+
+# ---------------------------------------------------------------------------
+# Dashboard Metric Refresh Intervals (Background Jobs)
+# ---------------------------------------------------------------------------
+# How often to refresh various summary metrics (in hours)
+ORG_PQC_METRICS_REFRESH_HOURS = int(os.environ.get('ORG_METRICS_REFRESH_HOURS', '24'))  # Daily snapshot
+CERT_EXPIRY_BUCKETS_REFRESH_HOURS = int(os.environ.get('CERT_EXPIRY_REFRESH_HOURS', '24'))  # Daily
+ASSET_METRICS_REFRESH_POST_SCAN = os.environ.get('ASSET_METRICS_REFRESH_POST_SCAN', 'true').lower() == 'true'  # After each scan
+DIGITAL_LABELS_REFRESH_POST_SCAN = os.environ.get('DIGITAL_LABELS_REFRESH_POST_SCAN', 'true').lower() == 'true'  # After each scan
+
+# ---------------------------------------------------------------------------
+# API Response Configuration
+# ---------------------------------------------------------------------------
+# Pagination defaults for dashboard APIs
+DEFAULT_PAGE_SIZE = int(os.environ.get('DEFAULT_PAGE_SIZE', '50'))
+MAX_PAGE_SIZE = int(os.environ.get('MAX_PAGE_SIZE', '500'))
+
+# Trend chart history depth (days)
+TREND_HISTORY_DAYS = int(os.environ.get('TREND_HISTORY_DAYS', '90'))

@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+{% block title %}Docs | QuantumShield{% endblock %}
+{% block content %}
+<div class="container" style="max-width:900px;margin:2rem auto;padding:0 1.5rem;">
+
+  <h1 style="font-size:2.8rem;font-weight:900;letter-spacing:-1px;margin-bottom:.25rem;">DOCUMENTATION</h1>
+  <p style="color:var(--text-secondary);font-size:1rem;margin-bottom:3rem;">
+    Technical guide · Quantum threat primer · Getting started
+  </p>
+
+  <!-- Table of Contents -->
+  <nav style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:1.5rem 2rem;margin-bottom:3rem;">
+    <h2 style="font-size:.85rem;letter-spacing:.12em;color:var(--text-muted);margin-bottom:1rem;">TABLE OF CONTENTS</h2>
+    <ol style="list-style:decimal;padding-left:1.25rem;line-height:2.2;font-size:.9rem;">
+      <li><a href="#quantum-threat" style="color:var(--accent);">What is the Quantum Threat?</a></li>
+      <li><a href="#why-pqc" style="color:var(--accent);">Why Post-Quantum Cryptography?</a></li>
+      <li><a href="#nist-framework" style="color:var(--accent);">NIST PQC Standardization Framework</a></li>
+      <li><a href="#how-it-works" style="color:var(--accent);">How QuantumShield Works</a></li>
+      <li><a href="#getting-started" style="color:var(--accent);">Getting Started (Self-Hosted)</a></li>
+      <li><a href="#api-guide" style="color:var(--accent);">API Reference</a></li>
+      <li><a href="#cbom" style="color:var(--accent);">Cryptographic Bill of Materials (CBOM)</a></li>
+      <li><a href="#faq" style="color:var(--accent);">FAQ</a></li>
+    </ol>
+  </nav>
+
+  <!-- 1. Quantum Threat -->
+  <section id="quantum-threat" style="margin-bottom:3rem;">
+    <h2 style="font-size:1.6rem;font-weight:800;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border-subtle);">
+      1. What is the Quantum Threat?
+    </h2>
+    <div style="color:var(--text-secondary);line-height:1.8;font-size:.92rem;">
+      <p style="margin-bottom:1rem;">
+        Today's internet security relies on <strong style="color:var(--text-primary);">public-key cryptography</strong> — algorithms like RSA, ECDSA, and Diffie-Hellman
+        that protect everything from HTTPS connections to digital signatures. These algorithms are secure because factoring large numbers
+        or solving discrete logarithm problems is computationally infeasible for classical computers.
+      </p>
+      <p style="margin-bottom:1rem;">
+        <strong style="color:var(--danger);">Quantum computers change this equation entirely.</strong> Using Shor's algorithm, a sufficiently powerful
+        quantum computer can break RSA-2048 and ECC-256 in polynomial time — rendering current TLS certificates, VPN tunnels,
+        and code-signing infrastructure completely insecure.
+      </p>
+
+      <div style="background:var(--danger-bg);border-left:3px solid var(--danger);border-radius:var(--radius-sm);padding:1rem 1.25rem;margin:1.5rem 0;">
+        <strong style="color:var(--danger);font-size:.8rem;letter-spacing:.08em;">⚠ HARVEST NOW, DECRYPT LATER (HNDL)</strong>
+        <p style="margin-top:.5rem;color:var(--text-secondary);font-size:.85rem;">
+          Adversaries are already recording encrypted traffic today with plans to decrypt it once quantum computers become available.
+          Data with long confidentiality requirements (medical records, state secrets, financial data) is especially at risk.
+          This makes migration urgent — not something to defer until quantum computers are "ready."
+        </p>
+      </div>
+
+      <p style="margin-bottom:1rem;">
+        While fault-tolerant quantum computers are estimated to be 5–15 years away, the migration to quantum-safe cryptography
+        must begin <strong style="color:var(--text-primary);">now</strong> because:
+      </p>
+      <ul style="padding-left:1.5rem;margin-bottom:1rem;">
+        <li style="margin-bottom:.5rem;">Cryptographic migrations typically take 5–10 years for large organizations</li>
+        <li style="margin-bottom:.5rem;">Hardware security modules (HSMs) and embedded systems have even longer upgrade cycles</li>
+        <li style="margin-bottom:.5rem;">Regulatory compliance deadlines (CNSA 2.0) begin as early as 2025</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 2. Why PQC -->
+  <section id="why-pqc" style="margin-bottom:3rem;">
+    <h2 style="font-size:1.6rem;font-weight:800;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border-subtle);">
+      2. Why Post-Quantum Cryptography (PQC)?
+    </h2>
+    <div style="color:var(--text-secondary);line-height:1.8;font-size:.92rem;">
+      <p style="margin-bottom:1rem;">
+        Post-Quantum Cryptography refers to cryptographic algorithms that are believed to be secure against both classical
+        and quantum attacks. Unlike quantum cryptography (which uses quantum mechanics directly), PQC algorithms run on
+        <strong style="color:var(--text-primary);">regular classical hardware</strong> — they just rely on mathematical problems
+        that quantum computers cannot solve efficiently.
+      </p>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px,1fr));gap:1rem;margin:1.5rem 0;">
+        <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:1.25rem;">
+          <h3 style="color:var(--accent);font-size:.85rem;margin-bottom:.5rem;">🔷 LATTICE-BASED</h3>
+          <p style="font-size:.82rem;color:var(--text-muted);">ML-KEM (Kyber), ML-DSA (Dilithium). Most efficient. Basis of FIPS 203 & 204.</p>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:1.25rem;">
+          <h3 style="color:var(--accent);font-size:.85rem;margin-bottom:.5rem;">🔶 HASH-BASED</h3>
+          <p style="font-size:.82rem;color:var(--text-muted);">SLH-DSA (SPHINCS+). Conservative choice. Basis of FIPS 205. Minimal assumptions.</p>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:1.25rem;">
+          <h3 style="color:var(--accent);font-size:.85rem;margin-bottom:.5rem;">🔻 CODE-BASED</h3>
+          <p style="font-size:.82rem;color:var(--text-muted);">HQC (Round 4 candidate). Long research history. Larger key sizes.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. NIST Framework -->
+  <section id="nist-framework" style="margin-bottom:3rem;">
+    <h2 style="font-size:1.6rem;font-weight:800;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border-subtle);">
+      3. NIST PQC Standardization Framework
+    </h2>
+    <div style="color:var(--text-secondary);line-height:1.8;font-size:.92rem;">
+      <p style="margin-bottom:1rem;">
+        The <strong style="color:var(--text-primary);">National Institute of Standards and Technology (NIST)</strong> has been running
+        a multi-round competition since 2016 to select and standardize post-quantum algorithms. In August 2024, NIST published the
+        first three final standards:
+      </p>
+
+      <table style="width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.85rem;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border-subtle);">
+            <th style="text-align:left;padding:.75rem;color:var(--text-muted);font-size:.75rem;letter-spacing:.1em;">STANDARD</th>
+            <th style="text-align:left;padding:.75rem;color:var(--text-muted);font-size:.75rem;letter-spacing:.1em;">ALGORITHM</th>
+            <th style="text-align:left;padding:.75rem;color:var(--text-muted);font-size:.75rem;letter-spacing:.1em;">PURPOSE</th>
+            <th style="text-align:left;padding:.75rem;color:var(--text-muted);font-size:.75rem;letter-spacing:.1em;">FAMILY</th>
+          </tr>
+        </thead>
+        <tbody style="color:var(--text-primary);">
+          <tr style="border-bottom:1px solid var(--border-subtle);">
+            <td style="padding:.75rem;"><code style="color:var(--accent);">FIPS 203</code></td>
+            <td style="padding:.75rem;">ML-KEM (Kyber)</td>
+            <td style="padding:.75rem;">Key Encapsulation</td>
+            <td style="padding:.75rem;">Lattice</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border-subtle);">
+            <td style="padding:.75rem;"><code style="color:var(--accent);">FIPS 204</code></td>
+            <td style="padding:.75rem;">ML-DSA (Dilithium)</td>
+            <td style="padding:.75rem;">Digital Signatures</td>
+            <td style="padding:.75rem;">Lattice</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border-subtle);">
+            <td style="padding:.75rem;"><code style="color:var(--accent);">FIPS 205</code></td>
+            <td style="padding:.75rem;">SLH-DSA (SPHINCS+)</td>
+            <td style="padding:.75rem;">Digital Signatures</td>
+            <td style="padding:.75rem;">Hash-based</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="background:var(--info-bg);border-left:3px solid var(--accent);border-radius:var(--radius-sm);padding:1rem 1.25rem;margin:1.5rem 0;">
+        <strong style="color:var(--accent);font-size:.8rem;letter-spacing:.08em;">ℹ WHAT THIS MEANS FOR YOU</strong>
+        <p style="margin-top:.5rem;color:var(--text-secondary);font-size:.85rem;">
+          QuantumShield checks your TLS endpoints against these standards. If your server uses RSA or ECDSA exclusively,
+          it will be flagged as quantum-vulnerable. The scanner detects hybrid key exchanges (e.g., X25519Kyber768) and
+          PQC-aware certificate chains to determine your readiness level.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. How QuantumShield Works -->
+  <section id="how-it-works" style="margin-bottom:3rem;">
+    <h2 style="font-size:1.6rem;font-weight:800;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border-subtle);">
+      4. How QuantumShield Works
+    </h2>
+    <div style="color:var(--text-secondary);line-height:1.8;font-size:.92rem;">
+      <p style="margin-bottom:1rem;">The scanner follows a 10-step pipeline for every target:</p>
+      <ol style="padding-left:1.5rem;margin-bottom:1.5rem;">
+        <li style="margin-bottom:.6rem;"><strong style="color:var(--text-primary);">Network Discovery</strong> — Port sweep to find TLS-capable services</li>
+        <li style="margin-bottom:.6rem;"><strong style="color:var(--text-primary);">TLS Handshake</strong> — Full handshake to extract ciphers, protocol version, certificates</li>
+        <li style="margin-bottom:.6rem;"><strong style="color:var(--text-primary);">PQC Detection</strong> — Checks for hybrid key exchanges, PQC KEMs, and PQC signatures</li>
+        <li style="margin-bottom:.6rem;"><strong style="color:var(--text-primary);">CBOM Generation</strong> — Builds a Cryptographic Bill of Materials (CycloneDX format)</li>
+        <li style="margin-bottom:.6rem;"><strong style="color:var(--text-primary);">Validation</strong> — Evaluates against NIST FIPS 203/204/205 compliance criteria</li>
+        <li style="margin-bottom:.6rem;"><strong style="color:var(--text-primary);">Certificate Labeling</strong> — Issues quantum-safe / quantum-vulnerable labels</li>
+        <li style="margin-bottom:.6rem;"><strong style="color:var(--text-primary);">Recommendation Engine</strong> — Generates prioritized migration recommendations</li>
+        <li style="margin-bottom:.6rem;"><strong style="color:var(--text-primary);">Report Export</strong> — JSON + MySQL storage for historical tracking</li>
+        <li style="margin-bottom:.6rem;"><strong style="color:var(--text-primary);">Audit Logging</strong> — Tamper-evident blockchain-style event chain</li>
+        <li style="margin-bottom:.6rem;"><strong style="color:var(--text-primary);">Dashboard Visualization</strong> — Charts, badges, and risk assessment</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 5. Getting Started -->
+  <section id="getting-started" style="margin-bottom:3rem;">
+    <h2 style="font-size:1.6rem;font-weight:800;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border-subtle);">
+      5. Getting Started (Self-Hosted)
+    </h2>
+    <div style="color:var(--text-secondary);line-height:1.8;font-size:.92rem;">
+      <h3 style="color:var(--text-primary);font-size:1.1rem;margin:1.5rem 0 .75rem;">Prerequisites</h3>
+      <ul style="padding-left:1.5rem;margin-bottom:1rem;">
+        <li style="margin-bottom:.4rem;">Python 3.11+</li>
+        <li style="margin-bottom:.4rem;">MySQL 8.0+ (or MariaDB 10.6+)</li>
+        <li style="margin-bottom:.4rem;">mkcert (for trusted local HTTPS)</li>
+      </ul>
+
+      <h3 style="color:var(--text-primary);font-size:1.1rem;margin:1.5rem 0 .75rem;">Installation</h3>
+      <pre style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:1.25rem;overflow-x:auto;font-size:.82rem;line-height:1.7;color:var(--text-primary);">
+<span style="color:var(--text-muted);"># 1. Clone the repository</span>
+git clone https://github.com/your-org/quantum-scanner.git
+cd quantum-scanner
+
+<span style="color:var(--text-muted);"># 2. Create virtual environment</span>
+python -m venv .venv
+.venv\Scripts\activate   <span style="color:var(--text-muted);"># Windows</span>
+source .venv/bin/activate  <span style="color:var(--text-muted);"># Linux/macOS</span>
+
+<span style="color:var(--text-muted);"># 3. Install dependencies</span>
+pip install -r requirements.txt
+
+<span style="color:var(--text-muted);"># 4. Configure environment</span>
+cp .env.example .env
+<span style="color:var(--text-muted);"># Edit .env with your MySQL credentials, admin password, etc.</span>
+
+<span style="color:var(--text-muted);"># 5. Initialize database</span>
+mysql -u root -p &lt; schema.sql
+
+<span style="color:var(--text-muted);"># 6. Generate trusted HTTPS certs</span>
+mkcert -install
+mkdir certs
+mkcert -key-file certs/key.pem -cert-file certs/cert.pem localhost 127.0.0.1
+
+<span style="color:var(--text-muted);"># 7. Run the application</span>
+python web/app.py</pre>
+
+      <h3 style="color:var(--text-primary);font-size:1.1rem;margin:1.5rem 0 .75rem;">Production Deployment</h3>
+      <pre style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:1.25rem;overflow-x:auto;font-size:.82rem;line-height:1.7;color:var(--text-primary);">
+<span style="color:var(--text-muted);"># Linux production with Gunicorn + Nginx</span>
+pip install gunicorn
+gunicorn --bind 0.0.0.0:5000 \
+  --workers 4 \
+  --certfile certs/cert.pem \
+  --keyfile certs/key.pem \
+  web.app:app
+
+<span style="color:var(--text-muted);"># Windows production with Waitress</span>
+pip install waitress
+waitress-serve --host 0.0.0.0 --port 5000 web.app:app</pre>
+    </div>
+  </section>
+
+  <!-- 6. API Reference -->
+  <section id="api-guide" style="margin-bottom:3rem;">
+    <h2 style="font-size:1.6rem;font-weight:800;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border-subtle);">
+      6. API Reference
+    </h2>
+    <div style="color:var(--text-secondary);line-height:1.8;font-size:.92rem;">
+      <p style="margin-bottom:1rem;">
+        All API endpoints require an API key. Get yours from the <a href="/profile" style="color:var(--accent);">Profile page</a>.
+        Pass the key via <code style="color:var(--accent);">X-API-Key</code> header or <code style="color:var(--accent);">?api_key=</code> query parameter.
+      </p>
+
+      <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:0.9rem 1rem; margin-bottom:1rem;">
+        <strong style="color:var(--text-primary);">Scan Center routes</strong>
+        <p style="font-size:.85rem; margin-top:.35rem; margin-bottom:.35rem;">Canonical UI route: <code style="color:var(--accent);">/scans</code>. Legacy route <code style="color:var(--accent);">/scan-center</code> remains available for compatibility.</p>
+        <p style="font-size:.82rem; color:var(--text-secondary); margin:0;">Single scan roles: Admin, Manager, SingleScan, Viewer · Bulk/schedules: Admin, Manager only.</p>
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.5rem;">
+          <code style="color:var(--safe);background:var(--safe-bg);padding:.15rem .5rem;border-radius:4px;">GET</code>
+          <code style="color:var(--text-primary);">/api/scan?target=example.com</code>
+        </h3>
+        <p style="font-size:.85rem;margin-bottom:.5rem;">Run a TLS scan on the specified target. Returns JSON report.</p>
+        <pre style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:1rem;font-size:.8rem;line-height:1.6;color:var(--text-primary);">curl -H "X-API-Key: qss_YOUR_KEY" \
+     "https://localhost:5000/api/scan?target=google.com"</pre>
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.5rem;">
+          <code style="color:var(--warn);background:var(--warn-bg);padding:.15rem .5rem;border-radius:4px;">POST</code>
+          <code style="color:var(--text-primary);">/api/scan</code>
+        </h3>
+        <p style="font-size:.85rem;margin-bottom:.5rem;">Submit scan target via JSON body. Ideal for CI/CD pipelines.</p>
+        <pre style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:1rem;font-size:.8rem;line-height:1.6;color:var(--text-primary);">curl -X POST "https://localhost:5000/api/scan" \
+     -H "Content-Type: application/json" \
+     -H "X-API-Key: qss_YOUR_KEY" \
+     -d '{"target":"example.com"}'</pre>
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.5rem;">
+          <code style="color:var(--safe);background:var(--safe-bg);padding:.15rem .5rem;border-radius:4px;">GET</code>
+          <code style="color:var(--text-primary);">/api/scans</code>
+        </h3>
+        <p style="font-size:.85rem;margin-bottom:.5rem;">List scan history with pagination, search, and sorting for scan center.</p>
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.5rem;">
+          <code style="color:var(--warn);background:var(--warn-bg);padding:.15rem .5rem;border-radius:4px;">POST</code>
+          <code style="color:var(--text-primary);">/api/scans</code>
+        </h3>
+        <p style="font-size:.85rem;margin-bottom:.5rem;">Queue single target scan (supports autodiscovery + inventory metadata payload).</p>
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.5rem;">
+          <code style="color:var(--warn);background:var(--warn-bg);padding:.15rem .5rem;border-radius:4px;">POST</code>
+          <code style="color:var(--text-primary);">/api/scans/bulk</code>
+        </h3>
+        <p style="font-size:.85rem;margin-bottom:.5rem;">Queue sequential bulk scans (Admin/Manager only).</p>
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.5rem;">
+          <code style="color:var(--safe);background:var(--safe-bg);padding:.15rem .5rem;border-radius:4px;">GET</code>
+          <code style="color:var(--text-primary);">/api/scans/&lt;scan_id&gt;/status</code>
+        </h3>
+        <p style="font-size:.85rem;margin-bottom:.5rem;">Live status tracking for queued/running/completed scans.</p>
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.5rem;">
+          <code style="color:var(--safe);background:var(--safe-bg);padding:.15rem .5rem;border-radius:4px;">GET/POST/DELETE</code>
+          <code style="color:var(--text-primary);">/api/scan-schedules[/:id]</code>
+        </h3>
+        <p style="font-size:.85rem;margin-bottom:.5rem;">Create/list/delete recurring scan schedules (Admin/Manager only).</p>
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.5rem;">
+          <code style="color:var(--safe);background:var(--safe-bg);padding:.15rem .5rem;border-radius:4px;">GET</code>
+          <code style="color:var(--text-primary);">/api/badge/&lt;target&gt;</code>
+        </h3>
+        <p style="font-size:.85rem;">Public SVG badge. Embed in your README or CI dashboard. No API key required.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. CBOM -->
+  <section id="cbom" style="margin-bottom:3rem;">
+    <h2 style="font-size:1.6rem;font-weight:800;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border-subtle);">
+      7. Cryptographic Bill of Materials (CBOM)
+    </h2>
+    <div style="color:var(--text-secondary);line-height:1.8;font-size:.92rem;">
+      <p style="margin-bottom:1rem;">
+        A CBOM is an inventory of all cryptographic assets used by a system — similar to how a Software Bill of Materials (SBOM)
+        lists software components. QuantumShield generates CBOMs in the <strong style="color:var(--text-primary);">CycloneDX 1.6</strong> format,
+        including:
+      </p>
+      <ul style="padding-left:1.5rem;margin-bottom:1rem;">
+        <li style="margin-bottom:.5rem;">All TLS certificates in the chain (root, intermediate, leaf)</li>
+        <li style="margin-bottom:.5rem;">Key exchange algorithms (RSA, ECDHE, X25519, Kyber)</li>
+        <li style="margin-bottom:.5rem;">Signature algorithms (RSA-SHA256, ECDSA-P256, ML-DSA-65)</li>
+        <li style="margin-bottom:.5rem;">Cipher suites and protocol versions</li>
+        <li style="margin-bottom:.5rem;">Quantum-safe readiness status per component</li>
+      </ul>
+      <p>
+        Download CBOMs from any scan result page. Use them for compliance reporting, audit trails, and migration planning.
+      </p>
+    </div>
+  </section>
+
+  <!-- 8. FAQ -->
+  <section id="faq" style="margin-bottom:3rem;">
+    <h2 style="font-size:1.6rem;font-weight:800;margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border-subtle);">
+      8. FAQ
+    </h2>
+    <div style="color:var(--text-secondary);line-height:1.8;font-size:.92rem;">
+
+      <div style="margin-bottom:1.5rem;">
+        <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.35rem;">Is my data stored?</h3>
+        <p>Scan results are stored in MySQL for historical tracking. All audit logs are tamper-evident using a blockchain-style hash chain.
+           No external telemetry is collected.</p>
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.35rem;">Can QuantumShield scan internal servers?</h3>
+        <p>Yes. Deploy it on-premise and scan internal hostnames, IP addresses, or CIDR ranges.
+           The scanner connects directly via TCP — no cloud dependency required.</p>
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.35rem;">When should I start migrating to PQC?</h3>
+        <p>Now. NIST recommends immediate adoption of hybrid key exchanges. For sensitive data with &gt;10-year confidentiality
+           requirements, migration should be treated as urgent due to the HNDL attack vector.</p>
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.35rem;">Does the scanner modify my server configuration?</h3>
+        <p>No. QuantumShield is read-only. It performs passive TLS handshakes and does not modify any server settings.
+           The recommendations are advisory — you must implement changes yourself.</p>
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:.35rem;">How do I make my server quantum-safe?</h3>
+        <p>Follow the recommendations generated after each scan. Common steps include:</p>
+        <ul style="padding-left:1.5rem;margin-top:.5rem;">
+          <li>Enable hybrid key exchange (X25519Kyber768) in your TLS library</li>
+          <li>Use OpenSSL 3.2+ or BoringSSL with OQS provider for PQC support</li>
+          <li>Configure nginx/Apache to prefer PQC cipher suites</li>
+          <li>Obtain certificates from a CA that supports PQC signatures</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+</div>
+{% endblock %}

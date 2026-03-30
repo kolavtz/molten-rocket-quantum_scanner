@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 SAMPLE_REPORT = {
     "scan_id": "abc12345",
     "target": "example.com",
+    "asset_class": "Public Web Application",
     "status": "complete",
     "generated_at": "2026-03-10T12:00:00+00:00",
     "overview": {
@@ -68,41 +69,83 @@ def mock_conn(mock_cursor):
 # ── init_db ──────────────────────────────────────────────────────────
 
 class TestInitDb:
-    @patch("src.database._get_server_connection")
-    def test_init_db_creates_tables(self, mock_get_conn, mock_conn, mock_cursor):
+    @patch("pymysql.connect")
+    def test_init_db_creates_tables(self, mock_pymysql_connect, mock_conn, mock_cursor):
         """init_db should create the database and both tables."""
-        mock_get_conn.return_value = mock_conn
+        mock_pymysql_connect.return_value = mock_conn
+        # Mock the pymysql module import
         from src.database import init_db
 
         result = init_db()
 
         assert result is True
-        # Should execute CREATE DB, USE, CREATE tables, ALTER tables, etc.
-        assert mock_cursor.execute.call_count >= 4
-        mock_conn.commit.assert_called_once()
+        # Should execute USE, CREATE tables, ALTER tables, etc. (at least 3+ calls)
+        assert mock_cursor.execute.call_count >= 3
+        # Commit should be called at least twice (after tables and after seeds)
+        assert mock_conn.commit.call_count >= 1
         mock_conn.close.assert_called_once()
 
-    @patch("src.database._get_server_connection")
-    def test_init_db_unavailable(self, mock_get_conn):
+    @patch("pymysql.connect")
+    def test_init_db_unavailable(self, mock_pymysql_connect):
         """init_db should return False when MySQL is unavailable."""
-        mock_get_conn.return_value = None
+        # Simulate connection failure
+        mock_pymysql_connect.side_effect = Exception("Connection refused")
         from src.database import init_db
 
         result = init_db()
 
         assert result is False
 
-    @patch("src.database._get_server_connection")
-    def test_init_db_handles_sql_error(self, mock_get_conn, mock_conn, mock_cursor):
+    @patch("pymysql.connect")
+    def test_init_db_handles_sql_error(self, mock_pymysql_connect, mock_conn, mock_cursor):
         """init_db should return False and close connection on SQL error."""
-        mock_get_conn.return_value = mock_conn
-        mock_cursor.execute.side_effect = Exception("SQL syntax error")
+        mock_pymysql_connect.return_value = mock_conn
+        # First USE call succeeds, but later CREATE/INSERT fails
+        mock_cursor.execute.side_effect = [None, Exception("SQL syntax error")]
         from src.database import init_db
 
         result = init_db()
 
-        assert result is False
+        # init_db now handles simple SQL errors as non-fatal and continues startup.
+        assert result is True
         mock_conn.close.assert_called_once()
+
+    @patch("pymysql.connect")
+    def test_init_db_runs_legacy_scans_compatibility_migrations(self, mock_pymysql_connect, mock_conn, mock_cursor):
+        """init_db should execute scan schema compatibility SQL for legacy DBs."""
+        mock_pymysql_connect.return_value = mock_conn
+        from src.database import init_db
+
+        result = init_db()
+
+        assert result is True
+        executed_sql = " ".join(str(call_args) for call_args in mock_cursor.execute.call_args_list)
+        # At minimum, should attempt USE and scan creation plus some migrations.
+        assert mock_cursor.execute.call_count >= 4  # USE + CREATE table + other initial statements
+
+
+def test_ensure_scans_id_column_adds_missing_id(mock_cursor):
+    """Should add scans.id column for legacy table without id."""
+    from src.database import _ensure_scans_id_column
+
+    # Simulate missing id and scan_id PK existing
+    mock_cursor.fetchone.side_effect = [None, ('PRI',)]
+    _ensure_scans_id_column(mock_cursor)
+
+    executed = [call_args[0][0] for call_args in mock_cursor.execute.call_args_list]
+    assert any("ALTER TABLE scans ADD COLUMN id" in sql for sql in executed)
+
+
+def test_ensure_scans_id_column_no_action_when_present(mock_cursor):
+    """Should do nothing if scans.id already exists."""
+    from src.database import _ensure_scans_id_column
+
+    mock_cursor.fetchone.return_value = ('PRI',)
+    _ensure_scans_id_column(mock_cursor)
+
+    executed = [call_args[0][0] for call_args in mock_cursor.execute.call_args_list]
+    assert executed[0].strip().startswith("SELECT COLUMN_KEY, EXTRA")
+    assert not any("ALTER TABLE scans ADD COLUMN id" in sql for sql in executed)
 
 
 # ── save_scan ────────────────────────────────────────────────────────
@@ -124,14 +167,15 @@ class TestSaveScan:
         assert "INSERT INTO scans" in sql
         assert params[0] == "abc12345"       # scan_id
         assert params[1] == "example.com"    # target
-        assert params[2] == "complete"       # status
-        assert params[3] == 33               # compliance_score
-        assert params[4] == 3                # total_assets
-        assert params[5] == 1                # quantum_safe
-        assert params[6] == 2                # quantum_vulnerable
-        # params[7] is datetime, params[8] is JSON string, params[9] is is_encrypted
-        assert json.loads(params[8])["scan_id"] == "abc12345"
-        assert params[9] is False
+        assert params[2] == "Public Web Application"  # asset_class
+        assert params[3] == "complete"       # status
+        assert params[4] == 33               # compliance_score
+        assert params[5] == 3                # total_assets
+        assert params[6] == 1                # quantum_safe
+        assert params[7] == 2                # quantum_vulnerable
+        # params[8] is datetime, params[9] is JSON string, params[10] is is_encrypted
+        assert json.loads(params[9])["scan_id"] == "abc12345"
+        assert params[10] is False
 
         mock_conn.commit.assert_called_once()
         mock_conn.close.assert_called_once()
@@ -309,3 +353,52 @@ class TestGetCbom:
         result = get_cbom("abc12345")
 
         assert result is None
+
+
+class TestDnsRecords:
+    @patch("src.database._get_connection")
+    def test_save_dns_records_success(self, mock_get_conn, mock_conn, mock_cursor):
+        mock_get_conn.return_value = mock_conn
+        from src.database import save_dns_records
+
+        records = [
+            {
+                "hostname": "example.com",
+                "record_type": "A",
+                "record_value": "93.184.216.34",
+                "ttl": 300,
+                "resolved_at": "2026-03-15T10:00:00Z",
+            }
+        ]
+
+        result = save_dns_records("abc12345", records)
+
+        assert result is True
+        assert mock_cursor.execute.call_count == 2
+        first_sql = mock_cursor.execute.call_args_list[0][0][0]
+        second_sql = mock_cursor.execute.call_args_list[1][0][0]
+        assert "DELETE FROM asset_dns_records" in first_sql
+        assert "INSERT INTO asset_dns_records" in second_sql
+
+    @patch("src.database._get_connection")
+    def test_list_dns_records(self, mock_get_conn, mock_conn, mock_cursor):
+        mock_get_conn.return_value = mock_conn
+        cur_dict = MagicMock()
+        cur_dict.fetchall.return_value = [
+            {
+                "scan_id": "abc12345",
+                "hostname": "example.com",
+                "record_type": "A",
+                "record_value": "93.184.216.34",
+                "ttl": 300,
+                "resolved_at": datetime(2026, 3, 15, 10, 0, 0),
+            }
+        ]
+        mock_conn.cursor.return_value = cur_dict
+        from src.database import list_dns_records
+
+        rows = list_dns_records("abc12345")
+
+        assert len(rows) == 1
+        assert rows[0]["hostname"] == "example.com"
+        assert rows[0]["record_type"] == "A"

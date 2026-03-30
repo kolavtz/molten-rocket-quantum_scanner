@@ -1,0 +1,166 @@
+/**
+ * QuantumShield Global Responsive Overrides
+ * Ensures consistent behavior for tables, grids, and navigation on all devices.
+ */
+
+/* 1. Universal Table Responsiveness */
+.table-wrapper, 
+.scans-table-wrapper, 
+.table-container,
+.qs-table-panel {
+    width: 100%;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 1rem;
+}
+
+/* 2. Desktop Table Layout (Default) */
+table, 
+.universal-table, 
+.scans-table, 
+.assets-table {
+    width: 100% !important;
+    border-collapse: collapse;
+}
+
+th, td {
+    white-space: nowrap !important;
+}
+
+@media (max-width: 1024px) {
+    th, td {
+        white-space: normal !important;
+    }
+
+    .scans-table th,
+    .scans-table td,
+    .asset-table th,
+    .asset-table td,
+    .assets-table th,
+    .assets-table td,
+    .universal-table th,
+    .universal-table td {
+        white-space: nowrap !important;
+    }
+}
+
+/* Special case for long text columns that SHOULD wrap but not stack chars */
+td.notes-column, 
+td.url-column {
+    white-space: normal !important;
+    min-width: 200px;
+    max-width: 400px;
+    word-break: break-all;
+}
+
+/* 3. Dashboard Grid Refinements */
+.qs-kpi-grid, 
+.qs-grid, 
+.kpi-section {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)) !important;
+    gap: 1rem !important;
+}
+
+/* 4. Mobile Navigation & Spacing */
+@media (max-width: 768px) {
+    .container, 
+    .qs-home, 
+    .page-content {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    .page-header h1 {
+        font-size: 1.75rem !important;
+    }
+
+    .qs-hero {
+        padding: 1rem !important;
+    }
+
+    .qs-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .qs-actions button, 
+    .qs-actions a {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* 5. Modal Overlay Safety */
+.qs-modal-overlay {
+    z-index: 99999 !important;
+}
+
+/* 6. Fix for sidebar overlap on mid-sized screens (900px - 1100px) */
+/* Sidebar removed, topbar layout utilized */
+@media (min-width: 901px) and (max-width: 1200px) {
+    /* No sidebar margin needed */
+}
+
+/* 7. Mobile Card View Replacement for Tables */
+@media (max-width: 768px) {
+    .table-responsive-cards table,
+    .table-responsive-cards thead,
+    .table-responsive-cards tbody,
+    .table-responsive-cards th,
+    .table-responsive-cards td,
+    .table-responsive-cards tr {
+        display: block !important;
+    }
+
+    .table-responsive-cards thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+
+    .table-responsive-cards tr {
+        margin-bottom: 1rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border-subtle);
+        border-radius: 12px;
+        padding: 1rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .table-responsive-cards td {
+        border: none !important;
+        position: relative;
+        padding: 0.5rem 0 0.5rem 45% !important;
+        white-space: normal !important;
+        text-align: right;
+        min-width: 0 !important;
+    }
+
+    .table-responsive-cards td:before {
+        position: absolute;
+        top: 0.5rem;
+        left: 0.5rem;
+        width: 40%;
+        padding-right: 10px;
+        white-space: nowrap;
+        text-align: left;
+        font-weight: 700;
+        color: var(--text-muted);
+        content: attr(data-label);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+    }
+    
+    /* Ensure action buttons are centered in card mode */
+    .table-responsive-cards td:last-child {
+        text-align: center;
+        padding-left: 0 !important;
+        border-top: 1px solid var(--border-subtle) !important;
+        margin-top: 0.5rem;
+        padding-top: 1rem !important;
+    }
+    .table-responsive-cards td:last-child:before {
+        display: none;
+    }
+}

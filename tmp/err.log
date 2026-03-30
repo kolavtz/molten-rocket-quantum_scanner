@@ -1,0 +1,162 @@
+Traceback (most recent call last):
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\cursors.py", line 153, in execute
+    result = self._query(query)
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\cursors.py", line 322, in _query
+    conn.query(q)
+    ~~~~~~~~~~^^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\connections.py", line 575, in query
+    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
+                          ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\connections.py", line 826, in _read_query_result
+    result.read()
+    ~~~~~~~~~~~^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\connections.py", line 1203, in read
+    first_packet = self.connection._read_packet()
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\connections.py", line 782, in _read_packet
+    packet.raise_for_error()
+    ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\protocol.py", line 219, in raise_for_error
+    err.raise_mysql_exception(self._data)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\err.py", line 150, in raise_mysql_exception
+    raise errorclass(errno, errval)
+pymysql.err.OperationalError: (3734, "Failed to add the foreign key constraint. Missing column 'id' for constraint 'discovery_items_ibfk_1' in the referenced table 'scans'")
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\tmp\run_init.py", line 11, in <module>
+    init_db()
+    ~~~~~~~^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\src\db.py", line 31, in init_db
+    src.models.Base.metadata.create_all(bind=engine)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\sql\schema.py", line 5928, in create_all
+    bind._run_ddl_visitor(
+    ~~~~~~~~~~~~~~~~~~~~~^
+        ddl.SchemaGenerator, self, checkfirst=checkfirst, tables=tables
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 3268, in _run_ddl_visitor
+    conn._run_ddl_visitor(visitorcallable, element, **kwargs)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2467, in _run_ddl_visitor
+    ).traverse_single(element)
+      ~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\sql\visitors.py", line 661, in traverse_single
+    return meth(obj, **kw)
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\sql\ddl.py", line 984, in visit_metadata
+    self.traverse_single(
+    ~~~~~~~~~~~~~~~~~~~~^
+        table,
+        ^^^^^^
+    ...<2 lines>...
+        _is_metadata_operation=True,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\sql\visitors.py", line 661, in traverse_single
+    return meth(obj, **kw)
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\sql\ddl.py", line 1022, in visit_table
+    )._invoke_with(self.connection)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\sql\ddl.py", line 321, in _invoke_with
+    return bind.execute(self)
+           ~~~~~~~~~~~~^^^^^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1419, in execute
+    return meth(
+        self,
+        distilled_parameters,
+        execution_options or NO_OPTIONS,
+    )
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\sql\ddl.py", line 187, in _execute_on_connection
+    return connection._execute_ddl(
+           ~~~~~~~~~~~~~~~~~~~~~~~^
+        self, distilled_params, execution_options
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1530, in _execute_ddl
+    ret = self._execute_context(
+        dialect,
+    ...<4 lines>...
+        compiled,
+    )
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^
+        dialect, context, statement, parameters
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        e, str_statement, effective_parameters, cursor, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2363, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\cursors.py", line 153, in execute
+    result = self._query(query)
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\cursors.py", line 322, in _query
+    conn.query(q)
+    ~~~~~~~~~~^^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\connections.py", line 575, in query
+    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
+                          ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\connections.py", line 826, in _read_query_result
+    result.read()
+    ~~~~~~~~~~~^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\connections.py", line 1203, in read
+    first_packet = self.connection._read_packet()
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\connections.py", line 782, in _read_packet
+    packet.raise_for_error()
+    ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\protocol.py", line 219, in raise_for_error
+    err.raise_mysql_exception(self._data)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\err.py", line 150, in raise_mysql_exception
+    raise errorclass(errno, errval)
+sqlalchemy.exc.OperationalError: (pymysql.err.OperationalError) (3734, "Failed to add the foreign key constraint. Missing column 'id' for constraint 'discovery_items_ibfk_1' in the referenced table 'scans'")
+[SQL: 
+CREATE TABLE discovery_items (
+	id INTEGER NOT NULL AUTO_INCREMENT, 
+	scan_id INTEGER NOT NULL, 
+	asset_id INTEGER, 
+	type VARCHAR(50) NOT NULL, 
+	status VARCHAR(50) NOT NULL, 
+	detection_date DATETIME, 
+	is_deleted BOOL NOT NULL, 
+	deleted_at DATETIME, 
+	deleted_by_user_id INTEGER, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(scan_id) REFERENCES scans (id) ON DELETE CASCADE, 
+	FOREIGN KEY(asset_id) REFERENCES assets (id) ON DELETE CASCADE, 
+	FOREIGN KEY(deleted_by_user_id) REFERENCES users (id)
+)
+
+]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)

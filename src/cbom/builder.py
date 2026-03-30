@@ -182,8 +182,10 @@ class CBOMBuilder:
         tls_results : list[dict]
             Each element is ``TLSEndpointResult.to_dict()`` output.
         pqc_assessments : list[dict]
-            Each element is ``PQCAssessment.to_dict()`` output, aligned
-            with *tls_results* by index.
+            Each element is ``PQCAssessment.to_dict()`` output. Entries
+            are matched to *tls_results* by endpoint identity
+            (host + port). If endpoint metadata is missing, the method
+            falls back to index alignment for backward compatibility.
 
         Returns
         -------
@@ -191,8 +193,23 @@ class CBOMBuilder:
         """
         cbom = CBOM()
 
+        pqc_by_endpoint: Dict[tuple[str, int], List[Dict[str, Any]]] = {}
+        for pqc in pqc_assessments:
+            key = self._endpoint_key(pqc.get("host", ""), pqc.get("port", 0))
+            pqc_by_endpoint.setdefault(key, []).append(pqc)
+
         for i, tls_data in enumerate(tls_results):
-            pqc_data = pqc_assessments[i] if i < len(pqc_assessments) else {}
+            tls_key = self._endpoint_key(tls_data.get("host", ""), tls_data.get("port", 0))
+            pqc_bucket = pqc_by_endpoint.get(tls_key, [])
+
+            if pqc_bucket:
+                pqc_data = pqc_bucket.pop(0)
+            elif i < len(pqc_assessments):
+                # Backward-compatible fallback for malformed/missing host+port.
+                pqc_data = pqc_assessments[i]
+            else:
+                pqc_data = {}
+
             asset = self._build_asset(tls_data, pqc_data)
             cbom.assets.append(asset)
 
@@ -387,3 +404,13 @@ class CBOMBuilder:
         if "3DES" in suite_upper or "DES-CBC3" in suite_upper:
             return "3DES-CBC"
         return ""
+
+    @staticmethod
+    def _endpoint_key(host: Any, port: Any) -> tuple[str, int]:
+        """Return a normalized endpoint identity key."""
+        normalized_host = str(host or "").strip().lower()
+        try:
+            normalized_port = int(port or 0)
+        except (TypeError, ValueError):
+            normalized_port = 0
+        return normalized_host, normalized_port

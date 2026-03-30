@@ -1,0 +1,63 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.4, pytest-9.0.2, pluggy-1.6.0
+rootdir: C:\Users\saura\OneDrive - betterlivings international school\Downloads\Code\molten-rocket-quantum_scanner
+plugins: cov-7.0.0
+collected 29 items
+
+tests\test_network_discovery.py .......................F....F            [100%]
+
+================================== FAILURES ===================================
+______________________ TestResolveTarget.test_cidr_small ______________________
+
+self = <tests.test_network_discovery.TestResolveTarget object at 0x00000214E67DA0D0>
+
+>   ???
+
+C:\Users\saura\.gemini\antigravity\playground\molten-rocket\tests\test_network_discovery.py:131: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\scanner\network_discovery.py:284: in _resolve_target
+    check_ssrf(network.network_address)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+ip_obj = IPv4Address('192.168.1.0')
+
+    def check_ssrf(ip_obj):
+        if not allow_local and (ip_obj.is_private or ip_obj.is_loopback):
+>           raise ValueError(
+                f"Target {ip_obj} is a private/local address. "
+                "Scanning internal networks is disabled for security reasons."
+            )
+E           ValueError: Target 192.168.1.0 is a private/local address. Scanning internal networks is disabled for security reasons.
+
+src\scanner\network_discovery.py:266: ValueError
+____________________ TestDiscoverTargets.test_closed_port _____________________
+
+self = <tests.test_network_discovery.TestDiscoverTargets object at 0x00000214E67DA490>
+mock_socket_cls = <MagicMock name='socket' id='2288791488224'>
+
+>   ???
+
+C:\Users\saura\.gemini\antigravity\playground\molten-rocket\tests\test_network_discovery.py:190: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\scanner\network_discovery.py:178: in discover_targets
+    hosts = self._resolve_target(clean_target)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\scanner\network_discovery.py:284: in _resolve_target
+    check_ssrf(network.network_address)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+ip_obj = IPv4Address('10.0.0.1')
+
+    def check_ssrf(ip_obj):
+        if not allow_local and (ip_obj.is_private or ip_obj.is_loopback):
+>           raise ValueError(
+                f"Target {ip_obj} is a private/local address. "
+                "Scanning internal networks is disabled for security reasons."
+            )
+E           ValueError: Target 10.0.0.1 is a private/local address. Scanning internal networks is disabled for security reasons.
+
+src\scanner\network_discovery.py:266: ValueError
+=========================== short test summary info ===========================
+FAILED tests/test_network_discovery.py::TestResolveTarget::test_cidr_small - ...
+FAILED tests/test_network_discovery.py::TestDiscoverTargets::test_closed_port
+======================== 2 failed, 27 passed in 0.16s =========================

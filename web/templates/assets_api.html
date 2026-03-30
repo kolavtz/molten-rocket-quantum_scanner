@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Assets | QuantumShield{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/api_dashboards.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-lg">
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1><i class="fa-solid fa-building-shield" style="margin-right:0.5rem;"></i>Asset Inventory</h1>
+        <p class="subtitle">Manage and monitor all discovered assets and their security posture</p>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-section" id="assets-kpis">
+        <!-- Populated by JavaScript -->
+    </div>
+
+    <!-- Assets Table -->
+    <div class="table-wrapper mt-lg">
+        <div id="assets-table"></div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script src="{{ url_for('static', filename='js/api_client.js') }}"></script>
+<script src="{{ url_for('static', filename='js/universal_table.js') }}"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    // Load KPIs
+    try {
+        const metricsResponse = await api.getHomeMetrics();
+        const kpis = metricsResponse.data.kpis;
+        
+        const kpiContainer = document.getElementById('assets-kpis');
+        kpiContainer.innerHTML = `
+            <div class="kpi-card">
+                <div class="kpi-label">Total Assets</div>
+                <div class="kpi-value">${kpis.total_assets}</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Vulnerable</div>
+                <div class="kpi-value">${kpis.vulnerable_assets}</div>
+                <div class="kpi-change negative">↑ High Risk</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Quantum Safe %</div>
+                <div class="kpi-value">${kpis.quantum_safe_pct}%</div>
+                <div class="kpi-change">↑ Improving</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Avg PQC Score</div>
+                <div class="kpi-value">${kpis.avg_pqc_score.toFixed(1)}</div>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Failed to load metrics:', error);
+    }
+
+    // Initialize assets table
+    const assetsTable = new UniversalTable({
+        containerId: 'assets-table',
+        pageSize: 25,
+        sortField: 'asset_name',
+        sortOrder: 'asc',
+        dataFetcher: async (params) => {
+            return await api.getAssets(params);
+        },
+        columns: [
+            { field: 'name', label: 'Asset Name', sortable: true },
+            { field: 'asset_type', label: 'Type', sortable: true },
+            { field: 'owner', label: 'Owner', sortable: true },
+            { field: 'risk_html', label: 'Risk Level', sortable: true },
+            { field: 'cert_status_html', label: 'Cert Status', sortable: true },
+            { 
+                field: 'last_scan', 
+                label: 'Last Scan',
+                formatter: (value) => value && value !== 'Never' ? new Date(value).toLocaleDateString() : 'Never'
+            }
+        ],
+        onRowClick: (rowData) => {
+            // Trigger the Asset Intelligence Modal
+            if (window.AssetDetailModal && rowData.id) {
+                window.AssetDetailModal.open(rowData.id);
+            }
+        }
+    });
+
+    // Initialize table
+    await assetsTable.init();
+
+    // Auto-refresh every 30 seconds
+    setInterval(() => {
+        assetsTable.reload();
+    }, 30000);
+});
+</script>
+
+<style>
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.page-header {
+    margin-bottom: 40px;
+}
+
+.page-header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--safe));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.subtitle {
+    color: #94a3b8;
+    font-size: 1.1em;
+}
+
+.page-header h1 {
+    display: flex;
+    align-items: center;
+}
+</style>
+{% endblock %}

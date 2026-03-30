@@ -1,0 +1,883 @@
+{% extends "base.html" %}
+
+{% block title %}Asset Discovery // QuantumShield{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<style>
+    .discovery-container {
+        padding: 1.5rem 0;
+    }
+
+    .discovery-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 2rem;
+    }
+
+    .tab-nav {
+        display: flex;
+        gap: 0.5rem;
+        padding: 0.25rem;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 12px;
+        border: 1px solid var(--border-subtle);
+        width: fit-content;
+    }
+
+    .tab-btn {
+        padding: 0.6rem 1.25rem;
+        border-radius: 10px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: none;
+        background: transparent;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .tab-btn.active {
+        background: var(--accent);
+        color: var(--bg-primary);
+        box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 30%, transparent);
+    }
+
+    .filter-bar {
+        display: grid;
+        grid-template-columns: 1fr 180px 200px 200px 120px;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .discovery-input {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border-subtle);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        color: var(--text-primary);
+        font-size: 0.85rem;
+    }
+
+    .graph-container {
+        height: 500px;
+        border-radius: var(--ui-radius-lg);
+        overflow: hidden;
+        background: rgba(0, 0, 0, 0.2);
+        position: relative;
+    }
+
+    .graph-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-bottom: 0.8rem;
+        font-size: 0.72rem;
+        color: var(--text-secondary);
+    }
+
+    .graph-legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.2rem 0.45rem;
+        border: 1px solid var(--border-subtle);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .legend-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .map-container {
+        height: 420px;
+        border-radius: var(--ui-radius-lg);
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--border-subtle);
+    }
+
+    .table-state {
+        padding: 2rem 1rem;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+    }
+
+    .table-state.error {
+        color: var(--risk-critical);
+    }
+
+    .pager-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 1rem;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .pager-meta {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+    }
+
+    @media (max-width: 1200px) {
+        .filter-bar {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    .discovery-stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+        padding: 1.25rem;
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 1.75rem;
+        font-weight: 800;
+        color: var(--text-primary);
+    }
+
+    .stat-label {
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-top: 0.25rem;
+    }
+
+    .inventory-status-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 700;
+    }
+
+    .status-inventoried {
+        background: rgba(52, 199, 89, 0.1);
+        color: var(--pqc-safe);
+        border: 1px solid rgba(52, 199, 89, 0.2);
+    }
+
+    .status-pending {
+        background: rgba(0, 255, 204, 0.1);
+        color: var(--accent);
+        border: 1px solid rgba(0, 255, 204, 0.2);
+        cursor: pointer;
+    }
+
+    .map-help {
+        margin-top: 0.6rem;
+        color: var(--text-muted);
+        font-size: 0.72rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="discovery-container">
+    <div class="discovery-header">
+        <div>
+            <h1 style="font-size: 2.5rem; font-weight: 900; letter-spacing: -0.02em; margin: 0;">ASSET DISCOVERY</h1>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">Intelligence-driven identification of domains, certificates, and infrastructure.</p>
+        </div>
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab(this, 'domains')">Domains ({{ vm.domains|length }})</button>
+            <button class="tab-btn" onclick="switchTab(this, 'ssl')">SSL ({{ vm.ssl|length }})</button>
+            <button class="tab-btn" onclick="switchTab(this, 'ip')">Infrastructure ({{ vm.ip_subnets|length }})</button>
+            <button class="tab-btn" onclick="switchTab(this, 'software')">Software ({{ vm.software|length }})</button>
+        </div>
+    </div>
+
+    <!-- Overview Stats -->
+    <div class="discovery-stats">
+        <div class="glass-card stat-card">
+            <div class="stat-value">{{ vm.overview.domains }}</div>
+            <div class="stat-label">DOMAINS</div>
+        </div>
+        <div class="glass-card stat-card">
+            <div class="stat-value">{{ vm.overview.ssl }}</div>
+            <div class="stat-label">CERTIFICATES</div>
+        </div>
+        <div class="glass-card stat-card">
+            <div class="stat-value">{{ vm.overview.ip_subnets }}</div>
+            <div class="stat-label">IP SUBNETS</div>
+        </div>
+        <div class="glass-card stat-card">
+            <div class="stat-value">{{ vm.overview.software }}</div>
+            <div class="stat-label">SOFTWARE</div>
+        </div>
+    </div>
+
+    <!-- Main Content Panel -->
+    <div class="glass-card" style="padding: 1.5rem; margin-bottom: 2rem;">
+        <!-- Filters -->
+        <div class="filter-bar">
+            <input type="text" id="globalSearch" class="discovery-input" placeholder="Search by name, IP, software, cert...">
+            <select id="statusFilter" class="discovery-input">
+                <option value="">All Status</option>
+                <option value="new">New</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="ignored">Ignored</option>
+                <option value="false_positive">False Positive</option>
+            </select>
+            <input type="date" id="startDate" class="discovery-input">
+            <input type="date" id="endDate" class="discovery-input">
+            <select id="pageSizeSelect" class="discovery-input">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+
+        <!-- Tables -->
+        <div id="tab-domains" class="discovery-tab-content">
+            <div class="table-scroll">
+                <table class="scans-table">
+                    <thead>
+                        <tr>
+                            <th>Discovery Date</th>
+                            <th>Domain Name</th>
+                            <th>Registrar</th>
+                            <th>Company</th>
+                            <th>Status</th>
+                            <th>Inventory</th>
+                        </tr>
+                    </thead>
+                    <tbody id="domainsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="tab-ssl" class="discovery-tab-content" style="display:none;">
+            <div class="table-scroll">
+                <table class="scans-table">
+                    <thead>
+                        <tr>
+                            <th>Fingerprint</th>
+                            <th>Common Name</th>
+                            <th>Valid From</th>
+                            <th>Issuer</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sslTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="tab-ip" class="discovery-tab-content" style="display:none;">
+            <div class="table-scroll">
+                <table class="scans-table">
+                    <thead>
+                        <tr>
+                            <th>IP Address</th>
+                            <th>Ports</th>
+                            <th>Subnet</th>
+                            <th>Location</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ipTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="tab-software" class="discovery-tab-content" style="display:none;">
+            <div class="table-scroll">
+                <table class="scans-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Version</th>
+                            <th>Type</th>
+                            <th>Host</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="softwareTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="pager-row">
+            <div class="pager-meta" id="pagerMeta">Ready.</div>
+            <div style="display:flex; gap:0.5rem;">
+                <button id="prevPageBtn" class="button secondary" style="padding:0.45rem 0.8rem; font-size:0.72rem;">Prev</button>
+                <button id="nextPageBtn" class="button secondary" style="padding:0.45rem 0.8rem; font-size:0.72rem;">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1.2fr 0.8fr; gap:1.25rem; margin-bottom: 2rem;">
+        <div class="glass-card" style="padding:1.5rem;">
+            <div class="metric-title" style="margin-bottom:1rem;"><i class="fa-solid fa-map-location-dot" style="margin-right:8px;"></i> Discovered IP Geomap</div>
+            <div id="discoveryMap" class="map-container"></div>
+            <div class="map-help">Markers use severity color by discovery status. Popups include OpenStreetMap reverse labels when available.</div>
+        </div>
+        <div class="glass-card" style="padding:1.5rem;">
+            <div class="metric-title" style="margin-bottom:1rem;"><i class="fa-solid fa-clock-rotate-left" style="margin-right:8px;"></i> Recent Discoveries (7d)</div>
+            <div class="table-scroll" style="max-height:420px;">
+                <table class="scans-table">
+                    <thead>
+                        <tr>
+                            <th>Asset</th>
+                            <th>Type</th>
+                            <th>Date</th>
+                            <th>Risk</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentDiscoveryBody">
+                        <tr><td colspan="4" class="table-state">Loading recent discoveries…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Network Graph Section -->
+    <div class="glass-card" style="padding: 1.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <div class="metric-title"><i class="fa-solid fa-diagram-project" style="margin-right:8px;"></i> Relational Intelligence Graph</div>
+            <div style="display:flex; gap:0.5rem;">
+                <button class="button secondary" style="padding: 0.4rem 0.8rem; font-size: 0.7rem;" onclick="zoomGraph(1.15)">Zoom +</button>
+                <button class="button secondary" style="padding: 0.4rem 0.8rem; font-size: 0.7rem;" onclick="zoomGraph(0.85)">Zoom −</button>
+                <button id="graphDirectionBtn" class="button secondary" style="padding: 0.4rem 0.8rem; font-size: 0.7rem;" onclick="toggleGraphDirection()">Direction: LR</button>
+                <button class="button secondary" style="padding: 0.4rem 0.8rem; font-size: 0.7rem;" onclick="resetGraph()">Reset View</button>
+            </div>
+        </div>
+        <div class="graph-legend">
+            <span class="graph-legend-item"><span class="legend-dot" style="background:#00ffcc;"></span> Domain</span>
+            <span class="graph-legend-item"><span class="legend-dot" style="background:#3b82f6;"></span> IP</span>
+            <span class="graph-legend-item"><span class="legend-dot" style="background:#f59e0b;"></span> Service</span>
+        </div>
+        <div id="networkGraph" class="graph-container"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script id="graphPayload" type="application/json">{{ vm.graph_payload|tojson }}</script>
+<script>
+    let network = null;
+    let allNodes = null;
+    let allEdges = null;
+    let activeTab = 'domains';
+    let currentPage = 1;
+    let hasNextPage = false;
+    let hasPrevPage = false;
+    let discoveryMap = null;
+    let discoveryLayer = null;
+    let discoveryPollTimer = null;
+    let graphDirection = 'LR';
+
+    const TAB_META = {
+        domains: { apiTab: 'domains', bodyId: 'domainsTableBody' },
+        ssl: { apiTab: 'ssl', bodyId: 'sslTableBody' },
+        ip: { apiTab: 'ips', bodyId: 'ipTableBody' },
+        software: { apiTab: 'software', bodyId: 'softwareTableBody' }
+    };
+
+    function csrfToken() {
+        return document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+    }
+
+    function switchTab(btn, tabId) {
+        // Update buttons
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Update content
+        document.querySelectorAll('.discovery-tab-content').forEach(c => c.style.display = 'none');
+        document.getElementById('tab-' + tabId).style.display = 'block';
+
+        activeTab = tabId;
+        currentPage = 1;
+        loadDiscoveryRows();
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
+    }
+
+    function statusPill(status) {
+        const label = String(status || 'new').replaceAll('_', ' ');
+        return `<span class="status-pill">${escapeHtml(label)}</span>`;
+    }
+
+    function inventoryActionButton(row, tabKey) {
+        if (row.promoted || row.asset_id) {
+            return '<span class="inventory-status-chip status-inventoried"><i class="fa-solid fa-check"></i> Inventoried</span>';
+        }
+        return `<button class="inventory-status-chip status-pending js-promote-discovery" data-tab="${escapeHtml(tabKey)}" data-id="${escapeHtml(row.id)}">Add to Inventory</button>`;
+    }
+
+    function rowMarkup(tabKey, row) {
+        if (tabKey === 'domains') {
+            return `
+                <tr data-asset-id="${escapeHtml(row.asset_id || '')}">
+                    <td style="font-size:0.75rem;">${escapeHtml(row.detection_date || '--')}</td>
+                    <td><div style="font-weight:600;">${escapeHtml(row.domain_name || row.identifier || '--')}</div></td>
+                    <td style="font-size:0.75rem;">${escapeHtml(row.registrar || '--')}</td>
+                    <td style="font-size:0.75rem;">${escapeHtml(row.asset_name || '--')}</td>
+                    <td>${statusPill(row.status)}</td>
+                    <td>${inventoryActionButton(row, 'domains')}</td>
+                </tr>`;
+        }
+        if (tabKey === 'ssl') {
+            const fingerprint = String(row.identifier || '').trim();
+            return `
+                <tr data-asset-id="${escapeHtml(row.asset_id || '')}">
+                    <td style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-secondary);">${escapeHtml(fingerprint ? `${fingerprint.slice(0, 20)}…` : '--')}</td>
+                    <td><div style="font-weight:600;">${escapeHtml(row.subject_cn || row.asset_name || '--')}</div></td>
+                    <td style="font-size:0.75rem;">${escapeHtml(row.valid_until || '--')}</td>
+                    <td style="font-size:0.75rem;">${escapeHtml(row.issuer || '--')}</td>
+                    <td>${statusPill(row.status)}</td>
+                    <td>${inventoryActionButton(row, 'ssl')}</td>
+                </tr>`;
+        }
+        if (tabKey === 'ip') {
+            return `
+                <tr data-asset-id="${escapeHtml(row.asset_id || '')}">
+                    <td><div style="font-weight:600;">${escapeHtml(row.ip_address || row.identifier || '--')}</div><div style="font-size:0.65rem; color:var(--text-muted);">${escapeHtml(row.asn || '--')}</div></td>
+                    <td style="font-size:0.75rem;">--</td>
+                    <td style="font-size:0.75rem;">${escapeHtml(row.subnet || '--')}</td>
+                    <td style="font-size:0.75rem;">${escapeHtml(row.location || '--')}</td>
+                    <td>${statusPill(row.status)}</td>
+                    <td>${inventoryActionButton(row, 'ips')}</td>
+                </tr>`;
+        }
+        return `
+            <tr data-asset-id="${escapeHtml(row.asset_id || '')}">
+                <td><div style="font-weight:600;">${escapeHtml(row.product || row.identifier || '--')}</div></td>
+                <td style="font-size:0.75rem;">${escapeHtml(row.version || '--')}</td>
+                <td style="font-size:0.75rem;">${escapeHtml(row.category || '--')}</td>
+                <td style="font-size:0.75rem;">${escapeHtml(row.asset_name || '--')}</td>
+                <td>${statusPill(row.status)}</td>
+                <td>${inventoryActionButton(row, 'software')}</td>
+            </tr>`;
+    }
+
+    function setTableState(bodyId, message, type = 'normal') {
+        const tbody = document.getElementById(bodyId);
+        if (!tbody) return;
+        tbody.innerHTML = `<tr><td colspan="6" class="table-state ${type === 'error' ? 'error' : ''}">${escapeHtml(message)}</td></tr>`;
+    }
+
+    function updatePagerMeta(total, page, pageSize) {
+        const start = total > 0 ? ((page - 1) * pageSize + 1) : 0;
+        const end = Math.min(page * pageSize, total);
+        const meta = document.getElementById('pagerMeta');
+        if (meta) {
+            meta.textContent = `Showing ${start}-${end} of ${total} records · ${activeTab.toUpperCase()}`;
+        }
+        const prevBtn = document.getElementById('prevPageBtn');
+        const nextBtn = document.getElementById('nextPageBtn');
+        if (prevBtn) prevBtn.disabled = !hasPrevPage;
+        if (nextBtn) nextBtn.disabled = !hasNextPage;
+    }
+
+    function applyClientFilters(items) {
+        const status = (document.getElementById('statusFilter')?.value || '').toLowerCase();
+        const start = document.getElementById('startDate')?.value || '';
+        const end = document.getElementById('endDate')?.value || '';
+        return items.filter((row) => {
+            const rowStatus = String(row.status || '').toLowerCase();
+            const rowDate = String(row.detection_date || '').slice(0, 10);
+            const statusPass = !status || rowStatus === status;
+            const startPass = !start || (rowDate && rowDate >= start);
+            const endPass = !end || (rowDate && rowDate <= end);
+            return statusPass && startPass && endPass;
+        });
+    }
+
+    async function loadDiscoveryRows() {
+        const tabMeta = TAB_META[activeTab];
+        if (!tabMeta) return;
+
+        const search = document.getElementById('globalSearch')?.value || '';
+        const pageSize = Number(document.getElementById('pageSizeSelect')?.value || 25);
+        setTableState(tabMeta.bodyId, 'Loading data…');
+
+        try {
+            const params = new URLSearchParams({
+                tab: tabMeta.apiTab,
+                page: String(currentPage),
+                page_size: String(pageSize),
+                search: search,
+                sort: 'created_at',
+                order: 'desc'
+            });
+
+            const resp = await fetch(`/api/discovery?${params.toString()}`, {
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            });
+            const payload = await resp.json();
+            if (!resp.ok || !payload.success) {
+                throw new Error(payload.message || 'Failed to load discovery data.');
+            }
+
+            const data = payload.data || {};
+            let items = Array.isArray(data.items) ? data.items : [];
+            items = applyClientFilters(items);
+            const tbody = document.getElementById(tabMeta.bodyId);
+            if (!tbody) return;
+
+            if (!items.length) {
+                setTableState(tabMeta.bodyId, 'No discoveries found for this filter. Run a scan to populate data.');
+            } else {
+                tbody.innerHTML = items.map((row) => rowMarkup(activeTab, row)).join('');
+            }
+
+            hasNextPage = Boolean(data.page && data.total_pages && data.page < data.total_pages);
+            hasPrevPage = Boolean(data.page && data.page > 1);
+            updatePagerMeta(Number(data.total || 0), Number(data.page || currentPage), Number(data.page_size || pageSize));
+        } catch (err) {
+            hasNextPage = false;
+            hasPrevPage = currentPage > 1;
+            updatePagerMeta(0, currentPage, Number(document.getElementById('pageSizeSelect')?.value || 25));
+            setTableState(tabMeta.bodyId, err.message || 'Error loading discoveries.', 'error');
+        }
+    }
+
+    async function promoteDiscovery(tab, discoveryId, button) {
+        button.disabled = true;
+        button.textContent = 'Adding...';
+        try {
+            const resp = await fetch('/api/discovery/promote', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken(),
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ tab, discovery_id: discoveryId })
+            });
+            const payload = await resp.json();
+            if (!resp.ok || !payload.success) {
+                throw new Error(payload.message || 'Promotion failed.');
+            }
+            button.outerHTML = '<span class="inventory-status-chip status-inventoried"><i class="fa-solid fa-check"></i> Inventoried</span>';
+        } catch (err) {
+            button.disabled = false;
+            button.textContent = 'Add to Inventory';
+            alert(err.message || 'Unable to add discovery to inventory.');
+        }
+    }
+
+    function initDiscoveryMap() {
+        const mapEl = document.getElementById('discoveryMap');
+        if (!mapEl) return;
+
+        discoveryMap = L.map(mapEl).setView([20, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(discoveryMap);
+        discoveryLayer = L.layerGroup().addTo(discoveryMap);
+    }
+
+    function markerColorByStatus(statusValue) {
+        const normalized = String(statusValue || '').trim().toLowerCase();
+        if (normalized === 'confirmed' || normalized === 'success') return '#22c55e';
+        if (normalized === 'false_positive' || normalized === 'ignored') return '#9ca3af';
+        if (normalized === 'new') return '#00ffcc';
+        return '#f59e0b';
+    }
+
+    async function loadDiscoveryMapPoints() {
+        if (!discoveryMap || !discoveryLayer) return;
+        discoveryLayer.clearLayers();
+
+        try {
+            const resp = await fetch('/api/discovery/ip-locations?limit=300', {
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            });
+            const payload = await resp.json();
+            if (!resp.ok || !payload.success) throw new Error(payload.message || 'Failed map data load');
+
+            const items = payload.data?.items || [];
+            const bounds = [];
+            items.forEach((item) => {
+                const lat = Number(item.lat || 0);
+                const lon = Number(item.lon || 0);
+                if (!lat || !lon) return;
+                const markerColor = markerColorByStatus(item.status);
+                const reverseLabel = String(item.reverse_location || '').trim();
+                const fallbackLocation = [String(item.city || '').trim(), String(item.country || '').trim()].filter(Boolean).join(', ');
+                const locationLabel = reverseLabel || fallbackLocation || 'Unknown location';
+                const marker = L.circleMarker([lat, lon], {
+                    radius: 6,
+                    color: markerColor,
+                    fillColor: markerColor,
+                    fillOpacity: 0.8,
+                    weight: 1.25
+                });
+                marker.bindPopup(
+                    `<strong>${escapeHtml(item.ip || 'Unknown IP')}</strong>` +
+                    `<br><span style="color:var(--text-secondary)">${escapeHtml(locationLabel)}</span>` +
+                    `<br><span style="font-size:0.72rem; color:var(--text-muted)">Status: ${escapeHtml(item.status || 'new')}</span>`
+                );
+                marker.addTo(discoveryLayer);
+                bounds.push([lat, lon]);
+            });
+            if (bounds.length > 1) {
+                discoveryMap.fitBounds(bounds, { padding: [20, 20] });
+            }
+        } catch (_err) {
+            const el = document.getElementById('discoveryMap');
+            if (el) {
+                el.innerHTML = '<div class="table-state">Unable to load discovered IP map points.</div>';
+            }
+        }
+    }
+
+    async function loadRecentDiscoveries() {
+        const body = document.getElementById('recentDiscoveryBody');
+        if (!body) return;
+        body.innerHTML = '<tr><td colspan="4" class="table-state">Loading recent discoveries…</td></tr>';
+        try {
+            const resp = await fetch('/api/assets/recent-discoveries?days=7', {
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            });
+            const payload = await resp.json();
+            if (!resp.ok || !payload.success) throw new Error(payload.message || 'Failed to load recent discoveries');
+
+            const items = payload.data?.items || [];
+            if (!items.length) {
+                body.innerHTML = '<tr><td colspan="4" class="table-state">No discoveries in the last 7 days.</td></tr>';
+                return;
+            }
+            body.innerHTML = items.map((row) => `
+                <tr>
+                    <td style="font-weight:600;">${escapeHtml(row.asset_name || '--')}</td>
+                    <td>${escapeHtml(row.asset_type || '--')}</td>
+                    <td style="font-size:0.75rem;">${escapeHtml(row.discovery_date || '--')}</td>
+                    <td>${escapeHtml(row.risk_score || '--')}</td>
+                </tr>
+            `).join('');
+        } catch (_err) {
+            body.innerHTML = '<tr><td colspan="4" class="table-state error">Failed to load recent discoveries.</td></tr>';
+        }
+    }
+
+    function initGraph() {
+        const payloadRaw = document.getElementById('graphPayload');
+        const payload = JSON.parse(payloadRaw.textContent || '{"nodes":[],"edges":[]}');
+        const groupStyle = {
+            domain: { color: '#00ffcc', shape: 'dot', size: 18 },
+            ip: { color: '#3b82f6', shape: 'dot', size: 16 },
+            service: { color: '#f59e0b', shape: 'dot', size: 14 }
+        };
+        
+        allNodes = new vis.DataSet((payload.nodes || []).map((n) => {
+            const style = groupStyle[n.group] || groupStyle.service;
+            return {
+                id: n.id,
+                label: n.label,
+                title: n.label,
+                shape: style.shape,
+                size: style.size,
+                color: {
+                    background: style.color,
+                    border: 'rgba(255,255,255,0.1)'
+                },
+                font: { color: '#ffffff', size: 12, face: 'Inter' }
+            };
+        }));
+        
+        allEdges = new vis.DataSet((payload.edges || []).map((edge) => {
+            const edgeId = String(edge.id || '');
+            const isDomainToIp = edgeId.includes('domain:') && edgeId.includes('->ip:');
+            const edgeColor = isDomainToIp ? 'rgba(0,255,204,0.55)' : 'rgba(59,130,246,0.45)';
+            return {
+                ...edge,
+                arrows: 'to',
+                smooth: { enabled: true, type: 'dynamic', roundness: 0.35 },
+                color: { color: edgeColor, highlight: edgeColor, hover: edgeColor },
+                width: isDomainToIp ? 2 : 1.5,
+            };
+        }));
+
+        const container = document.getElementById('networkGraph');
+        const options = {
+            interaction: {
+                hover: true,
+                tooltipDelay: 100,
+                zoomView: true,
+                dragView: true,
+            },
+            nodes: {
+                borderWidth: 1,
+                borderWidthSelected: 2,
+            },
+            edges: {
+                width: 1,
+                selectionWidth: 2,
+            },
+            layout: {
+                hierarchical: {
+                    enabled: true,
+                    direction: graphDirection,
+                    sortMethod: 'directed',
+                    levelSeparation: 140,
+                    nodeSpacing: 100,
+                }
+            },
+            physics: {
+                enabled: false,
+                stabilization: true,
+            },
+            autoResize: true,
+        };
+
+        network = new vis.Network(container, { nodes: allNodes, edges: allEdges }, options);
+    }
+
+    function zoomGraph(multiplier) {
+        if (!network || typeof multiplier !== 'number') return;
+        const view = network.getViewPosition();
+        const scale = network.getScale();
+        network.moveTo({ position: view, scale: Math.max(0.15, Math.min(3.5, scale * multiplier)), animation: { duration: 220 } });
+    }
+
+    function toggleGraphDirection() {
+        if (!network) return;
+        graphDirection = graphDirection === 'LR' ? 'UD' : 'LR';
+        const btn = document.getElementById('graphDirectionBtn');
+        if (btn) {
+            btn.textContent = `Direction: ${graphDirection}`;
+        }
+        network.setOptions({
+            layout: {
+                hierarchical: {
+                    enabled: true,
+                    direction: graphDirection,
+                    sortMethod: 'directed',
+                    levelSeparation: 140,
+                    nodeSpacing: 100,
+                }
+            }
+        });
+        network.fit({ animation: { duration: 280 } });
+    }
+
+    function resetGraph() {
+        if (network) network.fit({ animation: { duration: 250 } });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initGraph();
+        initDiscoveryMap();
+        loadDiscoveryMapPoints();
+        loadRecentDiscoveries();
+        loadDiscoveryRows();
+
+        document.getElementById('globalSearch')?.addEventListener('input', () => {
+            currentPage = 1;
+            loadDiscoveryRows();
+        });
+        document.getElementById('statusFilter')?.addEventListener('change', () => {
+            currentPage = 1;
+            loadDiscoveryRows();
+        });
+        document.getElementById('startDate')?.addEventListener('change', () => {
+            currentPage = 1;
+            loadDiscoveryRows();
+        });
+        document.getElementById('endDate')?.addEventListener('change', () => {
+            currentPage = 1;
+            loadDiscoveryRows();
+        });
+        document.getElementById('pageSizeSelect')?.addEventListener('change', () => {
+            currentPage = 1;
+            loadDiscoveryRows();
+        });
+        document.getElementById('prevPageBtn')?.addEventListener('click', () => {
+            if (!hasPrevPage) return;
+            currentPage = Math.max(1, currentPage - 1);
+            loadDiscoveryRows();
+        });
+        document.getElementById('nextPageBtn')?.addEventListener('click', () => {
+            if (!hasNextPage) return;
+            currentPage += 1;
+            loadDiscoveryRows();
+        });
+
+        document.addEventListener('click', (event) => {
+            const promoteButton = event.target.closest('.js-promote-discovery');
+            if (promoteButton) {
+                const tab = promoteButton.dataset.tab;
+                const id = promoteButton.dataset.id;
+                if (tab && id) {
+                    promoteDiscovery(tab, id, promoteButton);
+                }
+                return;
+            }
+
+            const row = event.target.closest('.discovery-tab-content tbody tr');
+            if (!row) return;
+            const assetId = row.dataset.assetId;
+            if (!assetId || event.target.closest('button')) return;
+            window.location.href = `/assets/${assetId}`;
+        });
+
+        discoveryPollTimer = window.setInterval(() => {
+            if (!document.hidden) {
+                loadDiscoveryRows();
+                loadRecentDiscoveries();
+                loadDiscoveryMapPoints();
+            }
+        }, 30000);
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            loadDiscoveryRows();
+            loadRecentDiscoveries();
+            loadDiscoveryMapPoints();
+        }
+    });
+
+    window.addEventListener('beforeunload', () => {
+        if (discoveryPollTimer) {
+            window.clearInterval(discoveryPollTimer);
+            discoveryPollTimer = null;
+        }
+    });
+</script>
+{% endblock %}

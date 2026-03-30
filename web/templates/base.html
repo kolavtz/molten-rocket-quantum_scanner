@@ -1,67 +1,377 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="{{ theme.mode if theme.mode in ['dark', 'light'] else 'system' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Quantum-Safe TLS Scanner{% endblock %}</title>
     <meta name="description" content="Scan, assess, and certify your systems for Post-Quantum Cryptography (PQC) readiness. Generate CBOM, validate NIST compliance, and get actionable migration recommendations.">
+    <meta name="color-scheme" content="light dark">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/table.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/quantum_ui_refresh.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/asset_modal.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/global_responsive.css') }}">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     {% block head %}{% endblock %}
-</head>
-<body>
-    <!-- Animated background particles -->
-    <div class="bg-particles" id="particles"></div>
+    <style>
+        :root {
+            {% if theme.active %}
+            --bg-navbar: {{ theme.active.bg_navbar }} !important;
+            --bg-primary: {{ theme.active.bg_primary }} !important;
+            --bg-secondary: {{ theme.active.bg_secondary }} !important;
+            --bg-card: {{ theme.active.bg_card }} !important;
+            --bg-input: {{ theme.active.bg_input }} !important;
+            --border-subtle: {{ theme.active.border_subtle }} !important;
+            --border-hover: {{ theme.active.border_hover }} !important;
+            --text-primary: {{ theme.active.text_primary }} !important;
+            --text-secondary: {{ theme.active.text_secondary }} !important;
+            --text-muted: {{ theme.active.text_muted }} !important;
+            --accent: {{ theme.active.accent_color }} !important;
+            --accent-hover: {{ theme.active.accent_color }}ee !important;
+            --text-on-accent: {{ theme.active.text_on_accent | default('#ffffff') }} !important;
+            --safe: {{ theme.active.safe }} !important;
+            --warn: {{ theme.active.warn }} !important;
+            --danger: {{ theme.active.danger }} !important;
+            --accent-primary: {{ theme.active.accent_color }} !important;
+            {% endif %}
+        }
+        .navbar {
+            background-color: {{ theme.bg_navbar or 'rgba(15, 18, 25, 0.95)' }} !important;
+        }
+        @media (max-width: 900px) {
+            .nav-links {
+                background-color: {{ theme.bg_navbar or 'rgba(15, 18, 25, 0.98)' }} !important;
+                animation: none !important;
+            }
+        }
+        
+        /* Global Table Sorting Cues */
+        .scans-table th { cursor: pointer; position: relative; }
+        .scans-table th:hover { background: rgba(255,255,255,0.05); }
+        .scans-table th::after { content: ' ↕'; font-size: 0.65rem; opacity: 0.3; margin-left: 4px; }
+        
+        /* Navbar Button Overrides */
+        button.nav-link, button.nav-dropdown-trigger {
+            color: var(--text-secondary, #b3b9c5);
+            background: none;
+            border: none;
+            font-family: inherit;
+            cursor: pointer;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+        }
+        button.nav-link:hover, button.nav-dropdown-trigger:hover {
+            color: var(--accent-primary, #00ffcc) !important;
+        }
+        button.nav-link .nav-text, button.nav-dropdown-trigger .nav-text {
+            color: inherit;
+        }
+    </style>
+    <style>
+        html[data-theme='dark'] {
+            --bg-primary: {{ theme.dark.bg_primary }} !important;
+            --bg-secondary: {{ theme.dark.bg_secondary }} !important;
+            --bg-card: {{ theme.dark.bg_card }} !important;
+            --bg-input: {{ theme.dark.bg_input }} !important;
+            --bg-dark: {{ theme.dark.bg_primary }} !important;
+            --border-subtle: {{ theme.dark.border_subtle }} !important;
+            --border-hover: {{ theme.dark.border_hover }} !important;
+            --text-primary: {{ theme.dark.text_primary }} !important;
+            --text-secondary: {{ theme.dark.text_secondary }} !important;
+            --text-muted: {{ theme.dark.text_muted }} !important;
+            --text-light: {{ theme.dark.text_primary }} !important;
+            --accent: {{ theme.dark.accent_color }} !important;
+            --accent-hover: {{ theme.dark.accent_color }}ee !important;
+            --accent-primary: {{ theme.dark.accent_color }} !important;
+            --text-on-accent: {{ theme.dark.text_on_accent | default('#f9fafb') }} !important;
+            --safe: {{ theme.dark.safe }} !important;
+            --warn: {{ theme.dark.warn }} !important;
+            --danger: {{ theme.dark.danger }} !important;
+        }
+        html[data-theme='light'] {
+            --bg-primary: {{ theme.light.bg_primary }} !important;
+            --bg-secondary: {{ theme.light.bg_secondary }} !important;
+            --bg-card: {{ theme.light.bg_card }} !important;
+            --bg-input: {{ theme.light.bg_input }} !important;
+            --bg-dark: {{ theme.light.bg_primary }} !important;
+            --border-subtle: {{ theme.light.border_subtle }} !important;
+            --border-hover: {{ theme.light.border_hover }} !important;
+            --text-primary: {{ theme.light.text_primary }} !important;
+            --text-secondary: {{ theme.light.text_secondary }} !important;
+            --text-muted: {{ theme.light.text_muted }} !important;
+            --text-light: {{ theme.light.text_primary }} !important;
+            --accent: {{ theme.light.accent_color }} !important;
+            --accent-hover: {{ theme.light.accent_color }}ee !important;
+            --accent-primary: {{ theme.light.accent_color }} !important;
+            --text-on-accent: {{ theme.light.text_on_accent | default('#ffffff') }} !important;
+            --safe: {{ theme.light.safe }} !important;
+            --warn: {{ theme.light.warn }} !important;
+            --danger: {{ theme.light.danger }} !important;
+        }
+        html[data-theme='dark'] .navbar {
+            background-color: {{ theme.dark.bg_navbar }} !important;
+        }
+        html[data-theme='light'] .navbar {
+            background-color: {{ theme.light.bg_navbar }} !important;
+        }
+        @media (max-width: 900px) {
+            html[data-theme='dark'] .nav-links {
+                background-color: {{ theme.dark.bg_navbar }} !important;
+                animation: none !important;
+            }
+            html[data-theme='light'] .nav-links {
+                background-color: {{ theme.light.bg_navbar }} !important;
+                animation: none !important;
+            }
+        }
 
-    <!-- Navigation -->
-    <nav class="navbar">
+        .scans-table th::after {
+            content: none !important;
+        }
+
+        .dashboard-topbar {
+            display: grid;
+            gap: 0.75rem;
+            margin: 0 auto 1rem;
+            max-width: 100%;
+        }
+
+        .dashboard-topbar .topbar-shell {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            padding: 0.75rem 0.95rem;
+        }
+
+        .dashboard-search {
+            min-width: min(360px, 100%);
+            flex: 1;
+            max-width: 440px;
+        }
+
+        .dashboard-search input {
+            min-height: 40px;
+            border-radius: 10px;
+            font-size: 0.84rem;
+            padding-left: 0.85rem;
+        }
+
+        .dashboard-tabs {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            background: color-mix(in srgb, var(--bg-secondary) 78%, transparent);
+            border: 1px solid color-mix(in srgb, var(--border-subtle) 72%, transparent);
+            border-radius: 10px;
+            padding: 0.2rem;
+        }
+
+        .dashboard-tabs a {
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            padding: 0.38rem 0.62rem;
+            border-radius: 7px;
+            font-weight: 700;
+        }
+
+        .dashboard-tabs a.active,
+        .dashboard-tabs a:hover {
+            color: var(--text-primary);
+            background: color-mix(in srgb, var(--accent) 18%, transparent);
+        }
+
+        .system-badge {
+            border: 1px solid color-mix(in srgb, var(--safe) 35%, transparent);
+            background: color-mix(in srgb, var(--safe) 12%, transparent);
+            color: var(--safe);
+            border-radius: 999px;
+            padding: 0.28rem 0.62rem;
+            font-size: 0.68rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body class="{% if current_user.is_authenticated %}dashboard-auth{% endif %}">
+    {% set section_map = {
+        '/': 'Home',
+        '/scans': 'Scan Center',
+        '/scan-center': 'Scan Center',
+        '/asset-inventory': 'Asset Inventory',
+        '/asset-discovery': 'Asset Discovery',
+        '/cbom-dashboard': 'CBOM',
+        '/pqc-posture': 'Posture of PQC',
+        '/cyber-rating': 'Cyber Rating',
+        '/reporting': 'Reporting',
+        '/profile': 'Profile',
+        '/admin/api': 'Admin API',
+        '/docs': 'Docs'
+    } %}
+    {% set section_title = section_map.get(request.path, 'Dashboard') %}    <!-- Navigation -->
+    <nav class="navbar glass-morphism">
         <div class="nav-container">
             <a href="/" class="nav-brand">
-                <span class="brand-icon">🔒</span>
-                <span class="brand-text">QuantumShield</span>
-                <span class="brand-badge">Scanner</span>
+                <span class="brand-text gradient-text">QuantumShield</span>
+                <span class="brand-sep">|</span>
+                <span class="brand-sub">Security Console</span>
             </a>
-            <div class="nav-links">
-                <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Dashboard</a>
+            <button class="nav-hamburger" id="navHamburger" aria-label="Toggle navigation" aria-expanded="false" aria-controls="navLinks">&#9776;</button>
+            <div class="nav-links" id="navLinks" role="navigation" aria-label="Primary">
+                <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}" title="Home Dashboard">
+                    <i class="fa-solid fa-house"></i> <span class="nav-text">HOME</span>
+                </a>
+                
                 {% if current_user.is_authenticated %}
-                    {% if current_user.role == 'Admin' %}
-                    <a href="/admin/users" class="nav-link {% if request.path == '/admin/users' %}active{% endif %}">Admin</a>
+                    <a href="/scans" class="nav-link {% if request.path in ['/scans', '/scan-center'] %}active{% endif %}" title="Scans Center">
+                        <i class="fa-solid fa-bolt"></i> <span class="nav-text">SCANS</span>
+                    </a>
+
+                    <a href="/asset-inventory" class="nav-link {% if request.path == '/asset-inventory' %}active{% endif %}" title="Asset Inventory">
+                        <i class="fa-solid fa-database"></i> <span class="nav-text">INVENTORY</span>
+                    </a>
+
+                    <a href="/asset-discovery" class="nav-link {% if request.path == '/asset-discovery' %}active{% endif %}" title="Asset Discovery">
+                        <i class="fa-solid fa-radar"></i> <span class="nav-text">DISCOVERY</span>
+                    </a>
+
+                    <a href="/cbom-dashboard" class="nav-link {% if request.path == '/cbom-dashboard' %}active{% endif %}" title="CBOM Dashboard">
+                        <i class="fa-solid fa-file-code"></i> <span class="nav-text">CBOM</span>
+                    </a>
+
+                    <a href="/pqc-posture" class="nav-link {% if request.path == '/pqc-posture' %}active{% endif %}" title="Posture of PQC">
+                        <i class="fa-solid fa-shield-virus"></i> <span class="nav-text">POSTURE</span>
+                    </a>
+
+                    <a href="/cyber-rating" class="nav-link {% if request.path == '/cyber-rating' %}active{% endif %}" title="Cyber Rating">
+                        <i class="fa-solid fa-gauge-high"></i> <span class="nav-text">RATING</span>
+                    </a>
+
+                    <a href="/reporting" class="nav-link {% if request.path == '/reporting' %}active{% endif %}" title="Reporting System">
+                        <i class="fa-solid fa-chart-pie"></i> <span class="nav-text">REPORTS</span>
+                    </a>
+
+                    <!-- Admin Access (Conditional) -->
+                    {% if current_user.role|lower == 'admin' %}
+                    <div class="nav-dropdown">
+                        <button class="nav-dropdown-trigger" title="Admin Control" aria-haspopup="true" aria-expanded="false">
+                            <i class="fa-solid fa-user-shield"></i> <span class="nav-text">ADMIN</span> <span class="arrow">▾</span>
+                        </button>
+                        <div class="nav-dropdown-menu">
+                            <a href="/admin/users" class="dropdown-link"><i class="fa-solid fa-users"></i> Users</a>
+                            <a href="/admin/audit" class="dropdown-link"><i class="fa-solid fa-clock-rotate-left"></i> Audit</a>
+                            <a href="/admin/api" class="dropdown-link"><i class="fa-solid fa-key"></i> API Keys</a>
+                            <a href="/docs" class="dropdown-link"><i class="fa-solid fa-book"></i> API Docs</a>
+                            <a href="/recycle-bin" class="dropdown-link"><i class="fa-solid fa-trash-can"></i> Recycle Bin</a>
+                            <a href="/admin/theme" class="dropdown-link"><i class="fa-solid fa-palette"></i> Theme</a>
+                        </div>
+                    </div>
                     {% endif %}
+
                     <div class="user-profile">
-                        <span class="user-info">
-                            <span class="user-name">{{ current_user.username }}</span>
-                            <span class="role-badge" style="background:var(--accent);color:#fff;">{{ current_user.role }}</span>
-                        </span>
-                        <a href="/logout" class="nav-link logout-link">Logout</a>
+                        <div class="nav-dropdown">
+                            <button class="nav-dropdown-trigger user-btn" aria-haspopup="true" aria-expanded="false">
+                                <span class="user-avatar-circle">{{ current_user.username[0]|upper }}</span>
+                                <span class="nav-text">{{ current_user.username[:8] }}</span> <span class="arrow">▾</span>
+                            </button>
+                            <div class="nav-dropdown-menu">
+                                <a href="/profile" class="dropdown-link"><i class="fa-solid fa-user"></i> Profile</a>
+                                <form action="/logout" method="POST" style="margin: 0;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="dropdown-link logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                                </form>
+                            </div>
+                        </div>
                     </div>
                 {% else %}
-                    <a href="/login" class="nav-link">Login</a>
+                    <a href="/login" class="nav-link" title="Secure Login">
+                        <i class="fa-solid fa-right-to-bracket"></i> <span class="nav-text">LOGIN</span>
+                    </a>
                 {% endif %}
             </div>
         </div>
+
+        {% if current_user.is_authenticated %}
+        <div class="nav-status-bar" style="border-top: 1px solid var(--glass-border); padding: 0.4rem 1.5rem; display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.4); font-size: 0.75rem;">
+            <div style="display:flex; align-items:center; gap:1rem;">
+                <span style="color:var(--text-secondary);"><i class="fa-solid fa-location-dot" style="margin-right: 4px;"></i> Global View: <strong style="color:var(--accent);">Active</strong></span>
+                <span style="color:var(--text-secondary);"><i class="fa-solid fa-clock" style="margin-right: 4px;"></i> Last Scan: <strong>Syncing...</strong></span>
+            </div>
+            <div style="display:flex; align-items:center; gap:1rem;">
+                <span class="status-pill" style="border: 1px solid var(--pqc-safe); color: var(--pqc-safe); background: rgba(52, 199, 89, 0.1);">Security Online</span>
+                <span style="color:var(--text-muted);">v4.2.0-stable</span>
+            </div>
+        </div>
+        {% endif %}
     </nav>
+ </nav>
+    <script>
+    (function(){
+        var btn = document.getElementById('navHamburger');
+        var links = document.getElementById('navLinks');
+        if(btn && links){
+            btn.addEventListener('click', function(){
+                var open = links.classList.toggle('nav-open');
+                btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+        }
+    })();
+    </script>
 
     <!-- Main Content -->
     <main class="main-content">
         {% block content %}{% endblock %}
     </main>
 
+    {% if current_user.is_authenticated %}
+    {% include 'common/asset_detail_modal.html' %}
+    {% include 'common/scan_detail_modal.html' %}
+    {% endif %}
+
     <!-- Footer -->
     <footer class="footer">
         <div class="footer-container">
             <p class="footer-text">
-                <span class="footer-brand">QuantumShield Scanner v1.0</span> — 
-                Built for the PNB Cybersecurity Hackathon 2026
+                <span class="footer-brand" id="footerDateLabel">--/--/---- | PNB Hackathon 2026</span>
             </p>
             <p class="footer-sub">
-                NIST FIPS 203/204/205 Compliant • CycloneDX CBOM • Post-Quantum Cryptography
+                CYBER OBSERVABILITY | CRYPTO POSTURE | EXECUTIVE REPORTING
             </p>
         </div>
     </footer>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/scans-table.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/table.js') }}"></script>
+    {% if current_user.is_authenticated %}
+    <script src="{{ url_for('static', filename='js/asset_modal.js') }}"></script>
+    {% endif %}
+    <script>
+        (function () {
+            const now = new Date();
+            const dd = String(now.getDate()).padStart(2, '0');
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const yyyy = now.getFullYear();
+            const el = document.getElementById('footerDateLabel');
+            if (el) {
+                el.textContent = dd + '/' + mm + '/' + yyyy + ' | PNB Hackathon 2026';
+            }
+        })();
+
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

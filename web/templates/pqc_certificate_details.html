@@ -1,0 +1,453 @@
+{% {# PQC Certificate Details Template Snippet #} %}
+
+{% {# 
+  PQC Dashboard - Certificate Details Template
+  
+  Shows:
+  - Per-asset certificate table (CN, issuer, company, expiry, key details)
+  - Expiry timeline visualization
+  - Issuer/Company breakdown charts
+  - PQC algorithm status
+  - TLS version distribution
+  - Key length distribution
+#} %}
+
+{% macro certificate_details_table(certificates) %}
+  {# Display certificate list in a detailed table #}
+  <div class="certificate-details-section">
+    <h3>✓ Certificate Details by Asset</h3>
+    
+    {% if certificates|length == 0 %}
+      <p class="empty-state">No certificates found for this asset.</p>
+    {% else %}
+      <table class="certificate-table table table-striped table-hover">
+        <thead class="table-dark">
+          <tr>
+            <th>Common Name (CN)</th>
+            <th>Issuer / CA</th>
+            <th>Company</th>
+            <th>Valid Until</th>
+            <th>Days Remaining</th>
+            <th>TLS Version</th>
+            <th>Key Length</th>
+            <th>Expired</th>
+            <th>Self-Signed</th>
+            <th>PQC Status</th>
+            <th>PQC Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cert in certificates %}
+            <tr class="{% if cert.is_expired %}table-danger{% elif cert.expiry_days|int < 30 %}table-warning{% endif %}">
+              {# Common Name #}
+              <td>
+                <span class="badge bg-info">{{ cert.common_name or 'N/A' }}</span>
+              </td>
+              
+              {# Issuer #}
+              <td>
+                {{ cert.issuer or 'Unknown' }}
+              </td>
+              
+              {# Company #}
+              <td>
+                <span class="badge bg-secondary">{{ cert.company or 'Unknown' }}</span>
+              </td>
+              
+              {# Valid Until #}
+              <td class="font-monospace">
+                {% if cert.valid_until %}
+                  {{ cert.valid_until[:10] }}
+                {% else %}
+                  N/A
+                {% endif %}
+              </td>
+              
+              {# Expiry Days (color-coded) #}
+              <td>
+                {% if cert.is_expired %}
+                  <span class="badge bg-danger">EXPIRED</span>
+                {% elif cert.expiry_days < 0 %}
+                  <span class="badge bg-danger">{{ cert.expiry_days }} days</span>
+                {% elif cert.expiry_days < 30 %}
+                  <span class="badge bg-warning text-dark">{{ cert.expiry_days }} days ⚠️</span>
+                {% elif cert.expiry_days < 60 %}
+                  <span class="badge bg-info">{{ cert.expiry_days }} days</span>
+                {% else %}
+                  <span class="badge bg-success">{{ cert.expiry_days }} days</span>
+                {% endif %}
+              </td>
+              
+              {# TLS Version #}
+              <td>
+                <span class="badge 
+                  {% if cert.tls_version in ['TLS 1.3', 'TLS 1.2'] %}
+                    bg-success
+                  {% elif cert.tls_version in ['TLS 1.0', 'TLS 1.1'] %}
+                    bg-danger
+                  {% else %}
+                    bg-secondary
+                  {% endif %}
+                ">
+                  {{ cert.tls_version or 'Unknown' }}
+                </span>
+              </td>
+              
+              {# Key Length #}
+              <td>
+                <span class="badge 
+                  {% if cert.key_length >= 2048 %}
+                    bg-success
+                  {% elif cert.key_length >= 1024 %}
+                    bg-warning text-dark
+                  {% else %}
+                    bg-danger
+                  {% endif %}
+                ">
+                  {{ cert.key_length }} bits
+                </span>
+              </td>
+              
+              {# Expired Status #}
+              <td class="text-center">
+                {% if cert.is_expired %}
+                  <span class="badge bg-danger">✗ YES</span>
+                {% else %}
+                  <span class="badge bg-success">✓ NO</span>
+                {% endif %}
+              </td>
+              
+              {# Self-Signed Status #}
+              <td class="text-center">
+                {% if cert.is_self_signed %}
+                  <span class="badge bg-warning text-dark">⚠️ YES</span>
+                {% else %}
+                  <span class="badge bg-success">✓ NO</span>
+                {% endif %}
+              </td>
+              
+              {# PQC Status (Quantum-Safe) #}
+              <td class="text-center">
+                {% if cert.pqc_status == 'safe' %}
+                  <span class="badge bg-success">✓ SAFE</span>
+                {% elif cert.pqc_status == 'unsafe' %}
+                  <span class="badge bg-danger">✗ UNSAFE</span>
+                {% elif cert.pqc_status == 'migration_advised' %}
+                  <span class="badge bg-warning text-dark">⚠️ MIGRATE</span>
+                {% else %}
+                  <span class="badge bg-secondary">? Unknown</span>
+                {% endif %}
+              </td>
+              
+              {# PQC Score #}
+              <td class="text-center">
+                {% if cert.pqc_score %}
+                  <span class="badge 
+                    {% if cert.pqc_score >= 80 %}
+                      bg-success
+                    {% elif cert.pqc_score >= 60 %}
+                      bg-info
+                    {% elif cert.pqc_score >= 40 %}
+                      bg-warning text-dark
+                    {% else %}
+                      bg-danger
+                    {% endif %}
+                  ">
+                    {{ "%.1f"|format(cert.pqc_score) }}
+                  </span>
+                {% else %}
+                  <span class="badge bg-secondary">N/A</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+
+{% macro expiry_timeline_cards(timeline) %}
+  {# Display certificate expiry timeline as cards #}
+  <div class="expiry-timeline-section mt-5">
+    <h3>📅 Certificate Expiry Timeline</h3>
+    <p class="text-muted">Distribution of certificate expiry dates</p>
+    
+    <div class="row">
+      <div class="col-md-3">
+        <div class="card border-danger">
+          <div class="card-body">
+            <h5 class="card-title">Expiring Now</h5>
+            <h2 class="card-text text-danger">{{ timeline['0-30'] or 0 }}</h2>
+            <p class="card-text small">0-30 days</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-md-3">
+        <div class="card border-warning">
+          <div class="card-body">
+            <h5 class="card-title">Soon</h5>
+            <h2 class="card-text text-warning">{{ timeline['30-60'] or 0 }}</h2>
+            <p class="card-text small">30-60 days</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-md-3">
+        <div class="card border-info">
+          <div class="card-body">
+            <h5 class="card-title">Later</h5>
+            <h2 class="card-text text-info">{{ timeline['60-90'] or 0 }}</h2>
+            <p class="card-text small">60-90 days</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-md-3">
+        <div class="card border-success">
+          <div class="card-body">
+            <h5 class="card-title">Plenty of Time</h5>
+            <h2 class="card-text text-success">{{ timeline['>90'] or 0 }}</h2>
+            <p class="card-text small">&gt;90 days</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endmacro %}
+
+
+{% macro issuer_breakdown_chart(issuer_breakdown) %}
+  {# Display issuer (CA) breakdown as a bar chart #}
+  <div class="issuer-breakdown-section mt-5">
+    <h3>🏢 Issuer (Certificate Authority) Breakdown</h3>
+    
+    {% if issuer_breakdown|length == 0 %}
+      <p class="empty-state">No issuer data available.</p>
+    {% else %}
+      <div class="issuer-list">
+        {% for item in issuer_breakdown|slice(10) %}
+          <div class="issuer-item mb-3">
+            <div class="d-flex justify-content-between">
+              <span class="issuer-name">{{ item.issuer }}</span>
+              <span class="badge bg-primary">{{ item.count }} certs</span>
+            </div>
+            <div class="progress" role="progressbar">
+              <div class="progress-bar bg-info" 
+                   style="width: {{ (item.count / (issuer_breakdown[0].count or 1)) * 100 }}%">
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+
+{% macro company_breakdown_list(company_breakdown) %}
+  {# Display company breakdown as a list #}
+  <div class="company-breakdown-section mt-5">
+    <h3>🏭 Organization Breakdown</h3>
+    
+    {% if company_breakdown|length == 0 %}
+      <p class="empty-state">No company data available.</p>
+    {% else %}
+      <div class="list-group">
+        {% for item in company_breakdown|slice(10) %}
+          <a href="/pqc/api/company/{{ item.company|urlencode }}" class="list-group-item list-group-item-action">
+            <div class="d-flex w-100 justify-content-between align-items-center">
+              <h6 class="mb-1">{{ item.company }}</h6>
+              <span class="badge bg-secondary">{{ item.count }}</span>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+
+{% macro pqc_status_cards(pqc_summary, quantum_safe_pct) %}
+  {# Display PQC algorithm status summary #}
+  <div class="pqc-status-section mt-5">
+    <h3>🔐 Post-Quantum Cryptography (PQC) Status</h3>
+    
+    <div class="row align-items-center">
+      {# Overall quantum-safe percentage #}
+      <div class="col-md-4">
+        <div class="card bg-light">
+          <div class="card-body text-center">
+            <h5 class="card-title">Quantum-Safe Coverage</h5>
+            <div style="font-size: 3rem; font-weight: bold; color: #17a2b8;">
+              {{ "%.1f"|format(quantum_safe_pct) }}%
+            </div>
+            <p class="card-text text-muted">of algorithms are quantum-safe</p>
+          </div>
+        </div>
+      </div>
+      
+      {# Status distribution #}
+      <div class="col-md-8">
+        <div class="row">
+          <div class="col-md-6">
+            <div class="card border-success">
+              <div class="card-body">
+                <h6 class="card-title">✓ Quantum-Safe</h6>
+                <h3 class="card-text text-success">{{ pqc_summary.safe or 0 }}</h3>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-md-6">
+            <div class="card border-danger">
+              <div class="card-body">
+                <h6 class="card-title">✗ Vulnerable</h6>
+                <h3 class="card-text text-danger">{{ pqc_summary.unsafe or 0 }}</h3>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-md-6 mt-3">
+            <div class="card border-warning">
+              <div class="card-body">
+                <h6 class="card-title">⚠️ Migration Advised</h6>
+                <h3 class="card-text text-warning">{{ pqc_summary.migration_advised or 0 }}</h3>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-md-6 mt-3">
+            <div class="card border-secondary">
+              <div class="card-body">
+                <h6 class="card-title">? Unknown</h6>
+                <h3 class="card-text text-secondary">{{ pqc_summary.unknown or 0 }}</h3>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endmacro %}
+
+
+{% macro tls_version_distribution(versions) %}
+  {# Display TLS version usage #}
+  <div class="tls-distribution-section mt-5">
+    <h3>🔒 TLS Version Distribution</h3>
+    
+    {% if versions|length == 0 %}
+      <p class="empty-state">No TLS version data available.</p>
+    {% else %}
+      <div class="row">
+        {% for item in versions %}
+          <div class="col-md-6 mb-3">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-title">{{ item.version or 'Unknown' }}</h6>
+                <div class="progress">
+                  <div class="progress-bar bg-success" style="width: {{ (item.count / (versions[0].count or 1)) * 100 }}%">
+                    {{ item.count }} certs
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+
+{% macro key_length_distribution(key_lengths) %}
+  {# Display RSA/DSA key length distribution #}
+  <div class="key-length-distribution-section mt-5">
+    <h3>🔑 Key Length Distribution</h3>
+    
+    {% if key_lengths|length == 0 %}
+      <p class="empty-state">No key length data available.</p>
+    {% else %}
+      <table class="table table-sm">
+        <thead class="table-light">
+          <tr>
+            <th>Key Length (bits)</th>
+            <th>Count</th>
+            <th>Share</th>
+            <th>Security Level</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set total_keys = key_lengths|map(attribute='count')|sum %}
+          {% for item in key_lengths %}
+            {% set pct = (item.count / total_keys * 100)|int %}
+            <tr>
+              <td><strong>{{ item.length }} bits</strong></td>
+              <td>{{ item.count }}</td>
+              <td>
+                <div class="progress">
+                  <div class="progress-bar 
+                    {% if item.length >= 4096 %}
+                      bg-success
+                    {% elif item.length >= 2048 %}
+                      bg-info
+                    {% else %}
+                      bg-danger
+                    {% endif %}
+                  " style="width: {{ pct }}%">
+                    {{ pct }}%
+                  </div>
+                </div>
+              </td>
+              <td>
+                {% if item.length >= 4096 %}
+                  <span class="badge bg-success">Strong</span>
+                {% elif item.length >= 2048 %}
+                  <span class="badge bg-info">Modern</span>
+                {% else %}
+                  <span class="badge bg-danger">Weak</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+
+{# ============================================================================ #}
+{# Main Dashboard Usage #}
+{# ============================================================================ #}
+
+{% block pqc_dashboard_content %}
+  {# Usage in a template: #}
+  {# 
+    {% import 'pqc_certificate_details.html' as pqc %}
+    
+    {# Render certificate table #}
+    {{ pqc.certificate_details_table(vm.certificates) }}
+    
+    {# Render expiry timeline #}
+    {{ pqc.expiry_timeline_cards(vm.expiry_timeline) }}
+    
+    {# Render issuer breakdown #}
+    {{ pqc.issuer_breakdown_chart(vm.issuer_breakdown) }}
+    
+    {# Render company breakdown #}
+    {{ pqc.company_breakdown_list(vm.company_breakdown) }}
+    
+    {# Render PQC status #}
+    {{ pqc.pqc_status_cards(vm.pqc_summary, vm.quantum_safe_pct) }}
+    
+    {# Render TLS versions #}
+    {{ pqc.tls_version_distribution(vm.tls_versions) }}
+    
+    {# Render key lengths #}
+    {{ pqc.key_length_distribution(vm.key_lengths) }}
+  #}
+{% endblock %}

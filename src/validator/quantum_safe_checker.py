@@ -342,16 +342,65 @@ class QuantumSafeChecker:
     def _compute_hndl_risk(
         self, tls: Dict[str, Any]
     ) -> tuple[str, int]:
-        """Compute HNDL risk based on host/service keywords."""
-        host = tls.get("host", "").lower()
+        """Compute HNDL risk from service sensitivity + crypto exposure.
 
-        for level, info in HNDL_RISK_WEIGHTS.items():
+        Produces HIGH / MEDIUM / LOW levels and a 1-10 score.
+        """
+        host = tls.get("host", "").lower()
+        protocol = str(tls.get("protocol_version", "") or "").upper()
+        kex = str(tls.get("key_exchange", "") or "").upper()
+        cert = tls.get("certificate") or {}
+
+        # 1) Service sensitivity baseline from configured keyword buckets.
+        level, score = "HIGH", 9  # conservative fallback
+        for risk_level, info in HNDL_RISK_WEIGHTS.items():
             for kw in info["keywords"]:
                 if kw in host:
-                    return level, info["score"]
+                    level = risk_level
+                    score = int(info["score"])
+                    break
+            if level == risk_level and any(kw in host for kw in info["keywords"]):
+                break
 
-        # Default: HIGH for unknown endpoints (conservative)
-        return "HIGH", 9
+        # 2) Crypto exposure adjustments.
+        vulnerable_kex = any(vuln in kex for vuln in QUANTUM_VULNERABLE_KEY_EXCHANGES)
+        pqc_kex = any(alg.upper() in kex for alg in NIST_APPROVED_KEMS | {"X25519MLKEM768"})
+
+        if vulnerable_kex:
+            score += 2
+        elif pqc_kex:
+            score -= 2
+
+        if "1.3" in protocol:
+            score -= 1
+        elif "1.2" in protocol:
+            score += 1
+        elif protocol:
+            score += 2
+
+        sig_alg = str(cert.get("signature_algorithm", "") or "").upper()
+        if sig_alg:
+            pqc_sigs = NIST_APPROVED_SIGNATURES | NIST_APPROVED_HASH_SIGNATURES
+            is_pqc_sig = any(alg.upper() in sig_alg for alg in pqc_sigs)
+            score += -1 if is_pqc_sig else 1
+
+        days_until_expiry = cert.get("days_until_expiry")
+        if isinstance(days_until_expiry, (int, float)) and days_until_expiry > 365:
+            # Longer-lived certs increase HNDL value for adversaries.
+            score += 1
+
+        # Clamp final score to 1-10.
+        score = max(1, min(10, int(score)))
+
+        # 3) Final level mapping (HIGH / MEDIUM / LOW only).
+        if score >= 8:
+            level = "HIGH"
+        elif score >= 5:
+            level = "MEDIUM"
+        else:
+            level = "LOW"
+
+        return level, score
 
     # ------------------------------------------------------------------
     # Recommendations

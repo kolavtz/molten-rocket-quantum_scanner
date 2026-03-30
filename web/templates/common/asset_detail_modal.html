@@ -1,0 +1,187 @@
+<!-- asset_detail_modal.html -->
+<div id="qsAssetDetailModal" class="qs-modal-overlay" aria-hidden="true">
+    <div class="qs-modal-shell">
+        <!-- Header -->
+        <div class="qs-modal-header">
+            <div class="qs-modal-title-group">
+                <h2 id="qsModalTitle">Asset Intelligence</h2>
+                <div id="qsModalSubtitle" class="qs-modal-subtitle">Loading technical telemetry...</div>
+            </div>
+            <button class="qs-modal-close" onclick="window.AssetDetailModal.close()" aria-label="Close modal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Content -->
+        <div class="qs-modal-content">
+            <!-- Main Sidebar (Left in small, Top in large?) No, Grid is 1fr 340px -->
+            <div class="qs-detail-main">
+                <div class="qs-detail-tabs">
+                    <button class="qs-tab-btn active" data-tab="overview">Overview</button>
+                    <button class="qs-tab-btn" data-tab="security">Security & TLS</button>
+                    <button class="qs-tab-btn" data-tab="cbom">CBOM</button>
+                    <button class="qs-tab-btn" data-tab="pqc">PQC Readiness</button>
+                    <button class="qs-tab-btn" data-tab="network">Network Graph</button>
+                </div>
+
+                <!-- Tab: Overview -->
+                <div class="qs-tab-pane active" id="tab-overview">
+                    <div id="qsDetailMap" class="qs-map-container"></div>
+                    <div class="qs-detail-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                        <div class="qs-detail-card">
+                            <h3>IPv4 Address</h3>
+                            <div id="qsValIPv4" class="qs-mono-val">--.---.---.--</div>
+                        </div>
+                        <div class="qs-detail-card">
+                            <h3>IPv6 Address</h3>
+                            <div id="qsValIPv6" class="qs-mono-val">----:----:...</div>
+                        </div>
+                        <div class="qs-detail-card">
+                            <h3>Asset Type</h3>
+                            <div id="qsValType" class="qs-mono-val">Unknown</div>
+                        </div>
+                        <div class="qs-detail-card">
+                            <h3>Risk Level</h3>
+                            <div id="qsValRisk" class="qs-mono-val">--</div>
+                        </div>
+                    </div>
+                    
+                    <div class="qs-detail-card" style="margin-top: 1.5rem;">
+                        <h3>DNS Intelligence</h3>
+                        <div style="max-height: 200px; overflow-y: auto;">
+                            <table class="qs-detail-table">
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Name</th>
+                                        <th>Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="qsTableDNS">
+                                    <tr><td colspan="3" class="text-center">No records found.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Security & TLS -->
+                <div class="qs-tab-pane" id="tab-security" style="display: none;">
+                    <div class="qs-detail-card">
+                        <h3>Certificate Intelligence</h3>
+                        <div class="qs-cert-details" id="qsCertDetails">
+                            <div class="text-center py-4">No certificate data linked to this asset.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: CBOM -->
+                <div class="qs-tab-pane" id="tab-cbom" style="display: none;">
+                    <div class="qs-detail-card">
+                        <h3>Cryptographic Bill of Materials (CBOM)</h3>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            <table class="qs-detail-table">
+                                <thead>
+                                    <tr>
+                                        <th>Algorithm</th>
+                                        <th>Category</th>
+                                        <th>Key Len</th>
+                                        <th>NIST</th>
+                                        <th>PQC Safe</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="qsTableCBOM">
+                                    <tr><td colspan="5" class="text-center">No CBOM entries available.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: PQC Readiness -->
+                <div class="qs-tab-pane" id="tab-pqc" style="display: none;">
+                    <div class="qs-detail-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="qs-detail-card">
+                            <h3>Post-Quantum Posture</h3>
+                            <div class="qs-pqc-kpi" style="font-size: 2.5rem; font-weight: 800; color: var(--accent);">
+                                <span id="qsPqcScore">0</span><small style="font-size: 1rem; opacity: 0.6;">%</small>
+                                <div id="qsPqcLabel" class="qs-badge" style="vertical-align: middle; margin-left: 10px;">UNKNOWN</div>
+                            </div>
+                            <div class="qs-chart-box">
+                                <canvas id="qsPqcChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="qs-detail-card">
+                            <h3>Compliance Classifications</h3>
+                            <div id="qsPqcList" style="max-height: 300px; overflow-y: auto;">
+                                <!-- Dynamics -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Network Graph -->
+                <div class="qs-tab-pane" id="tab-network" style="display: none;">
+                    <div id="qsNetworkGraph" class="qs-graph-container"></div>
+                    <div class="qs-detail-card" style="margin-top: 1rem; padding: 0.75rem 1rem;">
+                        <span style="font-size: 0.7rem; color: var(--text-muted);">
+                            <i class="fas fa-info-circle"></i> This graph visualizes the logical relationship between the asset, its resolved IPs, and discovered services.
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Sidebar: Contextual Stats -->
+            <div class="qs-detail-side">
+                <div class="qs-detail-card">
+                    <h3>Asset Ownership</h3>
+                    <div class="p-2">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="qs-avatar" style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: white; display:flex; align-items:center; justify-content:center; font-weight:800; font-size: 0.75rem; margin-right: 12px;">
+                                QS
+                            </div>
+                            <div>
+                                <div id="qsValOwner" style="font-size: 0.9rem; font-weight: 700;">System Administrator</div>
+                                <div style="font-size: 0.7rem; color: var(--text-muted);">Reporting Authority</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="qs-detail-card">
+                    <h3>Discovery Timeline</h3>
+                    <div id="qsTimeline" style="font-size: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                        <!-- Dynamics -->
+                    </div>
+                </div>
+
+                <div class="qs-detail-card">
+                    <h3>Geo Intelligence</h3>
+                    <div id="qsGeoDetails">
+                        <div class="mb-2">
+                            <span class="text-muted">Target:</span>
+                            <div id="qsGeoTarget" class="qs-mono-val" style="font-size: 0.75rem;">--</div>
+                        </div>
+                        <div class="mb-2">
+                            <span class="text-muted">Location:</span>
+                            <div id="qsGeoLoc" style="font-size: 0.75rem;">Unknown, Unknown</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer / Actions -->
+        <div style="padding: 1rem 2rem; background: rgba(0,0,0,0.2); border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: flex-end; gap: 1rem;">
+            <button class="pnb-btn" onclick="window.AssetDetailModal.close()">Close Details</button>
+            <a id="qsFullDetailLink" href="#" class="pnb-btn btn-primary" style="text-decoration: none;">View Full Report</a>
+        </div>
+    </div>
+</div>
+
+<style>
+.qs-mono-val { font-family: 'JetBrains Mono', monospace; color: var(--text-primary); }
+.qs-cert-item { margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.qs-cert-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; }
+.qs-cert-value { font-size: 0.82rem; word-break: break-all; }
+</style>

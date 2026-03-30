@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Asset Details | QuantumShield{% endblock %}
+
+{% block head %}
+<style>
+  .asset-detail-shell {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .asset-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+  }
+
+  .asset-detail-title {
+    margin: 0;
+    font-size: clamp(1.4rem, 3.6vw, 2rem);
+    letter-spacing: 0.01em;
+  }
+
+  .asset-detail-sub {
+    margin: 0.25rem 0 0;
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+    word-break: break-word;
+  }
+
+  .asset-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .asset-item {
+    border: 1px solid color-mix(in srgb, var(--border-subtle) 84%, transparent);
+    border-radius: 12px;
+    padding: 0.75rem;
+    background: color-mix(in srgb, var(--bg-card) 95%, transparent);
+  }
+
+  .asset-item .label {
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 0.3rem;
+  }
+
+  .asset-item .value {
+    font-size: 0.95rem;
+    word-break: break-word;
+  }
+
+  .details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .list-mini {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .list-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.45rem 0.55rem;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--bg-secondary) 65%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent);
+    font-size: 0.82rem;
+  }
+
+  .list-row .left {
+    color: var(--text-secondary);
+  }
+
+  .mono {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.84rem;
+    line-height: 1.5;
+    word-break: break-all;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="asset-detail-shell">
+  <section class="hero" style="padding-bottom:1rem;">
+    <div class="asset-detail-header">
+      <div>
+        <h2 class="asset-detail-title">ASSET DETAILS</h2>
+        <p class="asset-detail-sub">{{ asset.asset_name or asset.name or 'Unknown Asset' }}</p>
+      </div>
+      <a href="{{ url_for('assets.assets_index') }}" class="button secondary">Back to Asset Inventory</a>
+    </div>
+  </section>
+
+  <section class="glass-card" style="padding:1rem;">
+    <div class="asset-grid">
+      <article class="asset-item">
+        <div class="label">Asset Name</div>
+        <div class="value">{{ asset.asset_name or asset.name or '-' }}</div>
+      </article>
+      <article class="asset-item">
+        <div class="label">Type</div>
+        <div class="value">{{ asset.asset_type or asset.type or '-' }}</div>
+      </article>
+      <article class="asset-item">
+        <div class="label">Owner</div>
+        <div class="value">{{ asset.owner or '-' }}</div>
+      </article>
+      <article class="asset-item">
+        <div class="label">Risk Level</div>
+        <div class="value">{{ asset.risk_level or '-' }}</div>
+      </article>
+      <article class="asset-item">
+        <div class="label">Status</div>
+        <div class="value">{{ asset.status or 'Active' }}</div>
+      </article>
+      <article class="asset-item">
+        <div class="label">Last Scan</div>
+        <div class="value">{{ asset.last_scan or '-' }}</div>
+      </article>
+      <article class="asset-item" style="grid-column: 1 / -1;">
+        <div class="label">URL</div>
+        <div class="value">{{ asset.url or '-' }}</div>
+      </article>
+    </div>
+  </section>
+
+  <section class="details-grid">
+    <article class="glass-card" style="padding:1rem;">
+      <h3 style="margin:0 0 0.8rem;">Security KPIs</h3>
+      <div class="list-mini">
+        <div class="list-row"><span class="left">PQC Score</span><strong>{{ asset.pqc_score or 0 }}</strong></div>
+        <div class="list-row"><span class="left">PQC Status</span><strong>{{ asset.pqc_status or 'Unknown' }}</strong></div>
+        <div class="list-row"><span class="left">Readiness</span><strong>{{ asset.readiness or 'Standard Protocol' }}</strong></div>
+        <div class="list-row"><span class="left">Certificates</span><strong>{{ asset.certificates_count or 0 }}</strong></div>
+        <div class="list-row"><span class="left">Discovery Items</span><strong>{{ asset.discovery_count or 0 }}</strong></div>
+      </div>
+    </article>
+
+    <article class="glass-card" style="padding:1rem;">
+      <h3 style="margin:0 0 0.8rem;">Latest Certificate</h3>
+      {% set cert = asset.latest_certificate or {} %}
+      <div class="list-mini">
+        <div class="list-row"><span class="left">Subject CN</span><strong>{{ cert.subject_cn or '-' }}</strong></div>
+        <div class="list-row"><span class="left">Issuer CN</span><strong>{{ cert.issuer_cn or cert.ca or '-' }}</strong></div>
+        <div class="list-row"><span class="left">TLS / Cipher</span><strong>{{ cert.tls_version or '-' }} / {{ cert.cipher_suite or '-' }}</strong></div>
+        <div class="list-row"><span class="left">Validity</span><strong>{{ cert.valid_from or '-' }} → {{ cert.valid_until or '-' }}</strong></div>
+      </div>
+      {% set cert_details = cert.certificate_details if cert.certificate_details is mapping else {} %}
+      {% set cert_validity = cert_details.get('validity', {}) if cert_details else {} %}
+      {% if cert_details %}
+      <details style="margin-top:0.7rem; border:1px solid var(--border-subtle); border-radius:10px; padding:0.65rem;">
+        <summary style="cursor:pointer; font-size:0.74rem; color:var(--text-secondary);">Show full X.509 certificate details</summary>
+        <div class="list-mini" style="margin-top:0.55rem;">
+          <div class="list-row"><span class="left">Certificate Version</span><strong>{{ cert_details.get('certificate_version', '-') }}</strong></div>
+          <div class="list-row"><span class="left">Serial Number</span><strong>{{ cert_details.get('serial_number', '-') }}</strong></div>
+          <div class="list-row"><span class="left">Signature Algorithm</span><strong>{{ cert_details.get('certificate_signature_algorithm', cert.signature_algorithm or '-') }}</strong></div>
+          <div class="list-row"><span class="left">Issuer</span><strong>{{ cert_details.get('issuer', cert.issuer_cn or cert.ca or '-') }}</strong></div>
+          <div class="list-row"><span class="left">Not Before</span><strong>{{ cert_validity.get('not_before', cert.valid_from or '-') }}</strong></div>
+          <div class="list-row"><span class="left">Not After</span><strong>{{ cert_validity.get('not_after', cert.valid_until or '-') }}</strong></div>
+          <div class="list-row"><span class="left">Subject</span><strong>{{ cert_details.get('subject', cert.subject_cn or '-') }}</strong></div>
+          <div class="list-row"><span class="left">Subject Alternative Names</span><strong>{{ cert_details.get('certificate_subject_alternative_name', []) }}</strong></div>
+          <div class="list-row"><span class="left">Certificate Key Usage</span><strong>{{ cert_details.get('certificate_key_usage', []) }}</strong></div>
+          <div class="list-row"><span class="left">Extended Key Usage</span><strong>{{ cert_details.get('extended_key_usage', []) }}</strong></div>
+          <div class="list-row"><span class="left">Certificate Policies</span><strong>{{ cert_details.get('certificate_policies', []) }}</strong></div>
+        </div>
+      </details>
+      {% endif %}
+      {% if cert.fingerprint_sha256 %}
+      <div style="margin-top:0.7rem;">
+        <div class="label" style="margin-bottom:0.25rem;">SHA-256 Fingerprint</div>
+        <div class="mono">{{ cert.fingerprint_sha256 }}</div>
+      </div>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="details-grid">
+    <article class="glass-card" style="padding:1rem;">
+      <h3 style="margin:0 0 0.8rem;">Discovered Services</h3>
+      {% set services = asset.discovered_services or [] %}
+      {% if services %}
+        <div class="list-mini">
+          {% for svc in services[:12] %}
+          <div class="list-row">
+            <span class="left">{{ svc.host or '?' }}:{{ svc.port or '?' }}</span>
+            <strong>{{ svc.service or '-' }}</strong>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="table-summary">No discovered services yet.</div>
+      {% endif %}
+    </article>
+
+    <article class="glass-card" style="padding:1rem;">
+      <h3 style="margin:0 0 0.8rem;">Recommendations</h3>
+      {% set recs = asset.recommendations or [] %}
+      {% if recs %}
+        <div class="list-mini">
+          {% for rec in recs[:8] %}
+          <div class="list-row" style="display:block;">
+            <div style="font-weight:700; margin-bottom:0.2rem;">{{ rec.title or 'Recommendation' }}</div>
+            <div style="font-size:0.8rem; color:var(--text-secondary);">{{ rec.description or '' }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="table-summary">No recommendations available yet.</div>
+      {% endif %}
+    </article>
+  </section>
+</section>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Profile | QuantumShield{% endblock %}
+{% block content %}
+<div class="container" style="max-width:760px;margin:3rem auto;padding:0 1.5rem;">
+
+  <h1 style="font-size:2.5rem;font-weight:900;letter-spacing:.15em;margin-bottom:.25rem;">MY_PROFILE</h1>
+  <p style="color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-size:.85rem;margin-bottom:2.5rem;">
+    {{ user.username }} // {{ user.role | upper }} // {{ user.email or 'NO_EMAIL_SET' }}
+  </p>
+
+  {# Flash messages #}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      {% if category == 'error' %}
+        <div style="background:#1a0a0a;border:2px solid #c00;padding:1rem;margin-bottom:1.5rem;color:#c00;font-size:.85rem;">
+          {{ message }}
+        </div>
+      {% else %}
+        <div style="background:#0a1a0a;border:2px solid var(--accent);padding:1rem;margin-bottom:1.5rem;color:var(--accent);font-size:.85rem;">
+          {{ message }}
+        </div>
+      {% endif %}
+    {% endfor %}
+  {% endwith %}
+
+  {# Account Status Card #}
+  <div style="border:2px solid var(--border);padding:2rem;margin-bottom:2rem;">
+    <h2 style="font-size:1rem;letter-spacing:.15em;margin-bottom:1.5rem;color:var(--text-muted);">// ACCOUNT_STATUS</h2>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:2rem;">
+      <div>
+        <p style="color:var(--text-muted);font-size:.7rem;letter-spacing:.12em;margin-bottom:.35rem;">ACCOUNT</p>
+        <p style="color:var(--accent);font-weight:700;font-size:.9rem;letter-spacing:.08em;">● ACTIVE</p>
+      </div>
+      <div>
+        <p style="color:var(--text-muted);font-size:.7rem;letter-spacing:.12em;margin-bottom:.35rem;">ROLE</p>
+        <p style="font-size:.85rem;letter-spacing:.04em;">{{ user.role | upper }}</p>
+      </div>
+    </div>
+
+    <p style="color:var(--text-muted);font-size:.75rem;line-height:1.6;margin-bottom:1.5rem;">
+      API key generation and rotation have been moved to the Admin API portal.
+      {% if user.role|lower == 'admin' %}
+      Open <a href="/admin/api" style="color:var(--accent);font-weight:700;">ADMIN → API KEYS</a> to manage key lifecycle.
+      {% else %}
+      Contact an administrator if you need API access changes.
+      {% endif %}
+    </p>
+  </div>
+
+  {# Profile Guidance #}
+  <div style="border:2px solid var(--border);padding:2rem;">
+    <h2 style="font-size:1rem;letter-spacing:.15em;margin-bottom:1.5rem;color:var(--text-muted);">// PROFILE_GUIDANCE</h2>
+    <p style="color:var(--text-muted);font-size:.82rem;line-height:1.7;">
+      This page is for account visibility and session profile information.
+      {% if user.role|lower == 'admin' %}
+      API key lifecycle and integration references are available under the Admin API portal.
+      {% else %}
+      API lifecycle operations are restricted to the admin section.
+      {% endif %}
+    </p>
+  </div>
+
+</div>
+{% endblock %}
+
+
