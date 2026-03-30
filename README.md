@@ -96,6 +96,17 @@ python -m pytest tests/ -v
 python -m pytest tests/ --cov=src --cov-report=term-missing
 ```
 
+## ☁️ Free Remote Hosting + Remote MySQL
+
+For deploying this app with a remote SQL host and free web hosting, see:
+
+- `FREE_REMOTE_HOSTING_SETUP.md`
+
+Helper scripts included:
+
+- `scripts/remote_db_check.py` — verify remote MySQL connectivity
+- `scripts/push_sql_to_remote.py` — apply schema/migration SQL to remote MySQL
+
 ## 🔬 NIST PQC Standards Validated
 
 | Standard | Algorithm Family | Replaces |
