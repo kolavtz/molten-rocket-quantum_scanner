@@ -1,0 +1,298 @@
+{
+  "report_id": "urn:uuid:7d5df78c-aea1-47b1-9f27-3308b0b7cb1d",
+  "generated_at": "2026-04-02T05:40:21.049973+00:00",
+  "tool": {
+    "name": "Quantum-Safe TLS Scanner",
+    "version": "1.0.0"
+  },
+  "overview": {
+    "total_assets": 1,
+    "quantum_safe": 0,
+    "quantum_vulnerable": 1,
+    "average_compliance_score": 33
+  },
+  "severity_breakdown": {
+    "CRITICAL": 1,
+    "HIGH": 0,
+    "MEDIUM": 0,
+    "LOW": 0,
+    "INFO": 1
+  },
+  "risk_distribution": {
+    "HIGH": 1,
+    "MEDIUM": 0,
+    "LOW": 0
+  },
+  "label_distribution": {
+    "PQC Ready": 0,
+    "Partial": 0,
+    "Non-Compliant": 1
+  },
+  "top_recommendations": [
+    "Quantum-vulnerable key exchange: migrate from TLS1.3-ECDHE to ML-KEM-768 or ML-KEM-1024",
+    "Enable TLS 1.3 and configure PQC key exchange (ML-KEM-768) on your server.",
+    "Obtain a PQC-signed certificate using ML-DSA or SLH-DSA from a supporting CA.",
+    "Consider hybrid key exchange (X25519+ML-KEM-768) as a transitional step."
+  ],
+  "findings": [
+    {
+      "severity": "CRITICAL",
+      "category": "key_exchange",
+      "title": "Quantum-vulnerable key exchange",
+      "description": "Key exchange 'TLS1.3-ECDHE' is vulnerable to Shor's algorithm. A sufficiently powerful quantum computer could break this.",
+      "current_value": "TLS1.3-ECDHE",
+      "recommended_value": "ML-KEM-768 or ML-KEM-1024",
+      "nist_reference": "FIPS 203 (ML-KEM)"
+    },
+    {
+      "severity": "INFO",
+      "category": "protocol",
+      "title": "TLS 1.3 in use",
+      "description": "TLS 1.3 is the recommended version and required for PQC cipher suites.",
+      "current_value": "TLSv1.3",
+      "recommended_value": "",
+      "nist_reference": ""
+    }
+  ],
+  "labels": [
+    {
+      "label_id": "8047ccf0-d5fa-46c1-905b-e10f035399f9",
+      "host": "142.250.193.142",
+      "port": 443,
+      "label": "Non-Compliant",
+      "compliance_score": 33,
+      "standard": "FIPS 203 (ML-KEM)",
+      "issued_at": "2026-04-02T05:40:21.049726+00:00",
+      "valid_until": "2026-05-02T05:40:21.049511+00:00",
+      "issuer": "Quantum-Safe TLS Scanner",
+      "issuer_version": "1.0.0",
+      "details": {
+        "critical_findings": 1,
+        "high_findings": 0,
+        "hndl_risk_level": "HIGH",
+        "recommendations_count": 4
+      },
+      "badge_color": "#ef4444",
+      "checksum": "9f62ab94ad275bb204e1ad07e89165f61f8952f0283210569a05e8e6c1e72c97"
+    }
+  ],
+  "assets": [
+    {
+      "asset_id": "1739b81f-e094-4032-a37d-c1e923629f38",
+      "host": "142.250.193.142",
+      "port": 443,
+      "service": "TLS-443",
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_256_GCM_SHA384",
+      "cipher_bits": 256,
+      "key_exchange": "TLS1.3-ECDHE",
+      "cert_subject": "",
+      "cert_issuer": "",
+      "cert_serial": "",
+      "cert_not_before": "",
+      "cert_not_after": "",
+      "cert_signature_algorithm": "",
+      "cert_public_key_type": "",
+      "cert_public_key_bits": 0,
+      "cert_fingerprint": "",
+      "cert_is_expired": false,
+      "cert_days_until_expiry": 0,
+      "is_quantum_safe": false,
+      "pqc_status": "quantum_vulnerable",
+      "risk_level": "HIGH"
+    }
+  ],
+  "scan_id": "aee5c15e",
+  "target": "google.com",
+  "asset_class": "Internet Banking",
+  "status": "complete",
+  "scan_kind": "single",
+  "scanned_by": "admin",
+  "add_to_inventory": false,
+  "tls_results": [
+    {
+      "host": "142.250.193.142",
+      "port": 443,
+      "tls_version": "TLSv1.3",
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_256_GCM_SHA384",
+      "cipher_suites": [
+        "TLS_AES_256_GCM_SHA384"
+      ],
+      "cipher_bits": 256,
+      "key_exchange": "TLS1.3-ECDHE",
+      "certificate_chain_length": 0,
+      "issuer": {},
+      "subject": {},
+      "subject_cn": "invalid2.invalid",
+      "subject_o": "",
+      "subject_ou": "",
+      "issuer_cn": "invalid2.invalid",
+      "issuer_o": "",
+      "issuer_ou": "",
+      "serial_number": "",
+      "key_type": "RSA",
+      "key_size": 2048,
+      "key_length": 2048,
+      "public_key_type": "RSA",
+      "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzWJP5cMThJgMBeTvRKKl\n7N6ZcZAbKDVAtNBNnRhIgSitXxCzKtt9rp2RHkLn76oZjdNO25EPp+QgMiWU/rkk\nB00Y18Oahw5fi8s+K9dRv6i+gSOiv2jlIeW/S0hOswUUDH0JXFkEPKILzpl5ML7w\ndp5kt93vHxa7HswOtAxEz2WtxMdezm/3CgO3sls20wl3W03iI+kCt7HyvhGy2aRP\nLhJfeABpQr0Uku3q6mtomy2cgFawekN/X/aH8KknX799MPcuWutM2q88mtUEBsuZ\nmy2nsjK9J7/yhhCRDzOV/yY8c5+l/u/rWuwwkZ2lgzGp4xBBfhXdr6+m9kmwWCUm\n9QIDAQAB\n-----END PUBLIC KEY-----\n",
+      "signature_algorithm": "sha256WithRSAEncryption",
+      "cert_sha256": "D5129635A050F63DD607FFA9271EEFAAB597C0975809765DAD253973FC554D25",
+      "san_domains": [],
+      "certificate_details": {
+        "certificate_version": "Version.v3",
+        "serial_number": "90768918E93393A0",
+        "certificate_signature_algorithm": "sha256WithRSAEncryption",
+        "certificate_signature": "B9D9E2545CF561ED69F3B863ED035A9E2A81275A1B28334BFC2D7113FE4B657E1C53827980E6799F6AB345A9365AEDC9E04ACC11FC84EB7DCBC6946D9070D8CD45D8C8B6DD0F9D8401147D008E29B213B6E9C1B957C34D36C01D4B8D97F7B2AFBF2FF04822D77DF3EF3560C9D546D4A03400E48207E07AE6095BA71FB1302A6064BBB1F531F2770837B4FA3F2DF61B442A1FF8C6FC23764263D3BA15F6468EEC499FED2EC77483A2B6B7357FC5989FA2913093B0CB48156847DE1A326006A638EB884E93D91C3EF23F495F6EE9DC18312A010BB66166D8C518B17EAD954B182F8166C572692004B62913C883593DCA765BA8D7EE8F1DA0DA2E0D9269C398E86A",
+        "issuer": "CN=invalid2.invalid,OU=No SNI provided\\; please fix your client.",
+        "validity": {
+          "not_before": "",
+          "not_after": ""
+        },
+        "subject": "CN=invalid2.invalid,OU=No SNI provided\\; please fix your client.",
+        "subject_public_key_info": {
+          "subject_public_key_algorithm": "RSA",
+          "subject_public_key_bits": 2048,
+          "subject_public_key": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzWJP5cMThJgMBeTvRKKl\n7N6ZcZAbKDVAtNBNnRhIgSitXxCzKtt9rp2RHkLn76oZjdNO25EPp+QgMiWU/rkk\nB00Y18Oahw5fi8s+K9dRv6i+gSOiv2jlIeW/S0hOswUUDH0JXFkEPKILzpl5ML7w\ndp5kt93vHxa7HswOtAxEz2WtxMdezm/3CgO3sls20wl3W03iI+kCt7HyvhGy2aRP\nLhJfeABpQr0Uku3q6mtomy2cgFawekN/X/aH8KknX799MPcuWutM2q88mtUEBsuZ\nmy2nsjK9J7/yhhCRDzOV/yY8c5+l/u/rWuwwkZ2lgzGp4xBBfhXdr6+m9kmwWCUm\n9QIDAQAB\n-----END PUBLIC KEY-----\n",
+          "public_key_fingerprint_sha256": "8F88B8730004845FC114A6E4AA2F16656BABE1B32FAF6FC46E8BCCD24BB514D7"
+        },
+        "fingerprint_sha256": "D5129635A050F63DD607FFA9271EEFAAB597C0975809765DAD253973FC554D25",
+        "certificate_format": "X.509",
+        "extensions": [
+          "keyUsage",
+          "extendedKeyUsage",
+          "basicConstraints",
+          "subjectKeyIdentifier"
+        ],
+        "certificate_key_usage": [
+          "digital_signature",
+          "key_encipherment",
+          "key_cert_sign"
+        ],
+        "extended_key_usage": [
+          "serverAuth",
+          "clientAuth"
+        ],
+        "certificate_basic_constraints": {
+          "ca": true,
+          "path_length": null
+        },
+        "certificate_subject_key_id": "BB0F38966F3EBE4F2B46D0416AD4ACB5",
+        "certificate_authority_key_id": "",
+        "authority_information_access": [],
+        "certificate_subject_alternative_name": [],
+        "certificate_policies": [],
+        "crl_distribution_points": [],
+        "signed_certificate_timestamp_list": []
+      },
+      "valid_from": "",
+      "valid_to": "",
+      "valid_from_dt": null,
+      "valid_until_dt": null,
+      "cert_days_remaining": 0,
+      "cert_expired": false,
+      "cert_status": "Expiring",
+      "error": null
+    }
+  ],
+  "pqc_assessments": [
+    {
+      "host": "142.250.193.142",
+      "port": 443,
+      "is_quantum_safe": false,
+      "is_hybrid": false,
+      "overall_status": "quantum_vulnerable",
+      "risk_level": "HIGH",
+      "quantum_safe_algorithms": [],
+      "quantum_vulnerable_algorithms": [
+        {
+          "name": "TLS1.3-ECDHE",
+          "category": "key_exchange",
+          "status": "quantum_vulnerable",
+          "standard": "",
+          "is_nist_approved": false,
+          "is_draft": false,
+          "notes": "Uses ECDHE, which is vulnerable to Shor's algorithm."
+        }
+      ],
+      "details": "No quantum-safe algorithms detected.  This endpoint is vulnerable to future quantum attacks (Harvest Now, Decrypt Later)."
+    }
+  ],
+  "recommendations_detailed": [
+    {
+      "priority": 1,
+      "title": "Migrate to Post-Quantum Key Exchange",
+      "description": "Replace current key exchange mechanism with ML-KEM-768 (FIPS 203). Use hybrid X25519+ML-KEM-768 as a transitional step for backward compatibility.",
+      "server_configs": {
+        "Nginx (OpenSSL 3.5+)": "# Nginx — Enable TLS 1.3 with PQC-ready cipher suites\nssl_protocols TLSv1.3;\nssl_ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256;\nssl_prefer_server_ciphers off;\nssl_conf_command Groups X25519MLKEM768:X25519:secp384r1;",
+        "Apache (OpenSSL 3.5+)": "# Apache — Enable TLS 1.3\nSSLProtocol -all +TLSv1.3\nSSLCipherSuite TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nSSLOpenSSLConfCmd Groups X25519MLKEM768:X25519:secp384r1",
+        "HAProxy": "# HAProxy — TLS 1.3 with PQC groups\nbind *:443 ssl crt /etc/haproxy/certs/ alpn h2,http/1.1\nssl-default-bind-ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nssl-default-bind-options ssl-min-ver TLSv1.3\nssl-default-bind-curves X25519MLKEM768:X25519:secp384r1",
+        "AWS ALB": "# AWS ALB — Quantum-safe cipher policy\n# Use the 'ELBSecurityPolicy-TLS13-1-3-2021-06' or later policy\n# Enable X25519MLKEM768 group in the ALB listener configuration\n# Reference: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/"
+      },
+      "effort": "Medium",
+      "impact": "Critical",
+      "timeline": "2-4 weeks"
+    },
+    {
+      "priority": 4,
+      "title": "Implement Crypto Agility",
+      "description": "Design systems to easily swap cryptographic algorithms without major code changes. This ensures smooth future transitions as PQC standards evolve.",
+      "server_configs": {},
+      "effort": "Medium",
+      "impact": "Medium",
+      "timeline": "Ongoing"
+    },
+    {
+      "priority": 5,
+      "title": "Establish PQC Migration Timeline",
+      "description": "Create a phased migration plan aligned with NIST's 2035 deadline for deprecating quantum-vulnerable algorithms. Prioritize high-value endpoints handling financial data.",
+      "server_configs": {},
+      "effort": "Low",
+      "impact": "Critical",
+      "timeline": "Start immediately"
+    }
+  ],
+  "discovered_services": [
+    {
+      "host": "142.250.193.142",
+      "port": 80,
+      "service": "HTTP",
+      "is_tls": false,
+      "banner": "open (no TLS)"
+    },
+    {
+      "host": "142.250.193.142",
+      "port": 443,
+      "service": "HTTPS",
+      "is_tls": true,
+      "banner": "TLSv1.3"
+    }
+  ],
+  "dns_records": [
+    {
+      "hostname": "google.com",
+      "record_type": "A",
+      "record_value": "142.250.193.142",
+      "ttl": 300,
+      "resolved_at": "2026-04-02T05:40:20.552200+00:00"
+    },
+    {
+      "hostname": "google.com",
+      "record_type": "PTR",
+      "record_value": "tzdelb-at-in-f14.1e100.net",
+      "ttl": 300,
+      "resolved_at": "2026-04-02T05:40:20.552200+00:00"
+    }
+  ],
+  "asset_locations": [
+    {
+      "ip": "142.250.193.142",
+      "lat": 37.4056,
+      "lon": -122.0775,
+      "city": "Mountain View",
+      "region": "California",
+      "country": "United States"
+    }
+  ],
+  "cbom_path": "C:\\Users\\saura\\Downloads\\hf-proj\\molten-rocket-quantum_scanner\\scan_results\\aee5c15e_cbom.json"
+}

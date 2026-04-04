@@ -1,0 +1,24 @@
+<!-- AI Assistant Modal -->
+<div id="aiAssistantModal" class="modal" style="display:none;">
+  <div class="modal-content glass-card" role="dialog" aria-modal="true" aria-labelledby="aiAssistantTitle" style="max-width:800px; margin:2rem auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h2 id="aiAssistantTitle" style="margin:0; font-size:1.1rem; font-weight:800;">AI Assistant</h2>
+      <button id="aiAssistantModalClose" class="button secondary" aria-label="Close AI Assistant">Close</button>
+    </div>
+    <p style="color:var(--text-secondary); margin-top:0.5rem;">Ask about the CBOM inventory, weak crypto, or specific certificates. The assistant uses live data from the application.</p>
+    <div style="margin-top:1rem;">
+      <textarea id="aiQueryInput" rows="4" style="width:100%; font-family:inherit; padding:0.75rem; border:1px solid var(--border-subtle); border-radius:6px;" placeholder="e.g., Which assets use RSA < 2048 bits?"></textarea>
+    </div>
+    <div style="display:flex; gap:0.5rem; margin-top:0.75rem; align-items:center;">
+      <button id="aiSendBtn" class="button" style="font-weight:800;">Ask Assistant</button>
+      <span id="aiAssistantStatus" style="color:var(--text-muted); font-size:0.9rem;"></span>
+    </div>
+    <hr style="margin:0.75rem 0;" />
+    <div id="aiResponse" style="min-height:120px; white-space:pre-wrap; color:var(--text-primary);"></div>
+  </div>
+</div>
+
+<style>
+/* Small modal show/hide by toggling inline display via JS (keeps CSS minimal) */
+#aiAssistantModal.open { display: block !important; }
+</style>

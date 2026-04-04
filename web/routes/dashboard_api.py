@@ -18,6 +18,10 @@ from src.models import (
     CBOMSummary,
     Certificate,
     ComplianceScore,
+    DiscoveryDomain,
+    DiscoveryIP,
+    DiscoverySoftware,
+    DiscoverySSL,
     DigitalLabel,
     PQCClassification,
     Scan,
@@ -1155,28 +1159,68 @@ def api_cbom_alias():
 @api_guard
 def api_cbom_export():
     params = parse_paging_args(default_sort="asset_name")
-    cbom_data = CbomService.get_cbom_dashboard_data(
-        page=params["page"],
-        page_size=max(params["page_size"], 250),
+    export_page_size = max(params["page_size"], 250)
+    export_mode = str(request.args.get("mode", "x509") or "x509").strip().lower()
+
+    selected_keys = set()
+    raw_selected_keys = request.args.getlist("selected_keys")
+    if not raw_selected_keys:
+        single_key = str(request.args.get("row_key", "") or "").strip()
+        if single_key:
+            raw_selected_keys = [single_key]
+    for chunk in raw_selected_keys:
+        for key in str(chunk or "").split(","):
+            key_text = key.strip()
+            if key_text:
+                selected_keys.add(key_text)
+
+    first_page_data = CbomService.get_cbom_dashboard_data(
+        page=1,
+        page_size=export_page_size,
         sort_field=params["sort"],
         sort_order=params["order"],
         search_term=params["search"],
     )
+    export_items = list(first_page_data.get("applications", []) or [])
+    page_info = first_page_data.get("page_data", {}) or {}
+    total_pages = int(page_info.get("total_pages", 1) or 1)
+
+    if total_pages > 1:
+        for page_no in range(2, total_pages + 1):
+            next_page_data = CbomService.get_cbom_dashboard_data(
+                page=page_no,
+                page_size=export_page_size,
+                sort_field=params["sort"],
+                sort_order=params["order"],
+                search_term=params["search"],
+            )
+            export_items.extend(next_page_data.get("applications", []) or [])
+
+    if selected_keys:
+        export_items = [
+            item
+            for item in export_items
+            if str((item or {}).get("row_key", "") or "").strip() in selected_keys
+        ]
 
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "kpis": cbom_data.get("kpis", {}),
-        "entries": cbom_data.get("applications", []),
+        "export_format": "cbom-x509-json" if export_mode == "x509" else "cbom-json",
+        "mode": export_mode,
+        "selected_count": len(selected_keys),
+        "kpis": first_page_data.get("kpis", {}),
+        "entries": export_items,
         "charts": {
-            "key_length_distribution": cbom_data.get("key_length_distribution", {}),
-            "cipher_usage": cbom_data.get("cipher_usage", {}) or cbom_data.get("cipher_suite_usage", {}),
-            "protocols": cbom_data.get("protocols", {}) or cbom_data.get("protocol_distribution", {}),
-            "top_cas": cbom_data.get("top_cas", {}) or cbom_data.get("ca_distribution", {}),
+            "key_length_distribution": first_page_data.get("key_length_distribution", {}),
+            "cipher_usage": first_page_data.get("cipher_usage", {}) or first_page_data.get("cipher_suite_usage", {}),
+            "protocols": first_page_data.get("protocols", {}) or first_page_data.get("protocol_distribution", {}),
+            "top_cas": first_page_data.get("top_cas", {}) or first_page_data.get("ca_distribution", {}),
         },
-        "minimum_elements": cbom_data.get("minimum_elements", {}),
+        "minimum_elements": first_page_data.get("minimum_elements", {}),
     }
     response = Response(json.dumps(payload, default=str), mimetype="application/json")
-    response.headers["Content-Disposition"] = "attachment; filename=cbom_export.json"
+    file_suffix = "x509" if export_mode == "x509" else "cbom"
+    response.headers["Content-Disposition"] = f"attachment; filename=cbom_{file_suffix}_export.json"
     return response
 
 
@@ -1606,6 +1650,78 @@ def api_reports_ondemand_detail(scan_id: str):
 @api_guard
 def api_reports_alias():
     return api_reports_scheduled()
+
+
+@api_dashboards_bp.route("/api/reports/cleanup-stale", methods=["POST"])
+@login_required
+@api_guard
+def api_reports_cleanup_stale():
+    from flask_login import current_user
+
+    user_role = str(getattr(current_user, "role", "") or "").strip().title()
+    if user_role not in {"Admin", "Manager"}:
+        return error_response("Only Admin/Manager can clear stale entries.", 403)
+
+    now_utc = datetime.now(timezone.utc)
+    cleaned = 0
+    by_table: dict[str, int] = {}
+
+    stale_configs = [
+        (DiscoveryDomain, "domain", ["", "--"]),
+        (DiscoverySSL, "endpoint", ["", "--"]),
+        (DiscoveryIP, "ip_address", ["", "--"]),
+        (DiscoverySoftware, "product", ["", "--"]),
+    ]
+
+    try:
+        for model, key_field, empty_values in stale_configs:
+            field_col = getattr(model, key_field)
+            query = (
+                db_session.query(model)
+                .outerjoin(Asset, model.asset_id == Asset.id)
+                .outerjoin(Scan, model.scan_id == Scan.id)
+                .filter(model.is_deleted == False)
+                .filter(
+                    or_(
+                        model.asset_id.is_(None),
+                        Asset.id.is_(None),
+                        Asset.is_deleted == True,
+                        model.scan_id.is_(None),
+                        Scan.id.is_(None),
+                        Scan.is_deleted == True,
+                    )
+                )
+                .filter(
+                    or_(
+                        field_col.is_(None),
+                        func.trim(field_col) == "",
+                        field_col.in_(empty_values),
+                    )
+                )
+            )
+
+            rows = query.all()
+            table_count = 0
+            for row in rows:
+                row.is_deleted = True
+                row.deleted_at = now_utc
+                table_count += 1
+            if table_count:
+                by_table[getattr(model, "__tablename__", str(model))] = table_count
+                cleaned += table_count
+
+        db_session.commit()
+    except Exception as exc:
+        db_session.rollback()
+        return error_response(f"Failed to clear stale entries: {exc}", 500)
+
+    data = build_data_envelope(
+        items=[{"cleaned": int(cleaned), "tables": by_table, "scope": "discovery"}],
+        total=1,
+        params={"page": 1, "page_size": 1},
+        kpis={"cleaned": int(cleaned)},
+    )
+    return success_response(data, filters={"scope": "discovery"})
 
 
 @api_dashboards_bp.route("/api/admin/api-keys", methods=["POST"])

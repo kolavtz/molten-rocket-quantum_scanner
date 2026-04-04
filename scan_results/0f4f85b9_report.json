@@ -1,0 +1,541 @@
+{
+  "report_id": "urn:uuid:009cd8df-89bc-40d6-8878-915a2c6018d0",
+  "generated_at": "2026-03-31T08:38:42.404846+00:00",
+  "tool": {
+    "name": "Quantum-Safe TLS Scanner",
+    "version": "1.0.0"
+  },
+  "overview": {
+    "total_assets": 2,
+    "quantum_safe": 0,
+    "quantum_vulnerable": 2,
+    "average_compliance_score": 33
+  },
+  "severity_breakdown": {
+    "CRITICAL": 2,
+    "HIGH": 0,
+    "MEDIUM": 0,
+    "LOW": 0,
+    "INFO": 2
+  },
+  "risk_distribution": {
+    "HIGH": 2,
+    "MEDIUM": 0,
+    "LOW": 0
+  },
+  "label_distribution": {
+    "PQC Ready": 0,
+    "Partial": 0,
+    "Non-Compliant": 2
+  },
+  "top_recommendations": [
+    "Quantum-vulnerable key exchange: migrate from TLS1.3-ECDHE to ML-KEM-768 or ML-KEM-1024",
+    "Enable TLS 1.3 and configure PQC key exchange (ML-KEM-768) on your server.",
+    "Obtain a PQC-signed certificate using ML-DSA or SLH-DSA from a supporting CA.",
+    "Consider hybrid key exchange (X25519+ML-KEM-768) as a transitional step."
+  ],
+  "findings": [
+    {
+      "severity": "CRITICAL",
+      "category": "key_exchange",
+      "title": "Quantum-vulnerable key exchange",
+      "description": "Key exchange 'TLS1.3-ECDHE' is vulnerable to Shor's algorithm. A sufficiently powerful quantum computer could break this.",
+      "current_value": "TLS1.3-ECDHE",
+      "recommended_value": "ML-KEM-768 or ML-KEM-1024",
+      "nist_reference": "FIPS 203 (ML-KEM)"
+    },
+    {
+      "severity": "INFO",
+      "category": "protocol",
+      "title": "TLS 1.3 in use",
+      "description": "TLS 1.3 is the recommended version and required for PQC cipher suites.",
+      "current_value": "TLSv1.3",
+      "recommended_value": "",
+      "nist_reference": ""
+    },
+    {
+      "severity": "CRITICAL",
+      "category": "key_exchange",
+      "title": "Quantum-vulnerable key exchange",
+      "description": "Key exchange 'TLS1.3-ECDHE' is vulnerable to Shor's algorithm. A sufficiently powerful quantum computer could break this.",
+      "current_value": "TLS1.3-ECDHE",
+      "recommended_value": "ML-KEM-768 or ML-KEM-1024",
+      "nist_reference": "FIPS 203 (ML-KEM)"
+    },
+    {
+      "severity": "INFO",
+      "category": "protocol",
+      "title": "TLS 1.3 in use",
+      "description": "TLS 1.3 is the recommended version and required for PQC cipher suites.",
+      "current_value": "TLSv1.3",
+      "recommended_value": "",
+      "nist_reference": ""
+    }
+  ],
+  "labels": [
+    {
+      "label_id": "b6899ed0-61b6-49db-a6a1-4841b1743380",
+      "host": "103.109.224.142",
+      "port": 443,
+      "label": "Non-Compliant",
+      "compliance_score": 33,
+      "standard": "FIPS 203 (ML-KEM)",
+      "issued_at": "2026-03-31T08:38:42.404798+00:00",
+      "valid_until": "2026-04-30T08:38:42.404777+00:00",
+      "issuer": "Quantum-Safe TLS Scanner",
+      "issuer_version": "1.0.0",
+      "details": {
+        "critical_findings": 1,
+        "high_findings": 0,
+        "hndl_risk_level": "HIGH",
+        "recommendations_count": 4
+      },
+      "badge_color": "#ef4444",
+      "checksum": "bd20499c54c24fd31d2fca744c728e3188c8d1fc83254f92b41e99aaef2ec7dc"
+    },
+    {
+      "label_id": "bf17f5cf-ad83-477a-b8ed-a6784cb0f811",
+      "host": "103.109.225.142",
+      "port": 443,
+      "label": "Non-Compliant",
+      "compliance_score": 33,
+      "standard": "FIPS 203 (ML-KEM)",
+      "issued_at": "2026-03-31T08:38:42.404818+00:00",
+      "valid_until": "2026-04-30T08:38:42.404812+00:00",
+      "issuer": "Quantum-Safe TLS Scanner",
+      "issuer_version": "1.0.0",
+      "details": {
+        "critical_findings": 1,
+        "high_findings": 0,
+        "hndl_risk_level": "HIGH",
+        "recommendations_count": 4
+      },
+      "badge_color": "#ef4444",
+      "checksum": "f3938f39fd95080eb3ff1b537575ff4c72ce5529061eca98dfec76f2cf8b48f0"
+    }
+  ],
+  "assets": [
+    {
+      "asset_id": "083db4bc-254c-49e0-b455-b9080c0ad491",
+      "host": "103.109.224.142",
+      "port": 443,
+      "service": "TLS-443",
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_128_GCM_SHA256",
+      "cipher_bits": 128,
+      "key_exchange": "TLS1.3-ECDHE",
+      "cert_subject": "",
+      "cert_issuer": "",
+      "cert_serial": "",
+      "cert_not_before": "",
+      "cert_not_after": "",
+      "cert_signature_algorithm": "",
+      "cert_public_key_type": "",
+      "cert_public_key_bits": 0,
+      "cert_fingerprint": "",
+      "cert_is_expired": false,
+      "cert_days_until_expiry": 0,
+      "is_quantum_safe": false,
+      "pqc_status": "quantum_vulnerable",
+      "risk_level": "HIGH"
+    },
+    {
+      "asset_id": "51ad537f-876f-48e8-beac-fc32f71ffee3",
+      "host": "103.109.225.142",
+      "port": 443,
+      "service": "TLS-443",
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_128_GCM_SHA256",
+      "cipher_bits": 128,
+      "key_exchange": "TLS1.3-ECDHE",
+      "cert_subject": "",
+      "cert_issuer": "",
+      "cert_serial": "",
+      "cert_not_before": "",
+      "cert_not_after": "",
+      "cert_signature_algorithm": "",
+      "cert_public_key_type": "",
+      "cert_public_key_bits": 0,
+      "cert_fingerprint": "",
+      "cert_is_expired": false,
+      "cert_days_until_expiry": 0,
+      "is_quantum_safe": false,
+      "pqc_status": "quantum_vulnerable",
+      "risk_level": "HIGH"
+    }
+  ],
+  "scan_id": "0f4f85b9",
+  "target": "pnbnet.pnb.bank.in",
+  "asset_class": "Internet Banking",
+  "status": "complete",
+  "scan_kind": "asset_inventory",
+  "scanned_by": "admin",
+  "add_to_inventory": true,
+  "tls_results": [
+    {
+      "host": "103.109.224.142",
+      "port": 443,
+      "tls_version": "TLSv1.3",
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_128_GCM_SHA256",
+      "cipher_suites": [
+        "TLS_AES_128_GCM_SHA256"
+      ],
+      "cipher_bits": 128,
+      "key_exchange": "TLS1.3-ECDHE",
+      "certificate_chain_length": 0,
+      "issuer": {},
+      "subject": {},
+      "subject_cn": "pnbnet.pnb.bank.in",
+      "subject_o": "Punjab National Bank",
+      "subject_ou": "",
+      "issuer_cn": "GeoTrust EV RSA CA G2",
+      "issuer_o": "DigiCert Inc",
+      "issuer_ou": "",
+      "serial_number": "",
+      "key_type": "RSA",
+      "key_size": 2048,
+      "key_length": 2048,
+      "public_key_type": "RSA",
+      "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAibB/+uv6S43wtRPkWwWf\nmX9/VLZvSHVna96YVSBHKI49q5YpKg613a0h9MMVFi443LkU3IQjqL3Qf166UrJO\n0V07+3Rm4FE2/uNQwTIuz6DXfL7oi+9Q4HK0sllnI4LfPPdQFLUB8RdbfmMlYWIW\ntpxFzhP8/AWXXmjLfYg8tYPsjtdDKc6eH/S78G8BNcgj3aF0qj8knf7aWGufFGEr\nNdanTVDubu+BaxoTn7AitRnttr43ji8enXe3KFwyqwrvm8lHHZOq1XgUc3cuABJA\nfN7bthHphFJCUpg1Th5gdFQnsJhd6ewXwEDbk2AlICSwB/RfkxXk8lkJaTwKfX7l\nmQIDAQAB\n-----END PUBLIC KEY-----\n",
+      "signature_algorithm": "sha256WithRSAEncryption",
+      "cert_sha256": "01C99D5D91E82879089D8B4BF6DDF4AB2A628CA31B81AC4ED07680402E07B2B7",
+      "san_domains": [],
+      "certificate_details": {
+        "certificate_version": "Version.v3",
+        "serial_number": "42D79455BB2590C2289644DB3B9D7CB",
+        "certificate_signature_algorithm": "sha256WithRSAEncryption",
+        "certificate_signature": "7089CDF0A10C8C23D603B13A24931BCBA4017470BE7EC20848E5C285564EA9809248575D95F88326C29C86A07FB2AD955B3989DC23B18FABD1D5B84B9F9B795D9FAC50F118E5DAFA3ED1E2BE5FC50EE7C204FEE8D1CDB9D489982F607425030FFED76FDCECD29B20B008272E230E02C76AB7DA12F8E5B54DD3D5B7F25265449909CC9B34EF5811F9FB7D9E1A612A8CCFE3871F91100E03B6326FD0444EB668DD9A7E1DA8E7722A060F0FBA85F9B85A019E36D652676CD8A84944922645A42119D9C75FCBF70DB73F796F6A64C4EBB70BFEB9C7D3DE3EB39C04FF36BE67A71DF91D56D624F9B2E4D13E78AB9C27C2F4A7023AE95EB6442AB7AC4DEA6AE5E425A5",
+        "issuer": "CN=GeoTrust EV RSA CA G2,O=DigiCert Inc,C=US",
+        "validity": {
+          "not_before": "",
+          "not_after": ""
+        },
+        "subject": "CN=pnbnet.pnb.bank.in,O=Punjab National Bank,L=Dwarka,ST=Delhi,C=IN,2.5.4.5=Government Entity,2.5.4.15=Government Entity,1.3.6.1.4.1.311.60.2.1.3=IN",
+        "subject_public_key_info": {
+          "subject_public_key_algorithm": "RSA",
+          "subject_public_key_bits": 2048,
+          "subject_public_key": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAibB/+uv6S43wtRPkWwWf\nmX9/VLZvSHVna96YVSBHKI49q5YpKg613a0h9MMVFi443LkU3IQjqL3Qf166UrJO\n0V07+3Rm4FE2/uNQwTIuz6DXfL7oi+9Q4HK0sllnI4LfPPdQFLUB8RdbfmMlYWIW\ntpxFzhP8/AWXXmjLfYg8tYPsjtdDKc6eH/S78G8BNcgj3aF0qj8knf7aWGufFGEr\nNdanTVDubu+BaxoTn7AitRnttr43ji8enXe3KFwyqwrvm8lHHZOq1XgUc3cuABJA\nfN7bthHphFJCUpg1Th5gdFQnsJhd6ewXwEDbk2AlICSwB/RfkxXk8lkJaTwKfX7l\nmQIDAQAB\n-----END PUBLIC KEY-----\n",
+          "public_key_fingerprint_sha256": "EC86B9E7E9BAE29FCE93F5D46175BE8C0FDE6EC53E31F7B4330F16222CDE53F8"
+        },
+        "fingerprint_sha256": "01C99D5D91E82879089D8B4BF6DDF4AB2A628CA31B81AC4ED07680402E07B2B7",
+        "certificate_format": "X.509",
+        "extensions": [
+          "authorityKeyIdentifier",
+          "subjectKeyIdentifier",
+          "subjectAltName",
+          "certificatePolicies",
+          "keyUsage",
+          "extendedKeyUsage",
+          "cRLDistributionPoints",
+          "authorityInfoAccess",
+          "basicConstraints",
+          "signedCertificateTimestampList"
+        ],
+        "certificate_key_usage": [
+          "digital_signature",
+          "key_encipherment"
+        ],
+        "extended_key_usage": [
+          "serverAuth",
+          "clientAuth"
+        ],
+        "certificate_basic_constraints": {
+          "ca": false,
+          "path_length": null
+        },
+        "certificate_subject_key_id": "6A4283DD7BC04A3B162D9762B2223D4FE798D767",
+        "certificate_authority_key_id": "28D2CFEE098475DDB5B2B5BF3CD5A0C673885D1F",
+        "authority_information_access": [
+          "ocsp:http://ocsp.digicert.com",
+          "caIssuers:http://cacerts.digicert.com/GeoTrustEVRSACAG2.crt"
+        ],
+        "certificate_subject_alternative_name": [],
+        "certificate_policies": [
+          "2.16.840.1.114412.2.1",
+          "2.23.140.1.1"
+        ],
+        "crl_distribution_points": [
+          "http://crl3.digicert.com/GeoTrustEVRSACAG2.crl",
+          "http://crl4.digicert.com/GeoTrustEVRSACAG2.crl"
+        ],
+        "signed_certificate_timestamp_list": [
+          "log_id=D76D7D10D1A7F577C2C7E95FD700BFF982C9335A65E1D0B3017317C0C8C56977; timestamp=2025-07-22 12:26:28.906000",
+          "log_id=C2317E574519A345EE7F38DEB29041EBC7C2215A22BF7FD5B5AD769AD90E52CD; timestamp=2025-07-22 12:26:28.952000",
+          "log_id=944E4387FAECC1EF81F3192426A8186501C7D35F3802013F72677D55372E19D8; timestamp=2025-07-22 12:26:28.973000"
+        ]
+      },
+      "valid_from": "",
+      "valid_to": "",
+      "valid_from_dt": null,
+      "valid_until_dt": null,
+      "cert_days_remaining": 0,
+      "cert_expired": false,
+      "cert_status": "Expiring",
+      "error": null
+    },
+    {
+      "host": "103.109.225.142",
+      "port": 443,
+      "tls_version": "TLSv1.3",
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_128_GCM_SHA256",
+      "cipher_suites": [
+        "TLS_AES_128_GCM_SHA256"
+      ],
+      "cipher_bits": 128,
+      "key_exchange": "TLS1.3-ECDHE",
+      "certificate_chain_length": 0,
+      "issuer": {},
+      "subject": {},
+      "subject_cn": "pnbnet.pnb.bank.in",
+      "subject_o": "Punjab National Bank",
+      "subject_ou": "",
+      "issuer_cn": "GeoTrust EV RSA CA G2",
+      "issuer_o": "DigiCert Inc",
+      "issuer_ou": "",
+      "serial_number": "",
+      "key_type": "RSA",
+      "key_size": 2048,
+      "key_length": 2048,
+      "public_key_type": "RSA",
+      "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAibB/+uv6S43wtRPkWwWf\nmX9/VLZvSHVna96YVSBHKI49q5YpKg613a0h9MMVFi443LkU3IQjqL3Qf166UrJO\n0V07+3Rm4FE2/uNQwTIuz6DXfL7oi+9Q4HK0sllnI4LfPPdQFLUB8RdbfmMlYWIW\ntpxFzhP8/AWXXmjLfYg8tYPsjtdDKc6eH/S78G8BNcgj3aF0qj8knf7aWGufFGEr\nNdanTVDubu+BaxoTn7AitRnttr43ji8enXe3KFwyqwrvm8lHHZOq1XgUc3cuABJA\nfN7bthHphFJCUpg1Th5gdFQnsJhd6ewXwEDbk2AlICSwB/RfkxXk8lkJaTwKfX7l\nmQIDAQAB\n-----END PUBLIC KEY-----\n",
+      "signature_algorithm": "sha256WithRSAEncryption",
+      "cert_sha256": "01C99D5D91E82879089D8B4BF6DDF4AB2A628CA31B81AC4ED07680402E07B2B7",
+      "san_domains": [],
+      "certificate_details": {
+        "certificate_version": "Version.v3",
+        "serial_number": "42D79455BB2590C2289644DB3B9D7CB",
+        "certificate_signature_algorithm": "sha256WithRSAEncryption",
+        "certificate_signature": "7089CDF0A10C8C23D603B13A24931BCBA4017470BE7EC20848E5C285564EA9809248575D95F88326C29C86A07FB2AD955B3989DC23B18FABD1D5B84B9F9B795D9FAC50F118E5DAFA3ED1E2BE5FC50EE7C204FEE8D1CDB9D489982F607425030FFED76FDCECD29B20B008272E230E02C76AB7DA12F8E5B54DD3D5B7F25265449909CC9B34EF5811F9FB7D9E1A612A8CCFE3871F91100E03B6326FD0444EB668DD9A7E1DA8E7722A060F0FBA85F9B85A019E36D652676CD8A84944922645A42119D9C75FCBF70DB73F796F6A64C4EBB70BFEB9C7D3DE3EB39C04FF36BE67A71DF91D56D624F9B2E4D13E78AB9C27C2F4A7023AE95EB6442AB7AC4DEA6AE5E425A5",
+        "issuer": "CN=GeoTrust EV RSA CA G2,O=DigiCert Inc,C=US",
+        "validity": {
+          "not_before": "",
+          "not_after": ""
+        },
+        "subject": "CN=pnbnet.pnb.bank.in,O=Punjab National Bank,L=Dwarka,ST=Delhi,C=IN,2.5.4.5=Government Entity,2.5.4.15=Government Entity,1.3.6.1.4.1.311.60.2.1.3=IN",
+        "subject_public_key_info": {
+          "subject_public_key_algorithm": "RSA",
+          "subject_public_key_bits": 2048,
+          "subject_public_key": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAibB/+uv6S43wtRPkWwWf\nmX9/VLZvSHVna96YVSBHKI49q5YpKg613a0h9MMVFi443LkU3IQjqL3Qf166UrJO\n0V07+3Rm4FE2/uNQwTIuz6DXfL7oi+9Q4HK0sllnI4LfPPdQFLUB8RdbfmMlYWIW\ntpxFzhP8/AWXXmjLfYg8tYPsjtdDKc6eH/S78G8BNcgj3aF0qj8knf7aWGufFGEr\nNdanTVDubu+BaxoTn7AitRnttr43ji8enXe3KFwyqwrvm8lHHZOq1XgUc3cuABJA\nfN7bthHphFJCUpg1Th5gdFQnsJhd6ewXwEDbk2AlICSwB/RfkxXk8lkJaTwKfX7l\nmQIDAQAB\n-----END PUBLIC KEY-----\n",
+          "public_key_fingerprint_sha256": "EC86B9E7E9BAE29FCE93F5D46175BE8C0FDE6EC53E31F7B4330F16222CDE53F8"
+        },
+        "fingerprint_sha256": "01C99D5D91E82879089D8B4BF6DDF4AB2A628CA31B81AC4ED07680402E07B2B7",
+        "certificate_format": "X.509",
+        "extensions": [
+          "authorityKeyIdentifier",
+          "subjectKeyIdentifier",
+          "subjectAltName",
+          "certificatePolicies",
+          "keyUsage",
+          "extendedKeyUsage",
+          "cRLDistributionPoints",
+          "authorityInfoAccess",
+          "basicConstraints",
+          "signedCertificateTimestampList"
+        ],
+        "certificate_key_usage": [
+          "digital_signature",
+          "key_encipherment"
+        ],
+        "extended_key_usage": [
+          "serverAuth",
+          "clientAuth"
+        ],
+        "certificate_basic_constraints": {
+          "ca": false,
+          "path_length": null
+        },
+        "certificate_subject_key_id": "6A4283DD7BC04A3B162D9762B2223D4FE798D767",
+        "certificate_authority_key_id": "28D2CFEE098475DDB5B2B5BF3CD5A0C673885D1F",
+        "authority_information_access": [
+          "ocsp:http://ocsp.digicert.com",
+          "caIssuers:http://cacerts.digicert.com/GeoTrustEVRSACAG2.crt"
+        ],
+        "certificate_subject_alternative_name": [],
+        "certificate_policies": [
+          "2.16.840.1.114412.2.1",
+          "2.23.140.1.1"
+        ],
+        "crl_distribution_points": [
+          "http://crl3.digicert.com/GeoTrustEVRSACAG2.crl",
+          "http://crl4.digicert.com/GeoTrustEVRSACAG2.crl"
+        ],
+        "signed_certificate_timestamp_list": [
+          "log_id=D76D7D10D1A7F577C2C7E95FD700BFF982C9335A65E1D0B3017317C0C8C56977; timestamp=2025-07-22 12:26:28.906000",
+          "log_id=C2317E574519A345EE7F38DEB29041EBC7C2215A22BF7FD5B5AD769AD90E52CD; timestamp=2025-07-22 12:26:28.952000",
+          "log_id=944E4387FAECC1EF81F3192426A8186501C7D35F3802013F72677D55372E19D8; timestamp=2025-07-22 12:26:28.973000"
+        ]
+      },
+      "valid_from": "",
+      "valid_to": "",
+      "valid_from_dt": null,
+      "valid_until_dt": null,
+      "cert_days_remaining": 0,
+      "cert_expired": false,
+      "cert_status": "Expiring",
+      "error": null
+    }
+  ],
+  "pqc_assessments": [
+    {
+      "host": "103.109.224.142",
+      "port": 443,
+      "is_quantum_safe": false,
+      "is_hybrid": false,
+      "overall_status": "quantum_vulnerable",
+      "risk_level": "HIGH",
+      "quantum_safe_algorithms": [],
+      "quantum_vulnerable_algorithms": [
+        {
+          "name": "TLS1.3-ECDHE",
+          "category": "key_exchange",
+          "status": "quantum_vulnerable",
+          "standard": "",
+          "is_nist_approved": false,
+          "is_draft": false,
+          "notes": "Uses ECDH, which is vulnerable to Shor's algorithm."
+        }
+      ],
+      "details": "No quantum-safe algorithms detected.  This endpoint is vulnerable to future quantum attacks (Harvest Now, Decrypt Later)."
+    },
+    {
+      "host": "103.109.225.142",
+      "port": 443,
+      "is_quantum_safe": false,
+      "is_hybrid": false,
+      "overall_status": "quantum_vulnerable",
+      "risk_level": "HIGH",
+      "quantum_safe_algorithms": [],
+      "quantum_vulnerable_algorithms": [
+        {
+          "name": "TLS1.3-ECDHE",
+          "category": "key_exchange",
+          "status": "quantum_vulnerable",
+          "standard": "",
+          "is_nist_approved": false,
+          "is_draft": false,
+          "notes": "Uses ECDH, which is vulnerable to Shor's algorithm."
+        }
+      ],
+      "details": "No quantum-safe algorithms detected.  This endpoint is vulnerable to future quantum attacks (Harvest Now, Decrypt Later)."
+    }
+  ],
+  "recommendations_detailed": [
+    {
+      "priority": 1,
+      "title": "Migrate to Post-Quantum Key Exchange",
+      "description": "Replace current key exchange mechanism with ML-KEM-768 (FIPS 203). Use hybrid X25519+ML-KEM-768 as a transitional step for backward compatibility.",
+      "server_configs": {
+        "Nginx (OpenSSL 3.5+)": "# Nginx — Enable TLS 1.3 with PQC-ready cipher suites\nssl_protocols TLSv1.3;\nssl_ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256;\nssl_prefer_server_ciphers off;\nssl_conf_command Groups X25519MLKEM768:X25519:secp384r1;",
+        "Apache (OpenSSL 3.5+)": "# Apache — Enable TLS 1.3\nSSLProtocol -all +TLSv1.3\nSSLCipherSuite TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nSSLOpenSSLConfCmd Groups X25519MLKEM768:X25519:secp384r1",
+        "HAProxy": "# HAProxy — TLS 1.3 with PQC groups\nbind *:443 ssl crt /etc/haproxy/certs/ alpn h2,http/1.1\nssl-default-bind-ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nssl-default-bind-options ssl-min-ver TLSv1.3\nssl-default-bind-curves X25519MLKEM768:X25519:secp384r1",
+        "AWS ALB": "# AWS ALB — Quantum-safe cipher policy\n# Use the 'ELBSecurityPolicy-TLS13-1-3-2021-06' or later policy\n# Enable X25519MLKEM768 group in the ALB listener configuration\n# Reference: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/"
+      },
+      "effort": "Medium",
+      "impact": "Critical",
+      "timeline": "2-4 weeks"
+    },
+    {
+      "priority": 4,
+      "title": "Implement Crypto Agility",
+      "description": "Design systems to easily swap cryptographic algorithms without major code changes. This ensures smooth future transitions as PQC standards evolve.",
+      "server_configs": {},
+      "effort": "Medium",
+      "impact": "Medium",
+      "timeline": "Ongoing"
+    },
+    {
+      "priority": 5,
+      "title": "Establish PQC Migration Timeline",
+      "description": "Create a phased migration plan aligned with NIST's 2035 deadline for deprecating quantum-vulnerable algorithms. Prioritize high-value endpoints handling financial data.",
+      "server_configs": {},
+      "effort": "Low",
+      "impact": "Critical",
+      "timeline": "Start immediately"
+    },
+    {
+      "priority": 1,
+      "title": "Migrate to Post-Quantum Key Exchange",
+      "description": "Replace current key exchange mechanism with ML-KEM-768 (FIPS 203). Use hybrid X25519+ML-KEM-768 as a transitional step for backward compatibility.",
+      "server_configs": {
+        "Nginx (OpenSSL 3.5+)": "# Nginx — Enable TLS 1.3 with PQC-ready cipher suites\nssl_protocols TLSv1.3;\nssl_ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256;\nssl_prefer_server_ciphers off;\nssl_conf_command Groups X25519MLKEM768:X25519:secp384r1;",
+        "Apache (OpenSSL 3.5+)": "# Apache — Enable TLS 1.3\nSSLProtocol -all +TLSv1.3\nSSLCipherSuite TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nSSLOpenSSLConfCmd Groups X25519MLKEM768:X25519:secp384r1",
+        "HAProxy": "# HAProxy — TLS 1.3 with PQC groups\nbind *:443 ssl crt /etc/haproxy/certs/ alpn h2,http/1.1\nssl-default-bind-ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nssl-default-bind-options ssl-min-ver TLSv1.3\nssl-default-bind-curves X25519MLKEM768:X25519:secp384r1",
+        "AWS ALB": "# AWS ALB — Quantum-safe cipher policy\n# Use the 'ELBSecurityPolicy-TLS13-1-3-2021-06' or later policy\n# Enable X25519MLKEM768 group in the ALB listener configuration\n# Reference: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/"
+      },
+      "effort": "Medium",
+      "impact": "Critical",
+      "timeline": "2-4 weeks"
+    },
+    {
+      "priority": 4,
+      "title": "Implement Crypto Agility",
+      "description": "Design systems to easily swap cryptographic algorithms without major code changes. This ensures smooth future transitions as PQC standards evolve.",
+      "server_configs": {},
+      "effort": "Medium",
+      "impact": "Medium",
+      "timeline": "Ongoing"
+    },
+    {
+      "priority": 5,
+      "title": "Establish PQC Migration Timeline",
+      "description": "Create a phased migration plan aligned with NIST's 2035 deadline for deprecating quantum-vulnerable algorithms. Prioritize high-value endpoints handling financial data.",
+      "server_configs": {},
+      "effort": "Low",
+      "impact": "Critical",
+      "timeline": "Start immediately"
+    }
+  ],
+  "discovered_services": [
+    {
+      "host": "103.109.224.142",
+      "port": 443,
+      "service": "HTTPS",
+      "is_tls": true,
+      "banner": "TLSv1.3"
+    },
+    {
+      "host": "103.109.225.142",
+      "port": 443,
+      "service": "HTTPS",
+      "is_tls": true,
+      "banner": "TLSv1.3"
+    }
+  ],
+  "dns_records": [
+    {
+      "hostname": "pnbnet.pnb.bank.in",
+      "record_type": "A",
+      "record_value": "103.109.224.142",
+      "ttl": 300,
+      "resolved_at": "2026-03-31T08:38:34.569468+00:00"
+    },
+    {
+      "hostname": "pnbnet.pnb.bank.in",
+      "record_type": "A",
+      "record_value": "103.109.225.142",
+      "ttl": 300,
+      "resolved_at": "2026-03-31T08:38:34.569468+00:00"
+    }
+  ],
+  "asset_locations": [
+    {
+      "ip": "103.109.224.142",
+      "lat": 28.6327,
+      "lon": 77.2198,
+      "city": "New Delhi",
+      "region": "National Capital Territory of Delhi",
+      "country": "India"
+    },
+    {
+      "ip": "103.109.225.142",
+      "lat": 28.6327,
+      "lon": 77.2198,
+      "city": "New Delhi",
+      "region": "National Capital Territory of Delhi",
+      "country": "India"
+    }
+  ],
+  "cbom_path": "C:\\Users\\saura\\Downloads\\hf-proj\\molten-rocket-quantum_scanner\\scan_results\\0f4f85b9_cbom.json"
+}

@@ -1,0 +1,310 @@
+{
+  "report_id": "urn:uuid:9f709266-bb17-4b4e-b0fe-3e3cd3e4e000",
+  "generated_at": "2026-04-02T05:44:31.570572+00:00",
+  "tool": {
+    "name": "Quantum-Safe TLS Scanner",
+    "version": "1.0.0"
+  },
+  "overview": {
+    "total_assets": 1,
+    "quantum_safe": 0,
+    "quantum_vulnerable": 1,
+    "average_compliance_score": 33
+  },
+  "severity_breakdown": {
+    "CRITICAL": 1,
+    "HIGH": 0,
+    "MEDIUM": 0,
+    "LOW": 0,
+    "INFO": 1
+  },
+  "risk_distribution": {
+    "HIGH": 1,
+    "MEDIUM": 0,
+    "LOW": 0
+  },
+  "label_distribution": {
+    "PQC Ready": 0,
+    "Partial": 0,
+    "Non-Compliant": 1
+  },
+  "top_recommendations": [
+    "Quantum-vulnerable key exchange: migrate from TLS1.3-ECDHE to ML-KEM-768 or ML-KEM-1024",
+    "Enable TLS 1.3 and configure PQC key exchange (ML-KEM-768) on your server.",
+    "Obtain a PQC-signed certificate using ML-DSA or SLH-DSA from a supporting CA.",
+    "Consider hybrid key exchange (X25519+ML-KEM-768) as a transitional step."
+  ],
+  "findings": [
+    {
+      "severity": "CRITICAL",
+      "category": "key_exchange",
+      "title": "Quantum-vulnerable key exchange",
+      "description": "Key exchange 'TLS1.3-ECDHE' is vulnerable to Shor's algorithm. A sufficiently powerful quantum computer could break this.",
+      "current_value": "TLS1.3-ECDHE",
+      "recommended_value": "ML-KEM-768 or ML-KEM-1024",
+      "nist_reference": "FIPS 203 (ML-KEM)"
+    },
+    {
+      "severity": "INFO",
+      "category": "protocol",
+      "title": "TLS 1.3 in use",
+      "description": "TLS 1.3 is the recommended version and required for PQC cipher suites.",
+      "current_value": "TLSv1.3",
+      "recommended_value": "",
+      "nist_reference": ""
+    }
+  ],
+  "labels": [
+    {
+      "label_id": "e28adc2e-1304-4b91-9082-0b4eecf38efc",
+      "host": "159.65.158.172",
+      "port": 443,
+      "label": "Non-Compliant",
+      "compliance_score": 33,
+      "standard": "FIPS 203 (ML-KEM)",
+      "issued_at": "2026-04-02T05:44:31.570279+00:00",
+      "valid_until": "2026-05-02T05:44:31.570113+00:00",
+      "issuer": "Quantum-Safe TLS Scanner",
+      "issuer_version": "1.0.0",
+      "details": {
+        "critical_findings": 1,
+        "high_findings": 0,
+        "hndl_risk_level": "HIGH",
+        "recommendations_count": 4
+      },
+      "badge_color": "#ef4444",
+      "checksum": "8b7f6b5e83101b75aba72dc138612e812a938b8b0cc91a17815ab857853ed3a3"
+    }
+  ],
+  "assets": [
+    {
+      "asset_id": "3adc1bd2-6a6d-4188-a1f0-1095867643d8",
+      "host": "159.65.158.172",
+      "port": 443,
+      "service": "TLS-443",
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_256_GCM_SHA384",
+      "cipher_bits": 256,
+      "key_exchange": "TLS1.3-ECDHE",
+      "cert_subject": "",
+      "cert_issuer": "",
+      "cert_serial": "",
+      "cert_not_before": "",
+      "cert_not_after": "",
+      "cert_signature_algorithm": "",
+      "cert_public_key_type": "",
+      "cert_public_key_bits": 0,
+      "cert_fingerprint": "",
+      "cert_is_expired": false,
+      "cert_days_until_expiry": 0,
+      "is_quantum_safe": false,
+      "pqc_status": "quantum_vulnerable",
+      "risk_level": "HIGH"
+    }
+  ],
+  "scan_id": "2ff2f549",
+  "target": "manipurrural.bank.in",
+  "asset_class": "Internet Banking",
+  "status": "complete",
+  "scan_kind": "single",
+  "scanned_by": "admin",
+  "add_to_inventory": false,
+  "tls_results": [
+    {
+      "host": "159.65.158.172",
+      "port": 443,
+      "tls_version": "TLSv1.3",
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_256_GCM_SHA384",
+      "cipher_suites": [
+        "TLS_AES_256_GCM_SHA384"
+      ],
+      "cipher_bits": 256,
+      "key_exchange": "TLS1.3-ECDHE",
+      "certificate_chain_length": 0,
+      "issuer": {},
+      "subject": {},
+      "subject_cn": "*.cloudwaysapps.com",
+      "subject_o": "",
+      "subject_ou": "",
+      "issuer_cn": "Sectigo RSA Domain Validation Secure Server CA",
+      "issuer_o": "Sectigo Limited",
+      "issuer_ou": "",
+      "serial_number": "",
+      "key_type": "RSA",
+      "key_size": 2048,
+      "key_length": 2048,
+      "public_key_type": "RSA",
+      "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0TpnPayT/qE4F6J4qzOi\nK7JhnrAo9bFLNo2svrHA/v0LaIOAybJrnc5AyyYwgS6PTnc5WMsgwlVeIH5TInjm\neEsEinXaSlGOrsV7Gm/ZW+7PMzYrK4KMP7g5Pv95Q5JU7FTQvxHAzRGxkvPDzcyo\ngoNJIk1KXgVLPxdUyd+B1UFVrTMrqAkIf0M1HRzdWlOHv+OEsQ2QjcnXP0mIdDF6\nsbDns9klIt09P59g0zL++OZSIkvbIRKyvkKcmp+73HQRF0pjn2SY2RJKMExBzgIl\nPDKzcHLqDMPRl2zP8TcIdzRjF/X4rRYa64yxqmMYIDs4WPnhkpo7c5uTK7f4TFIU\n1QIDAQAB\n-----END PUBLIC KEY-----\n",
+      "signature_algorithm": "sha256WithRSAEncryption",
+      "cert_sha256": "A1031C04B6CE1DDEA255CAE42E73A38DC45E81867EE5ECF88A87D36D1212E2F4",
+      "san_domains": [],
+      "certificate_details": {
+        "certificate_version": "Version.v3",
+        "serial_number": "2EF157AA3978C5E3CB0A43DC253E4440",
+        "certificate_signature_algorithm": "sha256WithRSAEncryption",
+        "certificate_signature": "AE6D83C4D4BF78C558A4BD3541BE7ACA806C5680348230EA5327A5965AA664AA889CDCF7A261B75F7E1559241CFEF4E57D595C388B6BFEB8A4DF0AE4DB4F5CA7246F7A1B7695AB4348B74B657F7A8AE7FA4757C81229C7BE0F470AF89900CB49969100CA9D10F99608C8FB990D13948136F2E24E3E667964D0D99E56C80ECA7D53FDE498178F19B81AE71D8CBD1063282CF211C1FC14D4A11A3AE50A8790BEBB2CF988BCA2045201CE997577A81A7D927258EF81643D8AD5FBB8A0E9D43883FF554E339550BDC4453D64723E0862F890FB7BB746FE0C67EEED2DE82C9E72BB46D9DD94BE1C3F9605A925A00A6EBE34BD845365CBC07E6E6342E02EBD9F5FA0E3",
+        "issuer": "CN=Sectigo RSA Domain Validation Secure Server CA,O=Sectigo Limited,L=Salford,ST=Greater Manchester,C=GB",
+        "validity": {
+          "not_before": "",
+          "not_after": ""
+        },
+        "subject": "CN=*.cloudwaysapps.com",
+        "subject_public_key_info": {
+          "subject_public_key_algorithm": "RSA",
+          "subject_public_key_bits": 2048,
+          "subject_public_key": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0TpnPayT/qE4F6J4qzOi\nK7JhnrAo9bFLNo2svrHA/v0LaIOAybJrnc5AyyYwgS6PTnc5WMsgwlVeIH5TInjm\neEsEinXaSlGOrsV7Gm/ZW+7PMzYrK4KMP7g5Pv95Q5JU7FTQvxHAzRGxkvPDzcyo\ngoNJIk1KXgVLPxdUyd+B1UFVrTMrqAkIf0M1HRzdWlOHv+OEsQ2QjcnXP0mIdDF6\nsbDns9klIt09P59g0zL++OZSIkvbIRKyvkKcmp+73HQRF0pjn2SY2RJKMExBzgIl\nPDKzcHLqDMPRl2zP8TcIdzRjF/X4rRYa64yxqmMYIDs4WPnhkpo7c5uTK7f4TFIU\n1QIDAQAB\n-----END PUBLIC KEY-----\n",
+          "public_key_fingerprint_sha256": "E577B60ECC733CD981273F877B2AB03D93986490630D699801165EBBEC0A48CF"
+        },
+        "fingerprint_sha256": "A1031C04B6CE1DDEA255CAE42E73A38DC45E81867EE5ECF88A87D36D1212E2F4",
+        "certificate_format": "X.509",
+        "extensions": [
+          "authorityKeyIdentifier",
+          "subjectKeyIdentifier",
+          "keyUsage",
+          "basicConstraints",
+          "extendedKeyUsage",
+          "certificatePolicies",
+          "authorityInfoAccess",
+          "subjectAltName",
+          "signedCertificateTimestampList"
+        ],
+        "certificate_key_usage": [
+          "digital_signature",
+          "key_encipherment"
+        ],
+        "extended_key_usage": [
+          "serverAuth",
+          "clientAuth"
+        ],
+        "certificate_basic_constraints": {
+          "ca": false,
+          "path_length": null
+        },
+        "certificate_subject_key_id": "C9A4B7DEEA0BC629ADC208FF9A8DBB002C6153C2",
+        "certificate_authority_key_id": "8D8C5EC454AD8AE177E99BF99B05E1B8018D61E1",
+        "authority_information_access": [
+          "caIssuers:http://crt.sectigo.com/SectigoRSADomainValidationSecureServerCA.crt",
+          "ocsp:http://ocsp.sectigo.com"
+        ],
+        "certificate_subject_alternative_name": [],
+        "certificate_policies": [
+          "1.3.6.1.4.1.6449.1.2.2.7",
+          "2.23.140.1.2.1"
+        ],
+        "crl_distribution_points": [],
+        "signed_certificate_timestamp_list": [
+          "log_id=969764BF555897ADF743876837084277E9F03AD5F6A4F3366E46A43F0FCAA9C6; timestamp=2025-04-15 09:19:49.956000",
+          "log_id=1986D4C728AA6FFEBA036F782A4D0191AACE2D72310FAECE5D70412D254CC7D4; timestamp=2025-04-15 09:19:49.924000",
+          "log_id=0E5794BCF3AEA93E331B2C9907B3F790DF9BC23D713225DD21A925AC61C54E21; timestamp=2025-04-15 09:19:49.924000"
+        ]
+      },
+      "valid_from": "",
+      "valid_to": "",
+      "valid_from_dt": null,
+      "valid_until_dt": null,
+      "cert_days_remaining": 0,
+      "cert_expired": false,
+      "cert_status": "Expiring",
+      "error": null
+    }
+  ],
+  "pqc_assessments": [
+    {
+      "host": "159.65.158.172",
+      "port": 443,
+      "is_quantum_safe": false,
+      "is_hybrid": false,
+      "overall_status": "quantum_vulnerable",
+      "risk_level": "HIGH",
+      "quantum_safe_algorithms": [],
+      "quantum_vulnerable_algorithms": [
+        {
+          "name": "TLS1.3-ECDHE",
+          "category": "key_exchange",
+          "status": "quantum_vulnerable",
+          "standard": "",
+          "is_nist_approved": false,
+          "is_draft": false,
+          "notes": "Uses ECDHE, which is vulnerable to Shor's algorithm."
+        }
+      ],
+      "details": "No quantum-safe algorithms detected.  This endpoint is vulnerable to future quantum attacks (Harvest Now, Decrypt Later)."
+    }
+  ],
+  "recommendations_detailed": [
+    {
+      "priority": 1,
+      "title": "Migrate to Post-Quantum Key Exchange",
+      "description": "Replace current key exchange mechanism with ML-KEM-768 (FIPS 203). Use hybrid X25519+ML-KEM-768 as a transitional step for backward compatibility.",
+      "server_configs": {
+        "Nginx (OpenSSL 3.5+)": "# Nginx — Enable TLS 1.3 with PQC-ready cipher suites\nssl_protocols TLSv1.3;\nssl_ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256;\nssl_prefer_server_ciphers off;\nssl_conf_command Groups X25519MLKEM768:X25519:secp384r1;",
+        "Apache (OpenSSL 3.5+)": "# Apache — Enable TLS 1.3\nSSLProtocol -all +TLSv1.3\nSSLCipherSuite TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nSSLOpenSSLConfCmd Groups X25519MLKEM768:X25519:secp384r1",
+        "HAProxy": "# HAProxy — TLS 1.3 with PQC groups\nbind *:443 ssl crt /etc/haproxy/certs/ alpn h2,http/1.1\nssl-default-bind-ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nssl-default-bind-options ssl-min-ver TLSv1.3\nssl-default-bind-curves X25519MLKEM768:X25519:secp384r1",
+        "AWS ALB": "# AWS ALB — Quantum-safe cipher policy\n# Use the 'ELBSecurityPolicy-TLS13-1-3-2021-06' or later policy\n# Enable X25519MLKEM768 group in the ALB listener configuration\n# Reference: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/"
+      },
+      "effort": "Medium",
+      "impact": "Critical",
+      "timeline": "2-4 weeks"
+    },
+    {
+      "priority": 4,
+      "title": "Implement Crypto Agility",
+      "description": "Design systems to easily swap cryptographic algorithms without major code changes. This ensures smooth future transitions as PQC standards evolve.",
+      "server_configs": {},
+      "effort": "Medium",
+      "impact": "Medium",
+      "timeline": "Ongoing"
+    },
+    {
+      "priority": 5,
+      "title": "Establish PQC Migration Timeline",
+      "description": "Create a phased migration plan aligned with NIST's 2035 deadline for deprecating quantum-vulnerable algorithms. Prioritize high-value endpoints handling financial data.",
+      "server_configs": {},
+      "effort": "Low",
+      "impact": "Critical",
+      "timeline": "Start immediately"
+    }
+  ],
+  "discovered_services": [
+    {
+      "host": "159.65.158.172",
+      "port": 22,
+      "service": "SSH",
+      "is_tls": false,
+      "banner": "open (no TLS)"
+    },
+    {
+      "host": "159.65.158.172",
+      "port": 80,
+      "service": "HTTP",
+      "is_tls": false,
+      "banner": "open (no TLS)"
+    },
+    {
+      "host": "159.65.158.172",
+      "port": 443,
+      "service": "HTTPS",
+      "is_tls": true,
+      "banner": "TLSv1.3"
+    }
+  ],
+  "dns_records": [
+    {
+      "hostname": "manipurrural.bank.in",
+      "record_type": "A",
+      "record_value": "159.65.158.172",
+      "ttl": 300,
+      "resolved_at": "2026-04-02T05:44:30.633180+00:00"
+    },
+    {
+      "hostname": "manipurrural.bank.in",
+      "record_type": "PTR",
+      "record_value": "523797.cloudwaysapps.com",
+      "ttl": 300,
+      "resolved_at": "2026-04-02T05:44:30.633180+00:00"
+    }
+  ],
+  "asset_locations": [],
+  "cbom_path": "C:\\Users\\saura\\Downloads\\hf-proj\\molten-rocket-quantum_scanner\\scan_results\\2ff2f549_cbom.json"
+}

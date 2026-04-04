@@ -7,10 +7,18 @@ Encapsulates query logic in one service for reusability and easier unit tests.
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 import json
+import hashlib
 
 from src.db import db_session
 from src.models import Asset, Scan, Certificate, CBOMEntry, CBOMSummary, DiscoverySSL
 from sqlalchemy import func, distinct, desc, asc, inspect
+
+try:
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.serialization import load_pem_public_key
+except Exception:  # pragma: no cover - runtime optional import safety
+    serialization = None
+    load_pem_public_key = None
 
 
 class CbomService:
@@ -68,6 +76,104 @@ class CbomService:
     }
 
     @staticmethod
+    def _dn_component(dn_value: str, key: str) -> str:
+        raw_dn = str(dn_value or "").strip()
+        if not raw_dn:
+            return ""
+        for part in raw_dn.split(","):
+            token = part.strip()
+            if token.upper().startswith(f"{key.upper()}="):
+                return token.split("=", 1)[1].strip()
+        return ""
+
+    @staticmethod
+    def _public_key_fingerprint_sha256_from_pem(public_key_pem: str) -> str:
+        key_pem = str(public_key_pem or "").strip()
+        if not key_pem or load_pem_public_key is None or serialization is None:
+            return ""
+        try:
+            pub_key = load_pem_public_key(key_pem.encode("utf-8"))
+            pub_der = pub_key.public_bytes(
+                encoding=serialization.Encoding.DER,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo,
+            )
+            return hashlib.sha256(pub_der).hexdigest().upper()
+        except Exception:
+            return ""
+
+    @classmethod
+    def _build_x509_minimum_payload(
+        cls,
+        certificate_details: Dict[str, Any],
+        subject_cn: str,
+        subject_o: str,
+        subject_ou: str,
+        issuer_cn: str,
+        issuer_o: str,
+        issuer_ou: str,
+        valid_from: str,
+        valid_until: str,
+        cert_fingerprint_sha256: str,
+        public_key_fingerprint_sha256: str,
+    ) -> Dict[str, Any]:
+        details = certificate_details if isinstance(certificate_details, dict) else {}
+        validity = details.get("validity") if isinstance(details.get("validity"), dict) else {}
+        spki = details.get("subject_public_key_info") if isinstance(details.get("subject_public_key_info"), dict) else {}
+
+        subject_dn = str(details.get("subject") or "")
+        issuer_dn = str(details.get("issuer") or "")
+
+        resolved_subject_cn = str(subject_cn or cls._dn_component(subject_dn, "CN") or "").strip()
+        resolved_subject_o = str(subject_o or cls._dn_component(subject_dn, "O") or "").strip()
+        resolved_subject_ou = str(subject_ou or cls._dn_component(subject_dn, "OU") or "").strip()
+
+        resolved_issuer_cn = str(issuer_cn or cls._dn_component(issuer_dn, "CN") or "").strip()
+        resolved_issuer_o = str(issuer_o or cls._dn_component(issuer_dn, "O") or "").strip()
+        resolved_issuer_ou = str(issuer_ou or cls._dn_component(issuer_dn, "OU") or "").strip()
+
+        resolved_valid_from = str(valid_from or validity.get("not_before") or "").strip()
+        resolved_valid_until = str(valid_until or validity.get("not_after") or "").strip()
+
+        resolved_cert_fingerprint = str(
+            cert_fingerprint_sha256
+            or details.get("fingerprint_sha256")
+            or details.get("fingerprint")
+            or ""
+        ).strip()
+        resolved_public_key_fingerprint = str(
+            public_key_fingerprint_sha256
+            or spki.get("public_key_fingerprint_sha256")
+            or ""
+        ).strip()
+
+        if not resolved_public_key_fingerprint:
+            resolved_public_key_fingerprint = cls._public_key_fingerprint_sha256_from_pem(
+                str(spki.get("subject_public_key") or "")
+            )
+
+        na_value = "<Not Part Of Certificate>"
+        return {
+            "issued_to": {
+                "common_name": resolved_subject_cn or na_value,
+                "organization": resolved_subject_o or na_value,
+                "organizational_unit": resolved_subject_ou or na_value,
+            },
+            "issued_by": {
+                "common_name": resolved_issuer_cn or na_value,
+                "organization": resolved_issuer_o or na_value,
+                "organizational_unit": resolved_issuer_ou or na_value,
+            },
+            "validity_period": {
+                "issued_on": resolved_valid_from or "-",
+                "expires_on": resolved_valid_until or "-",
+            },
+            "sha256_fingerprints": {
+                "certificate": resolved_cert_fingerprint or "-",
+                "public_key": resolved_public_key_fingerprint or "-",
+            },
+        }
+
+    @staticmethod
     def _table_exists(table_name: str) -> bool:
         try:
             bind = db_session.get_bind()
@@ -111,6 +217,8 @@ class CbomService:
                 "subject_public_key_bits": int(getattr(cert, "key_length", 0) or 0),
                 "subject_public_key": str(getattr(cert, "public_key_pem", "") or ""),
             },
+            "fingerprint_sha256": str(getattr(cert, "fingerprint_sha256", "") or ""),
+            "certificate_format": "X.509",
             "extensions": [],
             "certificate_key_usage": [],
             "extended_key_usage": [],
@@ -126,28 +234,52 @@ class CbomService:
 
     @staticmethod
     def _find_report_certificate_row(scan: Scan, cert: Certificate) -> Dict[str, Any]:
+        return CbomService._find_report_tls_row(
+            scan=scan,
+            serial=str(getattr(cert, "serial", "") or ""),
+            subject_cn=str(getattr(cert, "subject_cn", "") or ""),
+            endpoint=str(getattr(cert, "endpoint", "") or ""),
+            issuer=str(getattr(cert, "issuer", "") or getattr(cert, "ca", "") or ""),
+        )
+
+    @staticmethod
+    def _find_report_tls_row(
+        scan: Scan,
+        serial: str = "",
+        subject_cn: str = "",
+        endpoint: str = "",
+        issuer: str = "",
+    ) -> Dict[str, Any]:
         report = CbomService._safe_json_dict(getattr(scan, "report_json", None))
         raw_tls_rows = report.get("tls_results")
         tls_rows = raw_tls_rows if isinstance(raw_tls_rows, list) else []
 
-        serial = str(getattr(cert, "serial", "") or "").strip().upper()
-        subject_cn = str(getattr(cert, "subject_cn", "") or "").strip().lower()
-        endpoint = str(getattr(cert, "endpoint", "") or "").strip().lower()
+        serial = str(serial or "").strip().upper()
+        subject_cn = str(subject_cn or "").strip().lower()
+        endpoint = str(endpoint or "").strip().lower()
+        issuer = str(issuer or "").strip().lower()
 
         for row in tls_rows:
             if not isinstance(row, dict):
                 continue
             row_serial = str(row.get("serial_number") or "").strip().upper()
             row_subject_cn = str(row.get("subject_cn") or "").strip().lower()
+            row_issuer = str(row.get("issuer") or "").strip().lower()
             row_host = str(row.get("host") or "").strip().lower()
             row_port = int(row.get("port") or 0) if str(row.get("port") or "").strip() else 0
             row_endpoint = f"{row_host}:{row_port}" if row_host and row_port else row_host
 
             if serial and row_serial and serial == row_serial:
                 return dict(row)
+            if subject_cn and issuer and row_subject_cn and row_issuer and subject_cn == row_subject_cn and issuer == row_issuer:
+                return dict(row)
             if subject_cn and row_subject_cn and subject_cn == row_subject_cn:
                 return dict(row)
             if endpoint and row_endpoint and endpoint == row_endpoint:
+                return dict(row)
+            if endpoint and row_host and endpoint == row_host:
+                return dict(row)
+            if endpoint and row_endpoint and endpoint.startswith(row_endpoint):
                 return dict(row)
 
         return {}
@@ -662,6 +794,8 @@ class CbomService:
         for cert, asset, scan in rows:
             valid_from = getattr(cert, "valid_from", None)
             valid_until = getattr(cert, "valid_until", None)
+            cert_record_id = int(getattr(cert, "id", 0) or 0)
+            cert_source = "certificate"
             certificate_details = cls._certificate_details_from_cert_row(cert)
             report_row = cls._find_report_certificate_row(scan, cert)
             report_certificate_details = report_row.get("certificate_details") if isinstance(report_row.get("certificate_details"), dict) else {}
@@ -679,8 +813,48 @@ class CbomService:
             if not cert_fingerprint:
                 cert_fingerprint = str(report_row.get("cert_sha256") or "").strip() or str(certificate_details.get("fingerprint_sha256") or "").strip()
 
+            cert_spki = certificate_details.get("subject_public_key_info") if isinstance(certificate_details.get("subject_public_key_info"), dict) else {}
+            public_key_fingerprint = str(cert_spki.get("public_key_fingerprint_sha256") or "").strip()
+            if not public_key_fingerprint:
+                public_key_fingerprint = cls._public_key_fingerprint_sha256_from_pem(str(getattr(cert, "public_key_pem", "") or ""))
+            if not public_key_fingerprint:
+                public_key_fingerprint = cls._public_key_fingerprint_sha256_from_pem(str(cert_spki.get("subject_public_key") or ""))
+
+            certificate_details = {
+                **certificate_details,
+                "fingerprint_sha256": cert_fingerprint,
+                "certificate_format": str(certificate_details.get("certificate_format") or "X.509"),
+                "subject_public_key_info": {
+                    **cert_spki,
+                    "public_key_fingerprint_sha256": public_key_fingerprint,
+                },
+            }
+
+            x509_minimum = cls._build_x509_minimum_payload(
+                certificate_details=certificate_details,
+                subject_cn=str(getattr(cert, "subject_cn", "") or ""),
+                subject_o=str(getattr(cert, "subject_o", "") or ""),
+                subject_ou=str(getattr(cert, "subject_ou", "") or ""),
+                issuer_cn=str(getattr(cert, "issuer_cn", "") or ""),
+                issuer_o=str(getattr(cert, "issuer_o", "") or ""),
+                issuer_ou=str(getattr(cert, "issuer_ou", "") or ""),
+                valid_from=valid_from.isoformat() if hasattr(valid_from, "isoformat") and valid_from else "",
+                valid_until=cert_valid_until or "",
+                cert_fingerprint_sha256=cert_fingerprint,
+                public_key_fingerprint_sha256=public_key_fingerprint,
+            )
+            row_key = f"{cert_source}:{cert_record_id}" if cert_record_id > 0 else "|".join([
+                cert_source,
+                str(int(getattr(asset, "id", 0) or 0)),
+                str(getattr(cert, "endpoint", "") or "").strip().lower(),
+                str(getattr(cert, "serial", "") or "").strip().lower(),
+            ])
+
             applications.append(
                 {
+                    "source": cert_source,
+                    "record_id": cert_record_id,
+                    "row_key": row_key,
                     "asset_id": int(getattr(asset, "id", 0) or 0),
                     "asset_name": str(getattr(asset, "target", "") or "Unknown Asset"),
                     "endpoint": str(getattr(cert, "endpoint", "") or ""),
@@ -702,6 +876,7 @@ class CbomService:
                     "fingerprint_sha256": cert_fingerprint,
                     "cert_status": str(report_row.get("cert_status") or "").strip() or "Valid",
                     "certificate_details": certificate_details,
+                    "x509_minimum": x509_minimum,
                     "last_scan": (
                         getattr(scan, "scanned_at", None)
                         or getattr(scan, "completed_at", None)
@@ -732,6 +907,13 @@ class CbomService:
                 subject_cn_value = str(getattr(dssl, "subject_cn", "") or "")
                 issuer_value = str(getattr(dssl, "issuer", "") or "")
                 key_len_value = int(getattr(dssl, "key_length", 0) or 0)
+                report_row = cls._find_report_tls_row(
+                    scan=scan,
+                    subject_cn=subject_cn_value,
+                    endpoint=endpoint_value,
+                    issuer=issuer_value,
+                )
+                report_certificate_details = report_row.get("certificate_details") if isinstance(report_row.get("certificate_details"), dict) else {}
 
                 dedupe_key = (
                     asset_id_value,
@@ -752,8 +934,97 @@ class CbomService:
 
                 valid_until = getattr(dssl, "valid_until", None)
                 valid_from = None
+                resolved_valid_until = valid_until.isoformat() if hasattr(valid_until, "isoformat") and valid_until else None
+                if not resolved_valid_until:
+                    resolved_valid_until = (
+                        str(report_row.get("valid_to") or "").strip()
+                        or str((report_certificate_details.get("validity") or {}).get("not_after") or "").strip()
+                        or None
+                    )
+                resolved_fingerprint = (
+                    str(report_row.get("cert_sha256") or "").strip()
+                    or str(report_certificate_details.get("fingerprint_sha256") or "").strip()
+                    or str(report_certificate_details.get("fingerprint") or "").strip()
+                )
+                resolved_cert_status = str(report_row.get("cert_status") or "").strip() or "Valid"
+                discovery_record_id = int(getattr(dssl, "id", 0) or 0)
+                discovery_source = "discovery_ssl"
+                row_key = f"{discovery_source}:{discovery_record_id}" if discovery_record_id > 0 else "|".join([
+                    discovery_source,
+                    str(asset_id_value),
+                    endpoint_value.lower(),
+                    subject_cn_value.lower(),
+                    str(resolved_fingerprint or "").lower(),
+                ])
+
+                default_certificate_details = {
+                    "certificate_version": "",
+                    "serial_number": str(report_row.get("serial_number") or ""),
+                    "certificate_signature_algorithm": str(report_row.get("signature_algorithm") or ""),
+                    "certificate_signature": "",
+                    "issuer": issuer_value,
+                    "validity": {
+                        "not_before": str(report_row.get("valid_from") or ""),
+                        "not_after": resolved_valid_until or "",
+                    },
+                    "subject": subject_cn_value,
+                    "subject_public_key_info": {
+                        "subject_public_key_algorithm": str(report_row.get("public_key_type") or ""),
+                        "subject_public_key_bits": key_len_value,
+                        "subject_public_key": "",
+                    },
+                    "extensions": [],
+                    "certificate_key_usage": [],
+                    "extended_key_usage": [],
+                    "certificate_basic_constraints": {},
+                    "certificate_subject_key_id": "",
+                    "certificate_authority_key_id": "",
+                    "authority_information_access": [],
+                    "certificate_subject_alternative_name": [],
+                    "certificate_policies": [],
+                    "crl_distribution_points": [],
+                    "signed_certificate_timestamp_list": [],
+                    "fingerprint_sha256": resolved_fingerprint,
+                    "certificate_format": str(report_certificate_details.get("certificate_format") or "X.509"),
+                }
+                merged_certificate_details = {
+                    **default_certificate_details,
+                    **report_certificate_details,
+                }
+                merged_spki = merged_certificate_details.get("subject_public_key_info") if isinstance(merged_certificate_details.get("subject_public_key_info"), dict) else {}
+                resolved_public_key_fingerprint = str(merged_spki.get("public_key_fingerprint_sha256") or "").strip()
+                if not resolved_public_key_fingerprint:
+                    resolved_public_key_fingerprint = cls._public_key_fingerprint_sha256_from_pem(str(merged_spki.get("subject_public_key") or ""))
+
+                merged_certificate_details = {
+                    **merged_certificate_details,
+                    "fingerprint_sha256": resolved_fingerprint,
+                    "certificate_format": str(merged_certificate_details.get("certificate_format") or "X.509"),
+                    "subject_public_key_info": {
+                        **merged_spki,
+                        "public_key_fingerprint_sha256": resolved_public_key_fingerprint,
+                    },
+                }
+
+                x509_minimum = cls._build_x509_minimum_payload(
+                    certificate_details=merged_certificate_details,
+                    subject_cn=subject_cn_value,
+                    subject_o="",
+                    subject_ou="",
+                    issuer_cn="",
+                    issuer_o=issuer_value,
+                    issuer_ou="",
+                    valid_from="",
+                    valid_until=resolved_valid_until or "",
+                    cert_fingerprint_sha256=resolved_fingerprint,
+                    public_key_fingerprint_sha256=resolved_public_key_fingerprint,
+                )
+
                 applications.append(
                     {
+                        "source": discovery_source,
+                        "record_id": discovery_record_id,
+                        "row_key": row_key,
                         "asset_id": asset_id_value,
                         "asset_name": derived_asset_name,
                         "endpoint": endpoint_value,
@@ -771,42 +1042,16 @@ class CbomService:
                         "issuer_o": "",
                         "issuer_ou": "",
                         "valid_from": valid_from.isoformat() if hasattr(valid_from, "isoformat") and valid_from else None,
-                        "valid_until": valid_until.isoformat() if hasattr(valid_until, "isoformat") and valid_until else None,
-                        "fingerprint_sha256": "",
-                        "certificate_details": {
-                            "certificate_version": "",
-                            "serial_number": "",
-                            "certificate_signature_algorithm": "",
-                            "certificate_signature": "",
-                            "issuer": issuer_value,
-                            "validity": {
-                                "not_before": "",
-                                "not_after": valid_until.isoformat() if hasattr(valid_until, "isoformat") and valid_until else "",
-                            },
-                            "subject": subject_cn_value,
-                            "subject_public_key_info": {
-                                "subject_public_key_algorithm": "",
-                                "subject_public_key_bits": key_len_value,
-                                "subject_public_key": "",
-                            },
-                            "extensions": [],
-                            "certificate_key_usage": [],
-                            "extended_key_usage": [],
-                            "certificate_basic_constraints": {},
-                            "certificate_subject_key_id": "",
-                            "certificate_authority_key_id": "",
-                            "authority_information_access": [],
-                            "certificate_subject_alternative_name": [],
-                            "certificate_policies": [],
-                            "crl_distribution_points": [],
-                            "signed_certificate_timestamp_list": [],
-                        },
+                        "valid_until": resolved_valid_until,
+                        "fingerprint_sha256": resolved_fingerprint,
+                        "cert_status": resolved_cert_status,
+                        "certificate_details": merged_certificate_details,
+                        "x509_minimum": x509_minimum,
                         "last_scan": (
                             getattr(scan, "scanned_at", None)
                             or getattr(scan, "completed_at", None)
                             or getattr(scan, "started_at", None)
                         ),
-                        "source": "discovery_ssl",
                     }
                 )
 

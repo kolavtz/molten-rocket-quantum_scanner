@@ -17,12 +17,15 @@ def register_api_blueprints(app: Flask):
         from web.blueprints.api_incidents import api_incidents
         # from web.blueprints.api_admin import api_admin  # TODO: APIKey model not yet implemented
         from web.blueprints.api_docs import api_docs
+        # AI assistant blueprint
+        from web.blueprints.api_ai import api_ai
 
         # Register only non-overlapping blueprints by default.
         # Authoritative dashboard endpoints are served from web.routes.dashboard_api.
         app.register_blueprint(api_incidents)
         # app.register_blueprint(api_admin)  # TODO: APIKey model not yet implemented
         app.register_blueprint(api_docs)
+        app.register_blueprint(api_ai)
 
         # Optional fallback switch to restore legacy overlapping blueprint registrations.
         # Use only for temporary migration compatibility.

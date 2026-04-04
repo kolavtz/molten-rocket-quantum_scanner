@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+from web.routes import dashboard_api
+
 
 def test_cbom_charts_includes_chart_explanations(app_client):
     resp = app_client.get("/api/cbom/charts")
@@ -137,3 +139,59 @@ def test_api_docs_lists_new_cbom_minimum_elements_endpoint(app_client):
 
     endpoints = items[0].get("endpoints", [])
     assert "GET /api/cbom/minimum-elements" in endpoints
+
+
+def test_cbom_export_filters_entries_by_selected_keys(app_client, monkeypatch):
+    def _fake_cbom_data(**_kwargs):
+        return {
+            "applications": [
+                {"row_key": "certificate:101", "asset_name": "alpha"},
+                {"row_key": "discovery_ssl:202", "asset_name": "beta"},
+                {"row_key": "certificate:303", "asset_name": "gamma"},
+            ],
+            "page_data": {"total_pages": 1},
+            "kpis": {},
+            "key_length_distribution": {},
+            "cipher_usage": {},
+            "protocols": {},
+            "top_cas": {},
+            "minimum_elements": {},
+        }
+
+    monkeypatch.setattr(dashboard_api.CbomService, "get_cbom_dashboard_data", _fake_cbom_data)
+
+    resp = app_client.get("/api/cbom/export?mode=x509&selected_keys=certificate:101,discovery_ssl:202")
+    assert resp.status_code == 200
+
+    payload = json.loads(resp.data)
+    entries = payload.get("entries", [])
+    assert payload.get("mode") == "x509"
+    assert payload.get("selected_count") == 2
+    assert [item.get("row_key") for item in entries] == ["certificate:101", "discovery_ssl:202"]
+
+
+def test_cbom_export_filters_single_entry_by_row_key(app_client, monkeypatch):
+    def _fake_cbom_data(**_kwargs):
+        return {
+            "applications": [
+                {"row_key": "certificate:11", "asset_name": "one"},
+                {"row_key": "certificate:22", "asset_name": "two"},
+            ],
+            "page_data": {"total_pages": 1},
+            "kpis": {},
+            "key_length_distribution": {},
+            "cipher_usage": {},
+            "protocols": {},
+            "top_cas": {},
+            "minimum_elements": {},
+        }
+
+    monkeypatch.setattr(dashboard_api.CbomService, "get_cbom_dashboard_data", _fake_cbom_data)
+
+    resp = app_client.get("/api/cbom/export?mode=cbom&row_key=certificate:22")
+    assert resp.status_code == 200
+
+    payload = json.loads(resp.data)
+    entries = payload.get("entries", [])
+    assert payload.get("mode") == "cbom"
+    assert [item.get("row_key") for item in entries] == ["certificate:22"]

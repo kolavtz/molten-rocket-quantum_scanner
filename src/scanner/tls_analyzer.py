@@ -225,9 +225,9 @@ class TLSAnalyzer:
         # Certificate
         peer_cert = tls_sock.getpeercert(binary_form=False)
         peer_cert_der = tls_sock.getpeercert(binary_form=True)
-        if peer_cert:
+        if peer_cert or peer_cert_der:
             result.certificate = self._parse_stdlib_cert(
-                peer_cert, peer_cert_der
+                peer_cert or {}, peer_cert_der
             )
 
         # Supported protocols
@@ -330,6 +330,13 @@ class TLSAnalyzer:
                 import hashlib
                 info.fingerprint_sha256 = hashlib.sha256(
                     cert_der
+                ).hexdigest().upper()
+                public_key_der = pub.public_bytes(
+                    encoding=serialization.Encoding.DER,
+                    format=serialization.PublicFormat.SubjectPublicKeyInfo,
+                )
+                public_key_fingerprint_sha256 = hashlib.sha256(
+                    public_key_der
                 ).hexdigest().upper()
                 info.public_key_pem = pub.public_bytes(
                     encoding=serialization.Encoding.PEM,
@@ -484,7 +491,10 @@ class TLSAnalyzer:
                         "subject_public_key_algorithm": subject_public_key_algorithm,
                         "subject_public_key_bits": info.public_key_bits,
                         "subject_public_key": info.public_key_pem,
+                        "public_key_fingerprint_sha256": public_key_fingerprint_sha256,
                     },
+                    "fingerprint_sha256": info.fingerprint_sha256,
+                    "certificate_format": "X.509",
                     "extensions": extension_names,
                     "certificate_key_usage": key_usage_values,
                     "extended_key_usage": extended_key_usage_values,
@@ -517,7 +527,10 @@ class TLSAnalyzer:
                     "subject_public_key_algorithm": info.public_key_type,
                     "subject_public_key_bits": info.public_key_bits,
                     "subject_public_key": info.public_key_pem,
+                    "public_key_fingerprint_sha256": "",
                 },
+                "fingerprint_sha256": info.fingerprint_sha256,
+                "certificate_format": "X.509",
                 "extensions": [],
                 "certificate_key_usage": [],
                 "extended_key_usage": [],

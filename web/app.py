@@ -488,6 +488,32 @@ def _expects_json_response() -> bool:
     except Exception:
         return False
 
+
+def _is_api_request() -> bool:
+    request_path = str(getattr(request, "path", "") or "")
+    return request_path.startswith("/api/") or _expects_json_response()
+
+
+@app.errorhandler(404)
+def _handle_not_found(error):
+    if _is_api_request():
+        return jsonify({"status": "error", "message": "Resource not found."}), 404
+    return error, 404
+
+
+@app.errorhandler(405)
+def _handle_method_not_allowed(error):
+    if _is_api_request():
+        return jsonify({"status": "error", "message": "Method not allowed."}), 405
+    return error, 405
+
+
+@app.errorhandler(500)
+def _handle_internal_error(error):
+    if _is_api_request():
+        return jsonify({"status": "error", "message": "Internal server error."}), 500
+    return error, 500
+
 def role_required(roles):
     def decorator(f):
         @wraps(f)
@@ -600,6 +626,8 @@ def _is_https_request() -> bool:
 def _validate_password_strength(password: str) -> tuple[bool, str]:
     if not password or len(password) < 12:
         return False, "Password must be at least 12 characters long."
+    if len(password) > 20:
+        return False, "Password must be no more than 20 characters long."
     if not any(ch.isupper() for ch in password):
         return False, "Password must include at least one uppercase letter."
     if not any(ch.islower() for ch in password):
@@ -1791,6 +1819,23 @@ def run_scan_pipeline(
                     }
                 )
         
+        def _find_existing_cbom_entry():
+            # Deduplicate on core certificate identity fields across inventory scans.
+            if asset_id is None:
+                return None
+            return (
+                db_session.query(CBOMEntry)
+                .filter(CBOMEntry.is_deleted == False)
+                .filter(CBOMEntry.asset_id == asset_id)
+                .filter(func.lower(CBOMEntry.asset_type) == (asset_type or "").lower())
+                .filter(func.lower(CBOMEntry.element_name) == (element_name_value or "").lower())
+                .filter(func.lower(CBOMEntry.subject_name) == (subject_name_value or "").lower())
+                .filter(func.lower(CBOMEntry.issuer_name) == (issuer_name_value or "").lower())
+                .filter(func.lower(CBOMEntry.protocol_name) == (protocol_name_value or "").lower())
+                .filter(func.lower(CBOMEntry.cipher_suites) == (cipher_suites_value or "").lower())
+                .first()
+            )
+
         for cmp in components:
             props = _component_properties(cmp)
             asset_type_raw = _first_non_empty(
@@ -1879,42 +1924,88 @@ def run_scan_pipeline(
             if not str(element_list_value or "").strip() and element_name_value:
                 element_list_value = _json_text([element_name_value])
 
-            cbom_entry = CBOMEntry(
-                scan_id=int(scan_pk) if scan_pk is not None else None,
-                asset_id=asset_id,
-                algorithm_name=element_name_value,
-                category=cmp.get("type", "crypto-asset"),
-                asset_type=asset_type,
-                element_name=element_name_value,
-                primitive=_first_non_empty(props.get("cert-in:primitive"), props.get("primitive")),
-                mode=_first_non_empty(props.get("cert-in:mode"), props.get("mode")),
-                crypto_functions=crypto_functions_text,
-                classical_security_level=_first_int(props.get("cert-in:classical_security_level"), props.get("classical_security_level")),
-                oid=oid_value,
-                element_list=str(element_list_value or ""),
-                key_id=_first_non_empty(props.get("cert-in:id"), props.get("key_id")),
-                key_state=_first_non_empty(props.get("cert-in:state"), props.get("key_state")),
-                key_size=key_size_value,
-                key_creation_date=_first_dt(props.get("cert-in:creation_date"), props.get("key_creation_date")),
-                key_activation_date=_first_dt(props.get("cert-in:activation_date"), props.get("key_activation_date")),
-                protocol_name=protocol_name_value,
-                protocol_version_name=protocol_version_value,
-                cipher_suites=cipher_suites_value,
-                subject_name=_first_non_empty(props.get("cert-in:subject_name"), props.get("subject_name"), fallback_tls.get("subject_cn")),
-                issuer_name=_first_non_empty(props.get("cert-in:issuer_name"), props.get("issuer_name"), fallback_tls.get("issuer_cn"), fallback_tls.get("issuer_o")),
-                not_valid_before=_first_dt(props.get("cert-in:not_valid_before"), props.get("not_valid_before"), fallback_tls.get("valid_from")),
-                not_valid_after=_first_dt(props.get("cert-in:not_valid_after"), props.get("not_valid_after"), fallback_tls.get("valid_to")),
-                signature_algorithm_reference=signature_ref,
-                subject_public_key_reference=public_key_ref,
-                certificate_format=_first_non_empty(props.get("cert-in:format"), props.get("certificate_format"), "X.509" if asset_type == "certificate" else ""),
-                certificate_extension=cert_extension_value,
-                key_length=key_length_value,
-                protocol_version=protocol_version_value,
-                nist_status=_first_non_empty(props.get("cert-in:quantum_safe_status"), props.get("quantum_safe_status"), "Unknown"),
-                quantum_safe_flag=_boolish(props.get("cert-in:quantum_safe_status") or props.get("quantum-safe:is_quantum_safe")),
-                hndl_level=props.get("quantum-safe:risk_level", "Medium")
-            )
-            db_session.add(cbom_entry)
+            subject_name_value = _first_non_empty(props.get("cert-in:subject_name"), props.get("subject_name"), fallback_tls.get("subject_cn"))
+            issuer_name_value = _first_non_empty(props.get("cert-in:issuer_name"), props.get("issuer_name"), fallback_tls.get("issuer_cn"), fallback_tls.get("issuer_o"))
+
+            existing_entry = _find_existing_cbom_entry()
+
+            if existing_entry is not None:
+                # Update provided fields selectively
+                update_fields = {
+                    "scan_id": int(scan_pk) if scan_pk is not None else None,
+                    "asset_id": asset_id,
+                    "algorithm_name": element_name_value,
+                    "category": cmp.get("type", "crypto-asset"),
+                    "asset_type": asset_type,
+                    "element_name": element_name_value,
+                    "primitive": _first_non_empty(props.get("cert-in:primitive"), props.get("primitive")),
+                    "mode": _first_non_empty(props.get("cert-in:mode"), props.get("mode")),
+                    "crypto_functions": crypto_functions_text,
+                    "classical_security_level": _first_int(props.get("cert-in:classical_security_level"), props.get("classical_security_level")),
+                    "oid": oid_value,
+                    "element_list": str(element_list_value or ""),
+                    "key_id": _first_non_empty(props.get("cert-in:id"), props.get("key_id")),
+                    "key_state": _first_non_empty(props.get("cert-in:state"), props.get("key_state")),
+                    "key_size": key_size_value,
+                    "key_creation_date": _first_dt(props.get("cert-in:creation_date"), props.get("key_creation_date")),
+                    "key_activation_date": _first_dt(props.get("cert-in:activation_date"), props.get("key_activation_date")),
+                    "protocol_name": protocol_name_value,
+                    "protocol_version_name": protocol_version_value,
+                    "cipher_suites": cipher_suites_value,
+                    "subject_name": subject_name_value,
+                    "issuer_name": issuer_name_value,
+                    "not_valid_before": _first_dt(props.get("cert-in:not_valid_before"), props.get("not_valid_before"), fallback_tls.get("valid_from")),
+                    "not_valid_after": _first_dt(props.get("cert-in:not_valid_after"), props.get("not_valid_after"), fallback_tls.get("valid_to")),
+                    "signature_algorithm_reference": signature_ref,
+                    "subject_public_key_reference": public_key_ref,
+                    "certificate_format": _first_non_empty(props.get("cert-in:format"), props.get("certificate_format"), "X.509" if asset_type == "certificate" else ""),
+                    "certificate_extension": cert_extension_value,
+                    "key_length": key_length_value,
+                    "protocol_version": protocol_version_value,
+                    "nist_status": _first_non_empty(props.get("cert-in:quantum_safe_status"), props.get("quantum_safe_status"), "Unknown"),
+                    "quantum_safe_flag": _boolish(props.get("cert-in:quantum_safe_status") or props.get("quantum-safe:is_quantum_safe")),
+                    "hndl_level": props.get("quantum-safe:risk_level", "Medium"),
+                }
+                for field_name, field_value in update_fields.items():
+                    if getattr(existing_entry, field_name, None) != field_value:
+                        setattr(existing_entry, field_name, field_value)
+            else:
+                cbom_entry = CBOMEntry(
+                    scan_id=int(scan_pk) if scan_pk is not None else None,
+                    asset_id=asset_id,
+                    algorithm_name=element_name_value,
+                    category=cmp.get("type", "crypto-asset"),
+                    asset_type=asset_type,
+                    element_name=element_name_value,
+                    primitive=_first_non_empty(props.get("cert-in:primitive"), props.get("primitive")),
+                    mode=_first_non_empty(props.get("cert-in:mode"), props.get("mode")),
+                    crypto_functions=crypto_functions_text,
+                    classical_security_level=_first_int(props.get("cert-in:classical_security_level"), props.get("classical_security_level")),
+                    oid=oid_value,
+                    element_list=str(element_list_value or ""),
+                    key_id=_first_non_empty(props.get("cert-in:id"), props.get("key_id")),
+                    key_state=_first_non_empty(props.get("cert-in:state"), props.get("key_state")),
+                    key_size=key_size_value,
+                    key_creation_date=_first_dt(props.get("cert-in:creation_date"), props.get("key_creation_date")),
+                    key_activation_date=_first_dt(props.get("cert-in:activation_date"), props.get("key_activation_date")),
+                    protocol_name=protocol_name_value,
+                    protocol_version_name=protocol_version_value,
+                    cipher_suites=cipher_suites_value,
+                    subject_name=subject_name_value,
+                    issuer_name=issuer_name_value,
+                    not_valid_before=_first_dt(props.get("cert-in:not_valid_before"), props.get("not_valid_before"), fallback_tls.get("valid_from")),
+                    not_valid_after=_first_dt(props.get("cert-in:not_valid_after"), props.get("not_valid_after"), fallback_tls.get("valid_to")),
+                    signature_algorithm_reference=signature_ref,
+                    subject_public_key_reference=public_key_ref,
+                    certificate_format=_first_non_empty(props.get("cert-in:format"), props.get("certificate_format"), "X.509" if asset_type == "certificate" else ""),
+                    certificate_extension=cert_extension_value,
+                    key_length=key_length_value,
+                    protocol_version=protocol_version_value,
+                    nist_status=_first_non_empty(props.get("cert-in:quantum_safe_status"), props.get("quantum_safe_status"), "Unknown"),
+                    quantum_safe_flag=_boolish(props.get("cert-in:quantum_safe_status") or props.get("quantum-safe:is_quantum_safe")),
+                    hndl_level=props.get("quantum-safe:risk_level", "Medium")
+                )
+                db_session.add(cbom_entry)
 
         if _db_table_exists("findings") and scan_pk is not None:
             db_session.flush()

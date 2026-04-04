@@ -27,6 +27,7 @@ from src.models import (
 from src.services.asset_service import AssetService
 from src.services.certificate_telemetry_service import CertificateTelemetryService
 from src.services.inventory_scan_service import InventoryScanService
+from middleware.api_auth import api_guard
 from utils.table_helper import paginate_query
 
 logger = logging.getLogger(__name__)
@@ -236,27 +237,14 @@ def _make_action_html(asset: dict, csrf_token: str) -> str:
         {data_attrs}
         data-open-asset-edit
       >Edit</button>
-            <a
-                class="btn-mini btn-view"
-                href="{url_for('assets.asset_details', asset_id=asset_id)}"
-                title="View asset details"
-            >View</a>
             <button
                 type="button"
                 class="btn-mini btn-view"
                 data-open-asset-details
                 data-asset-id="{asset_id}"
                 data-asset-name="{asset_name}"
-                title="Open comprehensive intelligence telemetry"
-            >Details</button>
-            <button
-                type="button"
-                class="btn-mini btn-view"
-                data-open-asset-scan
-                data-asset-id="{asset_id}"
-                data-asset-name="{asset_name}"
-                title="Open scan history"
-            >Scans</button>
+                                title="Open combined asset view (details, scans, and telemetry)"
+                        >View</button>
       <form action="{url_for('assets.asset_scan')}" method="post" class="inline-form">
         <input type="hidden" name="csrf_token" value="{csrf_token}">
         <input type="hidden" name="asset_id" value="{asset_id}">
@@ -740,6 +728,17 @@ def build_comprehensive_asset_dto(asset_id: int) -> dict[str, Any] | None:
         .all()
     )
 
+    latest_pqc = (
+        db_session.query(PQCClassification)
+        .filter(
+            PQCClassification.asset_id == asset.id,
+            PQCClassification.is_deleted == False,
+            PQCClassification.deleted_at.is_(None),
+        )
+        .order_by(PQCClassification.updated_at.desc(), PQCClassification.id.desc())
+        .first()
+    )
+
     # Network components
     dns_records = (
         db_session.query(DiscoveryDomain)
@@ -767,6 +766,39 @@ def build_comprehensive_asset_dto(asset_id: int) -> dict[str, Any] | None:
     # Geo logic
     geo_data = report.get("geo") or report.get("asset_locations", [{}])[0] if report.get("asset_locations") else {}
     
+    details_snapshot = {
+        "status": "Active",
+        "pqc_score": round(float(scan.overall_pqc_score or 0), 1) if scan else round(float(getattr(latest_pqc, "pqc_score", 0) or 0), 1),
+        "pqc_status": str(getattr(latest_pqc, "quantum_safe_status", asset.risk_level or "Unknown") or (asset.risk_level or "Unknown")),
+        "readiness": str(getattr(latest_pqc, "readiness_level", "Standard Protocol") or "Standard Protocol"),
+        "certificates_count": _safe_count(
+            lambda: db_session.query(func.count(Certificate.id))
+            .filter(Certificate.asset_id == asset.id, Certificate.is_deleted == False, Certificate.deleted_at.is_(None))
+            .scalar()
+        ),
+        "discovery_count": _safe_count(
+            lambda: sum([
+                db_session.query(func.count(DiscoveryDomain.id)).filter(DiscoveryDomain.asset_id == asset.id, DiscoveryDomain.is_deleted == False).scalar() or 0,
+                db_session.query(func.count(DiscoverySSL.id)).filter(DiscoverySSL.asset_id == asset.id, DiscoverySSL.is_deleted == False).scalar() or 0,
+                db_session.query(func.count(DiscoveryIP.id)).filter(DiscoveryIP.asset_id == asset.id, DiscoveryIP.is_deleted == False).scalar() or 0,
+                db_session.query(func.count(DiscoverySoftware.id)).filter(DiscoverySoftware.asset_id == asset.id, DiscoverySoftware.is_deleted == False).scalar() or 0,
+            ])
+        ),
+        "scan_count": _safe_count(
+            lambda: db_session.query(func.count(Scan.id))
+            .filter(
+                func.lower(Scan.target) == _normalize_target(asset.target or ""),
+                Scan.is_deleted == False,
+                Scan.deleted_at.is_(None),
+            )
+            .scalar()
+        ),
+        "pqc_findings_count": len(pqc_results),
+        "discovered_services": report.get("discovered_services") or [],
+        "recommendations": report.get("recommendations_detailed") or [],
+        "latest_certificate": latest_cert_payload,
+    }
+
     # Build DTO
     return {
         "id": int(asset.id),
@@ -832,7 +864,8 @@ def build_comprehensive_asset_dto(asset_id: int) -> dict[str, Any] | None:
                     "score": float(p.pqc_score or 0)
                 } for p in pqc_results]
             }
-        }
+        },
+        "details": details_snapshot,
     }
 
 
@@ -992,40 +1025,56 @@ def assets_index():
 
 
 @assets_bp.route("/api/assets/<int:asset_id>/scans", methods=["GET"])
-@login_required
+@api_guard
 def api_asset_scans(asset_id: int):
-    page = request.args.get("page", default=1, type=int)
-    page_size = request.args.get("page_size", default=20, type=int)
-    data = build_asset_scans_api_response(asset_id, page=page, page_size=page_size)
-    if data is None:
-        return jsonify({"success": False, "message": "Asset not found"}), 404
-    return jsonify({"success": True, "data": data}), 200
+    try:
+        page = request.args.get("page", default=1, type=int)
+        page_size = request.args.get("page_size", default=20, type=int)
+        data = build_asset_scans_api_response(asset_id, page=page, page_size=page_size)
+        if data is None:
+            return jsonify({"success": False, "message": "Asset not found"}), 404
+        return jsonify({"success": True, "data": data}), 200
+    except Exception as exc:
+        logger.exception("api_asset_scans failed for asset_id=%s", asset_id)
+        return jsonify({"success": False, "message": "Failed to load asset scans", "error": str(exc)}), 500
 
 
 @assets_bp.route("/api/assets/<int:asset_id>/comprehensive", methods=["GET"])
-@login_required
+@api_guard
 def api_asset_comprehensive(asset_id: int):
-    data = build_comprehensive_asset_dto(asset_id)
-    if data is None:
-        return jsonify({"success": False, "message": "Asset not found"}), 404
-    return jsonify({"success": True, "data": data}), 200
+    try:
+        data = build_comprehensive_asset_dto(asset_id)
+        if data is None:
+            return jsonify({"success": False, "message": "Asset not found"}), 404
+        return jsonify({"success": True, "data": data}), 200
+    except Exception as exc:
+        logger.exception("api_asset_comprehensive failed for asset_id=%s", asset_id)
+        return jsonify({"success": False, "message": "Failed to load asset intelligence details", "error": str(exc)}), 500
 
 
 @assets_bp.route("/api/assets/<int:asset_id>", methods=["GET"])
-@login_required
+@api_guard
 def api_asset_detail(asset_id: int):
-    data = build_asset_detail_api_response(asset_id)
-    if data is None:
-        return jsonify({"success": False, "message": "Asset not found"}), 404
-    return jsonify({"success": True, "data": data}), 200
+    try:
+        data = build_asset_detail_api_response(asset_id)
+        if data is None:
+            return jsonify({"success": False, "message": "Asset not found"}), 404
+        return jsonify({"success": True, "data": data}), 200
+    except Exception as exc:
+        logger.exception("api_asset_detail failed for asset_id=%s", asset_id)
+        return jsonify({"success": False, "message": "Failed to load asset details", "error": str(exc)}), 500
 
 
 @assets_bp.route("/api/assets", methods=["POST"])
-@login_required
+@api_guard
 def api_asset_create_or_scan():
-    payload = request.get_json(silent=True) or request.form.to_dict(flat=False)
-    response, status_code = create_or_scan_asset_api(payload)
-    return jsonify(response), status_code
+    try:
+        payload = request.get_json(silent=True) or request.form.to_dict(flat=False)
+        response, status_code = create_or_scan_asset_api(payload)
+        return jsonify(response), status_code
+    except Exception as exc:
+        logger.exception("api_asset_create_or_scan failed")
+        return jsonify({"success": False, "message": "Failed to create or scan asset", "error": str(exc)}), 500
 
 
 @assets_bp.route("/assets/scan", methods=["POST"])

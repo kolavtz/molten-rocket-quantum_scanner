@@ -47,9 +47,21 @@
 
             try {
                 const response = await fetch(`/api/assets/${assetId}/comprehensive`);
-                const result = await response.json();
+                const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+                if (!contentType.includes('application/json')) {
+                    if (response.status === 401 || response.status === 403 || response.redirected) {
+                        throw new Error('Your session has expired or access is denied. Please sign in again.');
+                    }
+                    const raw = await response.text();
+                    const sample = String(raw || '').trim().slice(0, 120);
+                    throw new Error(`Unexpected non-JSON response (HTTP ${response.status}). ${sample ? `Server says: ${sample}` : ''}`.trim());
+                }
 
-                if (!result.success) throw new Error(result.message || "Failed to fetch asset details");
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    const reason = result?.message || result?.error?.message || `HTTP ${response.status}`;
+                    throw new Error(reason || 'Failed to fetch asset details');
+                }
 
                 this.data = result.data;
                 this._renderAll();
@@ -135,6 +147,55 @@
             dnsTbody.innerHTML = d.network.dns.length > 0 
                 ? d.network.dns.map(r => `<tr><td><span class="qs-badge warn">${r.type || 'TXT'}</span></td><td>${r.name}</td><td><small class="qs-mono-val">${r.value}</small></td></tr>`).join('')
                 : '<tr><td colspan="3" class="text-center text-muted">No records detected in latest scan.</td></tr>';
+
+            // Details snapshot (mirrors the key metrics shown in full details view)
+            const details = (d.details && typeof d.details === 'object') ? d.details : {};
+            const snapshot = document.getElementById('qsViewSecuritySnapshot');
+            if (snapshot) {
+                const latestCert = (details.latest_certificate && typeof details.latest_certificate === 'object')
+                    ? details.latest_certificate
+                    : {};
+                const tlsCipher = `${latestCert.tls_version || d.security?.certificate?.tls_version || 'N/A'} / ${latestCert.cipher_suite || 'N/A'}`;
+                snapshot.innerHTML = `
+                    <div class="list-row"><span class="left">PQC Score</span><strong>${Number(details.pqc_score || d.security?.pqc?.score || 0).toFixed(1)}</strong></div>
+                    <div class="list-row"><span class="left">PQC Status</span><strong>${this._escapeHtml(details.pqc_status || d.security?.pqc?.status || 'Unknown')}</strong></div>
+                    <div class="list-row"><span class="left">Readiness</span><strong>${this._escapeHtml(details.readiness || 'Standard Protocol')}</strong></div>
+                    <div class="list-row"><span class="left">Certificates</span><strong>${Number(details.certificates_count || 0)}</strong></div>
+                    <div class="list-row"><span class="left">Discovery Items</span><strong>${Number(details.discovery_count || 0)}</strong></div>
+                    <div class="list-row"><span class="left">Total Scans</span><strong>${Number(details.scan_count || d.network?.discovery?.length || 0)}</strong></div>
+                    <div class="list-row"><span class="left">TLS / Cipher</span><strong>${this._escapeHtml(tlsCipher)}</strong></div>
+                `;
+            }
+
+            const servicesBox = document.getElementById('qsViewDiscoveredServices');
+            if (servicesBox) {
+                const services = Array.isArray(details.discovered_services) ? details.discovered_services : [];
+                servicesBox.innerHTML = services.length > 0
+                    ? services.slice(0, 12).map((svc) => {
+                        const host = this._escapeHtml(svc.host || svc.target || '?');
+                        const port = this._escapeHtml(String(svc.port ?? '?'));
+                        const service = this._escapeHtml(svc.service || svc.protocol || 'Unknown');
+                        return `<div class="list-row"><span class="left">${host}:${port}</span><strong>${service}</strong></div>`;
+                    }).join('')
+                    : '<div class="text-muted">No discovered services yet.</div>';
+            }
+
+            const recBox = document.getElementById('qsViewRecommendations');
+            if (recBox) {
+                const recommendations = Array.isArray(details.recommendations) ? details.recommendations : [];
+                recBox.innerHTML = recommendations.length > 0
+                    ? recommendations.slice(0, 8).map((rec) => {
+                        const title = this._escapeHtml(rec.title || rec.name || 'Recommendation');
+                        const description = this._escapeHtml(rec.description || rec.detail || rec.message || '');
+                        return `
+                            <div class="qs-detail-card" style="padding:0.6rem; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06);">
+                                <div style="font-weight:700; margin-bottom:0.25rem;">${title}</div>
+                                <div style="color:var(--text-secondary); font-size:0.74rem;">${description || 'No additional details provided.'}</div>
+                            </div>
+                        `;
+                    }).join('')
+                    : '<div class="text-muted">No recommendations available.</div>';
+            }
 
             // Security: Certificate
             const certBox = document.getElementById('qsCertDetails');

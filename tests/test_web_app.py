@@ -134,9 +134,9 @@ class TestModulePages:
         assert b'data-table-shell' in resp.data
         assert b'data-bulk-form' in resp.data
         assert b'data-open-asset-details' in resp.data
-        assert b'>View</a>' in resp.data
-        assert b'>Details</button>' in resp.data
-        assert b'>Scans</button>' in resp.data
+        assert b'>View</button>' in resp.data
+        assert b'>Details</button>' not in resp.data
+        assert b'>Scans</button>' not in resp.data
 
     def test_header_hides_reset_and_exposes_mobile_menu_hooks(self, client, mock_admin):
         resp = client.get('/asset-inventory')
@@ -1163,6 +1163,57 @@ class TestAdminUserApiMutations:
         assert payload['status'] == 'success'
         assert payload['message'] == 'Password reset email sent.'
         assert payload['user_id'] == user_id
+
+    def test_setup_password_api_validation(self, client):
+        from werkzeug.security import generate_password_hash
+        import uuid
+        from src import database as db
+
+        db.init_db()
+
+        username = f'test_setup_{uuid.uuid4().hex[:8]}'
+        email = f'{username}@example.com'
+
+        user_id = db.create_invited_user(
+            employee_id=f'EMP-{uuid.uuid4().hex[:8]}',
+            username=username,
+            email=email,
+            role='Viewer',
+            created_by=None,
+            password_hash=generate_password_hash('Test123!')
+        )
+        assert user_id is not None
+
+        token = db.create_password_setup_token(user_id, expires_hours=1)
+        assert token is not None
+
+        # mismatch confirmation
+        resp = client.post(
+            f'/setup-password/{token}',
+            data={'password': 'Abcd1234!@#1', 'confirm_password': 'Mismatch123!'},
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert b'Password and confirmation do not match.' in resp.data
+
+        # too long password
+        long_pass = 'Abcd1234!@#1234567890'  # 21 chars
+        resp = client.post(
+            f'/setup-password/{token}',
+            data={'password': long_pass, 'confirm_password': long_pass},
+        )
+        assert resp.status_code == 200
+        assert b'Password must be no more than 20 characters long.' in resp.data
+
+        # valid password set
+        valid_pass = 'Aa1!Aa1!Aa1!'
+        resp = client.post(
+            f'/setup-password/{token}',
+            data={'password': valid_pass, 'confirm_password': valid_pass},
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert b'Password set successfully. You can now log in.' in resp.data
 
     def test_admin_regen_api_key_json(self, client, mock_admin):
         # Create a test user

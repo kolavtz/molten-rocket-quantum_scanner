@@ -1,0 +1,368 @@
+{
+  "report_id": "urn:uuid:e5e04a94-2cd1-420e-8b34-f55a2a5d5ea2",
+  "generated_at": "2026-03-30T15:27:09.682858+00:00",
+  "tool": {
+    "name": "Quantum-Safe TLS Scanner",
+    "version": "1.0.0"
+  },
+  "overview": {
+    "total_assets": 1,
+    "quantum_safe": 0,
+    "quantum_vulnerable": 1,
+    "average_compliance_score": 33
+  },
+  "severity_breakdown": {
+    "CRITICAL": 1,
+    "HIGH": 0,
+    "MEDIUM": 0,
+    "LOW": 0,
+    "INFO": 1
+  },
+  "risk_distribution": {
+    "HIGH": 1,
+    "MEDIUM": 0,
+    "LOW": 0
+  },
+  "label_distribution": {
+    "PQC Ready": 0,
+    "Partial": 0,
+    "Non-Compliant": 1
+  },
+  "top_recommendations": [
+    "Quantum-vulnerable key exchange: migrate from TLS1.3-ECDHE to ML-KEM-768 or ML-KEM-1024",
+    "Enable TLS 1.3 and configure PQC key exchange (ML-KEM-768) on your server.",
+    "Obtain a PQC-signed certificate using ML-DSA or SLH-DSA from a supporting CA.",
+    "Consider hybrid key exchange (X25519+ML-KEM-768) as a transitional step."
+  ],
+  "findings": [
+    {
+      "severity": "CRITICAL",
+      "category": "key_exchange",
+      "title": "Quantum-vulnerable key exchange",
+      "description": "Key exchange 'TLS1.3-ECDHE' is vulnerable to Shor's algorithm. A sufficiently powerful quantum computer could break this.",
+      "current_value": "TLS1.3-ECDHE",
+      "recommended_value": "ML-KEM-768 or ML-KEM-1024",
+      "nist_reference": "FIPS 203 (ML-KEM)"
+    },
+    {
+      "severity": "INFO",
+      "category": "protocol",
+      "title": "TLS 1.3 in use",
+      "description": "TLS 1.3 is the recommended version and required for PQC cipher suites.",
+      "current_value": "TLSv1.3",
+      "recommended_value": "",
+      "nist_reference": ""
+    }
+  ],
+  "labels": [
+    {
+      "label_id": "c5192d98-68d3-4850-8335-94b100893245",
+      "host": "collectoris.com",
+      "port": 443,
+      "label": "Non-Compliant",
+      "compliance_score": 33,
+      "standard": "FIPS 203 (ML-KEM)",
+      "issued_at": "2026-03-30T15:27:09.682814+00:00",
+      "valid_until": "2026-04-29T15:27:09.682789+00:00",
+      "issuer": "Quantum-Safe TLS Scanner",
+      "issuer_version": "1.0.0",
+      "details": {
+        "critical_findings": 1,
+        "high_findings": 0,
+        "hndl_risk_level": "HIGH",
+        "recommendations_count": 4
+      },
+      "badge_color": "#ef4444",
+      "checksum": "9b991553ca3881ff9f06829aeeee5d31d4a0d30b8c4a04c29291804bca29852f"
+    }
+  ],
+  "assets": [
+    {
+      "asset_id": "051db5aa-2935-4632-bcf5-1a57b2ddc00b",
+      "host": "collectoris.com",
+      "port": 443,
+      "service": "TLS-443",
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_256_GCM_SHA384",
+      "cipher_bits": 256,
+      "key_exchange": "TLS1.3-ECDHE",
+      "cert_subject": "",
+      "cert_issuer": "",
+      "cert_serial": "",
+      "cert_not_before": "",
+      "cert_not_after": "",
+      "cert_signature_algorithm": "",
+      "cert_public_key_type": "",
+      "cert_public_key_bits": 0,
+      "cert_fingerprint": "",
+      "cert_is_expired": false,
+      "cert_days_until_expiry": 0,
+      "is_quantum_safe": false,
+      "pqc_status": "quantum_vulnerable",
+      "risk_level": "HIGH"
+    }
+  ],
+  "scan_id": "38429c19",
+  "target": "collectoris.com",
+  "asset_class": "API Service",
+  "status": "complete",
+  "scan_kind": "asset_inventory",
+  "scanned_by": "admin",
+  "add_to_inventory": true,
+  "tls_results": [
+    {
+      "host": "collectoris.com",
+      "port": 443,
+      "tls_version": "TLSv1.3",
+      "protocol_version": "TLSv1.3",
+      "cipher_suite": "TLS_AES_256_GCM_SHA384",
+      "cipher_suites": [
+        "TLS_AES_256_GCM_SHA384"
+      ],
+      "cipher_bits": 256,
+      "key_exchange": "TLS1.3-ECDHE",
+      "certificate_chain_length": 0,
+      "issuer": {},
+      "subject": {},
+      "subject_cn": "collectoris.com",
+      "subject_o": "",
+      "subject_ou": "",
+      "issuer_cn": "WE1",
+      "issuer_o": "Google Trust Services",
+      "issuer_ou": "",
+      "serial_number": "",
+      "key_type": "ECDSA (secp256r1)",
+      "key_size": 256,
+      "key_length": 256,
+      "public_key_type": "ECDSA (secp256r1)",
+      "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpMcCWbGzgNWQJ80BxZMfhPd+eDGg\nQwLYo5Xmqw32eRS0T+pmQUTtWoDJJA5PhzveBcCBNW1ieMMEfoIT37apow==\n-----END PUBLIC KEY-----\n",
+      "signature_algorithm": "ecdsa-with-SHA256",
+      "cert_sha256": "C8D9A34F2314A4FDD8AB37193382B7F586EE9393F1727F8E496BD0FD3DB78853",
+      "san_domains": [],
+      "certificate_details": {
+        "certificate_version": "Version.v3",
+        "serial_number": "DD2C0DE4806D1A7A138AEE8A4F94DFE2",
+        "certificate_signature_algorithm": "ecdsa-with-SHA256",
+        "certificate_signature": "304502200C448EEF5727AAF28108F81D925019EE4DE98D065AD2A0E329633D5A49D2B29E022100A025FCFE0ECBD39087165637F20462A0B4655DB7AB2DE1FFCBD98752EDC889A8",
+        "issuer": "CN=WE1,O=Google Trust Services,C=US",
+        "validity": {
+          "not_before": "",
+          "not_after": ""
+        },
+        "subject": "CN=collectoris.com",
+        "subject_public_key_info": {
+          "subject_public_key_algorithm": "ECDSA (secp256r1)",
+          "subject_public_key_bits": 256,
+          "subject_public_key": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpMcCWbGzgNWQJ80BxZMfhPd+eDGg\nQwLYo5Xmqw32eRS0T+pmQUTtWoDJJA5PhzveBcCBNW1ieMMEfoIT37apow==\n-----END PUBLIC KEY-----\n",
+          "public_key_fingerprint_sha256": "0DB118C21D80DA4AD9FE42648E1A173AD225CD75989850F4F3276076A577406C"
+        },
+        "fingerprint_sha256": "C8D9A34F2314A4FDD8AB37193382B7F586EE9393F1727F8E496BD0FD3DB78853",
+        "certificate_format": "X.509",
+        "extensions": [
+          "keyUsage",
+          "extendedKeyUsage",
+          "basicConstraints",
+          "subjectKeyIdentifier",
+          "authorityKeyIdentifier",
+          "authorityInfoAccess",
+          "subjectAltName",
+          "certificatePolicies",
+          "cRLDistributionPoints",
+          "signedCertificateTimestampList"
+        ],
+        "certificate_key_usage": [
+          "digital_signature"
+        ],
+        "extended_key_usage": [
+          "serverAuth"
+        ],
+        "certificate_basic_constraints": {
+          "ca": false,
+          "path_length": null
+        },
+        "certificate_subject_key_id": "0F60D65382AD68523974F42548CD49831C199B86",
+        "certificate_authority_key_id": "9077923567C4FFA8CCA9E67BD980797BCC93F938",
+        "authority_information_access": [
+          "ocsp:http://o.pki.goog/s/we1/3Sw",
+          "caIssuers:http://i.pki.goog/we1.crt"
+        ],
+        "certificate_subject_alternative_name": [],
+        "certificate_policies": [
+          "2.23.140.1.2.1"
+        ],
+        "crl_distribution_points": [
+          "http://c.pki.goog/we1/f-LqBsO90gY.crl"
+        ],
+        "signed_certificate_timestamp_list": [
+          "log_id=0E5794BCF3AEA93E331B2C9907B3F790DF9BC23D713225DD21A925AC61C54E21; timestamp=2026-03-25 17:41:47.102000",
+          "log_id=6411C46CA412ECA7891CA2022E00BCAB4F2807D41E3527ABEAFED503C97DCDF0; timestamp=2026-03-25 17:41:47.131000"
+        ]
+      },
+      "valid_from": "",
+      "valid_to": "",
+      "valid_from_dt": null,
+      "valid_until_dt": null,
+      "cert_days_remaining": 0,
+      "cert_expired": false,
+      "cert_status": "Expiring",
+      "error": null
+    }
+  ],
+  "pqc_assessments": [
+    {
+      "host": "collectoris.com",
+      "port": 443,
+      "is_quantum_safe": false,
+      "is_hybrid": false,
+      "overall_status": "quantum_vulnerable",
+      "risk_level": "HIGH",
+      "quantum_safe_algorithms": [],
+      "quantum_vulnerable_algorithms": [
+        {
+          "name": "TLS1.3-ECDHE",
+          "category": "key_exchange",
+          "status": "quantum_vulnerable",
+          "standard": "",
+          "is_nist_approved": false,
+          "is_draft": false,
+          "notes": "Uses ECDH, which is vulnerable to Shor's algorithm."
+        }
+      ],
+      "details": "No quantum-safe algorithms detected.  This endpoint is vulnerable to future quantum attacks (Harvest Now, Decrypt Later)."
+    }
+  ],
+  "recommendations_detailed": [
+    {
+      "priority": 1,
+      "title": "Migrate to Post-Quantum Key Exchange",
+      "description": "Replace current key exchange mechanism with ML-KEM-768 (FIPS 203). Use hybrid X25519+ML-KEM-768 as a transitional step for backward compatibility.",
+      "server_configs": {
+        "Nginx (OpenSSL 3.5+)": "# Nginx — Enable TLS 1.3 with PQC-ready cipher suites\nssl_protocols TLSv1.3;\nssl_ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256;\nssl_prefer_server_ciphers off;\nssl_conf_command Groups X25519MLKEM768:X25519:secp384r1;",
+        "Apache (OpenSSL 3.5+)": "# Apache — Enable TLS 1.3\nSSLProtocol -all +TLSv1.3\nSSLCipherSuite TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nSSLOpenSSLConfCmd Groups X25519MLKEM768:X25519:secp384r1",
+        "HAProxy": "# HAProxy — TLS 1.3 with PQC groups\nbind *:443 ssl crt /etc/haproxy/certs/ alpn h2,http/1.1\nssl-default-bind-ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256\nssl-default-bind-options ssl-min-ver TLSv1.3\nssl-default-bind-curves X25519MLKEM768:X25519:secp384r1",
+        "AWS ALB": "# AWS ALB — Quantum-safe cipher policy\n# Use the 'ELBSecurityPolicy-TLS13-1-3-2021-06' or later policy\n# Enable X25519MLKEM768 group in the ALB listener configuration\n# Reference: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/"
+      },
+      "effort": "Medium",
+      "impact": "Critical",
+      "timeline": "2-4 weeks"
+    },
+    {
+      "priority": 4,
+      "title": "Implement Crypto Agility",
+      "description": "Design systems to easily swap cryptographic algorithms without major code changes. This ensures smooth future transitions as PQC standards evolve.",
+      "server_configs": {},
+      "effort": "Medium",
+      "impact": "Medium",
+      "timeline": "Ongoing"
+    },
+    {
+      "priority": 5,
+      "title": "Establish PQC Migration Timeline",
+      "description": "Create a phased migration plan aligned with NIST's 2035 deadline for deprecating quantum-vulnerable algorithms. Prioritize high-value endpoints handling financial data.",
+      "server_configs": {},
+      "effort": "Low",
+      "impact": "Critical",
+      "timeline": "Start immediately"
+    }
+  ],
+  "discovered_services": [
+    {
+      "host": "104.21.22.35",
+      "port": 80,
+      "service": "HTTP",
+      "is_tls": false,
+      "banner": "open (no TLS)"
+    },
+    {
+      "host": "104.21.22.35",
+      "port": 443,
+      "service": "HTTPS",
+      "is_tls": false,
+      "banner": "open (no TLS)"
+    },
+    {
+      "host": "104.21.22.35",
+      "port": 8080,
+      "service": "HTTP-Proxy",
+      "is_tls": false,
+      "banner": "open (no TLS)"
+    },
+    {
+      "host": "104.21.22.35",
+      "port": 8443,
+      "service": "HTTPS-Alt",
+      "is_tls": false,
+      "banner": "open (no TLS)"
+    },
+    {
+      "host": "172.67.202.59",
+      "port": 80,
+      "service": "HTTP",
+      "is_tls": false,
+      "banner": "open (no TLS)"
+    },
+    {
+      "host": "172.67.202.59",
+      "port": 443,
+      "service": "HTTPS",
+      "is_tls": false,
+      "banner": "open (no TLS)"
+    },
+    {
+      "host": "172.67.202.59",
+      "port": 8080,
+      "service": "HTTP-Proxy",
+      "is_tls": false,
+      "banner": "open (no TLS)"
+    },
+    {
+      "host": "172.67.202.59",
+      "port": 8443,
+      "service": "HTTPS-Alt",
+      "is_tls": false,
+      "banner": "open (no TLS)"
+    },
+    {
+      "host": "collectoris.com",
+      "port": 443,
+      "service": "HTTPS",
+      "is_tls": true,
+      "banner": "TLSv1.3"
+    }
+  ],
+  "dns_records": [
+    {
+      "hostname": "collectoris.com",
+      "record_type": "A",
+      "record_value": "172.67.202.59",
+      "ttl": 300,
+      "resolved_at": "2026-03-30T15:26:58.994447+00:00"
+    },
+    {
+      "hostname": "collectoris.com",
+      "record_type": "A",
+      "record_value": "104.21.22.35",
+      "ttl": 300,
+      "resolved_at": "2026-03-30T15:26:58.994447+00:00"
+    }
+  ],
+  "asset_locations": [
+    {
+      "ip": "104.21.22.35",
+      "lat": 43.6492,
+      "lon": -79.3823,
+      "city": "Toronto",
+      "region": "Ontario",
+      "country": "Canada"
+    },
+    {
+      "ip": "172.67.202.59",
+      "lat": 43.6492,
+      "lon": -79.3823,
+      "city": "Toronto",
+      "region": "Ontario",
+      "country": "Canada"
+    }
+  ],
+  "cbom_path": "C:\\Users\\saura\\Downloads\\hf-proj\\molten-rocket-quantum_scanner\\scan_results\\38429c19_cbom.json"
+}

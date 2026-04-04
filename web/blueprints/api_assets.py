@@ -17,6 +17,7 @@ from utils.api_helper import (
     search_filter, format_asset_row, format_datetime
 )
 from sqlalchemy import func, or_, and_
+from middleware.api_auth import api_guard
 
 api_assets = Blueprint("api_assets", __name__, url_prefix="/api")
 
@@ -32,58 +33,64 @@ def _discovery_detected_at_expr(model):
 
 
 @api_assets.route("/assets/<int:asset_id>/scans", methods=["GET"])
-@login_required
+@api_guard
 def get_asset_scans(asset_id):
     """
     GET /api/assets/{asset_id}/scans?page=1&page_size=10
     
     Returns scan history for a specific asset.
     """
-    from web.routes.assets import build_asset_scans_api_response
+    try:
+        from web.routes.assets import build_asset_scans_api_response
 
-    params = extract_pagination_params()
-    page, page_size = validate_pagination_params(params["page"], min(params["page_size"], 50))
-    data = build_asset_scans_api_response(asset_id, page=page, page_size=page_size)
-    if data is None:
-        return api_response(success=False, message="Asset not found", status_code=404)
-    return api_response(success=True, data=data)[0], 200
+        params = extract_pagination_params()
+        page, page_size = validate_pagination_params(params["page"], min(params["page_size"], 50))
+        data = build_asset_scans_api_response(asset_id, page=page, page_size=page_size)
+        if data is None:
+            return api_response(success=False, message="Asset not found", status_code=404)
+        return api_response(success=True, data=data)[0], 200
+    except Exception as exc:
+        return api_response(success=False, message=f"Failed to load asset scans: {exc}", status_code=500)[0], 500
 
 
 @api_assets.route("/assets", methods=["GET"])
-@login_required
+@api_guard
 def get_assets():
     """
     GET /api/assets?page=1&page_size=25&sort=asset_name&order=asc&q=example
     """
-    from web.routes.assets import build_assets_api_response
+    try:
+        from web.routes.assets import build_assets_api_response
 
-    params = extract_pagination_params()
-    page, page_size = validate_pagination_params(params["page"], params["page_size"])
-    asset_type = request.args.get("asset_type", "", type=str).strip()
-    risk_min = request.args.get("risk_min", None, type=int)
-    risk_max = request.args.get("risk_max", None, type=int)
-    data, filters = build_assets_api_response(
-        page=page,
-        page_size=page_size,
-        sort=params["sort"] or "name",
-        order=params["order"],
-        search=params["search"],
-        asset_type=asset_type,
-        risk_min=risk_min,
-        risk_max=risk_max,
-    )
-    payload = {
-        "success": True,
-        "data": data,
-        "filters": filters,
-    }
-    if isinstance(data, dict):
-        payload.update(data)
-    return payload, 200
+        params = extract_pagination_params()
+        page, page_size = validate_pagination_params(params["page"], params["page_size"])
+        asset_type = request.args.get("asset_type", "", type=str).strip()
+        risk_min = request.args.get("risk_min", None, type=int)
+        risk_max = request.args.get("risk_max", None, type=int)
+        data, filters = build_assets_api_response(
+            page=page,
+            page_size=page_size,
+            sort=params["sort"] or "name",
+            order=params["order"],
+            search=params["search"],
+            asset_type=asset_type,
+            risk_min=risk_min,
+            risk_max=risk_max,
+        )
+        payload = {
+            "success": True,
+            "data": data,
+            "filters": filters,
+        }
+        if isinstance(data, dict):
+            payload.update(data)
+        return payload, 200
+    except Exception as exc:
+        return api_response(success=False, message=f"Failed to load assets: {exc}", status_code=500)[0], 500
 
 
 @api_assets.route("/discovery", methods=["GET"])
-@login_required
+@api_guard
 def get_discovery():
     """
     GET /api/discovery?tab=domains&page=1&page_size=25&sort=detection_date&order=desc&q=
@@ -229,7 +236,7 @@ def get_discovery():
 
 
 @api_assets.route("/discovery/ip-locations", methods=["GET"])
-@login_required
+@api_guard
 def get_discovery_ip_locations():
     """
     GET /api/discovery/ip-locations?limit=200
@@ -287,46 +294,55 @@ def get_discovery_ip_locations():
 
 
 @api_assets.route("/assets/<int:asset_id>/comprehensive", methods=["GET"])
-@login_required
+@api_guard
 def get_asset_comprehensive_detail(asset_id):
     """
     GET /api/assets/<asset_id>/comprehensive
     Returns a unified DTO for the Intelligence modal.
     """
-    from web.routes.assets import build_comprehensive_asset_dto
-    data = build_comprehensive_asset_dto(asset_id)
-    if data is None:
-        return api_response(success=False, message="Asset not found", status_code=404)[0], 404
-    return api_response(success=True, data=data)[0], 200
+    try:
+        from web.routes.assets import build_comprehensive_asset_dto
+        data = build_comprehensive_asset_dto(asset_id)
+        if data is None:
+            return api_response(success=False, message="Asset not found", status_code=404)[0], 404
+        return api_response(success=True, data=data)[0], 200
+    except Exception as exc:
+        return api_response(success=False, message=f"Failed to load comprehensive details: {exc}", status_code=500)[0], 500
 
 
 @api_assets.route("/assets/<int:asset_id>", methods=["GET"])
-@login_required
+@api_guard
 def get_asset_detail(asset_id):
     """
     GET /api/assets/<asset_id>
     """
-    from web.routes.assets import build_asset_detail_api_response
-    asset_data = build_asset_detail_api_response(asset_id)
-    if asset_data is None:
-        return api_response(success=False, message="Asset not found", status_code=404)[0], 404
-    return api_response(success=True, data=asset_data)[0], 200
+    try:
+        from web.routes.assets import build_asset_detail_api_response
+        asset_data = build_asset_detail_api_response(asset_id)
+        if asset_data is None:
+            return api_response(success=False, message="Asset not found", status_code=404)[0], 404
+        return api_response(success=True, data=asset_data)[0], 200
+    except Exception as exc:
+        return api_response(success=False, message=f"Failed to load asset detail: {exc}", status_code=500)[0], 500
 
 
 @api_assets.route("/assets", methods=["POST"])
-@login_required
+@api_guard
 def create_asset():
     """
     POST /api/assets
     """
-    from web.routes.assets import create_or_scan_asset_api
-    payload = request.get_json(silent=True) or request.form.to_dict(flat=False)
-    response, status_code = create_or_scan_asset_api(payload)
-    return response, status_code
+    try:
+        from web.routes.assets import create_or_scan_asset_api
+        payload = request.get_json(silent=True) or request.form.to_dict(flat=False)
+        response, status_code = create_or_scan_asset_api(payload)
+        return response, status_code
+    except Exception as exc:
+        return api_response(success=False, message=f"Failed to create/scan asset: {exc}", status_code=500)[0], 500
 
 
 @api_assets.route("/discovery/promote", methods=["POST"])
-@login_required
+@api_guard
 def promote_discovery_to_asset():
     """
     POST /api/discovery/promote

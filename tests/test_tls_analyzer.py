@@ -2,6 +2,7 @@
 Unit tests for the TLS Analyzer module.
 """
 import pytest
+from unittest.mock import MagicMock
 
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -86,3 +87,37 @@ class TestTLSEndpointResult:
         d = r.to_dict()
         assert d["host"] == "example.com"
         assert d["cipher_bits"] == 256
+
+
+def test_analyze_with_stdlib_parses_der_when_peer_cert_dict_empty(monkeypatch):
+    analyzer = TLSAnalyzer()
+    result = TLSEndpointResult(host="example.com", port=443)
+
+    fake_plain_sock = MagicMock()
+    fake_tls_sock = MagicMock()
+    fake_tls_sock.cipher.return_value = ("TLS_AES_256_GCM_SHA384", "TLSv1.3", 256)
+    fake_tls_sock.version.return_value = "TLSv1.3"
+    fake_tls_sock.getpeercert.side_effect = [{}, b"fake-der"]
+    fake_ctx = MagicMock()
+    fake_ctx.wrap_socket.return_value = fake_tls_sock
+
+    monkeypatch.setattr("src.scanner.tls_analyzer.socket.create_connection", lambda *args, **kwargs: fake_plain_sock)
+    monkeypatch.setattr("src.scanner.tls_analyzer.ssl.create_default_context", lambda: fake_ctx)
+    monkeypatch.setattr(analyzer, "get_supported_protocols", lambda host, port: ["TLSv1.3"])
+
+    expected_cert = CertificateInfo(serial_number="SER123")
+    parser_calls = {}
+
+    def fake_parse(cert_dict, cert_der):
+        parser_calls["cert_dict"] = cert_dict
+        parser_calls["cert_der"] = cert_der
+        return expected_cert
+
+    monkeypatch.setattr(analyzer, "_parse_stdlib_cert", fake_parse)
+
+    analyzer._analyze_with_stdlib(result, "example.com", 443)
+
+    assert result.certificate is expected_cert
+    assert parser_calls["cert_dict"] == {}
+    assert parser_calls["cert_der"] == b"fake-der"
+    assert result.cipher_suite == "TLS_AES_256_GCM_SHA384"

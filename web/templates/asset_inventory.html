@@ -209,6 +209,12 @@
                 </div>
                 <button type="submit" class="button" style="grid-column: span 2; margin-top: 0.5rem;">Initialize Full Scan Cycle</button>
             </form>
+            <form id="scanAllInventoryForm" action="{{ url_for('quantumshield_dashboard.scan_all_inventory') }}" method="post" style="margin-top: 0.75rem;" data-scan-all-form>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="background" value="true">
+                <button type="submit" class="button secondary" style="padding: 0.5rem 1rem;">Scan All Inventory</button>
+            </form>
+            <div id="scanAllInventoryStatus" style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-primary); display: none;"></div>
             <div id="scanFeedback" style="margin-top: 1rem; font-size: 0.75rem; padding: 0.75rem; border-radius: 8px; display: none;"></div>
         </div>
 
@@ -619,6 +625,50 @@
                 </div>`;
         } catch (err) {
             scanHistoryContent.innerHTML = `<div style="color:var(--danger);padding:2rem;text-align:center;">Error: ${err.message}</div>`;
+        }
+    });
+
+    /* ─── Scan All Inventory status indicator ─── */
+    document.getElementById('scanAllInventoryForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const statusEl = document.getElementById('scanAllInventoryStatus');
+        const form = e.target;
+        const submitBtn = form.querySelector('button[type="submit"]');
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Queueing scan…';
+        statusEl.style.display = 'block';
+        statusEl.style.color = 'var(--text-primary)';
+        statusEl.textContent = 'Scan request sent. Please wait...';
+
+        try {
+            const formData = new FormData(form);
+            const response = await fetch(form.action, {
+                method: form.method.toUpperCase(),
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRFToken': getCsrf(),
+                },
+                body: formData,
+            });
+            const result = await response.json();
+
+            if (response.ok && (result.status === 'started' || result.status === 'in_progress')) {
+                statusEl.textContent = 'Scan all inventory has been queued and is running in the background.';
+                statusEl.style.color = 'var(--pqc-safe)';
+            } else if (response.ok && result.status === 'complete') {
+                statusEl.textContent = 'Scan all inventory completed successfully.';
+                statusEl.style.color = 'var(--pqc-safe)';
+            } else {
+                statusEl.textContent = 'Scan all inventory failed to start: ' + (result.message || 'unknown error');
+                statusEl.style.color = 'var(--danger)';
+            }
+        } catch (err) {
+            statusEl.textContent = 'Network error while starting inventory scan. Please try again.';
+            statusEl.style.color = 'var(--danger)';
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Scan All Inventory';
         }
     });
 

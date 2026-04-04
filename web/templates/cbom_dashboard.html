@@ -30,6 +30,8 @@
     .cert-details-grid .row { display: flex; gap: 0.35rem; flex-wrap: wrap; font-size: 0.66rem; }
     .cert-details-grid .key { color: var(--text-secondary); font-weight: 700; }
     .cert-details-grid .val { color: var(--text-primary); font-family: var(--font-mono); word-break: break-word; }
+    .x509-block { border: 1px dashed var(--border-subtle); border-radius: 8px; padding: 0.5rem; margin-top: 0.35rem; }
+    .x509-block-title { font-size: 0.64rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 0.35rem; }
 
     @media (max-width: 1200px) {
         .cbom-stats-grid { grid-template-columns: repeat(3, 1fr); }
@@ -124,7 +126,11 @@
             <div style="display:flex; gap:0.6rem; align-items:center;">
                 <input id="cbomSearchInput" type="text" class="inventory-input" placeholder="Search asset/cipher/issuer..." style="width:260px;" />
                 <button id="cbomSearchBtn" class="button secondary" style="padding: 0.5rem 1rem; font-size: 0.75rem;">Search</button>
+                <button id="exportX509Btn" class="button" style="padding: 0.5rem 1rem; font-size: 0.75rem; font-weight: 800;">Export X.509 JSON</button>
                 <button id="exportCbomBtn" class="button secondary" style="padding: 0.5rem 1rem; font-size: 0.75rem;">Export CBOM JSON</button>
+                <button id="exportSelectedX509Btn" class="button" style="padding: 0.5rem 1rem; font-size: 0.75rem;">Export Selected X.509</button>
+                <button id="exportSelectedCbomBtn" class="button secondary" style="padding: 0.5rem 1rem; font-size: 0.75rem;">Export Selected CBOM</button>
+                <button id="openAiAssistantBtn" class="button" style="padding: 0.5rem 1rem; font-size: 0.75rem; font-weight: 800; background: var(--accent); color: var(--text-on-accent);">AI Assistant</button>
             </div>
         </div>
 
@@ -132,6 +138,7 @@
             <table class="scans-table">
                 <thead>
                     <tr>
+                        <th style="width:40px;"><input type="checkbox" id="cbomSelectAll" aria-label="Select all visible CBOM rows" /></th>
                         <th>Asset Name</th>
                         <th>Cert Status</th>
                         <th>Key Len</th>
@@ -140,6 +147,7 @@
                         <th>CA</th>
                         <th>Expires On</th>
                         <th>Certificate Details</th>
+                        <th style="min-width:140px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="cbomEntriesBody">
@@ -147,7 +155,13 @@
                     {% set cert = row.certificate_details or {} %}
                     {% set validity = cert.get('validity', {}) if cert else {} %}
                     {% set spki = cert.get('subject_public_key_info', {}) if cert else {} %}
-                    <tr>
+                    {% set x509 = row.x509_minimum or {} %}
+                    {% set issued_to = x509.get('issued_to', {}) if x509 else {} %}
+                    {% set issued_by = x509.get('issued_by', {}) if x509 else {} %}
+                    {% set validity_period = x509.get('validity_period', {}) if x509 else {} %}
+                    {% set x509_fingerprints = x509.get('sha256_fingerprints', {}) if x509 else {} %}
+                    <tr data-row-key="{{ row.row_key or '' }}">
+                        <td><input type="checkbox" class="cbom-row-select" data-row-key="{{ row.row_key or '' }}" aria-label="Select CBOM row" /></td>
                         <td><div style="font-weight:700;">{{ row.asset_name }}</div><div style="font-size:0.65rem; color:var(--text-secondary);">{{ row.subject_cn }}</div></td>
                         <td><span class="status-pill" style="border-color:var(--pqc-safe); color:var(--pqc-safe);">Valid</span></td>
                         <td style="font-family:var(--font-mono);">{{ row.key_length }}</td>
@@ -160,30 +174,38 @@
                                 <details>
                                     <summary>Show full X.509 details</summary>
                                     <div class="cert-details-grid">
+                                        <div class="x509-block">
+                                            <div class="x509-block-title">Issued To</div>
+                                            <div class="row"><span class="key">Common Name (CN):</span><span class="val">{{ issued_to.get('common_name', row.subject_cn or '<Not Part Of Certificate>') }}</span></div>
+                                            <div class="row"><span class="key">Organization (O):</span><span class="val">{{ issued_to.get('organization', row.subject_o or '<Not Part Of Certificate>') }}</span></div>
+                                            <div class="row"><span class="key">Organizational Unit (OU):</span><span class="val">{{ issued_to.get('organizational_unit', row.subject_ou or '<Not Part Of Certificate>') }}</span></div>
+                                        </div>
+                                        <div class="x509-block">
+                                            <div class="x509-block-title">Issued By</div>
+                                            <div class="row"><span class="key">Common Name (CN):</span><span class="val">{{ issued_by.get('common_name', row.issuer_cn or '<Not Part Of Certificate>') }}</span></div>
+                                            <div class="row"><span class="key">Organization (O):</span><span class="val">{{ issued_by.get('organization', row.issuer_o or row.ca or '<Not Part Of Certificate>') }}</span></div>
+                                            <div class="row"><span class="key">Organizational Unit (OU):</span><span class="val">{{ issued_by.get('organizational_unit', row.issuer_ou or '<Not Part Of Certificate>') }}</span></div>
+                                        </div>
+                                        <div class="x509-block">
+                                            <div class="x509-block-title">Validity Period</div>
+                                            <div class="row"><span class="key">Issued On:</span><span class="val">{{ validity_period.get('issued_on', validity.get('not_before', row.valid_from or '-')) }}</span></div>
+                                            <div class="row"><span class="key">Expires On:</span><span class="val">{{ validity_period.get('expires_on', validity.get('not_after', row.valid_until or '-')) }}</span></div>
+                                        </div>
+                                        <div class="x509-block">
+                                            <div class="x509-block-title">SHA-256 Fingerprints</div>
+                                            <div class="row"><span class="key">Certificate:</span><span class="val">{{ x509_fingerprints.get('certificate', cert.get('fingerprint_sha256', row.fingerprint_sha256 or '-')) }}</span></div>
+                                            <div class="row"><span class="key">Public Key:</span><span class="val">{{ x509_fingerprints.get('public_key', spki.get('public_key_fingerprint_sha256', '-')) }}</span></div>
+                                        </div>
                                         <div class="row"><span class="key">Certificate Version:</span><span class="val">{{ cert.get('certificate_version', '-') }}</span></div>
                                         <div class="row"><span class="key">Serial Number:</span><span class="val">{{ cert.get('serial_number', row.serial or '-') }}</span></div>
                                         <div class="row"><span class="key">Certificate Signature Algorithm:</span><span class="val">{{ cert.get('certificate_signature_algorithm', row.signature_algorithm or '-') }}</span></div>
-                                        <div class="row"><span class="key">Issuer:</span><span class="val">{{ cert.get('issuer', row.issuer_name or row.ca or '-') }}</span></div>
-                                        <div class="row"><span class="key">Validity Not Before:</span><span class="val">{{ validity.get('not_before', row.valid_from or '-') }}</span></div>
-                                        <div class="row"><span class="key">Validity Not After:</span><span class="val">{{ validity.get('not_after', row.valid_until or '-') }}</span></div>
-                                        <div class="row"><span class="key">Subject:</span><span class="val">{{ cert.get('subject', row.subject_name or '-') }}</span></div>
-                                        <div class="row"><span class="key">Subject Public Key Info:</span><span class="val">{{ spki }}</span></div>
-                                        <div class="row"><span class="key">Subject Public Key Algorithm:</span><span class="val">{{ spki.get('subject_public_key_algorithm', row.public_key_type or '-') }}</span></div>
-                                        <div class="row"><span class="key">Subject's Public Key:</span><span class="val">{{ spki.get('subject_public_key', '-') }}</span></div>
-                                        <div class="row"><span class="key">Extensions:</span><span class="val">{{ cert.get('extensions', []) }}</span></div>
-                                        <div class="row"><span class="key">Certificate Key Usage:</span><span class="val">{{ cert.get('certificate_key_usage', []) }}</span></div>
-                                        <div class="row"><span class="key">Extended Key Usage:</span><span class="val">{{ cert.get('extended_key_usage', []) }}</span></div>
-                                        <div class="row"><span class="key">Certificate Basicconstraints:</span><span class="val">{{ cert.get('certificate_basic_constraints', {}) }}</span></div>
-                                        <div class="row"><span class="key">Certificate Subject Key ID:</span><span class="val">{{ cert.get('certificate_subject_key_id', '-') }}</span></div>
-                                        <div class="row"><span class="key">Certification Authority Key ID:</span><span class="val">{{ cert.get('certificate_authority_key_id', '-') }}</span></div>
-                                        <div class="row"><span class="key">Authority Information Access:</span><span class="val">{{ cert.get('authority_information_access', []) }}</span></div>
-                                        <div class="row"><span class="key">Certificate Subject Alternative Name:</span><span class="val">{{ cert.get('certificate_subject_alternative_name', []) }}</span></div>
-                                        <div class="row"><span class="key">Certificate Policies:</span><span class="val">{{ cert.get('certificate_policies', []) }}</span></div>
-                                        <div class="row"><span class="key">CRL Distribution Points:</span><span class="val">{{ cert.get('crl_distribution_points', []) }}</span></div>
-                                        <div class="row"><span class="key">Signed Certificate Timestamp List:</span><span class="val">{{ cert.get('signed_certificate_timestamp_list', []) }}</span></div>
+                                        <div class="row"><span class="key">Certificate Format:</span><span class="val">{{ cert.get('certificate_format', 'X.509') }}</span></div>
                                     </div>
                                 </details>
                             </div>
+                        </td>
+                        <td>
+                            <button class="button secondary perRowX509ExportBtn" data-row-key="{{ row.row_key or '' }}" style="padding: 0.35rem 0.65rem; font-size: 0.7rem;">Extract X.509</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -199,6 +221,7 @@
         </div>
     </div>
 </div>
+{% include 'modals/ai_assistant_modal.html' %}
 {% endblock %}
 
 {% block scripts %}
@@ -207,6 +230,7 @@
     let cbomHasNext = false;
     let cbomHasPrev = false;
     let cbomPollTimer = null;
+    const selectedCbomRowKeys = new Set();
 
     function esc(value) {
         return String(value ?? '')
@@ -280,7 +304,8 @@
         const body = document.getElementById('cbomEntriesBody');
         if (!body) return;
         if (!items.length) {
-            body.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No CBOM entries found. Run scans to populate CBOM.</td></tr>';
+            body.innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No CBOM entries found. Run scans to populate CBOM.</td></tr>';
+            syncSelectAllState();
             return;
         }
         const printable = (value, fallback = '--') => {
@@ -294,15 +319,32 @@
             return text || fallback;
         };
 
-        body.innerHTML = items.map((row) => `
+        const toRowKey = (row, index) => {
+            const raw = String(row?.row_key || '').trim();
+            if (raw) return raw;
+            const source = String(row?.source || 'cbom').trim();
+            const rid = String(row?.record_id || '').trim();
+            if (rid) return `${source}:${rid}`;
+            return `${source}|${String(row?.asset_id || 0)}|${String(row?.endpoint || '').toLowerCase()}|${String(row?.subject_cn || '').toLowerCase()}|${index}`;
+        };
+
+        body.innerHTML = items.map((row, index) => `
             <tr>
                 ${(() => {
+                    const rowKey = toRowKey(row, index);
                     const cert = (row && typeof row.certificate_details === 'object' && row.certificate_details) ? row.certificate_details : {};
                     const validity = (cert && typeof cert.validity === 'object' && cert.validity) ? cert.validity : {};
                     const spki = (cert && typeof cert.subject_public_key_info === 'object' && cert.subject_public_key_info) ? cert.subject_public_key_info : {};
+                    const x509 = (row && typeof row.x509_minimum === 'object' && row.x509_minimum) ? row.x509_minimum : {};
+                    const issuedTo = (x509 && typeof x509.issued_to === 'object' && x509.issued_to) ? x509.issued_to : {};
+                    const issuedBy = (x509 && typeof x509.issued_by === 'object' && x509.issued_by) ? x509.issued_by : {};
+                    const validityPeriod = (x509 && typeof x509.validity_period === 'object' && x509.validity_period) ? x509.validity_period : {};
+                    const x509Fingerprints = (x509 && typeof x509.sha256_fingerprints === 'object' && x509.sha256_fingerprints) ? x509.sha256_fingerprints : {};
                     const validUntil = printable(row.valid_until || row.not_valid_after || row.valid_to || validity.not_after, '-');
                     const fingerprint = printable(row.fingerprint_sha256 || row.cert_sha256 || cert.fingerprint_sha256 || cert.fingerprint, '--');
+                    const notPart = '<Not Part Of Certificate>';
                     return `
+                <td><input type="checkbox" class="cbom-row-select" data-row-key="${esc(rowKey)}" aria-label="Select CBOM row" ${selectedCbomRowKeys.has(rowKey) ? 'checked' : ''} /></td>
                 <td><div style="font-weight:700;">${esc(row.asset_name || '--')}</div><div style="font-size:0.65rem; color:var(--text-secondary);">${esc(row.subject_cn || '--')}</div></td>
                 <td><span class="status-pill" style="border-color:var(--pqc-safe); color:var(--pqc-safe);">${esc(row.cert_status || 'Valid')}</span></td>
                 <td style="font-family:var(--font-mono);">${esc(row.key_length || '--')}</td>
@@ -315,23 +357,66 @@
                         <details>
                             <summary>Show full X.509 details</summary>
                             <div class="cert-details-grid">
+                                <div class="x509-block">
+                                    <div class="x509-block-title">Issued To</div>
+                                    <div class="row"><span class="key">Common Name (CN):</span><span class="val">${esc(printable(issuedTo.common_name || row.subject_cn, notPart))}</span></div>
+                                    <div class="row"><span class="key">Organization (O):</span><span class="val">${esc(printable(issuedTo.organization || row.subject_o, notPart))}</span></div>
+                                    <div class="row"><span class="key">Organizational Unit (OU):</span><span class="val">${esc(printable(issuedTo.organizational_unit || row.subject_ou, notPart))}</span></div>
+                                </div>
+                                <div class="x509-block">
+                                    <div class="x509-block-title">Issued By</div>
+                                    <div class="row"><span class="key">Common Name (CN):</span><span class="val">${esc(printable(issuedBy.common_name || row.issuer_cn, notPart))}</span></div>
+                                    <div class="row"><span class="key">Organization (O):</span><span class="val">${esc(printable(issuedBy.organization || row.issuer_o || row.ca, notPart))}</span></div>
+                                    <div class="row"><span class="key">Organizational Unit (OU):</span><span class="val">${esc(printable(issuedBy.organizational_unit || row.issuer_ou, notPart))}</span></div>
+                                </div>
+                                <div class="x509-block">
+                                    <div class="x509-block-title">Validity Period</div>
+                                    <div class="row"><span class="key">Issued On:</span><span class="val">${esc(printable(validityPeriod.issued_on || validity.not_before || row.valid_from, '-'))}</span></div>
+                                    <div class="row"><span class="key">Expires On:</span><span class="val">${esc(printable(validityPeriod.expires_on || validUntil, '-'))}</span></div>
+                                </div>
+                                <div class="x509-block">
+                                    <div class="x509-block-title">SHA-256 Fingerprints</div>
+                                    <div class="row"><span class="key">Certificate:</span><span class="val">${esc(printable(x509Fingerprints.certificate || fingerprint, '-'))}</span></div>
+                                    <div class="row"><span class="key">Public Key:</span><span class="val">${esc(printable(x509Fingerprints.public_key || spki.public_key_fingerprint_sha256, '-'))}</span></div>
+                                </div>
                                 <div class="row"><span class="key">Serial Number:</span><span class="val">${esc(printable(cert.serial_number || row.serial))}</span></div>
                                 <div class="row"><span class="key">Certificate Signature Algorithm:</span><span class="val">${esc(printable(cert.certificate_signature_algorithm || row.signature_algorithm))}</span></div>
-                                <div class="row"><span class="key">Issuer:</span><span class="val">${esc(printable(cert.issuer || row.issuer_name || row.ca))}</span></div>
-                                <div class="row"><span class="key">Validity Not Before:</span><span class="val">${esc(printable(validity.not_before || row.valid_from, '-'))}</span></div>
-                                <div class="row"><span class="key">Validity Not After:</span><span class="val">${esc(printable(validUntil, '-'))}</span></div>
-                                <div class="row"><span class="key">Subject:</span><span class="val">${esc(printable(cert.subject || row.subject_name || row.subject_cn))}</span></div>
-                                <div class="row"><span class="key">Subject Public Key Algorithm:</span><span class="val">${esc(printable(spki.subject_public_key_algorithm || row.public_key_type))}</span></div>
-                                <div class="row"><span class="key">Subject Public Key:</span><span class="val">${esc(printable(spki.subject_public_key || spki.subject_public_key_bits, '-'))}</span></div>
-                                <div class="row"><span class="key">SHA-256 Fingerprint:</span><span class="val">${esc(fingerprint)}</span></div>
+                                <div class="row"><span class="key">Certificate Format:</span><span class="val">${esc(printable(cert.certificate_format, 'X.509'))}</span></div>
                             </div>
                         </details>
                     </div>
+                </td>
+                <td>
+                    <button class="button secondary perRowX509ExportBtn" data-row-key="${esc(rowKey)}" style="padding: 0.35rem 0.65rem; font-size: 0.7rem;">Extract X.509</button>
                 </td>
                     `;
                 })()}
             </tr>
         `).join('');
+
+        syncSelectAllState();
+    }
+
+    function getVisibleRowCheckboxes() {
+        return Array.from(document.querySelectorAll('#cbomEntriesBody .cbom-row-select'));
+    }
+
+    function syncSelectAllState() {
+        const selectAll = document.getElementById('cbomSelectAll');
+        if (!selectAll) return;
+        const checkboxes = getVisibleRowCheckboxes();
+        if (!checkboxes.length) {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+            return;
+        }
+        const checkedCount = checkboxes.filter((cb) => cb.checked).length;
+        selectAll.checked = checkedCount > 0 && checkedCount === checkboxes.length;
+        selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+    }
+
+    function getSelectedRowKeys() {
+        return Array.from(selectedCbomRowKeys.values());
     }
 
     function updatePager(total, page, pageSize) {
@@ -382,22 +467,104 @@
         }
     }
 
-    document.getElementById('exportCbomBtn').addEventListener('click', async () => {
-        const btn = document.getElementById('exportCbomBtn');
-        btn.disabled = true;
-        btn.textContent = 'Preparing...';
-        
-        try {
-            const searchTerm = document.getElementById('cbomSearchInput')?.value || '';
-            window.location.href = '/api/cbom/export?search=' + encodeURIComponent(searchTerm);
-        } catch (e) {
-            alert('Export failed. Check connection.');
-        } finally {
-            setTimeout(() => {
-                btn.disabled = false;
-                btn.textContent = 'Export CBOM JSON';
-            }, 2000);
+    function bindExportButton(buttonId, label, mode) {
+        const btn = document.getElementById(buttonId);
+        if (!btn) return;
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            btn.textContent = 'Preparing...';
+
+            try {
+                const searchTerm = document.getElementById('cbomSearchInput')?.value || '';
+                window.location.href = '/api/cbom/export?mode=' + encodeURIComponent(mode) + '&search=' + encodeURIComponent(searchTerm);
+            } catch (e) {
+                alert('Export failed. Check connection.');
+            } finally {
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.textContent = label;
+                }, 2000);
+            }
+        });
+    }
+
+    function bindSelectedExportButton(buttonId, label, mode) {
+        const btn = document.getElementById(buttonId);
+        if (!btn) return;
+        btn.addEventListener('click', async () => {
+            const selectedKeys = getSelectedRowKeys();
+            if (!selectedKeys.length) {
+                alert('Select one or more rows first.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Preparing...';
+            try {
+                const searchTerm = document.getElementById('cbomSearchInput')?.value || '';
+                const query = selectedKeys.map((k) => 'selected_keys=' + encodeURIComponent(k)).join('&');
+                window.location.href = '/api/cbom/export?mode=' + encodeURIComponent(mode) + '&search=' + encodeURIComponent(searchTerm) + '&' + query;
+            } catch (_e) {
+                alert('Export failed. Check connection.');
+            } finally {
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.textContent = label;
+                }, 2000);
+            }
+        });
+    }
+
+    function exportSingleRow(mode, rowKey) {
+        const searchTerm = document.getElementById('cbomSearchInput')?.value || '';
+        window.location.href = '/api/cbom/export?mode=' + encodeURIComponent(mode) + '&search=' + encodeURIComponent(searchTerm) + '&row_key=' + encodeURIComponent(rowKey);
+    }
+
+    bindExportButton('exportX509Btn', 'Export X.509 JSON', 'x509');
+    bindExportButton('exportCbomBtn', 'Export CBOM JSON', 'cbom');
+    bindSelectedExportButton('exportSelectedX509Btn', 'Export Selected X.509', 'x509');
+    bindSelectedExportButton('exportSelectedCbomBtn', 'Export Selected CBOM', 'cbom');
+
+    document.getElementById('cbomEntriesBody').addEventListener('change', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (!target.classList.contains('cbom-row-select')) return;
+        const rowKey = String(target.dataset.rowKey || '').trim();
+        if (!rowKey) return;
+        if (target.checked) {
+            selectedCbomRowKeys.add(rowKey);
+        } else {
+            selectedCbomRowKeys.delete(rowKey);
         }
+        syncSelectAllState();
+    });
+
+    document.getElementById('cbomSelectAll').addEventListener('change', (event) => {
+        const checked = Boolean(event.target?.checked);
+        getVisibleRowCheckboxes().forEach((cb) => {
+            cb.checked = checked;
+            const rowKey = String(cb.dataset.rowKey || '').trim();
+            if (!rowKey) return;
+            if (checked) {
+                selectedCbomRowKeys.add(rowKey);
+            } else {
+                selectedCbomRowKeys.delete(rowKey);
+            }
+        });
+        syncSelectAllState();
+    });
+
+    document.getElementById('cbomEntriesBody').addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const button = target.closest('.perRowX509ExportBtn');
+        if (!button) return;
+        const rowKey = String(button.getAttribute('data-row-key') || '').trim();
+        if (!rowKey) {
+            alert('Unable to export this row. Missing row identifier.');
+            return;
+        }
+        exportSingleRow('x509', rowKey);
     });
 
     document.getElementById('cbomSearchBtn').addEventListener('click', () => {
@@ -444,4 +611,5 @@
     });
     window.addEventListener('beforeunload', stopCbomPolling);
 </script>
+<script src="{{ url_for('static', filename='js/ai_modal.js') }}"></script>
 {% endblock %}
