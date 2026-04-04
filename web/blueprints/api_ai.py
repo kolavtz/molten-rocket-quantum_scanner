@@ -3,7 +3,7 @@ API AI Assistant - /api/ai/* endpoints
 Provides session-first API access (login or X-API-Key) to a small local LLM
 that can answer questions about CBOM data using live context from CbomService.
 """
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, Response
 from middleware.api_auth import api_guard
 from flask_login import current_user
 from src.services.cbom_service import CbomService
@@ -13,6 +13,9 @@ from src import database as db
 from src.services.ai.llm_client import LLMClient
 from src.services.ai.retriever import build_cbom_context
 from src.services.ai.prompt_templates import build_prompt_for_query
+from src.services.ai.rag import search as rag_search, reindex_from_cbom
+from flask import stream_with_context
+import os
 
 api_ai = Blueprint("api_ai", __name__, url_prefix="/api/ai")
 
@@ -54,6 +57,26 @@ def post_cbom_query():
         context_text = ctx.get("text", "")
         sources = {"kpis": ctx.get("kpis", {}), "sample_entries": ctx.get("samples", [])}
 
+        # Optionally augment with RAG documents
+        use_rag = payload.get("use_rag")
+        if use_rag is None:
+            use_rag = os.environ.get("QSS_AI_USE_RAG", "false").lower() in ("1", "true", "yes")
+        rag_docs = []
+        if use_rag:
+            try:
+                rag_docs = rag_search(query, limit=5)
+                if rag_docs:
+                    # Append compact RAG findings to the context text so the LLM can cite them
+                    rag_lines = ["RAG Documents:"]
+                    for i, d in enumerate(rag_docs, 1):
+                        src = d.get("source") or d.get("id")
+                        snip = d.get("snippet") or (d.get("content") or "")[:300]
+                        rag_lines.append(f"{i}. [{src}] {snip}")
+                    context_text = context_text + "\n\n" + "\n".join(rag_lines)
+                    sources["rag"] = rag_docs
+            except Exception:
+                current_app.logger.exception("RAG search failed (non-fatal)")
+
         # Build prompt and call LLM
         prompt = build_prompt_for_query(query=query, context=context_text)
 
@@ -89,3 +112,115 @@ def post_cbom_query():
     except Exception as e:
         current_app.logger.exception("Unhandled error in AI cbom-query")
         return jsonify({"success": False, "message": "Internal server error", "error": str(e)}), 500
+
+
+
+@api_ai.route("/cbom-query/stream", methods=["GET"])
+@api_guard
+def stream_cbom_query():
+    """SSE streaming endpoint for incremental LLM output.
+    Query parameters: query, asset_id, scan_id, limit, max_tokens, temperature, use_rag
+    """
+    try:
+        query = str(request.args.get("query") or "").strip()
+        if not query:
+            return jsonify({"success": False, "message": "Query required."}), 400
+
+        asset_id = request.args.get("asset_id")
+        scan_id = request.args.get("scan_id")
+        limit = int(request.args.get("limit") or 5)
+        max_tokens = int(request.args.get("max_tokens") or os.environ.get("QSS_AI_MAX_TOKENS", 512))
+        temperature = float(request.args.get("temperature") or os.environ.get("QSS_AI_TEMPERATURE", 0.2))
+
+        # Build context
+        ctx = build_cbom_context(asset_id=asset_id, scan_id=scan_id, limit=limit)
+        context_text = ctx.get("text", "")
+        sources = {"kpis": ctx.get("kpis", {}), "sample_entries": ctx.get("samples", [])}
+
+        use_rag = request.args.get("use_rag")
+        if use_rag is None:
+            use_rag = os.environ.get("QSS_AI_USE_RAG", "false").lower() in ("1", "true", "yes")
+        if use_rag:
+            try:
+                rag_docs = rag_search(query, limit=5)
+                if rag_docs:
+                    rag_lines = ["RAG Documents:"]
+                    for i, d in enumerate(rag_docs, 1):
+                        src = d.get("source") or d.get("id")
+                        snip = d.get("snippet") or (d.get("content") or "")[:300]
+                        rag_lines.append(f"{i}. [{src}] {snip}")
+                    context_text = context_text + "\n\n" + "\n".join(rag_lines)
+                    sources["rag"] = rag_docs
+            except Exception:
+                current_app.logger.exception("RAG search failed (non-fatal)")
+
+        prompt = build_prompt_for_query(query=query, context=context_text)
+        client = LLMClient()
+
+        @stream_with_context
+        def event_stream():
+            try:
+                for chunk in client.stream_generate(prompt=prompt, max_tokens=max_tokens, temperature=temperature):
+                    # Each yielded chunk becomes an SSE data event
+                    try:
+                        data = chunk if isinstance(chunk, str) else str(chunk)
+                    except Exception:
+                        data = ''
+                    yield f"data: {data}\n\n"
+                # Signal completion
+                yield "event: done\ndata: {}\n\n"
+            except Exception as e:
+                current_app.logger.exception("Error while streaming LLM output")
+                yield f"event: error\ndata: {str(e)}\n\n"
+
+        # Fire-and-forget audit (best-effort)
+        try:
+            db.append_audit_log(
+                event_category="ai",
+                event_type="assistant_query_stream",
+                status="started",
+                actor_user_id=getattr(current_user, "id", None),
+                actor_username=getattr(current_user, "username", None),
+                request_method=request.method,
+                request_path=request.path,
+                details={"query": query, "asset_id": asset_id, "scan_id": scan_id},
+            )
+        except Exception:
+            current_app.logger.debug("AI streaming audit failed (non-fatal)")
+
+        return Response(event_stream(), mimetype="text/event-stream")
+
+    except Exception as e:
+        current_app.logger.exception("Unhandled error in AI streaming endpoint")
+        return jsonify({"success": False, "message": "Internal server error", "error": str(e)}), 500
+
+
+
+@api_ai.route("/cbom-reindex", methods=["POST"])
+@api_guard
+def cbom_reindex():
+    """Trigger a RAG reindex from CBOM data. Restricted to admin users (session or API key)."""
+    try:
+        # Simple admin check: session user role or API key owner role
+        def _is_admin():
+            try:
+                if getattr(current_user, "is_authenticated", False):
+                    return getattr(current_user, "role", "").lower() == "admin"
+            except Exception:
+                pass
+            # Check X-API-Key
+            raw_key = request.headers.get("X-API-Key") or request.args.get("api_key")
+            if raw_key:
+                user = db.get_user_by_api_key(raw_key)
+                if user and user.get("role", "").lower() == "admin":
+                    return True
+            return False
+
+        if not _is_admin():
+            return jsonify({"success": False, "message": "Admin privileges required."}), 403
+
+        count = reindex_from_cbom()
+        return jsonify({"success": True, "indexed": count}), 200
+    except Exception as e:
+        current_app.logger.exception("RAG reindex failed")
+        return jsonify({"success": False, "message": str(e)}), 500

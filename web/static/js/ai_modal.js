@@ -35,20 +35,66 @@
       sendBtn.disabled = true;
       statusEl.textContent = 'Thinking…';
       responseHost.textContent = '';
+
+      // Try SSE streaming endpoint first; if it fails, fall back to regular POST
+      const qs = api.buildQuery({ query: q });
+      const streamUrl = `${api.baseUrl}/ai/cbom-query/stream?${qs}`;
+      let evtSource;
+      let streaming = false;
       try {
-        const res = await api.fetch('/ai/cbom-query', { method: 'POST', body: { query: q } });
-        if (res && res.answer) {
-          responseHost.innerText = res.answer;
-        } else if (res && res.message) {
-          responseHost.innerText = 'No answer: ' + (res.message || 'Unknown');
-        } else {
-          responseHost.innerText = 'No response from assistant.';
+        evtSource = new EventSource(streamUrl);
+        streaming = true;
+      } catch (e) {
+        streaming = false;
+      }
+
+      if (streaming && evtSource) {
+        evtSource.onmessage = function (e) {
+          // Append incremental data
+          responseHost.textContent += e.data;
+        };
+        evtSource.addEventListener('done', function (e) {
+          statusEl.textContent = '';
+          sendBtn.disabled = false;
+          try { evtSource.close(); } catch (err) {}
+        });
+        evtSource.onerror = async function (e) {
+          // If streaming is not supported or fails, close and fallback
+          try { evtSource.close(); } catch (err) {}
+          // Fallback to fetch-based request
+          try {
+            const res = await api.fetch('/ai/cbom-query', { method: 'POST', body: { query: q } });
+            if (res && res.answer) {
+              responseHost.innerText = res.answer;
+            } else if (res && res.message) {
+              responseHost.innerText = 'No answer: ' + (res.message || 'Unknown');
+            } else {
+              responseHost.innerText = 'No response from assistant.';
+            }
+          } catch (err) {
+            responseHost.innerText = 'Error: ' + (err.message || err);
+          } finally {
+            sendBtn.disabled = false;
+            statusEl.textContent = '';
+          }
+        };
+      } else {
+        // No streaming support; regular POST
+        try {
+          const res = await api.fetch('/ai/cbom-query', { method: 'POST', body: { query: q } });
+          if (res && res.answer) {
+            responseHost.innerText = res.answer;
+          } else if (res && res.message) {
+            responseHost.innerText = 'No answer: ' + (res.message || 'Unknown');
+          } else {
+            responseHost.innerText = 'No response from assistant.';
+          }
+        } catch (err) {
+          responseHost.innerText = 'Error: ' + (err.message || err);
+        } finally {
+          sendBtn.disabled = false;
+          statusEl.textContent = '';
         }
-      } catch (err) {
-        responseHost.innerText = 'Error: ' + (err.message || err);
-      } finally {
-        sendBtn.disabled = false;
-        statusEl.textContent = '';
       }
     });
   });
