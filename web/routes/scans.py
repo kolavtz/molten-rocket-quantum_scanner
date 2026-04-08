@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import math
 import threading
 import uuid
@@ -176,6 +177,25 @@ def _build_scan_item_from_report(report: dict[str, Any]) -> dict[str, Any]:
     if assets_found is None:
         assets_found = len(report.get("discovered_services") or [])
 
+    # Provide backward-compatible alias fields that some client templates expect
+    sd_raw = report.get("services_discovered")
+    try:
+        services_discovered = int(sd_raw) if sd_raw is not None else len(report.get("discovered_services") or [])
+    except Exception:
+        services_discovered = len(report.get("discovered_services") or [])
+
+    tc_raw = report.get("total_certificates")
+    try:
+        total_certificates = int(tc_raw) if tc_raw is not None else len(report.get("tls_results") or [])
+    except Exception:
+        total_certificates = len(report.get("tls_results") or [])
+
+    cb_raw = report.get("cbom_components")
+    try:
+        cbom_components = int(cb_raw) if cb_raw is not None else int(report.get("cbom_component_count") or 0)
+    except Exception:
+        cbom_components = int(report.get("cbom_component_count") or 0)
+
     scan_id = str(report.get("scan_id") or "")
     
     # Extract timestamps
@@ -188,6 +208,9 @@ def _build_scan_item_from_report(report: dict[str, Any]) -> dict[str, Any]:
         "scan_type": _normalize_scan_type(report.get("scan_kind") or report.get("scan_type")),
         "status": _normalize_status(report.get("status") or "completed"),
         "assets_found": int(assets_found or 0),
+        "services_discovered": int(services_discovered or 0),
+        "total_certificates": int(total_certificates or 0),
+        "cbom_components": int(cbom_components or 0),
         "pqc_score": round(float(pqc_score or 0), 2),
         "started_at": started_at,
         "completed_at": completed_at,
@@ -244,6 +267,9 @@ def _collect_scan_items() -> list[dict[str, Any]]:
                         "scan_type": _normalize_scan_type(st.get("scan_type") or (st.get("options") or {}).get("scan_type") or "single"),
                         "status": _normalize_status(st.get("status") or job.get("status")),
                         "assets_found": int(st.get("assets_found") or 0),
+                        "services_discovered": int(st.get("services_discovered") or st.get("assets_found") or 0),
+                        "total_certificates": int(st.get("total_certificates") or 0),
+                        "cbom_components": int(st.get("cbom_components") or 0),
                         "pqc_score": round(float(st.get("pqc_score") or 0), 2),
                         "started_at": str(st.get("started_at") or job.get("started_at") or ""),
                         "completed_at": str(st.get("completed_at") or job.get("completed_at") or ""),
@@ -380,6 +406,72 @@ def _status_snapshot(scan_id: str) -> dict[str, Any] | None:
                 row["total"] = int(job.get("total") or 0)
                 return row
     return None
+
+
+def _compute_scan_kpis(items: list[dict[str, Any]]) -> dict[str, Any]:
+    """Compute unified KPI metrics for a list of scan items.
+
+    This central helper keeps the metrics consistent between the
+    table endpoint and the dedicated metrics endpoint.
+    """
+    now = datetime.now(timezone.utc)
+    since = now.timestamp() - (24 * 60 * 60)
+
+    total_scans = len(items)
+    completed = 0
+    failed = 0
+    running = 0
+    total_assets_found = 0
+    pqc_scores: list[float] = []
+    scans_last_24h = 0
+
+    for row in items:
+        status_text = str(row.get("status") or "").strip().lower()
+        if status_text in {"completed", "complete", "success", "done"}:
+            completed += 1
+        elif status_text in {"failed", "error"}:
+            failed += 1
+        elif status_text in {"queued", "pending", "running", "in_progress"}:
+            running += 1
+
+        try:
+            total_assets_found += int(row.get("assets_found") or 0)
+        except (TypeError, ValueError):
+            pass
+
+        try:
+            score = float(row.get("pqc_score") or 0)
+            if score > 0:
+                pqc_scores.append(score)
+        except (TypeError, ValueError):
+            pass
+
+        dt = _parse_iso_datetime(row.get("date") or row.get("started_at") or row.get("completed_at"))
+        if dt is not None and dt.timestamp() >= since:
+            scans_last_24h += 1
+
+    active_jobs = 0
+    with _scan_jobs_lock:
+        for job in _scan_jobs.values():
+            state = str(job.get("status") or "").strip().lower()
+            if state in {"queued", "running"}:
+                active_jobs += 1
+
+    settled = completed + failed
+    success_rate = round((completed / settled) * 100.0, 2) if settled > 0 else 0.0
+    avg_pqc_score = round(sum(pqc_scores) / len(pqc_scores), 2) if pqc_scores else 0.0
+
+    return {
+        "total_scans": int(total_scans),
+        "completed": int(completed),
+        "failed": int(failed),
+        "running": int(running),
+        "active_jobs": int(active_jobs),
+        "scans_last_24h": int(scans_last_24h),
+        "total_assets_found": int(total_assets_found),
+        "avg_pqc_score": float(avg_pqc_score),
+        "success_rate": float(success_rate),
+    }
 
 
 def _load_scan_report(scan_id: str) -> dict[str, Any] | None:
@@ -745,7 +837,8 @@ def api_scans_list():
     page = max(1, request.args.get("page", 1, type=int) or 1)
     page_size = min(max(1, request.args.get("page_size", 25, type=int) or 25), 250)
     q = str(request.args.get("q", "") or "").strip().lower()
-    status_filter = _normalize_status(request.args.get("status", ""))
+    status_raw = str(request.args.get("status", "") or "").strip()
+    status_filter = _normalize_status(status_raw) if status_raw else ""
     scan_type_filter = _normalize_scan_type(request.args.get("scan_type", "")) if str(request.args.get("scan_type", "")).strip() else ""
     date_from_raw = str(request.args.get("date_from", "") or "").strip()
     date_to_raw = str(request.args.get("date_to", "") or "").strip()
@@ -766,6 +859,37 @@ def api_scans_list():
             date_to = None
 
     items = _collect_scan_items()
+
+    # If no items were found (race during runtime bootstrap), try to
+    # hydrate from local JSON results directory on-demand so the UI can
+    # show history immediately even if MySQL init is still racing.
+    if not items:
+        try:
+            import glob
+            from config import RESULTS_DIR
+
+            local_reports: list[dict[str, Any]] = []
+            pattern = os.path.join(RESULTS_DIR, "*_report.json")
+            files = sorted(glob.glob(pattern), reverse=True)
+            for path in files[:2000]:
+                try:
+                    with open(path, "r", encoding="utf-8") as fh:
+                        data = json.load(fh)
+                    if isinstance(data, dict):
+                        local_reports.append(data)
+                except Exception:
+                    continue
+
+            if local_reports:
+                items = []
+                for report in local_reports:
+                    try:
+                        item = _build_scan_item_from_report(report)
+                        items.append(item)
+                    except Exception:
+                        continue
+        except Exception:
+            pass
 
     if q:
         items = [
@@ -810,10 +934,7 @@ def api_scans_list():
     key_fn = sort_key_map.get(sort, sort_key_map["date"])
     items = sorted(items, key=key_fn, reverse=(order == "desc"))
 
-    # Legacy compatibility: no pagination params => return list.
-    legacy_mode = all(param not in request.args for param in ("page", "page_size", "sort", "order", "q", "status", "scan_type", "date_from", "date_to"))
-    if legacy_mode:
-        return jsonify(items), 200
+    # Always return a consistent paginated envelope (keeps client parsing simple)
 
     total = len(items)
     total_pages = max(1, math.ceil(total / page_size))
@@ -822,17 +943,19 @@ def api_scans_list():
     start = (page - 1) * page_size
     end = start + page_size
 
+    # Compute unified KPIs and include a syncing flag so the UI can show
+    # whether server-side hydration is still in progress.
+    kpis = _compute_scan_kpis(items)
+    syncing = not bool(globals().get('_db_initialized', False))
+
     payload = {
         "items": items[start:end],
         "total": total,
         "page": page,
         "page_size": page_size,
         "total_pages": total_pages,
-        "kpis": {
-            "total_scans": total,
-            "completed": len([r for r in items if _normalize_status(r.get("status")) == "completed"]),
-            "running": len([r for r in items if _normalize_status(r.get("status")) == "running"]),
-        },
+        "kpis": kpis,
+        "syncing": bool(syncing),
     }
     return jsonify(payload), 200
 
@@ -1044,85 +1167,17 @@ def api_scan_promote(scan_id: str):
 @login_required
 def api_scan_metrics():
     items = _collect_scan_items()
-    now = datetime.now(timezone.utc)
-    since = now.timestamp() - (24 * 60 * 60)
-
-    total_scans = len(items)
-    completed = 0
-    failed = 0
-    running = 0
-    total_assets_found = 0
-    pqc_scores: list[float] = []
-    scans_last_24h = 0
-
-    for row in items:
-        status_text = str(row.get("status") or "").strip().lower()
-        if status_text in {"completed", "complete", "success", "done"}:
-            completed += 1
-        elif status_text in {"failed", "error"}:
-            failed += 1
-        elif status_text in {"queued", "pending", "running", "in_progress"}:
-            running += 1
-
-        try:
-            total_assets_found += int(row.get("assets_found") or 0)
-        except (TypeError, ValueError):
-            pass
-
-        try:
-            score = float(row.get("pqc_score") or 0)
-            if score > 0:
-                pqc_scores.append(score)
-        except (TypeError, ValueError):
-            pass
-
-        dt = _parse_iso_datetime(row.get("date") or row.get("started_at") or row.get("completed_at"))
-        if dt is not None and dt.timestamp() >= since:
-            scans_last_24h += 1
-
-    active_jobs = 0
-    with _scan_jobs_lock:
-        for job in _scan_jobs.values():
-            state = str(job.get("status") or "").strip().lower()
-            if state in {"queued", "running"}:
-                active_jobs += 1
-
-    settled = completed + failed
-    success_rate = round((completed / settled) * 100.0, 2) if settled > 0 else 0.0
-    avg_pqc_score = round(sum(pqc_scores) / len(pqc_scores), 2) if pqc_scores else 0.0
+    kpis = _compute_scan_kpis(items)
 
     payload = {
         "success": True,
         "data": {
-            "items": [
-                {
-                    "as_of": _now_iso(),
-                    "total_scans": int(total_scans),
-                    "completed": int(completed),
-                    "failed": int(failed),
-                    "running": int(running),
-                    "active_jobs": int(active_jobs),
-                    "scans_last_24h": int(scans_last_24h),
-                    "total_assets_found": int(total_assets_found),
-                    "avg_pqc_score": float(avg_pqc_score),
-                    "success_rate": float(success_rate),
-                }
-            ],
+            "items": [dict({"as_of": _now_iso()}, **kpis)],
             "total": 1,
             "page": 1,
             "page_size": 1,
             "total_pages": 1,
-            "kpis": {
-                "total_scans": int(total_scans),
-                "completed": int(completed),
-                "failed": int(failed),
-                "running": int(running),
-                "active_jobs": int(active_jobs),
-                "scans_last_24h": int(scans_last_24h),
-                "total_assets_found": int(total_assets_found),
-                "avg_pqc_score": float(avg_pqc_score),
-                "success_rate": float(success_rate),
-            },
+            "kpis": kpis,
         },
         "filters": {},
     }

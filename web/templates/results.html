@@ -22,6 +22,8 @@
     </div>
 </section>
 
+<script>window.CURRENT_SCAN_ID = "{{ scan_id }}";</script>
+
 {% if report.status == 'complete' %}
 
 <!-- HNDL Threat Banner -->
@@ -70,6 +72,10 @@
             <div class="overview-value">{{ report.discovered_services|length if report.discovered_services else 0 }}</div>
             <div class="overview-label">OPEN_PORTS</div>
         </div>
+        <div class="overview-card glass-card">
+            <div class="overview-value">{{ (report.cbom.components|length) if (report.cbom and report.cbom.components) else (report.cbom_components or (report.overview.cbom_components if report.overview else 0)) }}</div>
+            <div class="overview-label">CBOM_COMPONENTS</div>
+        </div>
     </div>
 </section>
 
@@ -87,6 +93,25 @@
         <div class="glass-card" style="padding: 1.5rem;">
             <h3 style="font-size: 0.85rem; text-transform: uppercase; margin-bottom: 1.5rem; letter-spacing: 1px; color:var(--text-secondary);">HNDL_RISK_MAP</h3>
             <canvas id="riskChart"></canvas>
+        </div>
+    </div>
+</section>
+
+<!-- Visualizations Row: Map + Certificate Bubble Chart -->
+<section class="visualizations-section" style="margin-top: 2rem;">
+    <div class="visualizations-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+        <div class="glass-card" style="padding: 1rem;">
+            <h3 style="font-size: 0.85rem; text-transform: uppercase; margin-bottom: 1rem; color:var(--text-secondary);">ASSET_LOCATION_MAP</h3>
+            <div id="resultMap" style="height:360px; border-radius:6px; background: linear-gradient(180deg, rgba(0,0,0,0.02), transparent); display:flex; align-items:center; justify-content:center;">
+                <div style="color:var(--text-secondary);">Loading map…</div>
+            </div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem;">Map shows resolved locations for endpoints (if available).</div>
+        </div>
+
+        <div class="glass-card" style="padding: 1rem;">
+            <h3 style="font-size: 0.85rem; text-transform: uppercase; margin-bottom: 1rem; color:var(--text-secondary);">CERTIFICATE_BUBBLE</h3>
+            <canvas id="certBubbleChart" style="height:360px; width:100%;"></canvas>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem;">Bubble: x=key length, y=days to expiry, size scales with key length; color indicates status.</div>
         </div>
     </div>
 </section>
@@ -188,6 +213,47 @@
 <!-- Certificates -->
 <section style="margin-top: 2rem;">
     <h2 style="font-size: 1rem; text-transform: uppercase; margin-bottom: 1rem; border-left: 4px solid var(--accent); padding-left: 1rem;">TRUST_LABELS</h2>
+
+    {# Certificate summary KPIs: prefer server-side computed `report.cert_summary`, fallback to client-side computation #}
+    {% set cert_summary = report.get('cert_summary') if report is mapping else (report.get('cert_summary') if report.get is defined else None) %}
+    {% if cert_summary %}
+        {% set cert_stats = namespace(total=(cert_summary.get('total')|int if cert_summary.get('total') is not none else 0), expired=(cert_summary.get('expired')|int if cert_summary.get('expired') is not none else 0), expiring=(cert_summary.get('expiring')|int if cert_summary.get('expiring') is not none else 0), weak_keys=(cert_summary.get('weak_keys')|int if cert_summary.get('weak_keys') is not none else 0)) %}
+    {% else %}
+        {% set tls_rows = report.tls_results or [] %}
+        {% set cert_stats = namespace(expired=0, expiring=0, weak_keys=0, total=(tls_rows|length)) %}
+        {% for tls in tls_rows %}
+            {% set days = (tls.get('days_remaining') if tls.get('days_remaining') is not none else (tls.get('cert_days_remaining') if tls.get('cert_days_remaining') is not none else none)) %}
+            {% if tls.get('is_expired') or (tls.get('cert_status') and tls.get('cert_status')|lower == 'expired') %}
+                {% set cert_stats.expired = cert_stats.expired + 1 %}
+            {% elif days is not none and days <= 30 %}
+                {% set cert_stats.expiring = cert_stats.expiring + 1 %}
+            {% endif %}
+            {% set key_len = (tls.get('key_length') or tls.get('key_size') or (tls.get('certificate_details') and tls.get('certificate_details').get('subject_public_key_info', {}).get('subject_public_key_bits')) or 0) | int %}
+            {% if key_len > 0 and key_len < 2048 %}
+                {% set cert_stats.weak_keys = cert_stats.weak_keys + 1 %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+
+    <div style="display:flex; gap:1rem; margin-bottom:1rem; flex-wrap:wrap;">
+        <div class="glass-card" style="padding:0.75rem; min-width:120px; text-align:center;">
+            <div style="font-weight:700; font-size:1.25rem;">{{ cert_stats.total }}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted);">Certificates</div>
+        </div>
+        <div class="glass-card" style="padding:0.75rem; min-width:120px; text-align:center;">
+            <div style="font-weight:700; font-size:1.25rem; color:var(--danger);">{{ cert_stats.expired }}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted);">Expired</div>
+        </div>
+        <div class="glass-card" style="padding:0.75rem; min-width:140px; text-align:center;">
+            <div style="font-weight:700; font-size:1.25rem; color:var(--warn);">{{ cert_stats.expiring }}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted);">Expiring ≤30d</div>
+        </div>
+        <div class="glass-card" style="padding:0.75rem; min-width:160px; text-align:center;">
+            <div style="font-weight:700; font-size:1.25rem;">{{ cert_stats.weak_keys }}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted);">Weak Keys (&lt;2048)</div>
+        </div>
+    </div>
+
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
         {% for label in report.labels %}
         <div class="glass-card" style="padding: 1.5rem; border: 2px solid {{ label.badge_color }};">
@@ -205,11 +271,129 @@
         {% endfor %}
     </div>
 </section>
+<!-- Detailed Tabs: CBOM, DNS, Certificates, Mitigations -->
+<section id="details-tabs" style="margin-top: 2rem;">
+    <div class="glass-card" style="padding: 1rem;">
+        <div style="display:flex; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
+            <button class="tab-button active" data-tab="cbom" style="padding:0.5rem 0.8rem;">CBOM</button>
+            <button class="tab-button" data-tab="dns" style="padding:0.5rem 0.8rem;">DNS & Discovery</button>
+            <button class="tab-button" data-tab="certs" style="padding:0.5rem 0.8rem;">Certificates</button>
+            <button class="tab-button" data-tab="mitigations" style="padding:0.5rem 0.8rem;">Mitigations</button>
+        </div>
+
+        <div id="tab-cbom" class="tab-panel" style="display:block;">
+            {% if report.cbom %}
+            <div style="margin-bottom:0.5rem;">
+                <a href="/cbom/{{ scan_id }}" class="button small">Download full CBOM JSON</a>
+            </div>
+            <pre style="white-space: pre-wrap; max-height: 420px; overflow: auto; background: var(--bg_card); padding:1rem; border-radius:6px;">{{ report.cbom | default({}) | tojson }}</pre>
+            {% else %}
+            <div style="color: var(--text-secondary);">CBOM not available for this scan.</div>
+            {% endif %}
+        </div>
+
+        <div id="tab-dns" class="tab-panel" style="display:none;">
+            {% if report.dns_records %}
+            <table class="scans-table" style="width:100%; margin-top:0.5rem;">
+                <thead><tr><th>TYPE</th><th>VALUE</th><th>HOST</th><th>RESOLVED_AT</th></tr></thead>
+                <tbody>
+                    {% for r in report.dns_records %}
+                    <tr>
+                        <td>{{ r.record_type }}</td>
+                        <td><code>{{ r.record_value }}</code></td>
+                        <td>{{ r.hostname or report.target }}</td>
+                        <td style="font-size:0.75rem; color: var(--text-muted);">{{ r.resolved_at or '' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div style="color: var(--text-secondary);">No DNS records were collected for this scan.</div>
+            {% endif %}
+        </div>
+
+        <div id="tab-certs" class="tab-panel" style="display:none;">
+            {% if report.tls_results %}
+                {% for tls in report.tls_results %}
+                <div class="glass-card" style="padding:0.8rem; margin-bottom:0.6rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <strong>{{ tls.host }}:{{ tls.port }}</strong>
+                            <div style="font-size:0.8rem; color: var(--text-muted);">{{ tls.subject_cn or tls.subject }}</div>
+                        </div>
+                        <div style="text-align:right; font-size:0.8rem; color: var(--text-muted);">{{ tls.cert_status }} • {{ tls.key_length }} bits</div>
+                    </div>
+                    <div style="margin-top:0.6rem; font-size:0.85rem; color: var(--text-secondary);">
+                        Issuer: {{ tls.issuer_cn }} {{ tls.issuer_o and (' / ' ~ tls.issuer_o) }}
+                        <br>Serial: <code>{{ tls.serial_number }}</code>
+                        <br>SHA256: <code>{{ tls.cert_sha256 }}</code>
+                        <br>Validity: {{ tls.valid_from }} → {{ tls.valid_to }}
+                        <br>Days remaining: <strong>{{ tls.get('days_remaining') if tls.get('days_remaining') is not none else (tls.get('cert_days_remaining') if tls.get('cert_days_remaining') is not none else 'N/A') }}</strong>
+                        <br>Signature: {{ tls.get('signature_algorithm') or (tls.get('certificate_details') and tls.get('certificate_details').get('certificate_signature_algorithm')) or 'N/A' }}
+                        <br>Key algorithm: {{ tls.get('key_algorithm') or (tls.get('certificate_details') and tls.get('certificate_details').get('subject_public_key_info', {}).get('subject_public_key_algorithm')) or 'N/A' }} • <small>{{ tls.get('key_length') or (tls.get('certificate_details') and tls.get('certificate_details').get('subject_public_key_info', {}).get('subject_public_key_bits')) or 'N/A' }} bits</small>
+                        <br>SANs: {{ (tls.get('san_domains')|join(', ')) if tls.get('san_domains') else '—' }}
+                        <br>Chain length: {{ tls.get('cert_chain_length') or tls.get('certificate_chain_length') or 0 }}
+                    </div>
+                    <details style="margin-top:0.6rem;">
+                        <summary>Full certificate details</summary>
+                        <pre style="white-space: pre-wrap; margin-top:0.5rem; background: var(--bg_card); padding:1rem; border-radius:6px;">{{ tls.certificate_details | default({}) | tojson }}</pre>
+                    </details>
+                </div>
+                {% endfor %}
+            {% else %}
+            <div style="color: var(--text-secondary);">No TLS/Certificate data available for this scan.</div>
+            {% endif %}
+        </div>
+
+        <div id="tab-mitigations" class="tab-panel" style="display:none;">
+            {% if report.recommendations_detailed %}
+                {% for rec in report.recommendations_detailed %}
+                <div class="glass-card" style="padding:0.8rem; margin-bottom:0.6rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div><strong>{{ rec.title or rec.get('title') or 'Recommendation' }}</strong></div>
+                        <div style="font-size:0.8rem; color: var(--text-muted);">Priority: {{ rec.priority or rec.get('priority') or 'n/a' }}</div>
+                    </div>
+                    <p style="color: var(--text-secondary); font-size:0.9rem; margin-top:0.5rem;">{{ rec.description or rec.get('description') }}</p>
+                    {% if rec.server_configs %}
+                    <details>
+                        <summary>Server configuration snippets</summary>
+                        <div style="margin-top:0.5rem;">
+                            {% for key, snippet in rec.server_configs.items() %}
+                            <div style="margin-bottom:0.6rem;">
+                                <strong>{{ key }}</strong>
+                                <pre style="white-space: pre-wrap; background: var(--bg_card); padding:0.75rem; border-radius:6px;">{{ snippet }}</pre>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </details>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+            <div style="color: var(--text-secondary);">No mitigation recommendations found for this scan.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        (function(){
+            const btns = document.querySelectorAll('.tab-button');
+            const panels = document.querySelectorAll('.tab-panel');
+            btns.forEach(b => b.addEventListener('click', function(){
+                const t = this.dataset.tab;
+                btns.forEach(x => x.classList.remove('active'));
+                this.classList.add('active');
+                panels.forEach(p => p.style.display = (p.id === 'tab-' + t) ? 'block' : 'none');
+            }));
+        })();
+    </script>
+</section>
 
 <!-- Actions -->
 <section class="actions-section" style="margin-top: 3rem; margin-bottom: 4rem;">
     <div class="actions-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
         <a href="/cbom/{{ scan_id }}" class="button" style="text-align: center; width:100%;" download>DOWNLOAD_CBOM_JSON</a>
+        <a href="/results/{{ scan_id }}/export_pdf" class="button" style="text-align: center; width:100%;">DOWNLOAD_PDF_SERVER</a>
         <button class="button secondary" style="text-align: center; width:100%;" onclick="window.print()">GENERATE_PDF_EXP</button>
         <a href="/" class="button outline" style="text-align: center; width:100%;">NULL_AND_RESET</a>
     </div>
@@ -230,10 +414,10 @@
 {% if report.status == 'complete' %}
 <script id="chartDataSource" type="application/json">
 {
-    "quantumSafe": {{ report.overview.quantum_safe | tojson }},
-    "quantumVuln": {{ report.overview.quantum_vulnerable | tojson }},
-    "severity": {{ report.severity_breakdown | tojson }},
-    "risk": {{ report.risk_distribution | tojson }}
+    "quantumSafe": {{ (report.overview.quantum_safe if report.overview is defined else 0) | default(0) | tojson }},
+    "quantumVuln": {{ (report.overview.quantum_vulnerable if report.overview is defined else 0) | default(0) | tojson }},
+    "severity": {{ report.severity_breakdown | default({}) | tojson }},
+    "risk": {{ report.risk_distribution | default({}) | tojson }}
 }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -308,6 +492,187 @@
             cutout: '0%'
         }
     });
+</script>
+<!-- Visualizations scripts: Leaflet map + Certificate bubble chart -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+    (function(){
+            try {
+            const tls = {{ report.tls_results | default([]) | tojson }} || [];
+            const locations = {{ report.asset_locations | default([]) | tojson }} || [];
+            const cssVars = getComputedStyle(document.documentElement);
+            const safeColor = cssVars.getPropertyValue('--safe').trim() || '#2ecc71';
+            const warnColor = cssVars.getPropertyValue('--warn').trim() || '#f39c12';
+            const dangerColor = cssVars.getPropertyValue('--danger').trim() || '#e74c3c';
+
+            // Build bubble points: x = key_length, y = days to expiry, r = scaled key length
+            const bubblePoints = (tls || []).map(function(t){
+                const key = Number(t.key_length || t.key_size || 0) || 0;
+                let days = null;
+                if (t.days_remaining !== undefined && t.days_remaining !== null) days = Number(t.days_remaining);
+                else if (t.cert_days_remaining !== undefined && t.cert_days_remaining !== null) days = Number(t.cert_days_remaining);
+                else if (t.valid_to) {
+                    const dt = new Date(String(t.valid_to));
+                    if (!Number.isNaN(dt.getTime())) {
+                        days = Math.round((dt - new Date()) / (1000*60*60*24));
+                    }
+                }
+                if (days === null || Number.isNaN(days)) days = 0;
+                const r = Math.max(4, Math.min(28, Math.round((key || 256) / 256)));
+                return {
+                    x: key,
+                    y: days,
+                    r: Math.max(4, Math.round((key || 256) / 128)),
+                    label: (t.host ? (t.host + (t.port ? ':'+t.port : '')) : (t.endpoint || 'endpoint')),
+                    status: (t.cert_status || (t.is_expired ? 'Expired' : (days <= 0 ? 'Expiring' : 'Valid')))
+                };
+            });
+
+            const bubbleColors = (bubblePoints || []).map(function(p){
+                const s = String(p.status || '').toLowerCase();
+                if (s.indexOf('expired') !== -1) return dangerColor;
+                if (s.indexOf('expir') !== -1 || (p.y !== null && p.y <= 30)) return warnColor;
+                return safeColor;
+            });
+
+            // Render bubble chart
+            try {
+                const ctx = document.getElementById('certBubbleChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bubble',
+                    data: {
+                        datasets: [{
+                            label: 'Certificates',
+                            data: bubblePoints,
+                            backgroundColor: bubbleColors,
+                            borderColor: 'rgba(0,0,0,0.06)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            x: { title: { display: true, text: 'Key Length (bits)' }, beginAtZero: true },
+                            y: { title: { display: true, text: 'Days to Expiry' }, beginAtZero: false }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(ctx) {
+                                        const d = ctx.raw || {};
+                                        return (d.label || 'cert') + ': key=' + (d.x || 0) + ' days=' + (d.y || 0);
+                                    }
+                                }
+                            },
+                            legend: { display: false }
+                        }
+                    }
+                });
+            } catch (e) {
+                console.warn('bubble chart init failed', e);
+            }
+
+            // Initialize Leaflet map for asset locations
+            try {
+                if (!locations || !locations.length) {
+                    var mEl = document.getElementById('resultMap');
+                    if (mEl) mEl.innerHTML = '<div style="padding:1.5rem;color:var(--text-secondary);">No geo locations available.</div>';
+                } else if (typeof L !== 'undefined') {
+                    var first = locations[0] || {};
+                    var lat = Number(first.lat || first.latitude || first.lat_c || 0) || 0;
+                    var lon = Number(first.lon || first.longitude || first.lng || first.lon_c || 0) || 0;
+                    var map = L.map('resultMap').setView([lat || 0, lon || 0], (lat && lon) ? 4 : 2);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+                    locations.forEach(function(loc){
+                        var la = Number(loc.lat || loc.latitude || loc.lat_c || 0) || 0;
+                        var lo = Number(loc.lon || loc.longitude || loc.lng || 0) || 0;
+                        if (!la && !lo) return;
+                        var marker = L.circleMarker([la, lo], { radius: 6, fillColor: '#3388ff', color: '#fff', weight: 1, opacity: 1, fillOpacity: 0.9 }).addTo(map);
+                        var name = loc.name || loc.city || loc.hostname || '';
+                        var popup = '<div style="font-weight:700">' + (name || 'Location') + '</div>' + (loc.city ? ('<div style="font-size:0.9rem;color:var(--text-muted);">' + (loc.city || '') + (loc.country ? ', ' + loc.country : '') + '</div>') : '');
+                        marker.bindPopup(popup);
+                    });
+                }
+            } catch (e) {
+                console.warn('map init failed', e);
+            }
+
+        } catch (e) {
+            console.warn('visualizations init failed', e);
+        }
+    })();
+</script>
+<!-- Print helpers: convert canvases to images for reliable PDF/print output -->
+<script>
+    (function(){
+        const printClass = 'print-chart';
+
+        function preparePrintCharts(){
+            try{
+                document.querySelectorAll('canvas').forEach(canvas => {
+                    // Skip if already replaced
+                    if (canvas.dataset.__print_img_created) return;
+                    try{
+                        const dataUrl = canvas.toDataURL('image/png');
+                        const img = document.createElement('img');
+                        img.className = printClass;
+                        img.src = dataUrl;
+                        // Preserve layout size
+                        img.style.display = 'block';
+                        img.style.maxWidth = '100%';
+                        img.style.height = 'auto';
+                        // Insert after canvas and hide canvas for print
+                        canvas.parentNode.insertBefore(img, canvas.nextSibling);
+                        canvas.dataset.__print_img_created = '1';
+                        canvas.style.visibility = 'hidden';
+                    }catch(e){
+                        // ignore per-canvas errors
+                        console.warn('print: canvas->img conversion failed', e);
+                    }
+                });
+            }catch(e){
+                console.warn('print: preparePrintCharts failed', e);
+            }
+        }
+
+        function cleanupPrintCharts(){
+            try{
+                document.querySelectorAll('img.'+printClass).forEach(img => img.remove());
+                document.querySelectorAll('canvas[data__print_img_created], canvas[data-__print_img_created], canvas[data.__print_img_created]').forEach(canvas => {
+                    // Remove marker and restore visibility
+                    try{ delete canvas.dataset.__print_img_created; }catch(e){}
+                    canvas.style.visibility = '';
+                });
+            }catch(e){
+                console.warn('print: cleanupPrintCharts failed', e);
+            }
+        }
+
+        // Modern browsers fire beforeprint/afterprint; fallback to matchMedia for some
+        if (window.matchMedia) {
+            const mediaQueryList = window.matchMedia('print');
+            mediaQueryList.addEventListener && mediaQueryList.addEventListener('change', (m) => {
+                if (m.matches) preparePrintCharts(); else cleanupPrintCharts();
+            });
+        }
+
+        window.addEventListener('beforeprint', preparePrintCharts);
+        window.addEventListener('afterprint', cleanupPrintCharts);
+
+        // Also intercept the Generate_PDF_EXP button to ensure canvases converted prior to print dialog
+        document.addEventListener('DOMContentLoaded', function(){
+            const btn = document.querySelector('.actions-section button[onclick*="print(")');
+            if (btn){
+                btn.addEventListener('click', function(ev){
+                    // Convert immediately, then call print after a tiny delay to allow image insertion
+                    preparePrintCharts();
+                    setTimeout(() => { try{ window.print(); } catch(e){} }, 120);
+                    // Prevent double-print (the inline onclick may also call print)
+                    ev.preventDefault();
+                }, { once: true });
+            }
+        });
+    })();
 </script>
 {% endif %}
 {% endblock %}

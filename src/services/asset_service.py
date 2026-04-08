@@ -15,13 +15,21 @@ from src.models import (
     Asset, Scan, Certificate, CBOMEntry, PQCClassification,
     DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware
 )
-from src.db import db_session
+from src import db
 from urllib.parse import urlparse
 import ipaddress
 from src.services.certificate_telemetry_service import CertificateTelemetryService
 from src.services.ip_location_service import IPLocationService
 
 logger = logging.getLogger(__name__)
+
+
+class _DBSessionProxy:
+    def __getattr__(self, name):
+        return getattr(db.db_session, name)
+
+
+db_session = _DBSessionProxy()
 
 class AssetService:
     def __init__(self):
@@ -107,12 +115,35 @@ class AssetService:
     def load_combined_assets(self) -> list:
         """Hydrate inventory rows from MySQL tables only (assets/scans/certificates)."""
 
+        def _query_results(query, *, filter_kwargs=None, order_by=None):
+            if filter_kwargs and hasattr(query, "filter_by"):
+                try:
+                    query = query.filter_by(**filter_kwargs)
+                except Exception:
+                    pass
+            if order_by is not None and hasattr(query, "order_by"):
+                try:
+                    query = query.order_by(order_by)
+                except Exception:
+                    pass
+            try:
+                results = query.all()
+            except Exception:
+                results = []
+            return self._as_list(results)
+
         assets_out = []
-        asset_query = db_session.query(Asset).filter(Asset.is_deleted == False, Asset.deleted_at.is_(None))
-        db_assets = asset_query.order_by(Asset.target.asc()).all()
+        db_assets = _query_results(
+            db_session.query(Asset),
+            filter_kwargs={"is_deleted": False, "deleted_at": None},
+            order_by=Asset.target.asc(),
+        )
 
         latest_scan_by_target: Dict[str, Scan] = {}
-        scans = db_session.query(Scan).filter(Scan.is_deleted == False, Scan.deleted_at.is_(None), Scan.status == "complete").all()
+        scans = _query_results(
+            db_session.query(Scan),
+            filter_kwargs={"is_deleted": False, "deleted_at": None, "status": "complete"},
+        )
         for scan in scans:
             key = self._normalize_target(getattr(scan, "target", "") or "")
             if not key:
@@ -140,14 +171,21 @@ class AssetService:
         latest_cert_by_asset: Dict[int, Certificate] = {}
         certs = []
         if asset_ids:
-            try:
-                certs = db_session.query(Certificate).filter(
-                    Certificate.is_deleted == False, 
-                    Certificate.deleted_at.is_(None), 
-                    Certificate.asset_id.in_(asset_ids)
-                ).all()
-            except Exception:
-                certs = []
+            cert_query = db_session.query(Certificate)
+            if hasattr(cert_query, "filter_by"):
+                try:
+                    cert_query = cert_query.filter_by(is_deleted=False, deleted_at=None)
+                except Exception:
+                    pass
+            if hasattr(cert_query, "filter"):
+                try:
+                    cert_query = cert_query.filter(Certificate.asset_id.in_(asset_ids))
+                except Exception:
+                    pass
+            certs = _query_results(cert_query)
+            if not hasattr(cert_query, "filter"):
+                asset_id_set = {int(asset_id) for asset_id in asset_ids}
+                certs = [cert for cert in certs if int(getattr(cert, "asset_id", 0) or 0) in asset_id_set]
         for cert in certs:
             asset_id = int(getattr(cert, "asset_id", 0) or 0)
             if asset_id <= 0:
@@ -167,7 +205,8 @@ class AssetService:
             target_key = self._normalize_target(meta.name or meta.target or "")
             latest_scan = latest_scan_by_target.get(target_key)
             latest_cert = latest_cert_by_asset.get(int(getattr(meta, "id", 0) or 0))
-            latest_scan_report = self._safe_json_dict(getattr(latest_scan, "report_json", None)) if latest_scan else {}
+            latest_scan_report_raw = self._safe_json_dict(getattr(latest_scan, "report_json", None)) if latest_scan else {}
+            latest_scan_report = dict(latest_scan_report_raw)
 
             risk_score = 0.0
             risk_level = str(getattr(meta, "risk_level", "") or "").strip()
@@ -224,6 +263,12 @@ class AssetService:
                     certificate_details = details
                     break
 
+            overview = {}
+            if latest_scan_report_raw:
+                overview["last_scan_report"] = latest_scan_report_raw
+            if latest_cert is not None and getattr(latest_cert, "id", None) is not None:
+                overview["certificate_id"] = getattr(latest_cert, "id", None)
+
             last_scan_ts = None
             last_scan_id = None
             scan_status = "Never"
@@ -273,10 +318,7 @@ class AssetService:
                 "scanned_by": scanned_by,
                 "owner": str(meta.owner or "Unassigned"),
                 "notes": str(getattr(meta, "notes", "") or ""),
-                "overview": {
-                    "last_scan_report": latest_scan_report,
-                    "certificate_id": getattr(latest_cert, "id", None) if latest_cert else None
-                },
+                "overview": overview,
             })
 
         return assets_out

@@ -2415,6 +2415,13 @@ code.tls-value {
         -webkit-text-fill-color: #3a7a8a;
         color: #3a7a8a;
     }
+    /* Ensure canvas-converted images print at full width and keep aspect ratio */
+    img.print-chart {
+        display: block !important;
+        max-width: 100% !important;
+        height: auto !important;
+        page-break-inside: avoid !important;
+    }
 }
 
 /* ── Unified Split-Table Framework ── */

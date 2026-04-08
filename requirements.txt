@@ -50,3 +50,4 @@ blinker>=1.7.0
 
 # Local LLM (optional)
 llama-cpp-python>=0.1.80
+matplotlib>=3.7.0

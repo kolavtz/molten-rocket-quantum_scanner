@@ -329,5 +329,51 @@
     "save_path": "",
     "download_link": false,
     "status": "scheduled"
+  },
+  {
+    "id": "b906e7e5af23",
+    "created_by_id": "<AsyncMock name='current_user.id' id='1916934725248'>",
+    "created_by": "admin",
+    "created_at": "2026-04-04T17:09:43.191100+00:00",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory",
+      "CBOM"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "password_protect": false,
+    "pdf_password": "",
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
+    "id": "843db6400e41",
+    "created_by_id": "<AsyncMock name='current_user.id' id='1663997765216'>",
+    "created_by": "admin",
+    "created_at": "2026-04-05T01:04:51.791846+00:00",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory",
+      "CBOM"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "password_protect": false,
+    "pdf_password": "",
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
   }
 ]

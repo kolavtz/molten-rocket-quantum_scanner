@@ -26,3 +26,16 @@ def test_cbom_query_endpoint(mock_retriever, mock_generate, client):
     assert data["success"] is True
     assert "answer" in data
     assert "Sample assistant reply." in data["answer"]
+
+
+def test_ai_config_endpoint(client):
+    # In TESTING + LOGIN_DISABLED mode the config endpoint should be available.
+    # Try both '/api/ai/config' and '/api/v1/ai/config' so tests pass whether API
+    # blueprints are mounted at /api or /api/v1 in the current environment.
+    resp = client.get("/api/ai/config")
+    if resp.status_code == 404:
+        resp = client.get("/api/v1/ai/config")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["success"] is True
+    assert "config" in data

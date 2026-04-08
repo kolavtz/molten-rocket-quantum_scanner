@@ -77,6 +77,29 @@ When tools are available (MCP, browser, Google Workspace, etc.), follow this ord
 
 Prefer tools over guessing. If you are uncertain and a tool can resolve it, call the tool.
 
+## AI / Agent configuration (runtime)
+
+When working with the AI assistant or building agentic features, configuration is read from environment variables (the app loads `.env`). Keep secrets out of source control and prefer masked values when returning runtime config.
+
+Key environment variables (set in `.env` or provided by the orchestration environment):
+
+- `AI_SERVER_URL` — External LM server base URL (example: `http://127.0.0.1:1234`). The app will POST to `{AI_SERVER_URL}/v1/chat/completions`.
+- `AI_SERVER_API_KEY` — Optional API key for external LM servers (included as `Authorization: Bearer <key>` and `X-API-Key` when present).
+- `QSS_AI_SYSTEM_PROMPT` — Server-side default instruction for the assistant (can be overridden per-request). Keep this concise and authoritative.
+- `QSS_AI_USE_RAG` — `true|false` flag to enable RAG augmentation in CBOM queries and related endpoints.
+- `QSS_AI_MAX_TOKENS` — Default max tokens for server-side LLM calls.
+- `QSS_AI_TEMPERATURE` — Default temperature for server-side LLM calls.
+- `QSS_AI_MODEL_BACKEND` / `QSS_AI_MODEL_PATH` — When running a local backend via `LLMClient`, configure backend and model path.
+- `QSS_AGENT_ENABLED` — Toggle for a separate agent orchestrator (if used).
+- `QSS_AGENT_BACKEND_URL` / `QSS_AGENT_PORT` — Where an external agent orchestrator listens.
+
+Runtime notes:
+- The app exposes a protected endpoint (admin-only) `GET /api/ai/config` which returns a masked view of these settings for debugging. In TESTING mode the full values may be returned for test assertions.
+- Prefer changing the assistant's behavior via `QSS_AI_SYSTEM_PROMPT` in production rather than embedding long system prompts in code. For temporary overrides the UI may include `system_prompt` in the chat request JSON.
+- Never commit real API keys or model files to source control. Use a secrets manager or CI/CD pipeline variables for production deployments.
+
+If you update any of these variables, document the change in `.agents/rules/memory-decisions.md` with date and rationale.
+
 ## 6. Coding conventions (POINTERS ONLY)
 
 Do NOT restate detailed style here. Instead, follow and reference:

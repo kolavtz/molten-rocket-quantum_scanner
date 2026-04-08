@@ -41,6 +41,22 @@ class CertificateTelemetryService:
         except Exception:
             pass
         return []
+
+    @staticmethod
+    def _safe_int(value, default: int = 0) -> int:
+        """Best-effort integer coercion that tolerates mocks, strings, and None."""
+        try:
+            if value is None:
+                return default
+            if isinstance(value, bool):
+                return int(value)
+            return int(value)
+        except Exception:
+            try:
+                text = str(value or "").strip()
+                return int(text) if text else default
+            except Exception:
+                return default
     
     def _get_db_session(self):
         """Get SQLAlchemy session from app context."""
@@ -61,7 +77,7 @@ class CertificateTelemetryService:
             "subject": str(cert.subject or cert.subject_cn or ""),
             "subject_public_key_info": {
                 "subject_public_key_algorithm": str(cert.public_key_type or cert.key_algorithm or ""),
-                "subject_public_key_bits": int(cert.key_length or 0),
+                "subject_public_key_bits": self._safe_int(cert.key_length),
                 "subject_public_key": str(cert.public_key_pem or ""),
             },
             "extensions": [],
@@ -78,6 +94,21 @@ class CertificateTelemetryService:
         }
 
         try:
+            # Prefer certificate-specific stored details (serialized JSON) when available
+            cert_details_raw = getattr(cert, "certificate_details", None)
+            if isinstance(cert_details_raw, str) and cert_details_raw.strip():
+                try:
+                    details_from_cert = json.loads(cert_details_raw)
+                except Exception:
+                    details_from_cert = None
+            elif isinstance(cert_details_raw, dict):
+                details_from_cert = cert_details_raw
+            else:
+                details_from_cert = None
+
+            if isinstance(details_from_cert, dict) and details_from_cert:
+                return {**base, **details_from_cert}
+
             report_raw = getattr(getattr(cert, "scan", None), "report_json", None)
             report = {}
             if isinstance(report_raw, dict):
@@ -294,7 +325,7 @@ class CertificateTelemetryService:
                 "fingerprint": fingerprint,
                 "fingerprint_sha256": str(cert.fingerprint_sha256 or ""),
                 "san_domains": self._load_json_list(cert.san_domains),
-                "cert_chain_length": int(cert.cert_chain_length or 0),
+                "cert_chain_length": self._safe_int(cert.cert_chain_length),
                 "certificate_details": self._certificate_details_from_row(cert),
             })
         
@@ -590,7 +621,7 @@ class CertificateTelemetryService:
             "issuer_o": str(cert.issuer_o or cert.ca_name or ""),
             "issuer_ou": str(cert.issuer_ou or ""),
             "serial": str(cert.serial or ""),
-            "key_length": int(cert.key_length or 0),
+            "key_length": self._safe_int(cert.key_length),
             "public_key_type": str(cert.public_key_type or cert.key_algorithm or ""),
             "public_key_pem": str(cert.public_key_pem or ""),
             "tls_version": str(cert.tls_version or "Unknown"),
@@ -603,7 +634,7 @@ class CertificateTelemetryService:
             "fingerprint": str(cert.fingerprint_sha256 or "")[:16] + "..." if cert.fingerprint_sha256 else "N/A",
             "fingerprint_sha256": str(cert.fingerprint_sha256 or ""),
             "san_domains": self._load_json_list(cert.san_domains),
-            "cert_chain_length": int(cert.cert_chain_length or 0),
+            "cert_chain_length": self._safe_int(cert.cert_chain_length),
             "certificate_details": self._certificate_details_from_row(cert),
         }
     

@@ -9,7 +9,7 @@ from typing import Dict, List, Any, Optional
 import json
 import hashlib
 
-from src.db import db_session
+from src import db
 from src.models import Asset, Scan, Certificate, CBOMEntry, CBOMSummary, DiscoverySSL
 from sqlalchemy import func, distinct, desc, asc, inspect
 
@@ -19,6 +19,14 @@ try:
 except Exception:  # pragma: no cover - runtime optional import safety
     serialization = None
     load_pem_public_key = None
+
+
+class _DBSessionProxy:
+    def __getattr__(self, name):
+        return getattr(db.db_session, name)
+
+
+db_session = _DBSessionProxy()
 
 
 class CbomService:
@@ -305,16 +313,56 @@ class CbomService:
         return filters
 
     @staticmethod
-    def _build_cert_filters(asset_id: Optional[int] = None) -> List[Any]:
+    def _build_cert_filters(
+        asset_id: Optional[int] = None,
+        current_only: bool = False,
+    ) -> List[Any]:
+        """Build base filters for certificate queries.
+
+        Args:
+            asset_id: Filter to a single asset if provided.
+            current_only: If True, only include certificates with is_current=True.
+                          Use this for the CBOM "current state" view. Leave False
+                          for historical / all-scans views.
+        """
         filters = [
             Asset.is_deleted == False,
             Scan.is_deleted == False,
             Scan.status == "complete",
             Certificate.is_deleted == False,
         ]
+        # Bug fix: removed Scan.add_to_inventory == True filter.
+        # Many scans never have this flag set, causing zero records in dashboard.
+        # We rely on status == 'complete' as the promotion gate instead.
         if asset_id is not None:
             filters.append(Certificate.asset_id == asset_id)
+        if current_only:
+            filters.append(Certificate.is_current == True)
         return filters
+
+    @staticmethod
+    def _compute_cert_status(cert_row: Any) -> str:
+        """Compute human-readable cert status from a Certificate ORM row."""
+        now = datetime.now()
+        valid_until = getattr(cert_row, "valid_until", None)
+        is_expired = getattr(cert_row, "is_expired", False)
+        expiry_days = getattr(cert_row, "expiry_days", None)
+        is_self_signed = getattr(cert_row, "is_self_signed", False)
+
+        # Use explicit flag first; then fall back to date comparison
+        if is_expired:
+            return "Expired"
+        # If expiry_days is available, use it (avoids timezone drift from now())
+        if expiry_days is not None:
+            if expiry_days < 0:
+                return "Expired"
+            if expiry_days <= 30:
+                return "Expiring Soon"
+        elif valid_until and valid_until < now:
+            return "Expired"
+        if is_self_signed:
+            return "Self-Signed"
+        return "Valid"
 
     @staticmethod
     def _build_applications_query(
@@ -465,40 +513,55 @@ class CbomService:
             for k, v in distribution_rows
         }
 
+        # ── Optimized field coverage ─────────────────────────────────────────────
+        # Bug fix: replaced 24 separate per-field queries with a single aggregation
+        # using CASE statements, reducing DB round-trips from 24 to 1.
+        # Also removed Scan.add_to_inventory == True filter (see _build_cert_filters).
         field_coverage = {}
-        for field_name in cls.MINIMUM_ELEMENT_FIELDS:
-            col = getattr(CBOMEntry, field_name)
-            non_empty_count = (
-                db_session.query(func.count(CBOMEntry.id))
+        if total_entries > 0:
+            from sqlalchemy import case, literal
+            coverage_query = (
+                db_session.query(
+                    *[
+                        func.sum(
+                            case(
+                                (getattr(CBOMEntry, field_name).isnot(None), 1),
+                                else_=0,
+                            )
+                        ).label(field_name)
+                        for field_name in cls.MINIMUM_ELEMENT_FIELDS
+                    ]
+                )
                 .join(Scan, CBOMEntry.scan_id == Scan.id)
                 .filter(
                     CBOMEntry.is_deleted == False,
                     Scan.is_deleted == False,
                     Scan.status == "complete",
-                    Scan.add_to_inventory == True,
-                    col.isnot(None),
                 )
             )
             if asset_id is not None:
-                non_empty_count = non_empty_count.filter(CBOMEntry.asset_id == asset_id)
+                coverage_query = coverage_query.filter(CBOMEntry.asset_id == asset_id)
             if start_date or end_date:
                 scan_time_expr = func.coalesce(Scan.scanned_at, Scan.completed_at, Scan.started_at)
                 if start_date:
                     try:
-                        non_empty_count = non_empty_count.filter(scan_time_expr >= datetime.fromisoformat(start_date))
+                        coverage_query = coverage_query.filter(scan_time_expr >= datetime.fromisoformat(start_date))
                     except ValueError:
                         pass
                 if end_date:
                     try:
-                        non_empty_count = non_empty_count.filter(scan_time_expr <= datetime.fromisoformat(end_date))
+                        coverage_query = coverage_query.filter(scan_time_expr <= datetime.fromisoformat(end_date))
                     except ValueError:
                         pass
-            count_val = int(non_empty_count.scalar() or 0)
-            pct = round((count_val / total_entries) * 100, 1) if total_entries > 0 else 0.0
-            field_coverage[field_name] = {
-                "count": count_val,
-                "coverage_pct": pct,
-            }
+
+            coverage_row = coverage_query.first()
+            for field_name in cls.MINIMUM_ELEMENT_FIELDS:
+                count_val = int(getattr(coverage_row, field_name, 0) or 0)
+                pct = round((count_val / total_entries) * 100, 1)
+                field_coverage[field_name] = {"count": count_val, "coverage_pct": pct}
+        else:
+            for field_name in cls.MINIMUM_ELEMENT_FIELDS:
+                field_coverage[field_name] = {"count": 0, "coverage_pct": 0.0}
 
         covered_fields = sum(
             1
@@ -666,6 +729,8 @@ class CbomService:
         site_count = cert_query.with_entities(func.count(distinct(Certificate.asset_id))).scalar() or 0
 
         # Distributions
+        # Bug fix: Added .order_by(Certificate.key_length.asc()) so chart displays
+        # in ascending numeric order (512, 1024, 2048, 4096) instead of arbitrary DB order.
         key_length_dist = {
             str(int(k)) if k is not None else "Unknown": v
             for k, v in db_session.query(Certificate.key_length, func.count(Certificate.id))
@@ -673,6 +738,7 @@ class CbomService:
             .join(Scan, Certificate.scan_id == Scan.id)
             .filter(*cert_filters)
             .group_by(Certificate.key_length)
+            .order_by(Certificate.key_length.asc())  # Bug fix: was unordered
             .all()
         }
         if not key_length_dist:
@@ -874,7 +940,17 @@ class CbomService:
                     "valid_from": valid_from.isoformat() if hasattr(valid_from, "isoformat") and valid_from else None,
                     "valid_until": cert_valid_until,
                     "fingerprint_sha256": cert_fingerprint,
-                    "cert_status": str(report_row.get("cert_status") or "").strip() or "Valid",
+                    # Bug fix: was hardcoded to "Valid"; now computed from actual DB state
+                    "cert_status": cls._compute_cert_status(cert),
+                    "is_current": bool(getattr(cert, "is_current", False)),
+                    "first_seen_at": (
+                        getattr(cert, "first_seen_at", None).isoformat()
+                        if getattr(cert, "first_seen_at", None) else None
+                    ),
+                    "last_seen_at": (
+                        getattr(cert, "last_seen_at", None).isoformat()
+                        if getattr(cert, "last_seen_at", None) else None
+                    ),
                     "certificate_details": certificate_details,
                     "x509_minimum": x509_minimum,
                     "last_scan": (

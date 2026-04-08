@@ -11,11 +11,14 @@ Classes:
 
 from __future__ import annotations
 
+import hashlib
+import http.client
 import socket
 import ssl
 import datetime
+import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 try:
     from sslyze import Scanner, ServerNetworkLocation
@@ -27,6 +30,15 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from config import HANDSHAKE_TIMEOUT_SECONDS, CIPHER_KEX_PATTERNS
+
+# ── Error classification constants ────────────────────────────────────
+ERR_CONNECTION_REFUSED = "CONNECTION_REFUSED"
+ERR_TIMEOUT = "TIMEOUT"
+ERR_HOST_NOT_FOUND = "HOST_NOT_FOUND"
+ERR_NO_SHARED_CIPHER = "NO_SHARED_CIPHER"
+ERR_CERT_VERIFICATION = "CERT_VERIFICATION_FAILED"
+ERR_PROTOCOL_MISMATCH = "PROTOCOL_MISMATCH"
+ERR_UNKNOWN = "UNKNOWN"
 
 
 # ── Data classes ──────────────────────────────────────────────────────
@@ -98,7 +110,11 @@ class TLSEndpointResult:
     certificate_chain_length: int = 0
     supported_protocols: List[str] = field(default_factory=list)
     all_cipher_suites: List[str] = field(default_factory=list)
+    hsts_enabled: bool = False
+    hsts_max_age: Optional[int] = None
     error: Optional[str] = None
+    error_code: str = ""  # Structured error classification
+    retry_count: int = 0
 
     @property
     def is_successful(self) -> bool:
@@ -116,7 +132,11 @@ class TLSEndpointResult:
             "certificate_chain_length": self.certificate_chain_length,
             "supported_protocols": self.supported_protocols,
             "all_cipher_suites": self.all_cipher_suites,
+            "hsts_enabled": self.hsts_enabled,
+            "hsts_max_age": self.hsts_max_age,
             "error": self.error,
+            "error_code": self.error_code,
+            "retry_count": self.retry_count,
         }
 
 
@@ -126,9 +146,12 @@ class TLSAnalyzer:
     Usage::
 
         analyzer = TLSAnalyzer()
-        result = analyzer.analyze_endpoint("google.com", 443)
+        result = analyzer.analyze_endpoint("example.com", 443)
         print(result.cipher_suite, result.key_exchange)
     """
+
+    MAX_RETRIES = 3
+    RETRY_BACKOFF_BASE = 1.0  # seconds; doubled each retry
 
     def __init__(self, timeout: float = HANDSHAKE_TIMEOUT_SECONDS) -> None:
         self.timeout = timeout
@@ -140,60 +163,145 @@ class TLSAnalyzer:
     def analyze_endpoint(
         self, host: str, port: int = 443
     ) -> TLSEndpointResult:
-        """Perform full TLS analysis on *host*:*port*.
-
-        Returns
-        -------
-        TLSEndpointResult
-            Contains cipher suite, protocol, key exchange, certificate
-            info, and full chain length.
-        """
+        """Perform full TLS analysis on *host*:*port* with retry logic."""
         result = TLSEndpointResult(host=host, port=port)
 
-        try:
-            self._analyze_with_stdlib(result, host, port)
-        except Exception as exc:
-            result.error = f"stdlib analysis failed: {exc}"
+        last_exc: Optional[Exception] = None
+        for attempt in range(self.MAX_RETRIES):
+            try:
+                self._analyze_with_stdlib(result, host, port)
+                last_exc = None
+                result.retry_count = attempt
+                break
+            except Exception as exc:
+                last_exc = exc
+                if attempt < self.MAX_RETRIES - 1:
+                    time.sleep(self.RETRY_BACKOFF_BASE * (2 ** attempt))
+
+        if last_exc is not None:
+            result.error = f"stdlib analysis failed after {self.MAX_RETRIES} attempts: {last_exc}"
+            result.error_code = self._classify_error(last_exc)
+            result.retry_count = self.MAX_RETRIES
 
         # Augment with SSLyze if available
         if HAS_SSLYZE and result.error is None:
             try:
                 self._augment_with_sslyze(result, host, port)
             except Exception as exc:
-                # Keep stdlib analysis as source of truth; SSLyze is best-effort enrichment.
                 result.error = result.error or f"sslyze enrichment failed: {exc}"
+
+        # Detect HSTS
+        if result.error is None:
+            try:
+                result.hsts_enabled, result.hsts_max_age = self._detect_hsts(host, port)
+            except Exception:
+                pass
 
         # Derive key exchange from cipher suite name
         if result.cipher_suite and not result.key_exchange:
-            result.key_exchange = self._extract_key_exchange(
-                result.cipher_suite
-            )
+            result.key_exchange = self._extract_key_exchange(result.cipher_suite)
 
         return result
 
     def get_supported_protocols(self, host: str, port: int = 443) -> List[str]:
-        """Probe which TLS protocol versions the server supports."""
+        """Probe which TLS protocol versions the server supports.
+
+        Includes TLS 1.0 and 1.1 probing (handled gracefully on modern OS
+        builds that disallow initiating these versions).
+        """
         supported: List[str] = []
-        protocols_to_test = [
+
+        # TLS 1.2 and 1.3 are reliably probeable on all modern Python SSL builds
+        modern_protocols = [
             ("TLSv1.2", ssl.TLSVersion.TLSv1_2),
             ("TLSv1.3", ssl.TLSVersion.TLSv1_3),
         ]
-        for name, version in protocols_to_test:
+        for name, version in modern_protocols:
             try:
                 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 ctx.minimum_version = version
                 ctx.maximum_version = version
-                sock = socket.create_connection(
-                    (host, port), timeout=self.timeout
-                )
+                sock = socket.create_connection((host, port), timeout=self.timeout)
                 tls_sock = ctx.wrap_socket(sock, server_hostname=host)
                 tls_sock.close()
                 supported.append(name)
             except Exception:
                 pass
+
+        # TLS 1.0 / 1.1 — legacy probe (may be blocked at OS level)
+        legacy_protocols = [("TLSv1.0", "TLSv1"), ("TLSv1.1", "TLSv1.1")]
+        for name, proto_str in legacy_protocols:
+            try:
+                ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                # Use OP_NO flags to restrict to specific version
+                ctx.options |= ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3
+                if proto_str == "TLSv1":
+                    ctx.options |= ssl.OP_NO_TLSv1_1 | ssl.OP_NO_TLSv1_2 | ssl.OP_NO_TLSv1_3
+                else:
+                    ctx.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_2 | ssl.OP_NO_TLSv1_3
+                sock = socket.create_connection((host, port), timeout=self.timeout)
+                tls_sock = ctx.wrap_socket(sock, server_hostname=host)
+                tls_sock.close()
+                supported.append(name)
+            except Exception:
+                # Expected on modern servers/OS; silently ignore
+                pass
+
         return supported
+
+    # ------------------------------------------------------------------
+    # Private — HSTS detection
+    # ------------------------------------------------------------------
+
+    def _detect_hsts(self, host: str, port: int) -> Tuple[bool, Optional[int]]:
+        """Issue a HEAD request and check for Strict-Transport-Security header."""
+        try:
+            conn = http.client.HTTPSConnection(
+                host, port=port, timeout=min(self.timeout, 5)
+            )
+            conn.request("HEAD", "/", headers={"Host": host})
+            resp = conn.getresponse()
+            hsts_header = resp.getheader("Strict-Transport-Security", "")
+            conn.close()
+            if hsts_header:
+                max_age: Optional[int] = None
+                for part in hsts_header.split(";"):
+                    part = part.strip()
+                    if part.lower().startswith("max-age="):
+                        try:
+                            max_age = int(part.split("=", 1)[1].strip())
+                        except (ValueError, IndexError):
+                            pass
+                return True, max_age
+        except Exception:
+            pass
+        return False, None
+
+    # ------------------------------------------------------------------
+    # Private — Error classification
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _classify_error(exc: Exception) -> str:
+        """Return a structured error code from an exception."""
+        msg = str(exc).lower()
+        if isinstance(exc, ConnectionRefusedError):
+            return ERR_CONNECTION_REFUSED
+        if isinstance(exc, socket.timeout) or "timed out" in msg:
+            return ERR_TIMEOUT
+        if isinstance(exc, socket.gaierror) or "name or service" in msg:
+            return ERR_HOST_NOT_FOUND
+        if "no shared cipher" in msg or "no protocols available" in msg:
+            return ERR_NO_SHARED_CIPHER
+        if "certificate verify failed" in msg:
+            return ERR_CERT_VERIFICATION
+        if "protocol" in msg or "version" in msg:
+            return ERR_PROTOCOL_MISMATCH
+        return ERR_UNKNOWN
 
     # ------------------------------------------------------------------
     # Private — stdlib ssl

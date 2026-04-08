@@ -1,5 +1,5 @@
 # pyre-ignore-all-errors
-from sqlalchemy import Column, Integer, BigInteger, String, Boolean, DateTime, ForeignKey, Float, Text, event, Enum, Date, Numeric
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float, Text, event, Enum, Date, Numeric
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.orm import declarative_base, relationship, synonym
 from sqlalchemy.sql import func
@@ -52,7 +52,7 @@ class User(Base):
 
 class Asset(Base, SoftDeleteMixin):
     __tablename__ = 'assets'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     asset_key = Column(String(255), unique=True, nullable=True, index=True)
     target = Column(String(255), nullable=False, unique=True, index=True)
     name = synonym('target')
@@ -64,7 +64,7 @@ class Asset(Base, SoftDeleteMixin):
     risk_level = Column(String(50), nullable=True)
     notes = Column(Text, nullable=True)
 
-    last_scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='SET NULL'), nullable=True)
+    last_scan_id = Column(Integer, ForeignKey('scans.id', ondelete='SET NULL'), nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     
@@ -89,7 +89,7 @@ def _asset_before_insert(_mapper, _connection, target):
 
 class Scan(Base, SoftDeleteMixin):
     __tablename__ = 'scans'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     scan_uid = Column(String(36), unique=True, nullable=True, index=True)
     scan_id = Column(String(36), unique=True, nullable=False, index=True)
     requested_target = Column(String(512), nullable=True)
@@ -117,6 +117,9 @@ class Scan(Base, SoftDeleteMixin):
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     deleted_by = Column(String(36), nullable=True)
+    # Tracing & versioning (Sprint 1)
+    correlation_id = Column(String(36), nullable=True, index=True)
+    scanner_version = Column(String(50), nullable=True)
     
     # Relationships
     cbom_summary = relationship("CBOMSummary", back_populates="scan", uselist=False, cascade="all, delete-orphan", passive_deletes=True)
@@ -160,9 +163,9 @@ def _scan_before_save(_mapper, _connection, target):
 
 class DiscoveryDomain(Base, SoftDeleteMixin):
     __tablename__ = 'discovery_domains'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
-    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
     domain = Column(String(512), nullable=False)
     registrar = Column(String(255))
     registration_date = Column(Date)
@@ -176,9 +179,9 @@ class DiscoveryDomain(Base, SoftDeleteMixin):
 
 class DiscoverySSL(Base, SoftDeleteMixin):
     __tablename__ = 'discovery_ssl'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
-    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
     endpoint = Column(String(512), nullable=False)
     tls_version = Column(String(50))
     cipher_suite = Column(String(255))
@@ -199,9 +202,9 @@ class DiscoverySSL(Base, SoftDeleteMixin):
 
 class DiscoveryIP(Base, SoftDeleteMixin):
     __tablename__ = 'discovery_ips'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
-    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
     ip_address = Column(String(80), nullable=False)
     subnet = Column(String(80))
     asn = Column(String(80))
@@ -217,9 +220,9 @@ class DiscoveryIP(Base, SoftDeleteMixin):
 
 class DiscoverySoftware(Base, SoftDeleteMixin):
     __tablename__ = 'discovery_software'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
-    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
     product = Column(String(255), nullable=False)
     version = Column(String(120))
     category = Column(String(80))
@@ -234,9 +237,9 @@ class DiscoverySoftware(Base, SoftDeleteMixin):
 
 class Certificate(Base, SoftDeleteMixin):
     __tablename__ = 'certificates'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
-    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
     endpoint = Column(String(512), nullable=True, index=True)
     port = Column(Integer, nullable=True)
     
@@ -249,7 +252,7 @@ class Certificate(Base, SoftDeleteMixin):
     issuer_cn = Column(String(255), nullable=True, index=True)
     issuer_o = Column(String(255), nullable=True)
     issuer_ou = Column(String(255), nullable=True)
-    serial = Column(String(255), nullable=True, unique=True, index=True)
+    serial = Column(String(255), nullable=True, index=True)  # NOT globally unique; wildcard certs share serial across assets
     company_name = Column(String(255), nullable=True, index=True)  # Organization name
     
     # Certificate validity
@@ -258,7 +261,8 @@ class Certificate(Base, SoftDeleteMixin):
     expiry_days = Column(Integer, nullable=True)  # Days remaining (calculated on save)
     
     # Technical details
-    fingerprint_sha256 = Column(String(64), nullable=True, unique=True, index=True)
+    fingerprint_sha256 = Column(String(64), nullable=True, index=True)  # NOT globally unique; index only
+    dedup_hash = Column(String(64), nullable=True, index=True)  # SHA-256 of (asset_id + fingerprint) for idempotent inserts
     tls_version = Column(String(50), nullable=True, index=True)
     key_length = Column(Integer, nullable=True)
     key_algorithm = Column(String(100), nullable=True)
@@ -274,10 +278,18 @@ class Certificate(Base, SoftDeleteMixin):
     # Status tracking
     is_self_signed = Column(Boolean, default=False)
     is_expired = Column(Boolean, default=False)
+    # is_current: True = this is the latest certificate for the asset (only ONE per asset should be True)
+    is_current = Column(Boolean, default=False, nullable=False, index=True)
+    
+    # Historical tracking (Sprint 1)
+    first_seen_at = Column(DateTime, nullable=True)  # When this cert fingerprint was first captured
+    last_seen_at = Column(DateTime, nullable=True)   # Updated each time the same fingerprint is re-observed
     
     # Timestamps
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    # Raw certificate details (JSON serialized X.509 information)
+    certificate_details = Column(Text, nullable=True)
     
     # Relationships
     asset = relationship("Asset", back_populates="certificates")
@@ -287,10 +299,10 @@ class Certificate(Base, SoftDeleteMixin):
 
 class PQCClassification(Base, SoftDeleteMixin):
     __tablename__ = 'pqc_classification'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    certificate_id = Column(BigInteger, ForeignKey('certificates.id', ondelete='CASCADE'), nullable=True, index=True)
-    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
-    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    certificate_id = Column(Integer, ForeignKey('certificates.id', ondelete='CASCADE'), nullable=True, index=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
     
     # Algorithm classification
     algorithm_name = Column(String(100), nullable=True, index=True)
@@ -311,9 +323,9 @@ class PQCClassification(Base, SoftDeleteMixin):
 
 class CBOMSummary(Base, SoftDeleteMixin):
     __tablename__ = 'cbom_summary'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
-    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, unique=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
+    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, unique=True)
     total_components = Column(Integer, default=0)
     weak_crypto_count = Column(Integer, default=0)
     cert_issues_count = Column(Integer, default=0)
@@ -322,9 +334,9 @@ class CBOMSummary(Base, SoftDeleteMixin):
 
 class CBOMEntry(Base, SoftDeleteMixin):
     __tablename__ = 'cbom_entries'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
-    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True)
     algorithm_name = Column(String(100))
     category = Column(String(50))
     asset_type = Column(String(50), nullable=True, index=True)
@@ -365,9 +377,9 @@ class CBOMEntry(Base, SoftDeleteMixin):
 
 class ComplianceScore(Base, SoftDeleteMixin):
     __tablename__ = 'compliance_scores'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False)
-    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False)
+    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
     score_type = Column("score_type", String(50)) # pqc, tls, overall
     type = synonym("score_type")
     score_value = Column(Float)
@@ -376,10 +388,10 @@ class ComplianceScore(Base, SoftDeleteMixin):
 
 class CyberRating(Base, SoftDeleteMixin):
     __tablename__ = 'cyber_rating'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
     organization_id = synonym("asset_id")
-    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
     enterprise_score = Column(Float)
     rating_tier = Column(String(50))
     generated_at = Column(DateTime, default=func.now())
@@ -392,10 +404,10 @@ class CyberRating(Base, SoftDeleteMixin):
 class Finding(Base, SoftDeleteMixin):
     __tablename__ = 'findings'
     
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     finding_id = Column(String(36), unique=True, nullable=False, index=True)
-    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
-    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
     
     # Finding Classification
     issue_type = Column(String(100), nullable=False, index=True)  # weak_cipher, expiring_cert, etc.
@@ -406,7 +418,7 @@ class Finding(Base, SoftDeleteMixin):
     metadata_json = Column(Text, nullable=True)  # JSON-serialized metadata
     
     # Related Entities
-    certificate_id = Column(BigInteger, ForeignKey('certificates.id', ondelete='SET NULL'), nullable=True)
+    certificate_id = Column(Integer, ForeignKey('certificates.id', ondelete='SET NULL'), nullable=True)
     cbom_entry_id = Column(Integer, ForeignKey('cbom_entries.id', ondelete='SET NULL'), nullable=True)
     
     # Timestamps
@@ -433,7 +445,7 @@ class AssetMetric(Base):
     """
     __tablename__ = 'asset_metrics'
     
-    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
     
     # PQC Scoring (Math Section 3.1-3.2)
     pqc_score = Column(Float, default=0, nullable=False)           # 0-100, weighted average
@@ -546,7 +558,7 @@ class TLSComplianceScore(Base):
     """
     __tablename__ = 'tls_compliance_scores'
     
-    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
     
     # TLS Score (0-100)
     tls_score = Column(Float, default=0, nullable=False)
@@ -578,7 +590,7 @@ class DigitalLabel(Base):
     """
     __tablename__ = 'digital_labels'
     
-    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
     
     # Label Classification
     label = Column(String(100), nullable=False, index=True)  # Quantum-Safe, PQC Ready, Fully Quantum Safe, At Risk
@@ -597,3 +609,129 @@ class DigitalLabel(Base):
     
     # Foreign Keys
     asset = relationship("Asset")
+
+
+# =============================================================================
+# SPRINT 1: CBOM HARDENING MODELS
+# =============================================================================
+
+class DomainCurrentState(Base):
+    """
+    Canonical pointer to the latest-known-good state per monitored asset/domain.
+
+    Rules:
+    - Exactly ONE row per asset. Created on first successful scan.
+    - Updated atomically after each successful SSL/TLS ingestion.
+    - If a scan fails, freshness_status is set to 'degraded' but existing
+      ssl/tls pointers are NOT cleared (last-good-data principle).
+    - Never deleted; instead set freshness_status = 'stale' if asset is removed.
+    """
+    __tablename__ = 'domain_current_state'
+
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
+    latest_scan_id = Column(Integer, ForeignKey('scans.id', ondelete='SET NULL'), nullable=True)
+    current_ssl_certificate_id = Column(Integer, ForeignKey('certificates.id', ondelete='SET NULL'), nullable=True)
+
+    # Risk aggregates (denormalized for fast dashboard reads)
+    current_risk_score = Column(Float, default=0.0, nullable=False)
+    current_risk_level = Column(String(50), nullable=True)   # Low / Medium / High / Critical
+
+    # Scan health tracking
+    last_successful_scan_at = Column(DateTime, nullable=True)
+    last_failed_scan_at = Column(DateTime, nullable=True)
+    last_rendered_at = Column(DateTime, nullable=True)
+
+    # Freshness tracking
+    # 'fresh'    = last scan succeeded within expected interval
+    # 'stale'    = last scan is older than expected interval but succeeded
+    # 'degraded' = last scan failed; showing stale data
+    freshness_status = Column(String(20), default='fresh', nullable=False, index=True)
+    render_status = Column(String(20), nullable=True)  # 'ok' | 'error' | 'partial'
+    render_error_message = Column(Text, nullable=True)
+
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    # Relationships
+    asset = relationship("Asset")
+    latest_scan = relationship("Scan", foreign_keys=[latest_scan_id])
+    current_ssl_certificate = relationship("Certificate", foreign_keys=[current_ssl_certificate_id])
+
+
+class AssetSSLProfile(Base, SoftDeleteMixin):
+    """
+    Historical snapshot of TLS/SSL configuration per scan.
+
+    One row per scan. The row with is_current=True is the latest profile.
+    Historical rows are NEVER overwritten; use is_current to distinguish.
+    """
+    __tablename__ = 'asset_ssl_profiles'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
+
+    # TLS version support (probed at scan time)
+    supports_tls_1_0 = Column(Boolean, default=False, nullable=False)
+    supports_tls_1_1 = Column(Boolean, default=False, nullable=False)
+    supports_tls_1_2 = Column(Boolean, default=True, nullable=False)
+    supports_tls_1_3 = Column(Boolean, default=False, nullable=False)
+
+    # Cipher & key exchange
+    preferred_cipher = Column(String(255), nullable=True)
+    cipher_list_json = Column(Text, nullable=True)   # JSON array of observed cipher suites
+    weak_cipher_count = Column(Integer, default=0)
+    insecure_protocol_count = Column(Integer, default=0)  # TLS < 1.2 count
+
+    # Security headers
+    hsts_enabled = Column(Boolean, default=False, nullable=False)
+    hsts_max_age = Column(Integer, nullable=True)
+
+    # Current-state flag (only ONE per asset should be True)
+    is_current = Column(Boolean, default=False, nullable=False, index=True)
+
+    # Historical tracking
+    first_seen_at = Column(DateTime, nullable=True)
+    last_seen_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+
+    # Relationships
+    asset = relationship("Asset")
+    scan = relationship("Scan")
+
+
+class DomainEvent(Base):
+    """
+    Immutable append-only audit log for per-domain security events.
+
+    Events are NEVER updated or deleted. They form an ordered timeline.
+    Populated by SSLCaptureService and CurrentStateService.
+    """
+    __tablename__ = 'domain_events'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='SET NULL'), nullable=True)
+
+    # Event classification
+    # Examples: cert_renewed, cert_expired, cert_expiring_soon, issuer_changed,
+    #           tls_version_added, tls_version_removed, risk_score_changed,
+    #           scan_failed, scan_succeeded, weak_cipher_detected
+    event_type = Column(String(80), nullable=False, index=True)
+    event_title = Column(String(255), nullable=False)
+    event_description = Column(Text, nullable=True)
+
+    # Change data capture (JSON)
+    old_value_json = Column(Text, nullable=True)   # Previous state snapshot
+    new_value_json = Column(Text, nullable=True)   # New state snapshot
+
+    # Severity for timeline UI coloring
+    severity = Column(String(20), nullable=True, index=True)  # info / warning / critical
+
+    # Tracing
+    correlation_id = Column(String(36), nullable=True, index=True)
+
+    created_at = Column(DateTime, default=func.now(), index=True)
+
+    # Relationships
+    asset = relationship("Asset")
+    scan = relationship("Scan", foreign_keys=[scan_id])

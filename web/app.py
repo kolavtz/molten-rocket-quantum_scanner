@@ -83,6 +83,7 @@ from src.reporting.recommendation_engine import RecommendationEngine
 from src.services.dashboard_data_service import DashboardDataService
 from src import database as db
 from src.db import db_session
+from web.pdf_export import generate_report_pdf
 
 # ── Flask App ────────────────────────────────────────────────────────
 
@@ -935,6 +936,26 @@ def _coerce_int(value: Any) -> int | None:
         return None
 
 
+def _normalize_fingerprint(value: Any) -> str | None:
+    """Normalize fingerprint hex strings by stripping separators and lowercasing.
+
+    Returns a canonical lowercase hex string (or None when input is empty/invalid).
+    """
+    if value is None:
+        return None
+    try:
+        txt = str(value or "").strip()
+    except Exception:
+        return None
+    if not txt:
+        return None
+    # Remove any non-hex characters (colons, spaces, etc.)
+    txt = re.sub(r"[^0-9a-fA-F]", "", txt)
+    if not txt:
+        return None
+    return txt.lower()
+
+
 def _db_table_exists(table_name: str) -> bool:
     try:
         from sqlalchemy import inspect
@@ -1387,6 +1408,26 @@ def _bootstrap_runtime_state() -> None:
 
         if not _db_available:
             logger.warning("MySQL unavailable during runtime bootstrap after %d attempts; running in JSON-only mode.", max_attempts)
+            # Try to hydrate in-memory scan_store from local JSON files in RESULTS_DIR
+            try:
+                import glob
+
+                pattern = os.path.join(RESULTS_DIR, "*_report.json")
+                files = sorted(glob.glob(pattern), reverse=True)
+                for path in files:
+                    try:
+                        with open(path, "r", encoding="utf-8") as fh:
+                            _data = json.load(fh)
+                        if isinstance(_data, dict):
+                            _sid = str(_data.get("scan_id") or _data.get("report_id") or "").strip()
+                            if _sid:
+                                scan_store[_sid] = _data
+                    except Exception:
+                        logger.debug("Failed to load local scan result %s", path, exc_info=True)
+                logger.info("Hydrated scan_store from local JSON files: %d", len(scan_store))
+            except Exception as exc:
+                logger.warning("Failed to hydrate scan_store from RESULTS_DIR: %s", exc)
+
             _db_initialized = True
             return
 
@@ -1685,6 +1726,7 @@ def run_scan_pipeline(
             
         # TLS & Certificates
         for tls in tls_results:
+            # Normalize common fields
             subject_cn = str(tls.get("subject_cn") or "")
             subject_o = str(tls.get("subject_o") or "")
             subject_ou = str(tls.get("subject_ou") or "")
@@ -1695,40 +1737,98 @@ def run_scan_pipeline(
             issuer_display = _principal_display(issuer_cn, issuer_o, issuer_ou) or str(tls.get("issuer") or "")
             endpoint_host = str(tls.get("host") or canonical_target or "").strip()
             endpoint_port = int(tls.get("port") or 443)
-            cert_obj = Certificate(
-                scan_id=int(scan_pk) if scan_pk is not None else None,
-                asset_id=asset_id,
-                endpoint=f"{endpoint_host}:{endpoint_port}" if endpoint_host else None,
-                port=endpoint_port,
-                issuer=issuer_display or "Unknown",
-                subject=subject_display or "Unknown",
-                subject_cn=subject_cn or None,
-                subject_o=subject_o or None,
-                subject_ou=subject_ou or None,
-                issuer_cn=issuer_cn or None,
-                issuer_o=issuer_o or None,
-                issuer_ou=issuer_ou or None,
-                serial=str(tls.get("serial_number", "") or ""),
-                company_name=subject_o or subject_cn or None,
-                valid_from=tls.get("valid_from_dt"),
-                valid_until=tls.get("valid_until_dt"),
-                expiry_days=_coerce_int(tls.get("cert_days_remaining")),
-                fingerprint_sha256=str(tls.get("cert_sha256", "") or "").upper() or None,
-                tls_version=tls.get("protocol_version", ""),
-                key_length=int(tls.get("key_length", 0) or tls.get("key_size", 0)),
-                key_algorithm=str(tls.get("key_type", "") or "Unknown"),
-                public_key_type=str(tls.get("public_key_type") or tls.get("key_type") or "Unknown"),
-                public_key_pem=str(tls.get("public_key_pem", "") or "") or None,
-                cipher_suite=tls.get("cipher_suite", ""),
-                signature_algorithm=str(tls.get("signature_algorithm", "") or "") or None,
-                ca=issuer_cn or issuer_o or "Unknown",
-                ca_name=issuer_o or issuer_cn or None,
-                san_domains=_json_text(tls.get("san_domains") or []),
-                cert_chain_length=_coerce_int(tls.get("certificate_chain_length")),
-                is_self_signed=bool(subject_display and issuer_display and subject_display == issuer_display),
-                is_expired=bool(tls.get("cert_expired")),
-            )
-            db_session.add(cert_obj)
+            endpoint_str = f"{endpoint_host}:{endpoint_port}" if endpoint_host else None
+
+            # Normalize fingerprint and serial for stable deduplication keys
+            raw_fp = tls.get("cert_sha256") or tls.get("cert_sha256") or tls.get("fingerprint") or ""
+            normalized_fp = _normalize_fingerprint(raw_fp)
+            raw_serial = str(tls.get("serial_number") or "").strip()
+            normalized_serial = raw_serial if raw_serial else None
+
+            # Conservative upsert: prefer fingerprint, then serial, then endpoint
+            existing_cert = None
+            try:
+                if normalized_fp:
+                    existing_cert = db_session.query(Certificate).filter(Certificate.fingerprint_sha256 == normalized_fp).first()
+                if existing_cert is None and normalized_serial:
+                    existing_cert = db_session.query(Certificate).filter(func.lower(Certificate.serial) == normalized_serial.lower()).first()
+                if existing_cert is None and endpoint_str:
+                    existing_cert = db_session.query(Certificate).filter(Certificate.endpoint == endpoint_str).first()
+            except Exception:
+                existing_cert = None
+
+            details_json_text = json.dumps(tls.get("certificate_details") or {}, default=_json_default)
+
+            if existing_cert:
+                # Update existing certificate with freshest telemetry (non-destructive)
+                existing_cert.scan_id = int(scan_pk) if scan_pk is not None else existing_cert.scan_id
+                existing_cert.asset_id = asset_id or existing_cert.asset_id
+                existing_cert.endpoint = endpoint_str or existing_cert.endpoint
+                existing_cert.port = endpoint_port or existing_cert.port
+                existing_cert.issuer = issuer_display or existing_cert.issuer
+                existing_cert.subject = subject_display or existing_cert.subject
+                existing_cert.subject_cn = subject_cn or existing_cert.subject_cn
+                existing_cert.subject_o = subject_o or existing_cert.subject_o
+                existing_cert.subject_ou = subject_ou or existing_cert.subject_ou
+                existing_cert.issuer_cn = issuer_cn or existing_cert.issuer_cn
+                existing_cert.issuer_o = issuer_o or existing_cert.issuer_o
+                existing_cert.issuer_ou = issuer_ou or existing_cert.issuer_ou
+                existing_cert.serial = normalized_serial or existing_cert.serial
+                existing_cert.company_name = subject_o or subject_cn or existing_cert.company_name
+                existing_cert.valid_from = tls.get("valid_from_dt") or existing_cert.valid_from
+                existing_cert.valid_until = tls.get("valid_until_dt") or existing_cert.valid_until
+                existing_cert.expiry_days = _coerce_int(tls.get("cert_days_remaining")) or existing_cert.expiry_days
+                existing_cert.fingerprint_sha256 = normalized_fp or existing_cert.fingerprint_sha256
+                existing_cert.tls_version = tls.get("protocol_version") or existing_cert.tls_version
+                existing_cert.key_length = int(tls.get("key_length", 0) or tls.get("key_size", 0)) or existing_cert.key_length
+                existing_cert.key_algorithm = str(tls.get("key_type", "") or "Unknown") or existing_cert.key_algorithm
+                existing_cert.public_key_type = str(tls.get("public_key_type") or tls.get("key_type") or "Unknown") or existing_cert.public_key_type
+                existing_cert.public_key_pem = str(tls.get("public_key_pem", "") or "") or existing_cert.public_key_pem
+                existing_cert.cipher_suite = tls.get("cipher_suite") or existing_cert.cipher_suite
+                existing_cert.signature_algorithm = str(tls.get("signature_algorithm", "") or "") or existing_cert.signature_algorithm
+                existing_cert.ca = issuer_cn or issuer_o or existing_cert.ca
+                existing_cert.ca_name = issuer_o or issuer_cn or existing_cert.ca_name
+                existing_cert.san_domains = _json_text(tls.get("san_domains") or []) or existing_cert.san_domains
+                existing_cert.cert_chain_length = _coerce_int(tls.get("certificate_chain_length")) or existing_cert.cert_chain_length
+                existing_cert.is_self_signed = bool(subject_display and issuer_display and subject_display == issuer_display)
+                existing_cert.is_expired = bool(tls.get("cert_expired")) or existing_cert.is_expired
+                existing_cert.certificate_details = details_json_text or existing_cert.certificate_details
+            else:
+                cert_obj = Certificate(
+                    scan_id=int(scan_pk) if scan_pk is not None else None,
+                    asset_id=asset_id,
+                    endpoint=endpoint_str,
+                    port=endpoint_port,
+                    issuer=issuer_display or "Unknown",
+                    subject=subject_display or "Unknown",
+                    subject_cn=subject_cn or None,
+                    subject_o=subject_o or None,
+                    subject_ou=subject_ou or None,
+                    issuer_cn=issuer_cn or None,
+                    issuer_o=issuer_o or None,
+                    issuer_ou=issuer_ou or None,
+                    serial=normalized_serial,
+                    company_name=subject_o or subject_cn or None,
+                    valid_from=tls.get("valid_from_dt"),
+                    valid_until=tls.get("valid_until_dt"),
+                    expiry_days=_coerce_int(tls.get("cert_days_remaining")),
+                    fingerprint_sha256=normalized_fp,
+                    tls_version=tls.get("protocol_version", ""),
+                    key_length=int(tls.get("key_length", 0) or tls.get("key_size", 0)),
+                    key_algorithm=str(tls.get("key_type", "") or "Unknown"),
+                    public_key_type=str(tls.get("public_key_type") or tls.get("key_type") or "Unknown"),
+                    public_key_pem=str(tls.get("public_key_pem", "") or "") or None,
+                    cipher_suite=tls.get("cipher_suite", ""),
+                    signature_algorithm=str(tls.get("signature_algorithm", "") or "") or None,
+                    ca=issuer_cn or issuer_o or "Unknown",
+                    ca_name=issuer_o or issuer_cn or None,
+                    san_domains=_json_text(tls.get("san_domains") or []),
+                    cert_chain_length=_coerce_int(tls.get("certificate_chain_length")),
+                    is_self_signed=bool(subject_display and issuer_display and subject_display == issuer_display),
+                    is_expired=bool(tls.get("cert_expired")),
+                    certificate_details=details_json_text,
+                )
+                db_session.add(cert_obj)
             
         # PQC
         for pq in pqc_dicts:
@@ -4112,8 +4212,242 @@ def results(scan_id: str):
                 _audit("scan", "view_result", "failed", target_scan_id=scan_id, details={"reason": "not_found"})
                 return render_template("error.html", error_message="Scan not found."), 404
 
+    # Attach CBOM JSON to the report object for inline preview if available on disk or in DB
+    try:
+        if report.get("cbom") is None:
+            cbom_data = None
+            cbom_path = report.get("cbom_path") or os.path.join(RESULTS_DIR, f"{scan_id}_cbom.json")
+            if isinstance(cbom_path, str) and os.path.exists(cbom_path):
+                try:
+                    with open(cbom_path, 'r', encoding='utf-8') as cbfh:
+                        cbom_data = json.load(cbfh)
+                except Exception:
+                    cbom_data = None
+            else:
+                try:
+                    cbom_data = db.get_cbom(scan_id)
+                except Exception:
+                    cbom_data = None
+            report["cbom"] = cbom_data
+    except Exception:
+        # Be defensive — never fail the results view due to CBOM preview errors
+        try:
+            report["cbom"] = None
+        except Exception:
+            pass
+
     _audit("scan", "view_result", "success", target_scan_id=scan_id, details={"target": report.get("target")})
+
+    # Sanitize nested report fields so template |tojson() calls won't fail on Jinja Undefined or non-serializable values
+    try:
+        import jinja2 as _jinja
+        from datetime import datetime as _dt
+        from collections.abc import Mapping, Sequence
+
+        def _is_undefined(o):
+            # Some environments expose Undefined as jinja2.runtime.Undefined
+            try:
+                if isinstance(o, _jinja.Undefined):
+                    return True
+            except Exception:
+                pass
+            try:
+                return getattr(o, "__class__", None) and getattr(o.__class__, "__name__", "") == "Undefined"
+            except Exception:
+                return False
+
+        def _sanitize(obj):
+            try:
+                # Handle explicit Jinja Undefined
+                if _is_undefined(obj):
+                    return None
+
+                # Primitives
+                if obj is None or isinstance(obj, (str, int, float, bool)):
+                    return obj
+
+                # Datetime -> isoformat
+                if isinstance(obj, _dt):
+                    return obj.isoformat()
+
+                # Bytes -> decode
+                if isinstance(obj, (bytes, bytearray)):
+                    try:
+                        return obj.decode("utf-8", "replace")
+                    except Exception:
+                        return str(obj)
+
+                # Mapping-like -> dict
+                if isinstance(obj, Mapping):
+                    out = {}
+                    for k, v in obj.items():
+                        try:
+                            key = k if isinstance(k, str) else str(k)
+                        except Exception:
+                            key = str(k)
+                        out[key] = _sanitize(v)
+                    return out
+
+                # Sequence-like -> list
+                if isinstance(obj, Sequence) and not isinstance(obj, (str, bytes, bytearray)):
+                    return [_sanitize(v) for v in obj]
+
+                # Fallback: attempt JSON dump, else str()
+                import json as _json
+                try:
+                    _json.dumps(obj)
+                    return obj
+                except Exception:
+                    try:
+                        return str(obj)
+                    except Exception:
+                        return None
+            except Exception:
+                return None
+    except Exception:
+        # Conservative fallback if jinja2 isn't available
+        def _sanitize(x):
+            try:
+                import json as _json
+                _json.dumps(x)
+                return x
+            except Exception:
+                try:
+                    return str(x)
+                except Exception:
+                    return None
+
+    try:
+        # Ensure the entire report is safe and JSON-serializable (coerce Mapping/Rows/etc.)
+        try:
+            report = _sanitize(report) or {}
+        except Exception:
+            report = report or {}
+
+        # tls_results sanitization and KPI computation
+        tls_rows = report.get('tls_results') if isinstance(report.get('tls_results'), list) else []
+        cert_total = len(tls_rows)
+        cert_expired = 0
+        cert_expiring = 0
+        cert_weak_keys = 0
+        for tls in tls_rows:
+            if not isinstance(tls, dict):
+                continue
+            # Normalize certificate_details and ensure it's safe
+            if tls.get('certificate_details') is not None:
+                try:
+                    tls['certificate_details'] = _sanitize(tls.get('certificate_details'))
+                except Exception:
+                    tls['certificate_details'] = {}
+            else:
+                tls['certificate_details'] = {}
+
+            # Ensure days_remaining exists (prefer explicit fields, else compute from valid_to/valid_until)
+            if tls.get('days_remaining') is None:
+                dr = tls.get('cert_days_remaining')
+                if dr is not None:
+                    try:
+                        tls['days_remaining'] = int(dr)
+                    except Exception:
+                        tls['days_remaining'] = None
+                else:
+                    valid_to = tls.get('valid_to') or tls.get('valid_until') or (tls.get('certificate_details') or {}).get('validity', {}).get('not_after')
+                    if valid_to:
+                        try:
+                            vt = _dt.fromisoformat(str(valid_to).replace('Z', '+00:00'))
+                            tls['days_remaining'] = int((vt - _dt.utcnow()).total_seconds() // 86400)
+                        except Exception:
+                            tls['days_remaining'] = None
+                    else:
+                        tls['days_remaining'] = None
+            else:
+                try:
+                    tls['days_remaining'] = int(tls.get('days_remaining'))
+                except Exception:
+                    tls['days_remaining'] = None
+
+
+            # Key length normalization
+            try:
+                key_len = int(tls.get('key_length') or tls.get('key_size') or (tls.get('certificate_details') or {}).get('subject_public_key_info', {}).get('subject_public_key_bits') or 0)
+            except Exception:
+                key_len = 0
+            tls['key_length'] = key_len
+
+            # Update KPI counters
+            if bool(tls.get('is_expired')) or (str(tls.get('cert_status') or '').strip().lower() == 'expired'):
+                cert_expired += 1
+            elif tls.get('days_remaining') is not None and isinstance(tls.get('days_remaining'), int) and tls.get('days_remaining') <= 30:
+                cert_expiring += 1
+            if 0 < key_len < 2048:
+                cert_weak_keys += 1
+
+            # Sanitize all fields in tls to remove Undefined objects
+            for k in list(tls.keys()):
+                try:
+                    tls[k] = _sanitize(tls[k])
+                except Exception:
+                    tls[k] = None
+
+        # Attach computed certificate summary and sanitize asset_locations and cbom for safe JSON embedding
+        try:
+            report['cert_summary'] = {
+                'total': int(cert_total),
+                'expired': int(cert_expired),
+                'expiring': int(cert_expiring),
+                'weak_keys': int(cert_weak_keys),
+            }
+        except Exception:
+            report['cert_summary'] = {'total': 0, 'expired': 0, 'expiring': 0, 'weak_keys': 0}
+
+        if isinstance(report.get('asset_locations'), list):
+            try:
+                report['asset_locations'] = _sanitize(report['asset_locations'])
+            except Exception:
+                report['asset_locations'] = []
+        if report.get('cbom') is not None:
+            try:
+                report['cbom'] = _sanitize(report.get('cbom'))
+            except Exception:
+                report['cbom'] = None
+    except Exception:
+        # Don't fail view rendering because of sanitization issues
+        pass
+
     return render_template("results.html", report=report, scan_id=scan_id)
+
+
+@app.route('/results/<scan_id>/export_pdf')
+@login_required
+def export_pdf(scan_id: str):
+    """Server-side PDF export for a scan result.
+
+    Generates charts server-side and returns a PDF file.
+    """
+    import re as _re
+    if not _re.match(r'^[a-f0-9A-F\-]+$', scan_id):
+        return jsonify({'error': 'Invalid scan ID.'}), 404
+
+    report = scan_store.get(scan_id)
+    if not report:
+        report_path = os.path.join(RESULTS_DIR, f"{scan_id}_report.json")
+        if os.path.exists(report_path):
+            with open(report_path, 'r', encoding='utf-8') as fh:
+                report = json.load(fh)
+                scan_store[scan_id] = report
+        else:
+            report = db.get_scan(scan_id)
+            if report:
+                scan_store[scan_id] = report
+            else:
+                return jsonify({'error': 'Scan not found.'}), 404
+
+    try:
+        pdf_io = generate_report_pdf(report, scan_id=scan_id)
+        return send_file(pdf_io, mimetype='application/pdf', download_name=f"{scan_id}_report.pdf", as_attachment=True)
+    except Exception as e:
+        logger.exception('Failed to generate/export PDF: %s', e)
+        return jsonify({'error': 'PDF generation failed.'}), 500
 
 
 @app.route("/cbom/<scan_id>")
@@ -4148,6 +4482,116 @@ def download_cbom(scan_id: str):
     
     _audit("scan", "download_cbom", "failed", target_scan_id=scan_id, details={"reason": "not_found"})
     return jsonify({"error": "CBOM not found"}), 404
+
+
+@app.route('/api/ai/chat', methods=['POST'])
+@login_required
+def api_ai_chat():
+    """Proxy endpoint to local LM server (LM Studio).
+    Accepts JSON: { message: str, history: [...], model: str (optional) }
+    """
+    payload = request.get_json(silent=True) or {}
+    message = str(payload.get('message') or '')
+    history = payload.get('history') or []
+    model = str(payload.get('model') or 'liquid/lfm2.5-1.2b')
+    # Prefer system prompt provided in request, otherwise allow override from environment
+    system_prompt = payload.get('system_prompt') or os.environ.get('QSS_AI_SYSTEM_PROMPT') or (
+        "You are the QuantumShield assistant. Provide concise, factual, and actionable security guidance based on any scan data supplied."
+    )
+
+    # Build message list in OpenAI chat format
+    messages = []
+    messages.append({"role": "system", "content": system_prompt})
+    try:
+        for m in history:
+            if isinstance(m, dict) and m.get('role') and m.get('content'):
+                messages.append({"role": m.get('role'), "content": m.get('content')})
+            elif isinstance(m, str):
+                messages.append({"role": "user", "content": m})
+    except Exception:
+        pass
+    messages.append({"role": "user", "content": message})
+
+    ai_host = os.environ.get('AI_SERVER_URL', 'http://127.0.0.1:1234')
+    endpoint = f"{ai_host.rstrip('/')}/v1/chat/completions"
+
+    result = None
+    try:
+        # Build optional headers including API key for external AI servers
+        headers = {'Content-Type': 'application/json'}
+        ai_key = os.environ.get('AI_SERVER_API_KEY') or os.environ.get('QSS_AI_SERVER_API_KEY')
+        if ai_key:
+            # Prefer standard Bearer Authorization, also include X-API-Key for compatibility
+            headers['Authorization'] = f"Bearer {ai_key}"
+            headers['X-API-Key'] = ai_key
+
+        try:
+            import requests as _requests
+            resp = _requests.post(endpoint, json={"model": model, "messages": messages}, headers=headers, timeout=60)
+            resp.raise_for_status()
+            result = resp.json()
+        except Exception as _err:
+            # Fallback to stdlib (urllib) if requests not available or direct call failed
+            import urllib.request as _ur, json as _json
+            req = _ur.Request(endpoint, data=_json.dumps({"model": model, "messages": messages}).encode('utf-8'), headers=headers)
+            with _ur.urlopen(req, timeout=60) as r:
+                result = _json.load(r)
+    except Exception as exc:
+        logger.exception("AI proxy error: %s", exc)
+        return jsonify({'ok': False, 'error': 'AI backend unreachable'}), 502
+
+    # Try to extract assistant text from common response shapes
+    reply = None
+    try:
+        if isinstance(result, dict):
+            # OpenAI-like: choices[0].message.content
+            choices = result.get('choices') or result.get('outputs') or None
+            if isinstance(choices, list) and len(choices) > 0:
+                ch = choices[0]
+                if isinstance(ch.get('message'), dict):
+                    content = ch['message'].get('content')
+                    if isinstance(content, str):
+                        reply = content
+                    elif isinstance(content, dict):
+                        reply = content.get('text') or content.get('message')
+                    elif isinstance(content, list):
+                        parts = []
+                        for p in content:
+                            if isinstance(p, str): parts.append(p)
+                            elif isinstance(p, dict): parts.append(p.get('text') or '')
+                        reply = ''.join(parts)
+                elif 'text' in ch:
+                    reply = ch.get('text')
+            # Fallback: /v1/responses style
+            if not reply:
+                out = result.get('output') or result.get('outputs') or result.get('response') or None
+                if out:
+                    if isinstance(out, list) and len(out) > 0:
+                        first = out[0]
+                        if isinstance(first, dict):
+                            if 'content' in first:
+                                c = first['content']
+                                if isinstance(c, list):
+                                    for item in c:
+                                        if isinstance(item, dict) and item.get('type') in ('output_text','text'):
+                                            reply = item.get('text') or item.get('data') or item.get('content')
+                                            if reply: break
+                                elif isinstance(c, str):
+                                    reply = c
+                            if not reply and 'text' in first:
+                                reply = first.get('text')
+    except Exception:
+        reply = None
+
+    # Final fallback: stringify full result
+    if not reply:
+        try:
+            import json as _json
+            reply = _json.dumps(result)
+        except Exception:
+            reply = str(result)
+
+    return jsonify({'ok': True, 'reply': reply, 'raw': result}), 200
 
 
 @app.route("/api/badge/<path:target>")

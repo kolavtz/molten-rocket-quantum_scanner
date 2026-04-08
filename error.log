@@ -1,36 +1,61 @@
 Traceback (most recent call last):
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\engine\base.py", line 1964, in _exec_single_context
-    self.dialect.do_execute(
-    ~~~~~~~~~~~~~~~~~~~~~~~^
-        cursor, str_statement, effective_parameters, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\engine\default.py", line 942, in do_execute
-    cursor.execute(statement, parameters)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\pymysql\cursors.py", line 153, in execute
-    result = self._query(query)
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\pymysql\cursors.py", line 322, in _query
-    conn.query(q)
-    ~~~~~~~~~~^^^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\pymysql\connections.py", line 575, in query
-    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
-                          ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\pymysql\connections.py", line 826, in _read_query_result
-    result.read()
-    ~~~~~~~~~~~^^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\pymysql\connections.py", line 1203, in read
-    first_packet = self.connection._read_packet()
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\pymysql\connections.py", line 782, in _read_packet
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 143, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 3317, in raw_connection
+    return self.pool.connect()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 448, in connect
+    return _ConnectionFairy._checkout(self)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 1272, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 712, in checkout
+    rec = pool._do_get()
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\impl.py", line 177, in _do_get
+    with util.safe_reraise():
+         ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 121, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\impl.py", line 175, in _do_get
+    return self._create_connection()
+           ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 389, in _create_connection
+    return _ConnectionRecord(self)
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 674, in __init__
+    self.__connect()
+    ~~~~~~~~~~~~~~^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 900, in __connect
+    with util.safe_reraise():
+         ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 121, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 896, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\create.py", line 667, in connect
+    return dialect.connect(*cargs_tup, **cparams)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 630, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\connections.py", line 365, in __init__
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\connections.py", line 681, in connect
+    self._request_authentication()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\connections.py", line 958, in _request_authentication
+    auth_packet = self._read_packet()
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\connections.py", line 782, in _read_packet
     packet.raise_for_error()
     ~~~~~~~~~~~~~~~~~~~~~~^^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\pymysql\protocol.py", line 219, in raise_for_error
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\protocol.py", line 219, in raise_for_error
     err.raise_mysql_exception(self._data)
     ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\pymysql\err.py", line 150, in raise_mysql_exception
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\err.py", line 150, in raise_mysql_exception
     raise errorclass(errno, errval)
-pymysql.err.OperationalError: (3780, "Referencing column 'scan_id' and referenced column 'id' in foreign key constraint 'discovery_items_ibfk_1' are incompatible.")
+pymysql.err.OperationalError: (1045, "Access denied for user 'root'@'localhost' (using password: NO)")
 
 The above exception was the direct cause of the following exception:
 
@@ -41,122 +66,88 @@ Traceback (most recent call last):
   File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\apply_models_schema.py", line 10, in apply
     Base.metadata.create_all(engine)
     ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\sql\schema.py", line 5900, in create_all
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\sql\schema.py", line 5928, in create_all
     bind._run_ddl_visitor(
     ~~~~~~~~~~~~~~~~~~~~~^
         ddl.SchemaGenerator, self, checkfirst=checkfirst, tables=tables
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     )
     ^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\engine\base.py", line 3249, in _run_ddl_visitor
-    conn._run_ddl_visitor(visitorcallable, element, **kwargs)
-    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\engine\base.py", line 2456, in _run_ddl_visitor
-    visitorcallable(self.dialect, self, **kwargs).traverse_single(element)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\sql\visitors.py", line 664, in traverse_single
-    return meth(obj, **kw)
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\sql\ddl.py", line 928, in visit_metadata
-    self.traverse_single(
-    ~~~~~~~~~~~~~~~~~~~~^
-        table,
-        ^^^^^^
-    ...<2 lines>...
-        _is_metadata_operation=True,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 3267, in _run_ddl_visitor
+    with self.begin() as conn:
+         ~~~~~~~~~~^^
+  File "C:\Python313\Lib\contextlib.py", line 141, in __enter__
+    return next(self.gen)
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 3257, in begin
+    with self.connect() as conn:
+         ~~~~~~~~~~~~^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 3293, in connect
+    return self._connection_cls(self)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 145, in __init__
+    Connection._handle_dbapi_exception_noconnection(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        err, dialect, engine
+        ^^^^^^^^^^^^^^^^^^^^
     )
     ^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\sql\visitors.py", line 664, in traverse_single
-    return meth(obj, **kw)
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\sql\ddl.py", line 966, in visit_table
-    )._invoke_with(self.connection)
-      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\sql\ddl.py", line 314, in _invoke_with
-    return bind.execute(self)
-           ~~~~~~~~~~~~^^^^^^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\engine\base.py", line 1416, in execute
-    return meth(
-        self,
-        distilled_parameters,
-        execution_options or NO_OPTIONS,
-    )
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\sql\ddl.py", line 180, in _execute_on_connection
-    return connection._execute_ddl(
-           ~~~~~~~~~~~~~~~~~~~~~~~^
-        self, distilled_params, execution_options
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\engine\base.py", line 1527, in _execute_ddl
-    ret = self._execute_context(
-        dialect,
-    ...<4 lines>...
-        compiled,
-    )
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\engine\base.py", line 1843, in _execute_context
-    return self._exec_single_context(
-           ~~~~~~~~~~~~~~~~~~~~~~~~~^
-        dialect, context, statement, parameters
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\engine\base.py", line 1983, in _exec_single_context
-    self._handle_dbapi_exception(
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        e, str_statement, effective_parameters, cursor, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\engine\base.py", line 2352, in _handle_dbapi_exception
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 2448, in _handle_dbapi_exception_noconnection
     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\engine\base.py", line 1964, in _exec_single_context
-    self.dialect.do_execute(
-    ~~~~~~~~~~~~~~~~~~~~~~~^
-        cursor, str_statement, effective_parameters, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\sqlalchemy\engine\default.py", line 942, in do_execute
-    cursor.execute(statement, parameters)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\pymysql\cursors.py", line 153, in execute
-    result = self._query(query)
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\pymysql\cursors.py", line 322, in _query
-    conn.query(q)
-    ~~~~~~~~~~^^^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\pymysql\connections.py", line 575, in query
-    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
-                          ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\pymysql\connections.py", line 826, in _read_query_result
-    result.read()
-    ~~~~~~~~~~~^^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\pymysql\connections.py", line 1203, in read
-    first_packet = self.connection._read_packet()
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\pymysql\connections.py", line 782, in _read_packet
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 143, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\base.py", line 3317, in raw_connection
+    return self.pool.connect()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 448, in connect
+    return _ConnectionFairy._checkout(self)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 1272, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 712, in checkout
+    rec = pool._do_get()
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\impl.py", line 177, in _do_get
+    with util.safe_reraise():
+         ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 121, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\impl.py", line 175, in _do_get
+    return self._create_connection()
+           ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 389, in _create_connection
+    return _ConnectionRecord(self)
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 674, in __init__
+    self.__connect()
+    ~~~~~~~~~~~~~~^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 900, in __connect
+    with util.safe_reraise():
+         ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 121, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\pool\base.py", line 896, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\create.py", line 667, in connect
+    return dialect.connect(*cargs_tup, **cparams)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\sqlalchemy\engine\default.py", line 630, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\connections.py", line 365, in __init__
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\connections.py", line 681, in connect
+    self._request_authentication()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\connections.py", line 958, in _request_authentication
+    auth_packet = self._read_packet()
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\connections.py", line 782, in _read_packet
     packet.raise_for_error()
     ~~~~~~~~~~~~~~~~~~~~~~^^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\pymysql\protocol.py", line 219, in raise_for_error
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\protocol.py", line 219, in raise_for_error
     err.raise_mysql_exception(self._data)
     ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
-  File "C:\Users\saura\AppData\Roaming\Python\Python313\site-packages\pymysql\err.py", line 150, in raise_mysql_exception
+  File "C:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner\.venv\Lib\site-packages\pymysql\err.py", line 150, in raise_mysql_exception
     raise errorclass(errno, errval)
-sqlalchemy.exc.OperationalError: (pymysql.err.OperationalError) (3780, "Referencing column 'scan_id' and referenced column 'id' in foreign key constraint 'discovery_items_ibfk_1' are incompatible.")
-[SQL: 
-CREATE TABLE discovery_items (
-	id INTEGER NOT NULL AUTO_INCREMENT, 
-	scan_id INTEGER NOT NULL, 
-	asset_id INTEGER, 
-	type VARCHAR(50) NOT NULL, 
-	status VARCHAR(50) NOT NULL, 
-	detection_date DATETIME, 
-	is_deleted BOOL NOT NULL, 
-	deleted_at DATETIME, 
-	deleted_by_user_id VARCHAR(128), 
-	PRIMARY KEY (id), 
-	FOREIGN KEY(scan_id) REFERENCES scans (id) ON DELETE CASCADE, 
-	FOREIGN KEY(asset_id) REFERENCES assets (id) ON DELETE CASCADE, 
-	FOREIGN KEY(deleted_by_user_id) REFERENCES users (id)
-)
-
-]
+sqlalchemy.exc.OperationalError: (pymysql.err.OperationalError) (1045, "Access denied for user 'root'@'localhost' (using password: NO)")
 (Background on this error at: https://sqlalche.me/e/20/e3q8)

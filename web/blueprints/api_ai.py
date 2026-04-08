@@ -224,3 +224,57 @@ def cbom_reindex():
     except Exception as e:
         current_app.logger.exception("RAG reindex failed")
         return jsonify({"success": False, "message": str(e)}), 500
+
+
+@api_ai.route("/config", methods=["GET"])
+@api_guard
+def get_ai_config():
+    """Return runtime AI/agent configuration (admin-only in production).
+
+    For safety, secret values are masked unless the app is running in TESTING mode
+    or the caller is an admin. This endpoint is useful for debugging deployments.
+    """
+    try:
+        # Allow in TESTING or for admin users/API keys that map to admin users
+        is_testing = current_app.config.get("TESTING", False)
+
+        def _is_admin_user():
+            try:
+                if getattr(current_user, "is_authenticated", False):
+                    return getattr(current_user, "role", "").lower() == "admin"
+            except Exception:
+                pass
+            # Also allow API key admin owners (api_guard may have set g.api_user)
+            try:
+                from flask import g as _g
+
+                api_user = getattr(_g, "api_user", None)
+                if api_user and api_user.get("role", "").lower() == "admin":
+                    return True
+            except Exception:
+                pass
+            return False
+
+        if not (is_testing or _is_admin_user()):
+            # Deny access if not testing and not admin
+            return jsonify({"success": False, "message": "Admin privileges required."}), 403
+
+        cfg = {
+            "ai_server_url": os.environ.get("AI_SERVER_URL", ""),
+            "ai_server_api_key_present": bool(os.environ.get("AI_SERVER_API_KEY") or os.environ.get("QSS_AI_SERVER_API_KEY")),
+            "qss_ai_use_rag": os.environ.get("QSS_AI_USE_RAG", "false").lower() in ("1", "true", "yes"),
+            "qss_ai_max_tokens": int(os.environ.get("QSS_AI_MAX_TOKENS", "512")),
+            "qss_ai_temperature": float(os.environ.get("QSS_AI_TEMPERATURE", "0.2")),
+            "qss_ai_model_backend": os.environ.get("QSS_AI_MODEL_BACKEND", ""),
+            # Mask sensitive fields unless testing
+            "qss_ai_system_prompt": os.environ.get("QSS_AI_SYSTEM_PROMPT") if is_testing or _is_admin_user() else (os.environ.get("QSS_AI_SYSTEM_PROMPT") and "<hidden>"),
+            "qss_ai_model_path": os.environ.get("QSS_AI_MODEL_PATH") if is_testing else (os.environ.get("QSS_AI_MODEL_PATH") and "<masked>"),
+            "agent_enabled": os.environ.get("QSS_AGENT_ENABLED", "false").lower() in ("1", "true", "yes"),
+            "agent_backend_url": os.environ.get("QSS_AGENT_BACKEND_URL", ""),
+            "agent_port": os.environ.get("QSS_AGENT_PORT", ""),
+        }
+
+        return jsonify({"success": True, "config": cfg}), 200
+    except Exception as e:
+        current_app.logger.exception("Failed to return AI config")
+        return jsonify({"success": False, "message": str(e)}), 500
