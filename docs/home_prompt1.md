@@ -15,6 +15,16 @@ Top navigation bar with sections:
 - Posture of PQC
 - Cyber Rating
 - Reporting
+-admin
+-logout
+-color scheme
+-Users
+Audit
+API Keys
+Docs
+Recycle Bin
+Theme
+
 
 ### Primary Metrics Row
 Four key-value cards displaying:
