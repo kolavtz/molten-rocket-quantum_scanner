@@ -303,6 +303,13 @@ class CertificateTelemetryService:
                 "certificate_id": cert.id,
                 "asset": asset_name,
                 "endpoint": str(cert.endpoint or ""),
+                "public_key_fingerprint_sha256": str(cert.public_key_fingerprint_sha256 or ""),
+                "fingerprint_sha1": str(cert.fingerprint_sha1 or ""),
+                "fingerprint_md5": str(cert.fingerprint_md5 or ""),
+                "dedup_algorithm": str(cert.dedup_algorithm or ""),
+                "dedup_value": str(cert.dedup_value or ""),
+                "certificate_version": str(cert.certificate_version or ""),
+                "certificate_format": str(cert.certificate_format or ""),
                 "issuer": str(issuer),
                 "subject": str(cert.subject or ""),
                 "subject_cn": str(cert.subject_cn or ""),
@@ -600,7 +607,7 @@ class CertificateTelemetryService:
         days_remaining = None
         status = "Unknown"
         
-        if cert.valid_until:
+        if cert.valid_until is not None:
             days_remaining = (cert.valid_until - now).days
             if days_remaining < 0:
                 status = "Expired"
@@ -612,6 +619,9 @@ class CertificateTelemetryService:
         return {
             "certificate_id": cert.id,
             "endpoint": str(cert.endpoint or ""),
+            "public_key_fingerprint_sha256": str(cert.public_key_fingerprint_sha256 or ""),
+            "certificate_version": str(cert.certificate_version or ""),
+            "certificate_format": str(cert.certificate_format or ""),
             "issuer": str(cert.issuer or cert.ca or "Unknown"),
             "subject": str(cert.subject or ""),
             "subject_cn": str(cert.subject_cn or ""),

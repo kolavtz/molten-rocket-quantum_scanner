@@ -69,6 +69,8 @@ class CertificateInfo:
     is_expired: bool = False
     days_until_expiry: int = 0
     fingerprint_sha256: str = ""
+    fingerprint_sha1: str = ""
+    fingerprint_md5: str = ""
     certificate_details: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -92,6 +94,8 @@ class CertificateInfo:
             "is_expired": self.is_expired,
             "days_until_expiry": self.days_until_expiry,
             "fingerprint_sha256": self.fingerprint_sha256,
+            "fingerprint_sha1": self.fingerprint_sha1,
+            "fingerprint_md5": self.fingerprint_md5,
             "certificate_details": self.certificate_details,
         }
 
@@ -439,6 +443,15 @@ class TLSAnalyzer:
                 info.fingerprint_sha256 = hashlib.sha256(
                     cert_der
                 ).hexdigest().upper()
+                # Also compute SHA-1 and MD5 fingerprints for compatibility
+                try:
+                    info.fingerprint_sha1 = hashlib.sha1(cert_der).hexdigest().upper()
+                except Exception:
+                    info.fingerprint_sha1 = ""
+                try:
+                    info.fingerprint_md5 = hashlib.md5(cert_der).hexdigest().upper()
+                except Exception:
+                    info.fingerprint_md5 = ""
                 public_key_der = pub.public_bytes(
                     encoding=serialization.Encoding.DER,
                     format=serialization.PublicFormat.SubjectPublicKeyInfo,
@@ -602,6 +615,8 @@ class TLSAnalyzer:
                         "public_key_fingerprint_sha256": public_key_fingerprint_sha256,
                     },
                     "fingerprint_sha256": info.fingerprint_sha256,
+                    "fingerprint_sha1": info.fingerprint_sha1,
+                    "fingerprint_md5": info.fingerprint_md5,
                     "certificate_format": "X.509",
                     "extensions": extension_names,
                     "certificate_key_usage": key_usage_values,
@@ -638,6 +653,8 @@ class TLSAnalyzer:
                     "public_key_fingerprint_sha256": "",
                 },
                 "fingerprint_sha256": info.fingerprint_sha256,
+                "fingerprint_sha1": info.fingerprint_sha1,
+                "fingerprint_md5": info.fingerprint_md5,
                 "certificate_format": "X.509",
                 "extensions": [],
                 "certificate_key_usage": [],

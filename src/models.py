@@ -1,5 +1,5 @@
 # pyre-ignore-all-errors
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float, Text, event, Enum, Date, Numeric
+from sqlalchemy import Column, Integer, BigInteger, String, Boolean, DateTime, ForeignKey, Float, Text, event, Enum, Date, Numeric
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.orm import declarative_base, relationship, synonym
 from sqlalchemy.sql import func
@@ -52,7 +52,7 @@ class User(Base):
 
 class Asset(Base, SoftDeleteMixin):
     __tablename__ = 'assets'
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     asset_key = Column(String(255), unique=True, nullable=True, index=True)
     target = Column(String(255), nullable=False, unique=True, index=True)
     name = synonym('target')
@@ -64,7 +64,7 @@ class Asset(Base, SoftDeleteMixin):
     risk_level = Column(String(50), nullable=True)
     notes = Column(Text, nullable=True)
 
-    last_scan_id = Column(Integer, ForeignKey('scans.id', ondelete='SET NULL'), nullable=True)
+    last_scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='SET NULL'), nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     
@@ -89,7 +89,7 @@ def _asset_before_insert(_mapper, _connection, target):
 
 class Scan(Base, SoftDeleteMixin):
     __tablename__ = 'scans'
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     scan_uid = Column(String(36), unique=True, nullable=True, index=True)
     scan_id = Column(String(36), unique=True, nullable=False, index=True)
     requested_target = Column(String(512), nullable=True)
@@ -163,9 +163,9 @@ def _scan_before_save(_mapper, _connection, target):
 
 class DiscoveryDomain(Base, SoftDeleteMixin):
     __tablename__ = 'discovery_domains'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
     domain = Column(String(512), nullable=False)
     registrar = Column(String(255))
     registration_date = Column(Date)
@@ -179,9 +179,9 @@ class DiscoveryDomain(Base, SoftDeleteMixin):
 
 class DiscoverySSL(Base, SoftDeleteMixin):
     __tablename__ = 'discovery_ssl'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
     endpoint = Column(String(512), nullable=False)
     tls_version = Column(String(50))
     cipher_suite = Column(String(255))
@@ -202,9 +202,9 @@ class DiscoverySSL(Base, SoftDeleteMixin):
 
 class DiscoveryIP(Base, SoftDeleteMixin):
     __tablename__ = 'discovery_ips'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
     ip_address = Column(String(80), nullable=False)
     subnet = Column(String(80))
     asn = Column(String(80))
@@ -220,9 +220,9 @@ class DiscoveryIP(Base, SoftDeleteMixin):
 
 class DiscoverySoftware(Base, SoftDeleteMixin):
     __tablename__ = 'discovery_software'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
     product = Column(String(255), nullable=False)
     version = Column(String(120))
     category = Column(String(80))
@@ -237,9 +237,9 @@ class DiscoverySoftware(Base, SoftDeleteMixin):
 
 class Certificate(Base, SoftDeleteMixin):
     __tablename__ = 'certificates'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
     endpoint = Column(String(512), nullable=True, index=True)
     port = Column(Integer, nullable=True)
     
@@ -262,7 +262,15 @@ class Certificate(Base, SoftDeleteMixin):
     
     # Technical details
     fingerprint_sha256 = Column(String(64), nullable=True, index=True)  # NOT globally unique; index only
-    dedup_hash = Column(String(64), nullable=True, index=True)  # SHA-256 of (asset_id + fingerprint) for idempotent inserts
+    fingerprint_sha1 = Column(String(40), nullable=True, index=True)
+    fingerprint_md5 = Column(String(32), nullable=True, index=True)
+    public_key_fingerprint_sha256 = Column(String(64), nullable=True, index=True)
+    certificate_version = Column(String(50), nullable=True)
+    certificate_format = Column(String(50), nullable=True)
+    # For idempotent inserts we compute a SHA-256 of asset_id + ':' + dedup_value
+    dedup_algorithm = Column(String(20), nullable=True)
+    dedup_value = Column(String(128), nullable=True, index=True)
+    dedup_hash = Column(String(64), nullable=True, index=True)
     tls_version = Column(String(50), nullable=True, index=True)
     key_length = Column(Integer, nullable=True)
     key_algorithm = Column(String(100), nullable=True)
@@ -299,10 +307,10 @@ class Certificate(Base, SoftDeleteMixin):
 
 class PQCClassification(Base, SoftDeleteMixin):
     __tablename__ = 'pqc_classification'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    certificate_id = Column(Integer, ForeignKey('certificates.id', ondelete='CASCADE'), nullable=True, index=True)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    certificate_id = Column(BigInteger, ForeignKey('certificates.id', ondelete='CASCADE'), nullable=True, index=True)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
     
     # Algorithm classification
     algorithm_name = Column(String(100), nullable=True, index=True)
@@ -323,9 +331,9 @@ class PQCClassification(Base, SoftDeleteMixin):
 
 class CBOMSummary(Base, SoftDeleteMixin):
     __tablename__ = 'cbom_summary'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, unique=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, unique=True)
     total_components = Column(Integer, default=0)
     weak_crypto_count = Column(Integer, default=0)
     cert_issues_count = Column(Integer, default=0)
@@ -334,9 +342,9 @@ class CBOMSummary(Base, SoftDeleteMixin):
 
 class CBOMEntry(Base, SoftDeleteMixin):
     __tablename__ = 'cbom_entries'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True)
     algorithm_name = Column(String(100))
     category = Column(String(50))
     asset_type = Column(String(50), nullable=True, index=True)
@@ -377,9 +385,9 @@ class CBOMEntry(Base, SoftDeleteMixin):
 
 class ComplianceScore(Base, SoftDeleteMixin):
     __tablename__ = 'compliance_scores'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
     score_type = Column("score_type", String(50)) # pqc, tls, overall
     type = synonym("score_type")
     score_value = Column(Float)
@@ -388,10 +396,10 @@ class ComplianceScore(Base, SoftDeleteMixin):
 
 class CyberRating(Base, SoftDeleteMixin):
     __tablename__ = 'cyber_rating'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
     organization_id = synonym("asset_id")
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
     enterprise_score = Column(Float)
     rating_tier = Column(String(50))
     generated_at = Column(DateTime, default=func.now())
@@ -404,10 +412,10 @@ class CyberRating(Base, SoftDeleteMixin):
 class Finding(Base, SoftDeleteMixin):
     __tablename__ = 'findings'
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     finding_id = Column(String(36), unique=True, nullable=False, index=True)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
     
     # Finding Classification
     issue_type = Column(String(100), nullable=False, index=True)  # weak_cipher, expiring_cert, etc.
@@ -418,8 +426,8 @@ class Finding(Base, SoftDeleteMixin):
     metadata_json = Column(Text, nullable=True)  # JSON-serialized metadata
     
     # Related Entities
-    certificate_id = Column(Integer, ForeignKey('certificates.id', ondelete='SET NULL'), nullable=True)
-    cbom_entry_id = Column(Integer, ForeignKey('cbom_entries.id', ondelete='SET NULL'), nullable=True)
+    certificate_id = Column(BigInteger, ForeignKey('certificates.id', ondelete='SET NULL'), nullable=True)
+    cbom_entry_id = Column(BigInteger, ForeignKey('cbom_entries.id', ondelete='SET NULL'), nullable=True)
     
     # Timestamps
     created_at = Column(DateTime, default=func.now())
@@ -445,7 +453,7 @@ class AssetMetric(Base):
     """
     __tablename__ = 'asset_metrics'
     
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
     
     # PQC Scoring (Math Section 3.1-3.2)
     pqc_score = Column(Float, default=0, nullable=False)           # 0-100, weighted average
@@ -480,7 +488,7 @@ class OrgPQCMetric(Base):
     """
     __tablename__ = 'org_pqc_metrics'
     
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True)
     metric_date = Column(DateTime, nullable=False, unique=True, index=True)
     
     # Counts (Math Section 2.1)
@@ -531,7 +539,7 @@ class CertExpiryBucket(Base):
     """
     __tablename__ = 'cert_expiry_buckets'
     
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True)
     bucket_date = Column(DateTime, nullable=False, unique=True, index=True)
     
     # Expiry Bucket Counts (Math Section 2.5)
@@ -558,7 +566,7 @@ class TLSComplianceScore(Base):
     """
     __tablename__ = 'tls_compliance_scores'
     
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
     
     # TLS Score (0-100)
     tls_score = Column(Float, default=0, nullable=False)
@@ -590,7 +598,7 @@ class DigitalLabel(Base):
     """
     __tablename__ = 'digital_labels'
     
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
     
     # Label Classification
     label = Column(String(100), nullable=False, index=True)  # Quantum-Safe, PQC Ready, Fully Quantum Safe, At Risk
@@ -628,9 +636,9 @@ class DomainCurrentState(Base):
     """
     __tablename__ = 'domain_current_state'
 
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
-    latest_scan_id = Column(Integer, ForeignKey('scans.id', ondelete='SET NULL'), nullable=True)
-    current_ssl_certificate_id = Column(Integer, ForeignKey('certificates.id', ondelete='SET NULL'), nullable=True)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), primary_key=True)
+    latest_scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='SET NULL'), nullable=True)
+    current_ssl_certificate_id = Column(BigInteger, ForeignKey('certificates.id', ondelete='SET NULL'), nullable=True)
 
     # Risk aggregates (denormalized for fast dashboard reads)
     current_risk_score = Column(Float, default=0.0, nullable=False)
@@ -666,9 +674,9 @@ class AssetSSLProfile(Base, SoftDeleteMixin):
     """
     __tablename__ = 'asset_ssl_profiles'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
 
     # TLS version support (probed at scan time)
     supports_tls_1_0 = Column(Boolean, default=False, nullable=False)
@@ -708,9 +716,9 @@ class DomainEvent(Base):
     """
     __tablename__ = 'domain_events'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
-    scan_id = Column(Integer, ForeignKey('scans.id', ondelete='SET NULL'), nullable=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='SET NULL'), nullable=True)
 
     # Event classification
     # Examples: cert_renewed, cert_expired, cert_expiring_soon, issuer_changed,

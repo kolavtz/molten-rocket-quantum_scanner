@@ -183,7 +183,25 @@
     </div>
     <pre id="diagOut" class="diag-pre">Select an asset to view diagnostics.</pre>
   </section>
-</div><!-- /.cbom-page -->
+  </div><!-- /.cbom-page -->
+
+  <!-- Certificate Details Modal (accessible) -->
+  <div id="certModalOverlay" class="modal-overlay" hidden aria-hidden="true">
+    <div id="certModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="certModalTitle" tabindex="-1">
+      <button id="certModalClose" class="modal-close" aria-label="Close certificate details">×</button>
+      <h3 id="certModalTitle">Certificate details</h3>
+      <div id="certModalContent" class="modal-content"></div>
+      <h4 style="margin-top:1rem;color:var(--c-muted);font-size:.9rem">Certificate history</h4>
+      <div id="certModalHistory" class="modal-history">
+        <table class="cbom-table" aria-label="Certificate history">
+          <thead>
+            <tr><th>First Seen</th><th>Last Seen</th><th>CN</th><th>Issuer</th><th>Valid Until</th><th>Status</th><th>Current</th></tr>
+          </thead>
+          <tbody id="certModalHistoryBody"><tr><td colspan="7" class="table-loading">No history loaded.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
 <!-- ─── Styles ──────────────────────────────────────────── -->
 <style>
@@ -337,6 +355,22 @@
   padding:1.25rem; font-size:.8rem; color:var(--c-text); overflow-x:auto;
   max-height:600px; overflow-y:auto; white-space:pre-wrap; word-break:break-all; }
 
+/* Modal */
+.modal-overlay { position:fixed; inset:0; background:rgba(2,6,23,0.6); display:flex; align-items:center; justify-content:center; z-index:1000; padding:1rem; }
+.modal { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--radius); width:min(880px,96%); max-height:90vh; overflow:auto; padding:1rem 1.25rem; box-shadow:0 10px 30px rgba(2,6,23,.6); position:relative; }
+.modal-close { position:absolute; right:12px; top:8px; background:transparent; border:none; color:var(--c-muted); font-size:1.25rem; cursor:pointer; padding:.25rem .5rem; }
+.modal-content { margin-top:.5rem; font-size:.9rem; color:var(--c-text); }
+.modal-history { margin-top:.5rem; }
+.modal[tabindex="-1"]:focus { outline:none; }
+
+/* Ensure overlay respects hidden / aria-hidden to avoid showing unintentionally */
+.modal-overlay[hidden],
+.modal-overlay[aria-hidden="true"] {
+  display: none !important;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* Skeleton shimmer */
 .skeleton { position:relative; overflow:hidden; }
 .skeleton::after { content:""; position:absolute; inset:0;
@@ -469,6 +503,8 @@ function renderKeyLengths(dist) {
       <span class="bar-count">${v}</span>
     </div>`;
   }).join('');
+  // If a deep-link requested a cert to open, attempt now
+  if (window._cbom_pending_open) tryOpenPendingCert();
 }
 
 // ── Protocol Donut ────────────────────────────────────────
@@ -555,10 +591,8 @@ function renderEntries(items) {
       <td>${esc(row.ca || row.issuer_cn || '—')}</td>
       <td>${fmtDate(row.valid_until)}</td>
       <td>
-        <details ontoggle="this.open&&this.querySelector('.x509-wrap').innerHTML">
-          <summary style="cursor:pointer;color:var(--c-accent);font-size:.78rem">View X.509</summary>
-          <div class="x509-wrap">${x509Html}</div>
-        </details>
+        <button class="btn-ghost view-x509-btn" data-asset-id="${row.asset_id||''}" data-cert-fp="${esc(cd.fingerprint_sha256)}" onclick="openCertModal('${detailsId}', this.dataset.assetId, this.dataset.certFp)" style="cursor:pointer;color:var(--c-accent);font-size:.78rem">View X.509</button>
+        <div id="${detailsId}-wrap" class="x509-wrap" style="display:none">${x509Html}</div>
       </td>
     </tr>`;
   }).join('');
@@ -757,8 +791,106 @@ async function loadDiagnostics() {
   }
 }
 
+// ── Certificate modal helper functions ───────────────────
+function openCertModal(detailsId, assetId, certFp) {
+  const overlay = document.getElementById('certModalOverlay');
+  const content = document.getElementById('certModalContent');
+  const historyBody = document.getElementById('certModalHistoryBody');
+  const hidden = document.getElementById(detailsId + '-wrap');
+
+  content.innerHTML = hidden && hidden.innerHTML ? hidden.innerHTML : '<span style="color:var(--c-muted);font-size:.78rem">No X.509 details stored yet.</span>';
+  historyBody.innerHTML = '<tr><td colspan="7" class="table-loading">Loading history…</td></tr>';
+
+  overlay.hidden = false;
+  overlay.setAttribute('aria-hidden','false');
+  document.body.style.overflow = 'hidden';
+  window._last_focused = document.activeElement;
+  document.getElementById('certModalClose').focus();
+
+  // Push deep-link params (non-destructive)
+  try {
+    const u = new URL(window.location);
+    if (certFp) u.searchParams.set('cert_fp', certFp);
+    if (assetId) u.searchParams.set('asset_id', assetId);
+    window.history.replaceState({}, '', u);
+  } catch(e) {}
+
+  // Fetch history (reuse existing endpoint)
+  if (assetId) {
+    fetch(`/api/cbom/asset/${assetId}/ssl/history?include_all=true&page_size=50`).then(r=>r.json()).then(d=>{
+      const items = (d.data?.items || []).filter(c =>
+        (c.fingerprint_sha256 && c.fingerprint_sha256 === certFp) ||
+        (c.public_key_fingerprint_sha256 && c.public_key_fingerprint_sha256 === certFp) ||
+        (c.spki && c.spki.public_key_fingerprint_sha256 && c.spki.public_key_fingerprint_sha256 === certFp)
+      );
+      historyBody.innerHTML = items.length ? items.map(c => `
+        <tr>
+          <td>${fmtDate(c.first_seen_at)}</td>
+          <td>${fmtDate(c.last_seen_at)}</td>
+          <td>${esc(c.subject_cn || '—')}</td>
+          <td>${esc(c.issuer_cn || '—')}</td>
+          <td>${fmtDate(c.valid_until)}</td>
+          <td>${certBadgeHtml(c.cert_status)}</td>
+          <td>${c.is_current ? '✓' : ''}</td>
+        </tr>`).join('') : '<tr><td colspan="7" class="table-loading">No certificate history found.</td></tr>';
+    }).catch(()=>{ historyBody.innerHTML = '<tr><td colspan="7" class="table-loading">Error loading history.</td></tr>'; });
+  } else {
+    historyBody.innerHTML = '<tr><td colspan="7" class="table-loading">No history for unlinked certificate.</td></tr>';
+  }
+}
+
+function closeCertModal() {
+  const overlay = document.getElementById('certModalOverlay');
+  overlay.hidden = true;
+  overlay.setAttribute('aria-hidden','true');
+  document.body.style.overflow = '';
+  if (window._last_focused) try { window._last_focused.focus(); } catch(e) {}
+  try {
+    const u = new URL(window.location);
+    u.searchParams.delete('cert_fp');
+    u.searchParams.delete('asset_id');
+    window.history.replaceState({}, '', u.pathname + u.search + u.hash);
+  } catch(e) {}
+}
+
+// Focus trap and close behavior
+document.addEventListener('click', function(e){
+  const overlay = document.getElementById('certModalOverlay');
+  if (!overlay) return;
+  if (!overlay.hidden && e.target === overlay) closeCertModal();
+});
+document.getElementById('certModalClose').addEventListener('click', closeCertModal);
+document.addEventListener('keydown', function(e){
+  const overlay = document.getElementById('certModalOverlay');
+  if (!overlay || overlay.hidden) return;
+  if (e.key === 'Escape') { e.preventDefault(); closeCertModal(); return; }
+  if (e.key === 'Tab') {
+    const focusable = overlay.querySelectorAll('a,button,input,select,textarea,[tabindex]:not([tabindex="-1"])');
+    if (!focusable.length) { e.preventDefault(); return; }
+    const first = focusable[0], last = focusable[focusable.length-1];
+    if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+    else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+  }
+});
+
+function tryOpenPendingCert() {
+  if (!window._cbom_pending_open) return;
+  const p = window._cbom_pending_open;
+  const selector = `[data-cert-fp="${p.certFp}"][data-asset-id="${p.assetId}"]`;
+  const btn = document.querySelector(selector);
+  if (btn) { btn.focus(); btn.click(); window._cbom_pending_open = null; }
+}
+
 // ── Boot ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // Deep-link support: ?cert_fp=<fp>&asset_id=<id>
+  try {
+    const p = new URL(window.location).searchParams;
+    const certFp = p.get('cert_fp');
+    const assetId = p.get('asset_id');
+    if (certFp) window._cbom_pending_open = { certFp, assetId: assetId || '' };
+  } catch(e) {}
+
   syncCbom();
 });
 </script>

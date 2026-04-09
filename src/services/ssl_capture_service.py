@@ -108,17 +108,18 @@ class SSLCaptureService:
                 cls._handle_failure(asset, scan, tls_result, result, db_session)
                 return result
 
-            # Step 3 — build dedup key
-            fingerprint = (
-                tls_result.certificate.fingerprint_sha256
-                if tls_result.certificate
-                else ""
-            )
-            dedup_hash = cls._make_dedup_hash(asset.id, fingerprint)
+            # Step 3 — build dedup key (choose canonical fingerprint)
+            # Use shared helper so both ORM and raw-sql worker compute identical values
+            cert_obj = tls_result.certificate
+            from src.scanner.dedup_utils import compute_dedup_values
+
+            dedup_algorithm, dedup_value, dedup_hash = compute_dedup_values(asset.id, cert_obj)
+            # Keep legacy variable name for compatibility within this method
+            fingerprint = dedup_value or ""
 
             # Step 4 — find or create Certificate row
             cert_row, is_new = cls._upsert_certificate(
-                asset, scan, tls_result, fingerprint, dedup_hash, db_session
+                asset, scan, tls_result, fingerprint, dedup_hash, dedup_algorithm, dedup_value, db_session
             )
 
             # Step 5 — build / update AssetSSLProfile (inside transaction)
@@ -242,6 +243,8 @@ class SSLCaptureService:
         tls_result: Any,
         fingerprint: str,
         dedup_hash: str,
+        dedup_algorithm: Optional[str],
+        dedup_value: Optional[str],
         db_session: Any,
     ) -> Tuple[Any, bool]:
         """
@@ -274,6 +277,29 @@ class SSLCaptureService:
                 delta = existing.valid_until - now.replace(tzinfo=None)
                 existing.expiry_days = delta.days
                 existing.is_expired = delta.days < 0
+
+            # Update any additional fingerprint / version fields if available
+            try:
+                cert_obj = getattr(tls_result, "certificate", None)
+                if cert_obj and getattr(cert_obj, "certificate_details", None) and isinstance(cert_obj.certificate_details, dict):
+                    pk_info = cert_obj.certificate_details.get("subject_public_key_info", {})
+                    pubkey_fp = pk_info.get("public_key_fingerprint_sha256") or None
+                    if pubkey_fp:
+                        existing.public_key_fingerprint_sha256 = str(pubkey_fp)
+                    cert_ver = cert_obj.certificate_details.get("certificate_version")
+                    if cert_ver:
+                        existing.certificate_version = str(cert_ver)
+                    cert_fmt = cert_obj.certificate_details.get("certificate_format")
+                    if cert_fmt:
+                        existing.certificate_format = str(cert_fmt)
+                    fp1 = cert_obj.certificate_details.get("fingerprint_sha1")
+                    if fp1:
+                        existing.fingerprint_sha1 = str(fp1)
+                    fpm = cert_obj.certificate_details.get("fingerprint_md5")
+                    if fpm:
+                        existing.fingerprint_md5 = str(fpm)
+            except Exception:
+                pass
 
             # Ensure it's marked current (clear other is_current rows first)
             db_session.query(Certificate).filter(
@@ -338,7 +364,17 @@ class SSLCaptureService:
             valid_from=valid_from,
             valid_until=valid_until,
             expiry_days=expiry_days,
-            fingerprint_sha256=fingerprint or None,
+            fingerprint_sha256=(fingerprint if (dedup_algorithm == 'sha256' or not dedup_algorithm) else None) or getattr(cert, 'fingerprint_sha256', None) or (cert.certificate_details.get('fingerprint_sha256') if getattr(cert, 'certificate_details', None) and isinstance(cert.certificate_details, dict) else None),
+            fingerprint_sha1=(cert.certificate_details.get('fingerprint_sha1') if cert and getattr(cert, 'certificate_details', None) and isinstance(cert.certificate_details, dict) else None),
+            fingerprint_md5=(cert.certificate_details.get('fingerprint_md5') if cert and getattr(cert, 'certificate_details', None) and isinstance(cert.certificate_details, dict) else None),
+            public_key_fingerprint_sha256=(
+                (cert.certificate_details.get("subject_public_key_info", {}) or {}).get("public_key_fingerprint_sha256")
+                if cert and getattr(cert, "certificate_details", None) and isinstance(cert.certificate_details, dict) else None
+            ),
+            certificate_version=(cert.certificate_details.get("certificate_version") if cert and getattr(cert, "certificate_details", None) and isinstance(cert.certificate_details, dict) else None),
+            certificate_format=(cert.certificate_details.get("certificate_format") if cert and getattr(cert, "certificate_details", None) and isinstance(cert.certificate_details, dict) else None),
+            dedup_algorithm=dedup_algorithm,
+            dedup_value=dedup_value,
             dedup_hash=dedup_hash,
             tls_version=tls_result.protocol_version,
             key_length=cert.public_key_bits if cert else None,

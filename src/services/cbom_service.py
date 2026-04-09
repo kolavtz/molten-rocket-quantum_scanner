@@ -11,7 +11,7 @@ import hashlib
 
 from src import db
 from src.models import Asset, Scan, Certificate, CBOMEntry, CBOMSummary, DiscoverySSL
-from sqlalchemy import func, distinct, desc, asc, inspect
+from sqlalchemy import func, distinct, desc, asc, inspect, or_
 
 try:
     from cryptography.hazmat.primitives import serialization
@@ -406,6 +406,10 @@ class CbomService:
                 CBOMEntry.is_deleted == False,
                 Scan.is_deleted == False,
                 Scan.status == "complete",
+                # Exclude CBOM entries linked to soft-deleted inventory assets.
+                # Keep entries with no asset association (outerjoin) but drop ones
+                # where Asset.is_deleted == True.
+                or_(Asset.id == None, Asset.is_deleted == False),
             )
         )
         if asset_id is not None:
@@ -487,10 +491,14 @@ class CbomService:
         distribution_rows = (
             db_session.query(CBOMEntry.asset_type, func.count(CBOMEntry.id))
             .join(Scan, CBOMEntry.scan_id == Scan.id)
+            .outerjoin(Asset, CBOMEntry.asset_id == Asset.id)
             .filter(
                 CBOMEntry.is_deleted == False,
                 Scan.is_deleted == False,
                 Scan.status == "complete",
+                # Exclude entries linked to deleted inventory assets while keeping
+                # entries that have no asset association (null asset_id).
+                or_(Asset.id == None, Asset.is_deleted == False),
             )
         )
         if asset_id is not None:
@@ -533,10 +541,12 @@ class CbomService:
                     ]
                 )
                 .join(Scan, CBOMEntry.scan_id == Scan.id)
+                .outerjoin(Asset, CBOMEntry.asset_id == Asset.id)
                 .filter(
                     CBOMEntry.is_deleted == False,
                     Scan.is_deleted == False,
                     Scan.status == "complete",
+                    or_(Asset.id == None, Asset.is_deleted == False),
                 )
             )
             if asset_id is not None:
@@ -628,6 +638,8 @@ class CbomService:
                     DiscoverySSL.is_deleted == False,
                     Scan.is_deleted == False,
                     Scan.status == "complete",
+                    # Exclude discovery rows attached to deleted assets.
+                    or_(Asset.id == None, Asset.is_deleted == False),
                 )
             )
             if asset_id is not None:
