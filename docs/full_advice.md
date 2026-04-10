@@ -992,10 +992,48 @@ The scan center needs to show both live status and the final result. A status en
 
 This is also better for the UI because the detail drawer can ask for two kinds of data:
 
-- the live job state,
-- the persisted final result.
+ - the live job state,
+ - the persisted final result.
 
-### Why the app stores scan reports as JSON artifacts
+## Recent implementation updates (2026-03 — 2026-04)
+
+The project has had a concentrated set of changes and hardenings in March–April 2026. Below is a concise summary of the most important implementation and API-level changes; each bullet includes the primary places to review and the tests used for verification.
+
+- Scans API & orchestration
+	- API-first scan flows were added in `web/routes/scans.py`: `GET /api/scans`, `POST /api/scans`, `POST /api/scans/bulk`, `GET /api/scans/<id>/status`, `GET /api/scans/metrics` and `GET /api/scans/<scan_id>/certificates`. See `web/templates/scans.html` and `web/static/js/scans.js` for UI wiring. (See: /memories/repo/scans-api-driven-migration-2026-03-22.md)
+	- Scan orchestration now uses background worker threads, in-memory tracking IDs for polling, and sequential multi-target processing.
+
+- CBOM and certificate handling
+	- `CbomService` now aggregates `DiscoverySSL` and `Certificate` telemetry (dedupe + meta counters) so CBOM views reflect both discovery and inventory sources. Inventory gating was relaxed so non-deleted scan telemetry is visible in CBOM. (See: /memories/repo/cbom-discovery-ssl-linking-2026-03-29.md)
+	- Stable `row_key` identifiers added; `GET /api/cbom/export` supports filtering by `selected_keys` or single `row_key`. Per-row `Extract X.509` export actions and multi-select export are available in the UI. (See: /memories/repo/cbom-multiselect-row-export-2026-03-30.md)
+	- X.509 minimum fields are surfaced in CBOM rows (Issued To / Issued By / Validity / SHA-256 fingerprints); public-key SHA-256 fallback derivation is implemented when DB fields are sparse. TLS analyzer writes `certificate_format`, `fingerprint_sha256`, and `public_key_fingerprint_sha256` into `certificate_details`. (See: /memories/repo/cbom-x509-minimum-fields-ui-refinement-2026-03-30.md)
+
+- TLS analyzer & discovery sync
+	- The TLS enrichment was switched to SSLyze-based augmentation (replacing the previous pyOpenSSL augmentation). Discovery SSL telemetry gained `pqc_score` and `pqc_assessment` fields; schema compatibility shims were added for legacy DBs. Requirements were updated to include `sslyze>=5.2.0`. (See: /memories/repo/sslyze-and-discovery-sync-2026-03-28.md)
+	- `run_scan_pipeline()` now reliably resolves/creates `Asset` rows so certificates, PQC, CBOM and discovery rows remain relationally synced.
+
+- Discovery timestamp & promotion semantics
+	- Discovery detection time now falls back safely via `coalesce(promoted_at, scan.completed_at, scan.scanned_at, scan.started_at, scan.created_at)` to avoid missing timestamps in discovery models. Promotion to inventory is explicit; discovery rows are persisted even when not promoted. (See: /memories/repo/discovery-timestamp-fallback-fix-2026-03-29.md)
+
+- PQC, dashboards & API harmonization
+	- PQC metrics and assets endpoints were normalized so KPI math and table rows share a single asset-level evidence model. `/api/pqc-posture/metrics` and `/api/pqc-posture/assets` now provide consistent payloads and server-side status filtering. (See: /memories/repo/pqc-posture-tier-consistency-2026-03-29.md)
+	- Cyber Rating was normalized to a 0–1000 enterprise score with tier bands (Elite/Standard/Legacy/Critical) exposed via `/api/cyber-rating`. Scan schedule endpoints expanded to full CRUD. (See: /memories/repo/memory-decisions.md)
+	- Template parameter mismatches (e.g. `q` vs `search`) and a blueprint naming mismatch in `home.html` were identified as blocking issues; fixes are referenced in the memory notes and should be applied before restart. (See: /memories/repo/dashboard-critical-fixes-2026-03-29.md)
+
+- Security and UX hardening
+	- CSRF handling now returns JSON 403 for AJAX calls; shared fetch/response hardening was added (same-origin headers, CSRF forwarding) so AJAX clients get consistent JSON errors instead of HTML redirects. Modal behavior, login UX, and theme contrast received accessibility and stability fixes. (See: /memories/repo/memory-decisions.md)
+
+- DB, services and testing
+	- Runtime DB compatibility checks and schema shims were added for discovery PQC fields. Services now resolve `db_session` via `src.db.db_session` at use time to make testing easier and patch-friendly. Targeted regression tests for CBOM parsing, PQC metrics, and discovery persistence were added or updated; test counts and commands are recorded in memory notes. (See: /memories/repo/*)
+
+- Deployment & developer notes
+	- Remote MySQL deployment scripts were standardized (`scripts/remote_db_check.py`, `scripts/push_sql_to_remote.py`). `.env.example` remains a placeholder-only file; do not commit real credentials. Requirements updated for new TLS tooling (SSLyze). (See: /memories/repo/memory-decisions.md)
+
+Where to look
+- Primary files and folders: `web/routes/scans.py`, `web/static/js/scans.js`, `src/cbom/builder.py`, `src/scanner/tls_analyzer.py`, `src/services/cbom_service.py`, `web/templates/cbom_dashboard.html`, `web/templates/scans.html`, `web/blueprints/api_cbom.py`
+- Memory and verification notes: `/memories/repo/scans-api-driven-migration-2026-03-22.md`, `/memories/repo/cbom-discovery-ssl-linking-2026-03-29.md`, `/memories/repo/sslyze-and-discovery-sync-2026-03-28.md`, `/memories/repo/dashboard-critical-fixes-2026-03-29.md`, `/memories/repo/memory-decisions.md`.
+
+If you are applying these changes locally: run the targeted pytest modules listed in the memory files (examples shown near each memory entry) and restart the Flask app to pick up template/blueprint renames and new endpoints.
 
 The `scan_results/` folder contains JSON output like CBOM and scan reports. This matters because the app is not only a dashboard; it is also an evidence system. By storing the artifact on disk, the project preserves the exact data that fed the UI at the time of a scan. That is valuable for debugging, auditing, and future schema migrations.
 

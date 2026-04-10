@@ -9,18 +9,91 @@ back to inventory assets.
 from __future__ import annotations
 
 import datetime
+import json
 import ipaddress
 import logging
+import os
 import threading
-from typing import Dict, List
+import uuid
+from concurrent.futures import Future, ThreadPoolExecutor
+from typing import Any, Dict, List
 from urllib.parse import urlparse
 
 from sqlalchemy import func
 
 from src.db import db_session
 from src.models import Asset, Certificate, PQCClassification, Scan
+from src.scanner.network_discovery import sanitize_target
+
+from config import RESULTS_DIR
 
 logger = logging.getLogger(__name__)
+
+_SCAN_EXECUTOR = ThreadPoolExecutor(max_workers=max(1, int(os.getenv("QSS_SCAN_MAX_WORKERS", "4") or "4")))
+
+
+def _persist_raw_scan_artifact(report: Dict[str, Any]) -> str:
+    """Persist a raw scan artifact with the milestone naming contract.
+
+    Required naming shape: ``scan_<timestamp>_<uuid>.json``.
+    """
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    artifact_name = f"scan_{ts}_{uuid.uuid4().hex}.json"
+    artifact_path = os.path.join(RESULTS_DIR, artifact_name)
+    with open(artifact_path, "w", encoding="utf-8") as fh:
+        json.dump(report, fh, indent=2, default=str)
+    return artifact_path
+
+
+def run_scan_pipeline(
+    target: str,
+    ports: list[int] | None = None,
+    options: dict[str, Any] | None = None,
+    scan_runner=None,
+) -> Dict[str, Any]:
+    """Validate + execute one scan pipeline run and persist a raw artifact.
+
+    This helper keeps controller routes thin and centralizes milestone behavior:
+    canonical target handling, safe option forwarding, and raw JSON persistence.
+    """
+    clean_target, _ = sanitize_target(str(target or "").strip())
+    opts = dict(options or {})
+
+    runner = scan_runner
+    if not callable(runner):
+        from web.app import run_scan_pipeline as app_run_scan_pipeline
+
+        runner = app_run_scan_pipeline
+
+    kwargs = {
+        "ports": ports,
+        "asset_class_hint": opts.get("asset_class_hint"),
+        "scan_kind": str(opts.get("scan_type") or opts.get("scan_kind") or "manual"),
+        "scanned_by": opts.get("scanned_by"),
+        "add_to_inventory": bool(opts.get("add_to_inventory", False)),
+    }
+
+    report = runner(clean_target, **kwargs)
+    if not isinstance(report, dict):
+        raise ValueError("scan_runner must return a dictionary report")
+
+    report.setdefault("target", clean_target)
+    report.setdefault("requested_target", str(target or "").strip())
+
+    raw_path = _persist_raw_scan_artifact(report)
+    report["raw_result_path"] = raw_path
+    return report
+
+
+def submit_scan_pipeline(
+    target: str,
+    ports: list[int] | None = None,
+    options: dict[str, Any] | None = None,
+    scan_runner=None,
+) -> Future:
+    """Submit one scan run to the shared local executor."""
+    return _SCAN_EXECUTOR.submit(run_scan_pipeline, target, ports, options, scan_runner)
 
 
 class InventoryScanService:

@@ -370,7 +370,7 @@ def build_assets_page_context():
     page_size = request.args.get("page_size", 25, type=int)
     sort = request.args.get("sort", "name")
     order = request.args.get("order", "asc")
-    search = request.args.get("q", "")
+    search = request.args.get("search", request.args.get("q", ""))
 
     page_data = paginate_query(
         assets,

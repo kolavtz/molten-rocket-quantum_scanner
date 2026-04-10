@@ -41,3 +41,10 @@ def test_api_assets_accepts_query_params(app_client):
     data = payload["data"]
     assert data["page"] == 1
     assert data["page_size"] == 10
+
+    resp_search = app_client.get("/api/assets?page=1&page_size=10&sort=name&order=asc&search=test")
+    assert resp_search.status_code == 200
+    payload_search = json.loads(resp_search.data)
+    assert payload_search["success"] is True
+    filters = payload_search.get("filters", {})
+    assert filters.get("search") == "test"

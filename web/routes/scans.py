@@ -16,6 +16,7 @@ from sqlalchemy import or_
 from src import database as db
 from src.db import db_session
 from src.models import Asset, Certificate, Scan
+from src.services.inventory_scan_service import run_scan_pipeline as run_scan_pipeline_service
 
 scans_bp = Blueprint("scans", __name__)
 
@@ -24,6 +25,30 @@ BULK_SCAN_ROLES = {"Admin", "Manager"}
 
 _scan_jobs_lock = threading.Lock()
 _scan_jobs: dict[str, dict[str, Any]] = {}
+
+
+def _api_success(data: dict[str, Any], *, legacy: dict[str, Any] | None = None, status_code: int = 200):
+    payload: dict[str, Any] = {
+        "success": True,
+        "data": data,
+        "error": None,
+    }
+    if legacy:
+        payload.update(legacy)
+    return jsonify(payload), status_code
+
+
+def _api_error(message: str, *, code: str = "bad_request", status_code: int = 400):
+    return (
+        jsonify(
+            {
+                "success": False,
+                "data": {},
+                "error": {"code": code, "message": message},
+            }
+        ),
+        status_code,
+    )
 
 
 def _now_iso() -> str:
@@ -684,13 +709,16 @@ def _process_job(
                     except Exception:
                         effective_ports = None
 
-                report = web_app_module.run_scan_pipeline(
+                report = run_scan_pipeline_service(
                     clean_target,
                     ports=effective_ports,
-                    asset_class_hint=(str(job_options.get("asset_class_hint") or "").strip() or None),
-                    scan_kind=str(job_options.get("scan_type") or ("api_bulk" if len(target_entries) > 1 else "api_single")),
-                    scanned_by=requested_by,
-                    add_to_inventory=bool(job_options.get("add_to_inventory")),
+                    options={
+                        "asset_class_hint": (str(job_options.get("asset_class_hint") or "").strip() or None),
+                        "scan_type": str(job_options.get("scan_type") or ("api_bulk" if len(target_entries) > 1 else "api_single")),
+                        "scanned_by": requested_by,
+                        "add_to_inventory": bool(job_options.get("add_to_inventory")),
+                    },
+                    scan_runner=web_app_module.run_scan_pipeline,
                 )
 
                 if not testing_mode and not bool(report.get("orm_persisted")):
@@ -836,7 +864,7 @@ def scans_page():
 def api_scans_list():
     page = max(1, request.args.get("page", 1, type=int) or 1)
     page_size = min(max(1, request.args.get("page_size", 25, type=int) or 25), 250)
-    q = str(request.args.get("q", "") or "").strip().lower()
+    q = str(request.args.get("search", request.args.get("q", "")) or "").strip().lower()
     status_raw = str(request.args.get("status", "") or "").strip()
     status_filter = _normalize_status(status_raw) if status_raw else ""
     scan_type_filter = _normalize_scan_type(request.args.get("scan_type", "")) if str(request.args.get("scan_type", "")).strip() else ""
@@ -948,7 +976,7 @@ def api_scans_list():
     kpis = _compute_scan_kpis(items)
     syncing = not bool(globals().get('_db_initialized', False))
 
-    payload = {
+    data_payload = {
         "items": items[start:end],
         "total": total,
         "page": page,
@@ -957,14 +985,21 @@ def api_scans_list():
         "kpis": kpis,
         "syncing": bool(syncing),
     }
-    return jsonify(payload), 200
+    return _api_success(
+        data_payload,
+        legacy={
+            **data_payload,
+            "search": q,
+            "q": q,
+        },
+    )
 
 
 @scans_bp.route("/api/scans", methods=["POST"])
 @login_required
 def api_scan_single():
     if not _can_scan():
-        return jsonify({"status": "error", "message": "Insufficient role for scan execution."}), 403
+        return _api_error("Insufficient role for scan execution.", code="forbidden", status_code=403)
 
     payload = request.get_json(silent=True) or {}
     target = str(payload.get("target") or "").strip()
@@ -982,7 +1017,7 @@ def api_scan_single():
     asset_class_hint = asset_class_value if asset_class_mode == "manual" and asset_class_value else None
     
     if not target:
-        return jsonify({"status": "error", "message": "Missing 'target'."}), 400
+        return _api_error("Missing 'target'.", code="validation_error", status_code=400)
 
     job = _start_job(
         [{"target": target}],
@@ -999,8 +1034,16 @@ def api_scan_single():
         },
     )
     scan_id = job["scan_ids"][0]
-
-    return jsonify({"status": "accepted", "scan_id": scan_id, "job_id": job["job_id"]}), 202
+    data_payload = {
+        "job_id": job["job_id"],
+        "status_url": f"/api/scans/{scan_id}/status",
+        "scan_id": scan_id,
+    }
+    return _api_success(
+        data_payload,
+        legacy={"status": "accepted", "scan_id": scan_id, "job_id": job["job_id"]},
+        status_code=202,
+    )
 
 
 @scans_bp.route("/api/scans/bulk", methods=["POST"])
@@ -1064,29 +1107,25 @@ def api_scan_status(scan_id: str):
     # Prefer in-flight tracking status.
     snapshot = _status_snapshot(scan_id)
     if snapshot is not None:
-        return jsonify({"status": "success", "data": snapshot}), 200
+        return _api_success(snapshot, legacy={"status": "success"})
 
     # Fallback: check persisted/in-memory reports by real scan_id.
     report = _load_scan_report(scan_id)
 
     if isinstance(report, dict):
         item = _build_scan_item_from_report(report)
-        return jsonify(
-            {
-                "status": "success",
-                "data": {
-                    "scan_id": scan_id,
-                    "target": item.get("target"),
-                    "status": _normalize_status(item.get("status") or "completed"),
-                    "assets_found": item.get("assets_found"),
-                    "pqc_score": item.get("pqc_score"),
-                    "updated_at": item.get("date") or _now_iso(),
-                    "result_scan_id": scan_id,
-                },
-            }
-        ), 200
+        data_payload = {
+            "scan_id": scan_id,
+            "target": item.get("target"),
+            "status": _normalize_status(item.get("status") or "completed"),
+            "assets_found": item.get("assets_found"),
+            "pqc_score": item.get("pqc_score"),
+            "updated_at": item.get("date") or _now_iso(),
+            "result_scan_id": scan_id,
+        }
+        return _api_success(data_payload, legacy={"status": "success"})
 
-    return jsonify({"status": "error", "message": "Scan status not found."}), 404
+    return _api_error("Scan status not found.", code="not_found", status_code=404)
 
 
 @scans_bp.route("/api/scans/<scan_id>/result", methods=["GET"])
@@ -1094,13 +1133,13 @@ def api_scan_status(scan_id: str):
 def api_scan_result(scan_id: str):
     report = _load_scan_report(scan_id)
     if isinstance(report, dict):
-        return jsonify({"status": "success", "data": report}), 200
+        return _api_success(report, legacy={"status": "success"})
 
     snapshot = _status_snapshot(scan_id)
     if snapshot is not None:
-        return jsonify({"status": "success", "data": snapshot}), 200
+        return _api_success(snapshot, legacy={"status": "success"})
 
-    return jsonify({"status": "error", "message": "Scan result not found."}), 404
+    return _api_error("Scan result not found.", code="not_found", status_code=404)
 
 
 @scans_bp.route("/api/scans/<scan_id>/promote", methods=["POST"])
@@ -1189,7 +1228,7 @@ def api_scan_metrics():
 def api_scan_certificates(scan_id: str):
     page = max(1, request.args.get("page", 1, type=int) or 1)
     page_size = min(max(1, request.args.get("page_size", 25, type=int) or 25), 200)
-    q = str(request.args.get("q", request.args.get("search", "")) or "").strip()
+    q = str(request.args.get("search", request.args.get("q", "")) or "").strip()
     sort = str(request.args.get("sort", "valid_until") or "valid_until").strip()
     order = str(request.args.get("order", "asc") or "asc").strip().lower()
 
@@ -1339,6 +1378,7 @@ def api_scan_certificates(scan_id: str):
         "filters": {
             "scan_id": scan_id,
             "resolved_scan_id": resolved_scan_id,
+            "search": q,
             "q": q,
             "sort": sort,
             "order": order,

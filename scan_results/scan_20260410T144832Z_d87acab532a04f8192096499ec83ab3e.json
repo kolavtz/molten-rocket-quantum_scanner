@@ -1,0 +1,11 @@
+{
+  "scan_id": "bulk-real-csv-1",
+  "target": "10.10.10.10",
+  "status": "complete",
+  "total_assets": 1,
+  "overview": {
+    "average_compliance_score": 70
+  },
+  "requested_target": "google.com",
+  "raw_result_path": "C:\\Users\\saura\\Downloads\\hf-proj\\molten-rocket-quantum_scanner\\scan_results\\scan_20260410T144832Z_84907d86809e498c837b8026ec343925.json"
+}

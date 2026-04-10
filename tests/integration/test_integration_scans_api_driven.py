@@ -13,7 +13,27 @@ def test_scans_list_paginated_envelope(app_client):
     resp = app_client.get("/api/scans?page=1&page_size=10")
     assert resp.status_code == 200
     payload = json.loads(resp.data)
+    assert payload.get("success") is True
+    assert isinstance(payload.get("data"), dict)
+    assert payload.get("error") is None
     assert {"items", "total", "page", "page_size", "total_pages", "kpis"}.issubset(set(payload.keys()))
+    assert {"items", "total", "page", "page_size", "total_pages", "kpis"}.issubset(set(payload["data"].keys()))
+
+
+def test_scans_list_accepts_search_and_q_params(app_client):
+    resp_search = app_client.get("/api/scans?page=1&page_size=10&search=example")
+    assert resp_search.status_code == 200
+    payload_search = json.loads(resp_search.data)
+    assert payload_search.get("success") is True
+    assert payload_search.get("search") == "example"
+    assert payload_search.get("q") == "example"
+
+    resp_q = app_client.get("/api/scans?page=1&page_size=10&q=legacy")
+    assert resp_q.status_code == 200
+    payload_q = json.loads(resp_q.data)
+    assert payload_q.get("success") is True
+    assert payload_q.get("search") == "legacy"
+    assert payload_q.get("q") == "legacy"
 
 
 def test_single_scan_submission_and_status_poll(app_client):
@@ -33,10 +53,14 @@ def test_single_scan_submission_and_status_poll(app_client):
         )
         assert create_resp.status_code == 202
         created = json.loads(create_resp.data)
+        assert created.get("success") is True
+        assert isinstance(created.get("data"), dict)
+        assert created["data"].get("status_url", "").startswith("/api/scans/")
         status_resp = app_client.get(f"/api/scans/{created['scan_id']}/status")
 
     assert status_resp.status_code == 200
     status_payload = json.loads(status_resp.data)
+    assert status_payload.get("success") is True
     assert status_payload["status"] == "success"
     assert "data" in status_payload
 
