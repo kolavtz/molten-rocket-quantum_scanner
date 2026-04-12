@@ -207,10 +207,10 @@
 <style>
 :root {
   --c-bg:       #0b0f1a;
-  --c-surface:  rgba(255,255,255,.04);
-  --c-border:   rgba(255,255,255,.08);
-  --c-text:     #e2e8f0;
-  --c-muted:    #94a3b8;
+  --c-surface:  rgba(15,23,42,.62);
+  --c-border:   rgba(148,163,184,.28);
+  --c-text:     #f1f5f9;
+  --c-muted:    #cbd5e1;
   --c-accent:   #38bdf8;
   --c-success:  #34d399;
   --c-warning:  #fbbf24;
@@ -273,7 +273,7 @@
 /* Cipher list */
 .cipher-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.5rem; }
 .cipher-item { display:flex; align-items:center; justify-content:space-between; padding:.5rem .75rem;
-  background:rgba(255,255,255,.03); border-radius:6px; font-size:.8rem; }
+  background:rgba(148,163,184,.12); border-radius:6px; font-size:.8rem; }
 .cipher-name { color:var(--c-text); font-family:monospace; }
 .cipher-count { background:var(--c-accent); color:#000; border-radius:999px;
   padding:.1rem .5rem; font-size:.72rem; font-weight:700; }
@@ -289,7 +289,7 @@
 .cbom-table thead { background:rgba(255,255,255,.04); }
 .cbom-table th { padding:.75rem 1rem; text-align:left; color:var(--c-muted); font-weight:600;
   font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; }
-.cbom-table td { padding:.7rem 1rem; border-top:1px solid var(--c-border); vertical-align:top; }
+.cbom-table td { padding:.7rem 1rem; border-top:1px solid var(--c-border); vertical-align:top; color:var(--c-text); }
 .cbom-table tbody tr:hover { background:rgba(255,255,255,.03); }
 .table-loading { text-align:center; color:var(--c-muted); padding:2rem; }
 .empty-state-row td { text-align:center; color:var(--c-muted); padding:3rem; }

@@ -1152,6 +1152,43 @@ def _persist_split_discovery_rows(
             )
 
     if _db_table_exists("discovery_ssl"):
+        def _issuer_text_from_tls_row(tls_row: dict[str, Any]) -> str | None:
+            issuer_raw = tls_row.get("issuer")
+            if isinstance(issuer_raw, dict):
+                issuer_display = _principal_display(
+                    _cert_component(issuer_raw, "cn"),
+                    _cert_component(issuer_raw, "o"),
+                    _cert_component(issuer_raw, "ou"),
+                )
+                if issuer_display:
+                    return issuer_display
+            issuer_fallback = str(
+                tls_row.get("issuer_cn")
+                or tls_row.get("issuer_o")
+                or tls_row.get("issuer_ou")
+                or (issuer_raw if isinstance(issuer_raw, str) else "")
+                or ""
+            ).strip()
+            if issuer_fallback:
+                return issuer_fallback
+
+            cert_details = tls_row.get("certificate_details") if isinstance(tls_row.get("certificate_details"), dict) else {}
+            details_issuer = str(cert_details.get("issuer") or "").strip()
+            return details_issuer or None
+
+        def _subject_cn_from_tls_row(tls_row: dict[str, Any]) -> str | None:
+            subject_raw = tls_row.get("subject")
+            if isinstance(subject_raw, dict):
+                cn = _cert_component(subject_raw, "cn")
+                if cn:
+                    return cn
+            subject_cn_value = str(tls_row.get("subject_cn") or "").strip()
+            if subject_cn_value:
+                return subject_cn_value
+            cert_details = tls_row.get("certificate_details") if isinstance(tls_row.get("certificate_details"), dict) else {}
+            details_subject = str(cert_details.get("subject") or "").strip()
+            return details_subject or None
+
         for idx, tls in enumerate(tls_results):
             endpoint_host = str(tls.get("host") or host or "").strip()
             endpoint_port = int(tls.get("port") or 443)
@@ -1189,8 +1226,8 @@ def _persist_split_discovery_rows(
                     "cipher_suite": tls.get("cipher_suite") or "Unknown",
                     "key_exchange": tls.get("key_exchange") or "Unknown",
                     "key_length": int(tls.get("key_length") or tls.get("key_size") or 0) or None,
-                    "subject_cn": tls.get("subject_cn") or None,
-                    "issuer": tls.get("issuer_cn") or tls.get("issuer_o") or None,
+                    "subject_cn": _subject_cn_from_tls_row(tls),
+                    "issuer": _issuer_text_from_tls_row(tls),
                     "valid_until": tls.get("valid_until_dt"),
                     "pqc_score": pqc_score,
                     "pqc_assessment": pqc_assessment,
@@ -2058,8 +2095,30 @@ def run_scan_pipeline(
             if not str(element_list_value or "").strip() and element_name_value:
                 element_list_value = _json_text([element_name_value])
 
-            subject_name_value = _first_non_empty(props.get("cert-in:subject_name"), props.get("subject_name"), fallback_tls.get("subject_cn"))
-            issuer_name_value = _first_non_empty(props.get("cert-in:issuer_name"), props.get("issuer_name"), fallback_tls.get("issuer_cn"), fallback_tls.get("issuer_o"))
+            fallback_subject_display = _first_non_empty(
+                fallback_tls.get("subject_cn"),
+                _cert_component(fallback_tls.get("subject") if isinstance(fallback_tls.get("subject"), dict) else {}, "cn"),
+            )
+            fallback_issuer_display = _first_non_empty(
+                fallback_tls.get("issuer_cn"),
+                fallback_tls.get("issuer_o"),
+                _principal_display(
+                    _cert_component(fallback_tls.get("issuer") if isinstance(fallback_tls.get("issuer"), dict) else {}, "cn"),
+                    _cert_component(fallback_tls.get("issuer") if isinstance(fallback_tls.get("issuer"), dict) else {}, "o"),
+                    _cert_component(fallback_tls.get("issuer") if isinstance(fallback_tls.get("issuer"), dict) else {}, "ou"),
+                ),
+                str(fallback_tls.get("issuer") or "") if isinstance(fallback_tls.get("issuer"), str) else "",
+            )
+            subject_name_value = _first_non_empty(
+                props.get("cert-in:subject_name"),
+                props.get("subject_name"),
+                fallback_subject_display,
+            )
+            issuer_name_value = _first_non_empty(
+                props.get("cert-in:issuer_name"),
+                props.get("issuer_name"),
+                fallback_issuer_display,
+            )
 
             existing_entry = _find_existing_cbom_entry()
 

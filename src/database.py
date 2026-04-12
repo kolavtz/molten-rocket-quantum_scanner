@@ -416,19 +416,62 @@ def _ensure_scans_compat_columns(cur) -> None:
         return
 
     wanted_columns = {
+        "scan_uid": "VARCHAR(36) NULL",
         "scan_id": "VARCHAR(36) NULL",
+        "requested_target": "VARCHAR(512) NULL",
+        "normalized_target": "VARCHAR(512) NULL",
         "target": "VARCHAR(512) NULL",
         "asset_class": "VARCHAR(64) NULL",
+        "scan_kind": "VARCHAR(32) NULL",
+        "initiated_by": "VARCHAR(36) NULL",
         "total_assets": "INT DEFAULT 0",
+        "total_discovered": "INT DEFAULT 0",
+        "total_promoted": "INT DEFAULT 0",
         "compliance_score": "INT DEFAULT 0",
         "overall_pqc_score": "DOUBLE NULL",
         "quantum_safe": "INT DEFAULT 0",
         "quantum_vuln": "INT DEFAULT 0",
+        "cbom_path": "VARCHAR(500) NULL",
+        "add_to_inventory": "BOOLEAN DEFAULT FALSE",
+        "error_message": "LONGTEXT NULL",
+        "report_json": "LONGTEXT NULL",
         "is_encrypted": "BOOLEAN DEFAULT FALSE",
+        "correlation_id": "VARCHAR(36) NULL",
+        "scanner_version": "VARCHAR(50) NULL",
+        "deleted_by": "VARCHAR(36) NULL",
     }
     _ensure_table_columns(cur, "scans", wanted_columns)
 
     refreshed = _table_columns(cur, "scans")
+    # Ensure scan_uid exists and backfill from scan_id where possible so ORM queries that
+    # reference scans.scan_uid do not fail on older databases.
+    if "scan_uid" in refreshed:
+        try:
+            # If scan_id already exists, prefer to copy existing canonical ids into scan_uid
+            if "scan_id" in refreshed:
+                cur.execute(
+                    """
+                    UPDATE scans
+                    SET scan_uid = scan_id
+                    WHERE (scan_uid IS NULL OR scan_uid = '')
+                      AND scan_id IS NOT NULL
+                      AND scan_id <> ''
+                    """
+                )
+            # Fill any remaining empty scan_uid values with a generated UUID()
+            cur.execute("UPDATE scans SET scan_uid = UUID() WHERE scan_uid IS NULL OR scan_uid = ''")
+            # Make column NOT NULL for ORM expectations
+            try:
+                cur.execute("ALTER TABLE scans MODIFY COLUMN scan_uid VARCHAR(36) NOT NULL")
+            except Exception:
+                # Some older MySQL versions may reject MODIFY in certain contexts; ignore safely
+                pass
+        except Exception as exc:
+            logger.warning("Could not normalize scans.scan_uid compatibility column: %s", exc)
+        try:
+            cur.execute("CREATE UNIQUE INDEX uq_scans_scan_uid ON scans(scan_uid)")
+        except Exception:
+            pass
     if "scan_id" in refreshed:
         try:
             if "scan_uid" in refreshed:
@@ -1055,15 +1098,29 @@ def init_db() -> bool:
                 "deleted_by_user_id": "BIGINT NULL",
             },
             "scans": {
+                "scan_uid": "VARCHAR(36) NULL",
                 "scan_id": "VARCHAR(36) NULL",
+                "requested_target": "VARCHAR(512) NULL",
+                "normalized_target": "VARCHAR(512) NULL",
                 "target": "VARCHAR(512) NULL",
                 "asset_class": "VARCHAR(64) NULL",
+                "scan_kind": "VARCHAR(32) NULL",
+                "initiated_by": "VARCHAR(36) NULL",
                 "total_assets": "INT DEFAULT 0",
+                "total_discovered": "INT DEFAULT 0",
+                "total_promoted": "INT DEFAULT 0",
                 "compliance_score": "INT DEFAULT 0",
                 "overall_pqc_score": "DOUBLE NULL",
                 "quantum_safe": "INT DEFAULT 0",
                 "quantum_vuln": "INT DEFAULT 0",
+                "cbom_path": "VARCHAR(500) NULL",
+                "add_to_inventory": "BOOLEAN DEFAULT FALSE",
+                "error_message": "LONGTEXT NULL",
+                "report_json": "LONGTEXT NULL",
                 "is_encrypted": "BOOLEAN DEFAULT FALSE",
+                "correlation_id": "VARCHAR(36) NULL",
+                "scanner_version": "VARCHAR(50) NULL",
+                "deleted_by": "VARCHAR(36) NULL",
                 "is_deleted": "BOOLEAN DEFAULT FALSE",
                 "deleted_at": "DATETIME NULL",
                 "deleted_by_user_id": "BIGINT NULL",

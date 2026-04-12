@@ -122,7 +122,9 @@ class TLSEndpointResult:
 
     @property
     def is_successful(self) -> bool:
-        return self.error is None and self.cipher_suite != ""
+        # A scan is successful if we captured the core cipher suite,
+        # even if an enrichment error (like SSLyze) occurred.
+        return self.cipher_suite != ""
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -188,14 +190,17 @@ class TLSAnalyzer:
             result.retry_count = self.MAX_RETRIES
 
         # Augment with SSLyze if available
-        if HAS_SSLYZE and result.error is None:
+        # Note: Enrichment is non-fatal; we preserve core stdlib results even if this fails.
+        if HAS_SSLYZE and (result.error is None or "stdlib" not in result.error):
             try:
                 self._augment_with_sslyze(result, host, port)
             except Exception as exc:
-                result.error = result.error or f"sslyze enrichment failed: {exc}"
+                # Log enrichment failure but don't poison the result if stdlib worked
+                if not result.cipher_suite:
+                    result.error = result.error or f"sslyze enrichment failed: {exc}"
 
         # Detect HSTS
-        if result.error is None:
+        if result.cipher_suite:
             try:
                 result.hsts_enabled, result.hsts_max_age = self._detect_hsts(host, port)
             except Exception:
