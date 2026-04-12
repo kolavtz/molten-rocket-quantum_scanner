@@ -6,7 +6,7 @@ Detects certificate and transport findings and persists them into `findings`.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
 from src.db import db_session
@@ -71,7 +71,8 @@ class FindingDetectionService:
     @classmethod
     def _detect_certificate_findings(cls, cert: Certificate) -> List[Dict[str, Any]]:
         findings: List[Dict[str, Any]] = []
-        now = datetime.utcnow()
+        # Use naive UTC now to match naive datetimes retrieved from database
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
 
         tls_version = str(getattr(cert, "tls_version", "") or "").strip()
         if tls_version in WEAK_TLS_VERSIONS:

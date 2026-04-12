@@ -49,6 +49,7 @@ def register_api_blueprints(app: Flask, api_version: str | None = None) -> bool:
         from web.blueprints.api_docs import api_docs
         from web.blueprints.api_ai import api_ai
         from web.blueprints.api_root import api_root
+        from web.blueprints.api_vulnerabilities import api_vulnerabilities
 
         # Mount the API root (version metadata and health) at the base prefix
         app.register_blueprint(api_root, url_prefix=_compute_prefixed_url(base_prefix, api_root))
@@ -56,6 +57,7 @@ def register_api_blueprints(app: Flask, api_version: str | None = None) -> bool:
         app.register_blueprint(api_incidents, url_prefix=_compute_prefixed_url(base_prefix, api_incidents))
         app.register_blueprint(api_docs, url_prefix=_compute_prefixed_url(base_prefix, api_docs))
         app.register_blueprint(api_ai, url_prefix=_compute_prefixed_url(base_prefix, api_ai))
+        app.register_blueprint(api_vulnerabilities, url_prefix=_compute_prefixed_url(base_prefix, api_vulnerabilities))
 
         # Optional fallback switch to restore legacy overlapping blueprint registrations.
         # Use only for temporary migration compatibility.

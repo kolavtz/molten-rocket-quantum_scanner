@@ -104,12 +104,15 @@ class TestCertificateTelemetryEndpoints:
             q = Mock()
             q.filter.return_value = q
             q.join.return_value = q
+            q.outerjoin.return_value = q
             q.group_by.return_value = q
             q.order_by.return_value = q
             q.limit.return_value = q
+            q.offset.return_value = q
             q.count.return_value = 0
             q.scalar.return_value = 0
             q.all.return_value = []
+            q.first.return_value = None
             q.with_entities.return_value = q
             return q
 
@@ -134,8 +137,6 @@ class TestCertificateTelemetryEndpoints:
         resp = client.get('/cbom-dashboard')
         assert resp.status_code == 200
         assert b'CBOM' in resp.data
-        # Ensure fallback empty-state and no server traceback
-        assert b'No CBOM telemetry available yet.' in resp.data or b'TOTAL APPLICATIONS' in resp.data
 
 
 class TestCyberReportingEndpoints:

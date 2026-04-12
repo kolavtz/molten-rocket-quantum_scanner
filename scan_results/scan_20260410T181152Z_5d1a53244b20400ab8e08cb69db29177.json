@@ -1,0 +1,10 @@
+{
+  "scan_id": "bulk-real-1",
+  "target": "example.com",
+  "status": "complete",
+  "total_assets": 1,
+  "overview": {
+    "average_compliance_score": 75
+  },
+  "requested_target": "example.com"
+}

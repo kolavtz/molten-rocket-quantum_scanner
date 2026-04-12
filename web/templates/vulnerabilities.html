@@ -1,0 +1,516 @@
+{% extends 'base.html' %}
+{% block title %}Vulnerabilities — QuantumShield{% endblock %}
+
+{% block head %}
+<style>
+/* ── Vulnerabilities Page ── Sprint 6 */
+.vuln-page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+.vuln-page-title {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.vuln-page-title span.accent { color: var(--accent); }
+
+.vuln-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+.vuln-stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+    transition: border-color 0.2s;
+}
+.vuln-stat-card:hover { border-color: var(--border-hover); }
+.vuln-stat-number {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+    font-family: 'JetBrains Mono', monospace;
+}
+.vuln-stat-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 0.25rem;
+}
+
+/* Severity color system */
+.sev-critical { color: var(--danger); }
+.sev-high     { color: #f97316; }
+.sev-medium   { color: var(--warn); }
+.sev-low      { color: var(--safe); }
+.sev-unknown  { color: var(--text-muted); }
+
+.badge-sev {
+    display: inline-block;
+    padding: 0.18rem 0.55rem;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.badge-sev.critical { background: rgba(248,113,113,0.15); color: var(--danger); border: 1px solid rgba(248,113,113,0.3); }
+.badge-sev.high     { background: rgba(249,115,22,0.15);  color: #f97316;       border: 1px solid rgba(249,115,22,0.3); }
+.badge-sev.medium   { background: rgba(251,191,36,0.15);  color: var(--warn);   border: 1px solid rgba(251,191,36,0.3); }
+.badge-sev.low      { background: rgba(52,211,153,0.15);  color: var(--safe);   border: 1px solid rgba(52,211,153,0.3); }
+.badge-sev.unknown  { background: rgba(139,153,178,0.12); color: var(--text-muted); border: 1px solid var(--border-subtle); }
+
+/* Filters row */
+.vuln-filters {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.vuln-filters select,
+.vuln-filters input {
+    background: var(--bg-input);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    color: var(--text-primary);
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    font-family: inherit;
+    min-width: 120px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+.vuln-filters select:focus,
+.vuln-filters input:focus { border-color: var(--accent); }
+
+.btn-refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    border: none;
+    border-radius: 6px;
+    padding: 0.4rem 0.9rem;
+    font-size: 0.84rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.btn-refresh:hover { opacity: 0.85; }
+.btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Table */
+.vuln-table-wrapper { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border-subtle); }
+.vuln-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.83rem;
+}
+.vuln-table th {
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    padding: 0.7rem 1rem;
+    text-align: left;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border-subtle);
+}
+.vuln-table th:hover { color: var(--accent); }
+.vuln-table td {
+    padding: 0.65rem 1rem;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: middle;
+    max-width: 360px;
+}
+.vuln-table tr:last-child td { border-bottom: none; }
+.vuln-table tr:hover td { background: rgba(255,255,255,0.02); }
+.vuln-table td.cve-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--accent);
+    white-space: nowrap;
+}
+.vuln-table td.cvss-score {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+}
+.vuln-table td.desc-cell {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    max-width: 340px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Skeleton loader */
+.skeleton-row td { background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-secondary) 50%, var(--bg-card) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; height: 38px; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* Empty state */
+.vuln-empty {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-muted);
+}
+.vuln-empty i { font-size: 2.5rem; margin-bottom: 0.75rem; display: block; }
+.vuln-empty .empty-title { font-weight: 700; color: var(--text-secondary); margin-bottom: 0.4rem; }
+.vuln-empty .empty-hint { font-size: 0.82rem; }
+
+/* Pagination */
+.vuln-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.vuln-pagination .info { font-size: 0.8rem; color: var(--text-muted); }
+.pagination-btns { display: flex; gap: 0.4rem; }
+.pagination-btns button {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 5px;
+    color: var(--text-secondary);
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+}
+.pagination-btns button:hover { border-color: var(--accent); color: var(--accent); }
+.pagination-btns button:disabled { opacity: 0.4; cursor: not-allowed; }
+.pagination-btns button.active { background: var(--accent); color: var(--text-on-accent); border-color: var(--accent); }
+
+/* Skeleton stats */
+.skel-num { display: inline-block; width: 48px; height: 2rem; background: var(--bg-secondary); border-radius: 4px; animation: shimmer 1.5s infinite; background-size: 200% 100%; background-image: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-secondary) 50%, var(--bg-card) 75%); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" style="padding: 1.5rem;">
+
+    <!-- Page Header -->
+    <div class="vuln-page-header">
+        <div>
+            <div class="vuln-page-title">
+                <i class="fa-solid fa-bug-slash" style="color: var(--accent);"></i>
+                Vulnerability <span class="accent">Intelligence</span>
+            </div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">
+                CVE data sourced from CIRCL &amp; NVD APIs · 24-hour cache TTL · Real data only
+            </div>
+        </div>
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+            <span id="lastUpdated" style="font-size:0.75rem; color:var(--text-muted);"></span>
+            {% if current_user.role|lower in ('admin', 'manager') %}
+            <button class="btn-refresh" id="btnRefresh" onclick="refreshVulns()">
+                <i class="fa-solid fa-arrows-rotate" id="refreshIcon"></i> Refresh CVEs
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="vuln-stats-grid" id="statsGrid">
+        <div class="vuln-stat-card">
+            <div class="vuln-stat-number sev-critical" id="statCritical"><span class="skel-num"></span></div>
+            <div class="vuln-stat-label">Critical</div>
+        </div>
+        <div class="vuln-stat-card">
+            <div class="vuln-stat-number sev-high" id="statHigh"><span class="skel-num"></span></div>
+            <div class="vuln-stat-label">High</div>
+        </div>
+        <div class="vuln-stat-card">
+            <div class="vuln-stat-number sev-medium" id="statMedium"><span class="skel-num"></span></div>
+            <div class="vuln-stat-label">Medium</div>
+        </div>
+        <div class="vuln-stat-card">
+            <div class="vuln-stat-number sev-low" id="statLow"><span class="skel-num"></span></div>
+            <div class="vuln-stat-label">Low</div>
+        </div>
+        <div class="vuln-stat-card">
+            <div class="vuln-stat-number" style="color:var(--text-primary);" id="statTotal"><span class="skel-num"></span></div>
+            <div class="vuln-stat-label">Total CVEs</div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="vuln-filters">
+        <label style="display:flex; align-items:center; gap:0.4rem; color:var(--text-muted); font-size:0.8rem;">
+            <i class="fa-solid fa-filter"></i> Severity:
+        </label>
+        <select id="filterSeverity" onchange="applyFilters()">
+            <option value="">All</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+        </select>
+        <label style="display:flex; align-items:center; gap:0.4rem; color:var(--text-muted); font-size:0.8rem;">Sort:</label>
+        <select id="filterSort" onchange="applyFilters()">
+            <option value="cvss">CVSS Score</option>
+            <option value="severity">Severity</option>
+            <option value="cve_id">CVE ID</option>
+            <option value="published_at">Published</option>
+            <option value="fetched_at">Fetched</option>
+        </select>
+        <select id="filterOrder" onchange="applyFilters()">
+            <option value="desc">Highest First</option>
+            <option value="asc">Lowest First</option>
+        </select>
+        <select id="filterPageSize" onchange="applyFilters()">
+            <option value="25" selected>25 / page</option>
+            <option value="50">50 / page</option>
+            <option value="100">100 / page</option>
+        </select>
+    </div>
+
+    <!-- Table -->
+    <div class="vuln-table-wrapper">
+        <table class="vuln-table" id="vulnTable">
+            <thead>
+                <tr>
+                    <th onclick="sortBy('cve_id')">CVE ID <i class="fa-solid fa-sort" style="opacity:0.3;font-size:0.6rem;"></i></th>
+                    <th onclick="sortBy('severity')">Severity</th>
+                    <th onclick="sortBy('cvss')">CVSS</th>
+                    <th>Affected Asset</th>
+                    <th>Description</th>
+                    <th onclick="sortBy('published_at')">Published</th>
+                    <th>Source</th>
+                </tr>
+            </thead>
+            <tbody id="vulnTableBody">
+                <!-- Skeleton -->
+                {% for i in range(8) %}
+                <tr class="skeleton-row">
+                    <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="vuln-pagination">
+        <div class="info" id="paginationInfo">Loading…</div>
+        <div class="pagination-btns" id="paginationBtns"></div>
+    </div>
+
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    const API_BASE = '/api/v1/vulnerabilities';
+    let _page = 1;
+    let _total_pages = 1;
+    let _sort = 'cvss';
+    let _order = 'desc';
+    let _severity = '';
+    let _page_size = 25;
+    let _refreshing = false;
+
+    // ── Stats ─────────────────────────────────────────────────────────
+    async function loadStats() {
+        try {
+            const r = await fetch(`${API_BASE}/stats`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            if (!r.ok) return;
+            const json = await r.json();
+            const d = json.data || {};
+            const bySev = d.by_severity || {};
+            document.getElementById('statCritical').textContent = (bySev.critical || 0).toLocaleString();
+            document.getElementById('statHigh').textContent     = (bySev.high     || 0).toLocaleString();
+            document.getElementById('statMedium').textContent   = (bySev.medium   || 0).toLocaleString();
+            document.getElementById('statLow').textContent      = (bySev.low      || 0).toLocaleString();
+            document.getElementById('statTotal').textContent    = (d.total         || 0).toLocaleString();
+            if (d.last_updated) {
+                document.getElementById('lastUpdated').textContent =
+                    'Last updated: ' + new Date(d.last_updated).toLocaleString();
+            }
+        } catch(e) { console.error('Stats load failed', e); }
+    }
+
+    // ── Table ─────────────────────────────────────────────────────────
+    async function loadVulns() {
+        const params = new URLSearchParams({
+            page: _page, page_size: _page_size,
+            sort: _sort, order: _order,
+        });
+        if (_severity) params.set('severity', _severity);
+
+        try {
+            const r = await fetch(`${API_BASE}?${params}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const json = await r.json();
+            renderTable(json.data || {});
+        } catch(e) {
+            document.getElementById('vulnTableBody').innerHTML =
+                `<tr><td colspan="7" style="text-align:center;color:var(--danger);padding:2rem;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Failed to load vulnerabilities: ${e.message}
+                </td></tr>`;
+        }
+    }
+
+    function sevBadge(sev) {
+        sev = (sev || 'unknown').toLowerCase();
+        return `<span class="badge-sev ${sev}">${sev}</span>`;
+    }
+
+    function cvssColor(cvss) {
+        if (cvss >= 9.0) return 'var(--danger)';
+        if (cvss >= 7.0) return '#f97316';
+        if (cvss >= 4.0) return 'var(--warn)';
+        return 'var(--safe)';
+    }
+
+    function renderTable(data) {
+        const items = data.items || [];
+        const total = data.total || 0;
+        _total_pages = data.total_pages || 1;
+        _page = data.page || 1;
+
+        const tbody = document.getElementById('vulnTableBody');
+
+        if (items.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7">
+                <div class="vuln-empty">
+                    <i class="fa-solid fa-shield-check sev-low"></i>
+                    <div class="empty-title">No vulnerabilities found</div>
+                    <div class="empty-hint">
+                        ${_severity ? 'No <strong>' + _severity + '</strong> CVEs in cache.' : 'Run a <strong>Refresh CVEs</strong> to fetch data from CIRCL &amp; NVD.'}
+                    </div>
+                </div>
+            </td></tr>`;
+        } else {
+            tbody.innerHTML = items.map(row => {
+                const cvss = (row.cvss != null) ? parseFloat(row.cvss).toFixed(1) : '—';
+                const published = row.published_at ? new Date(row.published_at).toLocaleDateString() : '—';
+                const desc = (row.description || '—').substring(0, 120) + (row.description && row.description.length > 120 ? '…' : '');
+                return `<tr>
+                    <td class="cve-id">
+                        <a href="https://nvd.nist.gov/vuln/detail/${row.cve_id}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;">
+                            ${row.cve_id}
+                        </a>
+                    </td>
+                    <td>${sevBadge(row.severity)}</td>
+                    <td class="cvss-score" style="color:${cvssColor(row.cvss || 0)};">${cvss}</td>
+                    <td style="color:var(--text-secondary); font-size:0.79rem; white-space:nowrap;">${row.asset_target || '—'}</td>
+                    <td class="desc-cell" title="${(row.description || '').replace(/"/g,'&quot;')}">${desc}</td>
+                    <td style="white-space:nowrap; font-size:0.78rem;">${published}</td>
+                    <td><span style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">${row.source || '—'}</span></td>
+                </tr>`;
+            }).join('');
+        }
+
+        // Pagination info
+        const offset = (_page - 1) * _page_size;
+        document.getElementById('paginationInfo').textContent =
+            total === 0 ? 'No results' : `Showing ${offset + 1}–${Math.min(offset + _page_size, total)} of ${total.toLocaleString()} CVEs`;
+
+        renderPagination();
+    }
+
+    function renderPagination() {
+        const container = document.getElementById('paginationBtns');
+        let btns = '';
+        btns += `<button onclick="goto(${_page - 1})" ${_page <= 1 ? 'disabled' : ''}>‹ Prev</button>`;
+        const start = Math.max(1, _page - 2);
+        const end   = Math.min(_total_pages, _page + 2);
+        for (let p = start; p <= end; p++) {
+            btns += `<button onclick="goto(${p})" class="${p === _page ? 'active' : ''}">${p}</button>`;
+        }
+        btns += `<button onclick="goto(${_page + 1})" ${_page >= _total_pages ? 'disabled' : ''}>Next ›</button>`;
+        container.innerHTML = btns;
+    }
+
+    // Public helpers for buttons/selects
+    window.goto = function(p) {
+        if (p < 1 || p > _total_pages) return;
+        _page = p;
+        loadVulns();
+    };
+    window.sortBy = function(col) {
+        if (_sort === col) { _order = _order === 'desc' ? 'asc' : 'desc'; }
+        else { _sort = col; _order = 'desc'; }
+        _page = 1;
+        loadVulns();
+    };
+    window.applyFilters = function() {
+        _severity  = document.getElementById('filterSeverity').value;
+        _sort      = document.getElementById('filterSort').value;
+        _order     = document.getElementById('filterOrder').value;
+        _page_size = parseInt(document.getElementById('filterPageSize').value) || 25;
+        _page = 1;
+        loadVulns();
+    };
+
+    // ── Refresh ───────────────────────────────────────────────────────
+    window.refreshVulns = async function() {
+        if (_refreshing) return;
+        _refreshing = true;
+        const btn  = document.getElementById('btnRefresh');
+        const icon = document.getElementById('refreshIcon');
+        if (btn) { btn.disabled = true; }
+        if (icon) { icon.className = 'fa-solid fa-arrows-rotate fa-spin'; }
+
+        try {
+            const csrf = document.querySelector('meta[name="csrf-token"]');
+            const r = await fetch(`${API_BASE}/refresh`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrf ? csrf.content : '',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({}),
+            });
+            const json = await r.json();
+            if (json.success) {
+                await loadStats();
+                await loadVulns();
+                // Show brief feedback
+                const el = document.getElementById('lastUpdated');
+                if (el) el.textContent = json.message || 'Refresh complete.';
+            } else {
+                alert('Refresh failed: ' + (json.message || 'Unknown error'));
+            }
+        } catch(e) {
+            alert('Refresh request failed: ' + e.message);
+        } finally {
+            _refreshing = false;
+            if (btn)  { btn.disabled = false; }
+            if (icon) { icon.className = 'fa-solid fa-arrows-rotate'; }
+        }
+    };
+
+    // ── Boot ──────────────────────────────────────────────────────────
+    loadStats();
+    loadVulns();
+
+})();
+</script>
+{% endblock %}

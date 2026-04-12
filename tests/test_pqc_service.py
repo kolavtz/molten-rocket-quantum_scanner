@@ -70,6 +70,18 @@ class TestPQCServiceAssetAggregation:
                 query_mock = MagicMock()
                 query_mock.filter.return_value.order_by.return_value.all.return_value = [pqc1, pqc2]
                 return query_mock
+            elif model.__name__ == "Certificate":
+                query_mock = MagicMock()
+                dummy_cert = Mock()
+                dummy_cert.asset_id = 1
+                dummy_cert.tls_version = "TLS 1.3"
+                dummy_cert.key_length = 2048
+                dummy_cert.signature_algorithm = "sha256WithRSA"
+                query_mock.filter.return_value.order_by.return_value.all.return_value = [dummy_cert]
+                return query_mock
+            query_mock = MagicMock()
+            query_mock.filter.return_value.order_by.return_value.all.return_value = []
+            return query_mock
 
         mock_db.query.side_effect = mock_query_side_effect
 
@@ -116,6 +128,18 @@ class TestPQCServiceSoftDeleteFiltering:
                 query_mock = MagicMock()
                 query_mock.filter.return_value.order_by.return_value.all.return_value = [pqc_active]
                 return query_mock
+            elif model.__name__ == "Certificate":
+                query_mock = MagicMock()
+                dummy_cert = Mock()
+                dummy_cert.asset_id = 1
+                dummy_cert.tls_version = "TLS 1.3"
+                dummy_cert.key_length = 2048
+                dummy_cert.signature_algorithm = "sha256WithRSA"
+                query_mock.filter.return_value.order_by.return_value.all.return_value = [dummy_cert]
+                return query_mock
+            query_mock = MagicMock()
+            query_mock.filter.return_value.order_by.return_value.all.return_value = []
+            return query_mock
 
         mock_db.query.side_effect = mock_query_side_effect
 
@@ -138,20 +162,21 @@ class TestPQCServicePercentageCalculations:
 
         for i in range(10):
             asset = Mock(spec=Asset)
-            asset.id = i
+            asset.id = i + 1
             asset.target = f"asset{i}.com"
             asset.name = f"asset{i}.com"
             assets.append(asset)
 
             pqc = Mock(spec=PQCClassification)
-            pqc.asset_id = i
+            pqc.asset_id = i + 1
             pqc.asset = asset
-            pqc.quantum_safe_status = "quantum_safe"
 
-            # 8 Elite (score >= 80), 2 Standard (score >= 60)
+            # 8 Elite, 2 Standard
             if i < 8:
+                pqc.quantum_safe_status = "quantum_safe"
                 pqc.pqc_score = 85
             else:
+                pqc.quantum_safe_status = None
                 pqc.pqc_score = 65
 
             pqc_records.append(pqc)
@@ -165,6 +190,21 @@ class TestPQCServicePercentageCalculations:
                 query_mock = MagicMock()
                 query_mock.filter.return_value.order_by.return_value.all.return_value = pqc_records
                 return query_mock
+            elif model.__name__ == "Certificate":
+                query_mock = MagicMock()
+                certs = []
+                for a in assets:
+                     dummy_cert = Mock()
+                     dummy_cert.asset_id = a.id
+                     dummy_cert.tls_version = "TLS 1.3"
+                     dummy_cert.key_length = 2048
+                     dummy_cert.signature_algorithm = "sha256WithRSA"
+                     certs.append(dummy_cert)
+                query_mock.filter.return_value.order_by.return_value.all.return_value = certs
+                return query_mock
+            query_mock = MagicMock()
+            query_mock.filter.return_value.order_by.return_value.all.return_value = []
+            return query_mock
 
         mock_db.query.side_effect = mock_query_side_effect
 
@@ -189,15 +229,15 @@ class TestPQCServiceRiskHeatmap:
 
         for i in range(8):
             asset = Mock(spec=Asset)
-            asset.id = i
+            asset.id = i + 1
             asset.target = f"asset{i}.com"
             asset.name = f"asset{i}.com"
             assets.append(asset)
 
             pqc = Mock(spec=PQCClassification)
-            pqc.asset_id = i
+            pqc.asset_id = i + 1
             pqc.asset = asset
-            pqc.quantum_safe_status = "quantum_safe"
+            pqc.quantum_safe_status = "quantum_safe" if i < 5 else None
             pqc.pqc_score = 85 if i < 5 else 65
             pqc_records.append(pqc)
 
@@ -210,6 +250,21 @@ class TestPQCServiceRiskHeatmap:
                 query_mock = MagicMock()
                 query_mock.filter.return_value.order_by.return_value.all.return_value = pqc_records
                 return query_mock
+            elif model.__name__ == "Certificate":
+                query_mock = MagicMock()
+                certs = []
+                for a in assets:
+                     dummy_cert = Mock()
+                     dummy_cert.asset_id = a.id
+                     dummy_cert.tls_version = "TLS 1.3"
+                     dummy_cert.key_length = 2048
+                     dummy_cert.signature_algorithm = "sha256WithRSA"
+                     certs.append(dummy_cert)
+                query_mock.filter.return_value.order_by.return_value.all.return_value = certs
+                return query_mock
+            query_mock = MagicMock()
+            query_mock.filter.return_value.order_by.return_value.all.return_value = []
+            return query_mock
 
         mock_db.query.side_effect = mock_query_side_effect
 
@@ -308,6 +363,18 @@ class TestPQCServiceApplicationsTable:
                 query_mock = MagicMock()
                 query_mock.filter.return_value.order_by.return_value.all.return_value = [pqc1, pqc2, pqc3]
                 return query_mock
+            elif model.__name__ == "Certificate":
+                query_mock = MagicMock()
+                dummy_cert = Mock()
+                dummy_cert.asset_id = 1
+                dummy_cert.tls_version = "TLS 1.3"
+                dummy_cert.key_length = 2048
+                dummy_cert.signature_algorithm = "sha256WithRSA"
+                query_mock.filter.return_value.order_by.return_value.all.return_value = [dummy_cert]
+                return query_mock
+            query_mock = MagicMock()
+            query_mock.filter.return_value.order_by.return_value.all.return_value = []
+            return query_mock
 
         mock_db.query.side_effect = mock_query_side_effect
 

@@ -16,18 +16,22 @@ logger = logging.getLogger(__name__)
 # test override is provided to avoid requiring a MySQL server during tests.
 import os
 
+from sqlalchemy.pool import StaticPool
+
 _engine_uri = os.environ.get("SQLALCHEMY_DATABASE_URI_TEST") or SQLALCHEMY_DATABASE_URI
 _running_pytest = any(key.startswith("PYTEST_") for key in os.environ.keys()) or os.environ.get("CI")
 if _running_pytest and not os.environ.get("SQLALCHEMY_DATABASE_URI_TEST"):
-    _engine_uri = "sqlite:///:memory:"
+    _engine_uri = "sqlite:///tests/test_qss_internal.db"
 
 if _engine_uri.startswith("sqlite:"):
     # SQLite in-memory or file DB: adjust args to avoid pool size/overflow errors
+    # For in-memory, we MUST use StaticPool to share data across all connections in the pool.
+    poolclass = StaticPool if ":memory:" in _engine_uri else None
     engine = create_engine(
         _engine_uri,
         connect_args={"check_same_thread": False},
+        poolclass=poolclass,
         pool_pre_ping=True,
-        pool_recycle=3600,
     )
 else:
     engine = create_engine(

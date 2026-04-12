@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Set up Two-Factor Authentication // QuantumShield{% endblock %}
+
+{% block content %}
+<div class="login-page-wrapper">
+  <div class="login-card">
+    <div class="login-card-header">
+      <div class="shield-icon">🔐</div>
+      <div>
+        <h1>Two-Factor Authentication</h1>
+        <p>Scan the QR code below with your authenticator app (e.g., Google Authenticator, Authy) and enter the code to complete setup.</p>
+      </div>
+    </div>
+
+    <div style="text-align:center; margin-bottom:1rem;">
+      <img src="{{ qr_image }}" alt="2FA QR" style="max-width:220px; border-radius:8px; border:1px solid rgba(255,255,255,0.04);">
+    </div>
+
+    <form method="POST" action="{{ url_for('two_factor_setup') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="lf-group">
+        <label class="lf-label">One-time secret (store safely)</label>
+        <div style="font-family: 'JetBrains Mono', monospace; background: rgba(255,255,255,0.02); padding: 0.6rem; border-radius:6px;">{{ secret }}</div>
+      </div>
+
+      <div class="lf-group">
+        <label class="lf-label">Authentication code</label>
+        <div class="lf-input-wrap">
+          <input class="lf-input" type="text" name="otp" placeholder="Enter 6-digit code" required>
+        </div>
+      </div>
+
+      <button class="btn-authorize" type="submit">Enable 2FA</button>
+    </form>
+
+    <div class="login-security-note">If you lose access to your authenticator app, use one of the backup codes provided during setup.</div>
+  </div>
+</div>
+{% endblock %}

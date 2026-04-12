@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Backup Codes // QuantumShield{% endblock %}
+
+{% block content %}
+<div class="login-page-wrapper">
+  <div class="login-card">
+    <div class="login-card-header">
+      <div class="shield-icon">🧾</div>
+      <div>
+        <h1>Backup Codes</h1>
+        <p>These backup codes can be used to log in if you lose access to your authenticator app. Save them in a secure place now — they will not be shown again.</p>
+      </div>
+    </div>
+
+    <div style="margin-bottom:1rem;">
+      <ul style="font-family: 'JetBrains Mono', monospace; list-style:none; padding:0;">
+        {% for code in backup_codes %}
+        <li style="padding:0.35rem 0;">{{ code }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div style="display:flex; gap:0.6rem;">
+      <a class="btn-authorize" href="{{ url_for('quantumshield_dashboard.dashboard_home') }}">Continue</a>
+      <a class="btn-authorize" href="{{ url_for('login') }}" style="background:transparent; color:var(--text-primary); border:1px solid rgba(255,255,255,0.06);">Log out</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

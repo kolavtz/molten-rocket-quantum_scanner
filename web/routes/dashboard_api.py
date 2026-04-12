@@ -134,6 +134,18 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
                 "status": "d.status",
             },
         },
+        "subdomains": {
+            "table": "subdomains",
+            "value_col": "subdomain",
+            "name_expr": "d.subdomain",
+            "search_cols": ["d.subdomain", "a.target", "a.owner"],
+            "sort_map": {
+                "id": "d.id",
+                "name": "d.subdomain",
+                "detection_date": "d.discovered_at",
+                "status": "''", # Subdomains don't have a status column yet in the schema provided
+            },
+        },
     }.get(tab)
     if not config or not _table_exists(config["table"]):
         return [], 0
@@ -976,12 +988,12 @@ def api_discovery():
     params = parse_paging_args(default_sort="detection_date")
     tab = str(request.args.get("tab", "domains") or "domains").strip().lower()
 
-    if tab in ("domains", "ips", "software"):
+    if tab in ("domains", "ips", "software", "subdomains"):
         items, total = _split_discovery_tab_query(tab, params)
     elif tab == "ssl":
         items, total = _ssl_discovery_query(params)
     else:
-        return error_response("Invalid discovery tab. Use domains|ssl|ips|software.", 400)
+        return error_response("Invalid discovery tab. Use domains|ssl|ips|software|subdomains.", 400)
 
     kpis = _discovery_kpis()
     data = build_data_envelope(items, total, params, kpis)

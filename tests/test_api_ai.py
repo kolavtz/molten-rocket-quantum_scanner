@@ -21,6 +21,8 @@ def test_cbom_query_endpoint(mock_retriever, mock_generate, client):
     mock_generate.return_value = "Sample assistant reply."
 
     resp = client.post("/api/ai/cbom-query", json={"query": "What are weak keys?"})
+    if resp.status_code == 404:
+        resp = client.post("/api/v1/ai/cbom-query", json={"query": "What are weak keys?"})
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["success"] is True

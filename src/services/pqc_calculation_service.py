@@ -10,7 +10,7 @@ All calculations persist to asset_metrics table.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Optional
 
 from sqlalchemy import and_, func
@@ -31,29 +31,24 @@ class PQCCalculationService:
 
     @staticmethod
     def _get_or_create_asset_metric(asset_id: int) -> AssetMetric:
-        """Get or create AssetMetric row safely under concurrent writes."""
-        metric = db_session.query(AssetMetric).filter(
-            AssetMetric.asset_id == asset_id
-        ).first()
+        """Get or create AssetMetric row safely without session rollbacks."""
+        # 1. Check identity map
+        metric = db_session.get(AssetMetric, asset_id)
         if metric:
             return metric
 
-        savepoint = db_session.begin_nested()
-        try:
-            metric = AssetMetric(asset_id=asset_id)
-            db_session.add(metric)
-            db_session.flush()
-            savepoint.commit()
-            return metric
-        except IntegrityError:
-            # Another transaction likely created this row concurrently.
-            savepoint.rollback()
-            existing = db_session.query(AssetMetric).filter(
-                AssetMetric.asset_id == asset_id
-            ).first()
-            if existing:
-                return existing
-            raise
+        # 2. Check pending objects in session
+        for m in db_session.new:
+            if isinstance(m, AssetMetric) and getattr(m, 'asset_id', None) == asset_id:
+                return m
+
+        # 3. Create and add defensively
+        # Note: We avoid try/except IntegrityError + rollback because it poisons
+        # the session for the caller. If a race condition occurs, the caller
+        # will hit the exception on final commit.
+        metric = AssetMetric(asset_id=asset_id)
+        db_session.add(metric)
+        return metric
 
     @staticmethod
     def calculate_endpoint_pqc_score(asset_id: int, scan_id: int) -> float:
@@ -267,14 +262,14 @@ class PQCCalculationService:
         metric = PQCCalculationService._get_or_create_asset_metric(asset_id)
         
         metric.pqc_score = pqc_score
-        metric.pqc_score_timestamp = datetime.utcnow()
+        metric.pqc_score_timestamp = datetime.now(timezone.utc)
         metric.risk_penalty = risk_penalty
         metric.total_findings_count = total_findings
         metric.critical_findings_count = critical_findings
         metric.pqc_class_tier = tier
         metric.has_critical_findings = has_critical
         metric.asset_cyber_score = asset_cyber_score
-        metric.calculated_at = datetime.utcnow()
+        metric.calculated_at = datetime.now(timezone.utc)
         
         if auto_commit:
             db_session.commit()
@@ -350,3 +345,168 @@ class PQCCalculationService:
             distribution[tier] = distribution.get(tier, 0) + 1
         
         return distribution
+
+    # ── Sprint 3: HNDL Detection ────────────────────────────────────────────
+
+    @staticmethod
+    def detect_hndl_risk(asset_id: int, scan_id: int, auto_commit: bool = True) -> dict:
+        """
+        Detect Harvest-Now-Decrypt-Later (HNDL) exposure for an asset.
+
+        Detection criteria:
+        - RSA key size < 3072 bits (NIST minimum for long-term quantum safety)
+        - ECC key size < 384 bits  (P-384 minimum for post-2030 quantum safety)
+        - TLS 1.2 only without Perfect Forward Secrecy (PFS) ciphers
+        - Certificate validity extending beyond 2030-01-01
+
+        Args:
+            asset_id: Asset primary key.
+            scan_id:  Scan primary key.
+            auto_commit: Commit session after writing.
+
+        Returns:
+            dict with keys: hndl_risk_score (float 0-100), flags (list[str])
+        """
+        import json as _json
+        from src.models import Certificate
+
+        _HNDL_YEAR_CUTOFF = datetime(2030, 1, 1)
+        _RSA_MIN_BITS = 3072
+        _ECC_MIN_BITS = 384
+        _PFS_CIPHER_KEYWORDS = {"ECDHE", "DHE", "ECDH", "DH"}
+        _flags: list[str] = []
+
+        # ── Analyse certificates for this asset/scan ───────────────────────
+        certs = db_session.query(
+            Certificate.key_algorithm,
+            Certificate.key_length,
+            Certificate.tls_version,
+            Certificate.cipher_suite,
+            Certificate.valid_until,
+        ).filter(
+            and_(
+                Certificate.asset_id == asset_id,
+                Certificate.scan_id == scan_id,
+                Certificate.is_deleted == False,
+            )
+        ).all()
+
+        for cert in certs:
+            key_algo = str(cert.key_algorithm or "").upper()
+            key_len = int(cert.key_length or 0)
+            tls_ver = str(cert.tls_version or "").strip()
+            cipher = str(cert.cipher_suite or "").upper()
+            valid_until = cert.valid_until
+
+            # Flag 1: Weak RSA key
+            if "RSA" in key_algo and key_len > 0 and key_len < _RSA_MIN_BITS:
+                _flags.append(f"weak_rsa_{key_len}bit")
+
+            # Flag 2: Weak ECC key
+            if any(k in key_algo for k in ("ECC", "ECDSA", "EC")) and key_len > 0 and key_len < _ECC_MIN_BITS:
+                _flags.append(f"weak_ecc_{key_len}bit")
+
+            # Flag 3: TLS 1.2 without PFS
+            if tls_ver in ("TLSv1.2", "TLS 1.2", "1.2") and not any(kw in cipher for kw in _PFS_CIPHER_KEYWORDS):
+                _flags.append("tls12_no_pfs")
+
+            # Flag 4: Certificate valid beyond 2030
+            if valid_until and valid_until > _HNDL_YEAR_CUTOFF:
+                _flags.append(f"cert_valid_post_2030:{valid_until.strftime('%Y-%m-%d')}")
+
+        # ── Deduplicate flag categories ────────────────────────────────────
+        seen: set[str] = set()
+        unique_flags: list[str] = []
+        for f in _flags:
+            # Normalise to category prefix only for dedup
+            cat = f.split(":")[0].rstrip("0123456789_")
+            if cat not in seen:
+                seen.add(cat)
+                unique_flags.append(f)
+
+        # ── Score calculation (additive penalty model) ─────────────────────
+        # Each distinct flag category contributes a penalty.
+        _PENALTY_MAP = {
+            "weak_rsa": 40.0,
+            "weak_ecc": 35.0,
+            "tls12_no_pfs": 30.0,
+            "cert_valid_post_2030": 20.0,
+        }
+        total_penalty = 0.0
+        for flag in unique_flags:
+            for prefix, penalty in _PENALTY_MAP.items():
+                if flag.startswith(prefix):
+                    total_penalty += penalty
+                    break
+
+        hndl_score = min(100.0, total_penalty)
+
+        # ── Persist to asset_metrics ───────────────────────────────────────
+        try:
+            metric = PQCCalculationService._get_or_create_asset_metric(asset_id)
+            metric.hndl_risk_score = hndl_score
+            metric.hndl_flags = _json.dumps(unique_flags)
+            if auto_commit:
+                db_session.commit()
+        except Exception as e:
+            # Removed rollback to avoid session poisoning. 
+            # The caller handles final transaction state.
+            logger.warning(f"Failed to update asset metrics for {asset_id}: {e}")
+
+        return {
+            "hndl_risk_score": hndl_score,
+            "flags": unique_flags,
+            "flag_count": len(unique_flags),
+            "is_hndl_exposed": hndl_score > 0,
+        }
+
+    @staticmethod
+    def get_org_hndl_summary() -> dict:
+        """
+        Return organisation-wide HNDL exposure summary from asset_metrics.
+
+        Returns:
+            dict with total_exposed, avg_hndl_score, top_flags, exposed_assets list.
+        """
+        import json as _json
+
+        metrics = db_session.query(
+            AssetMetric.asset_id,
+            AssetMetric.hndl_risk_score,
+            AssetMetric.hndl_flags,
+        ).filter(
+            AssetMetric.hndl_risk_score.isnot(None),
+            AssetMetric.hndl_risk_score > 0,
+        ).all()
+
+        if not metrics:
+            return {
+                "total_exposed": 0,
+                "avg_hndl_score": 0.0,
+                "top_flags": [],
+                "exposed_assets": [],
+            }
+
+        scores = [float(m.hndl_risk_score or 0) for m in metrics]
+        flag_counts: Dict[str, int] = {}
+        exposed: list[dict] = []
+
+        for m in metrics:
+            flags = []
+            try:
+                if m.hndl_flags:
+                    flags = _json.loads(m.hndl_flags)
+            except Exception:
+                pass
+            for f in flags:
+                cat = f.split(":")[0]
+                flag_counts[cat] = flag_counts.get(cat, 0) + 1
+            exposed.append({"asset_id": m.asset_id, "score": float(m.hndl_risk_score or 0), "flags": flags})
+
+        top_flags = sorted(flag_counts.items(), key=lambda x: x[1], reverse=True)
+        return {
+            "total_exposed": len(metrics),
+            "avg_hndl_score": round(sum(scores) / len(scores), 2),
+            "top_flags": [{"flag": k, "count": v} for k, v in top_flags[:5]],
+            "exposed_assets": sorted(exposed, key=lambda x: x["score"], reverse=True)[:20],
+        }

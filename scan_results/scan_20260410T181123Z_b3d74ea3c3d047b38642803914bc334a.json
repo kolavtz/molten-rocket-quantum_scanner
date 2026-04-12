@@ -1,0 +1,8 @@
+{
+  "scan_id": "dc895abc",
+  "target": "google.com",
+  "status": "analysis_failed",
+  "message": "TLS analysis failed for all endpoints.",
+  "timestamp": "2026-04-10T18:11:23.277460+00:00",
+  "requested_target": "google.com"
+}

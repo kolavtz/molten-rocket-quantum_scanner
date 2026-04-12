@@ -140,6 +140,7 @@
                                     <button class="js-admin-reset-pass scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; border-color: var(--text-muted); color: var(--text-muted); background: transparent; cursor: pointer;">RESET_PASS</button>
                                     {% endif %}
                                     <button class="js-admin-regen-key scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; min-height:44px; border-color: var(--safe); color: var(--safe); background: transparent; cursor: pointer;">REGEN_KEY</button>
+                                    <button class="js-admin-reset-2fa scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; min-height:44px; border-color: var(--danger); color: var(--danger); background: transparent; cursor: pointer;">RESET_2FA</button>
                                 </div>
                             </td>
                         </tr>
@@ -400,6 +401,41 @@ document.querySelectorAll('.js-admin-regen-key').forEach(btn => {
         } catch (error) {
             showFlash(error.message, 'error');
             console.error('Admin regen key error:', error);
+        }
+    });
+});
+
+// Reset 2FA button
+document.querySelectorAll('.js-admin-reset-2fa').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const userId = btn.getAttribute('data-user-id');
+        const username = btn.getAttribute('data-username');
+
+        if (!confirm(`Reset 2FA for ${username}? This will require the user to reconfigure 2FA on next login.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/admin/users/${userId}/reset-2fa`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({})
+            });
+
+            const payload = await parseJsonResponse(response);
+            if (!response.ok || payload.status === 'error') {
+                throw new Error(payload.message || 'Failed to reset 2FA');
+            }
+
+            showFlash('2FA reset for user.', 'success');
+        } catch (error) {
+            showFlash(error.message, 'error');
+            console.error('Admin reset 2FA error:', error);
         }
     });
 });

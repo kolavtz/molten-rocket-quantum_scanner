@@ -10,7 +10,9 @@ All calculations persist to asset_metrics table.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
+import logging
+logger = logging.getLogger(__name__)
 from typing import Dict, List
 
 from sqlalchemy import and_
@@ -26,28 +28,21 @@ class RiskCalculationService:
 
     @staticmethod
     def _get_or_create_asset_metric(asset_id: int) -> AssetMetric:
-        """Get or create AssetMetric row safely under concurrent writes."""
-        metric = db_session.query(AssetMetric).filter(
-            AssetMetric.asset_id == asset_id
-        ).first()
+        """Get or create AssetMetric row safely without session rollbacks."""
+        # 1. Check identity map
+        metric = db_session.get(AssetMetric, asset_id)
         if metric:
             return metric
 
-        savepoint = db_session.begin_nested()
-        try:
-            metric = AssetMetric(asset_id=asset_id)
-            db_session.add(metric)
-            db_session.flush()
-            savepoint.commit()
-            return metric
-        except IntegrityError:
-            savepoint.rollback()
-            existing = db_session.query(AssetMetric).filter(
-                AssetMetric.asset_id == asset_id
-            ).first()
-            if existing:
-                return existing
-            raise
+        # 2. Check pending objects in session
+        for m in db_session.new:
+            if isinstance(m, AssetMetric) and getattr(m, 'asset_id', None) == asset_id:
+                return m
+
+        # 3. Create and add defensively
+        metric = AssetMetric(asset_id=asset_id)
+        db_session.add(metric)
+        return metric
 
     @staticmethod
     def calculate_finding_severity_weight(severity: str) -> float:
@@ -174,7 +169,7 @@ class RiskCalculationService:
             risk_penalty
         )
         
-        metric.last_updated = datetime.utcnow()
+        metric.last_updated = datetime.now(timezone.utc)
         
         if auto_commit:
             db_session.commit()
@@ -286,3 +281,125 @@ class RiskCalculationService:
             'low_count': severity_counts['low'],
             'assets_with_critical': len(assets_with_critical),
         }
+
+    # ── Sprint 4: TLS Resilience Tier ────────────────────────────────────────
+
+    @staticmethod
+    def calculate_tls_resilience(asset_id: int, scan_id: int, auto_commit: bool = True) -> str:
+        """
+        Calculate TLS Resilience Tier for an asset based on its latest scan data.
+
+        Tier Logic:
+        - critical (red):  TLS 1.0/1.1, RC4/3DES ciphers, self-signed cert,
+                           expired cert, RSA < 2048, no PFS.
+        - medium  (amber): TLS 1.2 only, SHA-1 signature, cert expiry < 30 days,
+                           RSA 2048–3071.
+        - low     (green): TLS 1.3, strong cipher, cert valid > 30 days,
+                           RSA ≥ 3072 or ECC ≥ 384.
+
+        Args:
+            asset_id:    Asset primary key.
+            scan_id:     Scan primary key.
+            auto_commit: Commit session after writing.
+
+        Returns:
+            Tier string: 'critical' | 'medium' | 'low'
+        """
+        from src.models import Certificate, TLSComplianceScore
+        from sqlalchemy.exc import IntegrityError
+
+        _INSECURE_TLS = {"TLSv1", "TLSv1.0", "TLS 1.0", "1.0",
+                         "TLSv1.1", "TLS 1.1", "1.1"}
+        _WEAK_CIPHERS = {"RC4", "3DES", "DES", "NULL", "EXPORT", "ANON"}
+        _NO_PFS_HINT = {"RSA_WITH", "_RSA_"}
+
+        certs = db_session.query(
+            Certificate.tls_version,
+            Certificate.cipher_suite,
+            Certificate.signature_algorithm,
+            Certificate.key_algorithm,
+            Certificate.key_length,
+            Certificate.is_self_signed,
+            Certificate.is_expired,
+            Certificate.valid_until,
+        ).filter(
+            and_(
+                Certificate.asset_id == asset_id,
+                Certificate.scan_id == scan_id,
+                Certificate.is_deleted == False,
+            )
+        ).all()
+
+        if not certs:
+            tier = "medium"  # No data: default to amber (unknown is not safe)
+        else:
+            is_critical = False
+            is_medium = False
+
+            for cert in certs:
+                tls_ver = str(cert.tls_version or "").strip()
+                cipher = str(cert.cipher_suite or "").upper()
+                sig_algo = str(cert.signature_algorithm or "").upper()
+                key_algo = str(cert.key_algorithm or "").upper()
+                key_len = int(cert.key_length or 0)
+                self_signed = bool(cert.is_self_signed)
+                expired = bool(cert.is_expired)
+                valid_until = cert.valid_until
+
+                # ── Critical conditions ────────────────────────────────────
+                if tls_ver in _INSECURE_TLS:
+                    is_critical = True
+                if any(w in cipher for w in _WEAK_CIPHERS):
+                    is_critical = True
+                if self_signed:
+                    is_critical = True
+                if expired:
+                    is_critical = True
+                if "RSA" in key_algo and 0 < key_len < 2048:
+                    is_critical = True
+                if not any(pfs in cipher for pfs in ("ECDHE", "DHE")):
+                    if any(hint in cipher for hint in _NO_PFS_HINT):
+                        is_critical = True
+
+                # ── Medium conditions (only if not already critical) ────────
+                if not is_critical:
+                    if tls_ver in ("TLSv1.2", "TLS 1.2", "1.2"):
+                        is_medium = True
+                    if "SHA1" in sig_algo or "SHA-1" in sig_algo:
+                        is_medium = True
+                    if valid_until:
+                        days_remaining = (valid_until - datetime.now(timezone.utc)).days
+                        if days_remaining < 30:
+                            is_medium = True
+                    if "RSA" in key_algo and 2048 <= key_len < 3072:
+                        is_medium = True
+
+            if is_critical:
+                tier = "critical"
+            elif is_medium:
+                tier = "medium"
+            else:
+                tier = "low"
+
+        # ── Persist to tls_compliance_scores ──────────────────────────────
+        try:
+            tls_score = db_session.get(TLSComplianceScore, asset_id)
+            if not tls_score:
+                # Check session.new
+                for m in db_session.new:
+                    if isinstance(m, TLSComplianceScore) and getattr(m, 'asset_id', None) == asset_id:
+                        tls_score = m
+                        break
+                
+                if not tls_score:
+                    tls_score = TLSComplianceScore(asset_id=asset_id)
+                    db_session.add(tls_score)
+            
+            tls_score.resilience_tier = tier  # type: ignore[assignment]
+            if auto_commit:
+                db_session.commit()
+        except Exception as e:
+            # Removed rollback to avoid session poisoning.
+            logger.warning(f"Failed to update risk metrics for asset {asset_id}: {e}")
+
+        return tier

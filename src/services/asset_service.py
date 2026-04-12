@@ -473,6 +473,8 @@ class AssetService:
                 "nameserver_records": [],
                 "crypto_overview": [],
                 "certificate_inventory": [],
+                "weak_cryptography": {"weak_keys": 0, "weak_tls": 0, "expired": 0, "self_signed": 0},
+                "cert_issues_count": 0,
             }
 
         assets = self.load_combined_assets()

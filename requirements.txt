@@ -13,6 +13,7 @@ cffi>=1.16.0
 
 # ── Database ──
 mysql-connector-python>=9.0.0
+SQLAlchemy>=2.0.0
 
 # ── Authentication & Security ──
 Flask-Login>=0.6.3
@@ -20,6 +21,11 @@ Flask-WTF>=1.2.1
 flask-talisman>=1.1.0
 Flask-Limiter>=3.5.0
 argon2-cffi>=23.1.0
+
+# ── Two-Factor Authentication ──
+pyotp>=2.9.0
+qrcode>=7.4.2
+Pillow>=10.0.0
 
 # ── Email ──
 Flask-Mail>=0.9.1
@@ -47,6 +53,10 @@ MarkupSafe>=2.1.0
 itsdangerous>=2.1.0
 click>=8.1.0
 blinker>=1.7.0
+requests>=2.31.0
+
+# ── Network / Subdomain Discovery ──
+dnspython>=2.6.0
 
 # Local LLM (optional)
 llama-cpp-python>=0.1.80

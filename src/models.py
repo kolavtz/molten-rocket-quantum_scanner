@@ -49,10 +49,14 @@ class User(Base):
     username = Column(String(50), unique=True, nullable=False)
     role = Column(String(50), default="Viewer")
     password_hash = Column(String(255), default='')
+    # Two-Factor Authentication (Sprint 12)
+    two_factor_enabled = Column(Boolean, default=False, nullable=False)
+    two_factor_secret = Column(String(64), nullable=True)  # Fernet-encrypted TOTP base32 secret
+    backup_codes = Column(Text, nullable=True)             # JSON-encoded hashed backup codes
 
 class Asset(Base, SoftDeleteMixin):
     __tablename__ = 'assets'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     asset_key = Column(String(255), unique=True, nullable=True, index=True)
     target = Column(String(255), nullable=False, unique=True, index=True)
     name = synonym('target')
@@ -89,7 +93,7 @@ def _asset_before_insert(_mapper, _connection, target):
 
 class Scan(Base, SoftDeleteMixin):
     __tablename__ = 'scans'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     scan_uid = Column(String(36), unique=True, nullable=True, index=True)
     scan_id = Column(String(36), unique=True, nullable=False, index=True)
     requested_target = Column(String(512), nullable=True)
@@ -163,7 +167,7 @@ def _scan_before_save(_mapper, _connection, target):
 
 class DiscoveryDomain(Base, SoftDeleteMixin):
     __tablename__ = 'discovery_domains'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
     domain = Column(String(512), nullable=False)
@@ -173,13 +177,15 @@ class DiscoveryDomain(Base, SoftDeleteMixin):
     promoted_to_inventory = Column(Boolean, default=False)
     promoted_at = Column(DateTime)
     promoted_by = Column(String(36), ForeignKey('users.id', ondelete='SET NULL'))
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     asset = relationship("Asset", back_populates="discovery_domains")
     scan = relationship("Scan", back_populates="discovery_domains")
 
 class DiscoverySSL(Base, SoftDeleteMixin):
     __tablename__ = 'discovery_ssl'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
     endpoint = Column(String(512), nullable=False)
@@ -196,13 +202,15 @@ class DiscoverySSL(Base, SoftDeleteMixin):
     promoted_to_inventory = Column(Boolean, default=False)
     promoted_at = Column(DateTime)
     promoted_by = Column(String(36), ForeignKey('users.id', ondelete='SET NULL'))
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     asset = relationship("Asset", back_populates="discovery_ssl")
     scan = relationship("Scan", back_populates="discovery_ssl")
 
 class DiscoveryIP(Base, SoftDeleteMixin):
     __tablename__ = 'discovery_ips'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
     ip_address = Column(String(80), nullable=False)
@@ -214,13 +222,15 @@ class DiscoveryIP(Base, SoftDeleteMixin):
     promoted_to_inventory = Column(Boolean, default=False)
     promoted_at = Column(DateTime)
     promoted_by = Column(String(36), ForeignKey('users.id', ondelete='SET NULL'))
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     asset = relationship("Asset", back_populates="discovery_ips")
     scan = relationship("Scan", back_populates="discovery_ips")
 
 class DiscoverySoftware(Base, SoftDeleteMixin):
     __tablename__ = 'discovery_software'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True)
     product = Column(String(255), nullable=False)
@@ -231,13 +241,15 @@ class DiscoverySoftware(Base, SoftDeleteMixin):
     promoted_to_inventory = Column(Boolean, default=False)
     promoted_at = Column(DateTime)
     promoted_by = Column(String(36), ForeignKey('users.id', ondelete='SET NULL'))
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     asset = relationship("Asset", back_populates="discovery_software")
     scan = relationship("Scan", back_populates="discovery_software")
 
 class Certificate(Base, SoftDeleteMixin):
     __tablename__ = 'certificates'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
     endpoint = Column(String(512), nullable=True, index=True)
@@ -307,7 +319,7 @@ class Certificate(Base, SoftDeleteMixin):
 
 class PQCClassification(Base, SoftDeleteMixin):
     __tablename__ = 'pqc_classification'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     certificate_id = Column(BigInteger, ForeignKey('certificates.id', ondelete='CASCADE'), nullable=True, index=True)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
@@ -331,7 +343,7 @@ class PQCClassification(Base, SoftDeleteMixin):
 
 class CBOMSummary(Base, SoftDeleteMixin):
     __tablename__ = 'cbom_summary'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, unique=True)
     total_components = Column(Integer, default=0)
@@ -342,7 +354,7 @@ class CBOMSummary(Base, SoftDeleteMixin):
 
 class CBOMEntry(Base, SoftDeleteMixin):
     __tablename__ = 'cbom_entries'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True)
     algorithm_name = Column(String(100))
@@ -380,12 +392,13 @@ class CBOMEntry(Base, SoftDeleteMixin):
     nist_status = Column(String(50))
     quantum_safe_flag = Column(Boolean, default=False)
     hndl_level = Column(String(50))
+    superseded_at = Column(DateTime, nullable=True)  # Set when a newer scan replaces this entry
     asset = relationship("Asset", back_populates="cbom_entries")
     scan = relationship("Scan", back_populates="cbom_entries")
 
 class ComplianceScore(Base, SoftDeleteMixin):
     __tablename__ = 'compliance_scores'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
     score_type = Column("score_type", String(50)) # pqc, tls, overall
@@ -396,7 +409,7 @@ class ComplianceScore(Base, SoftDeleteMixin):
 
 class CyberRating(Base, SoftDeleteMixin):
     __tablename__ = 'cyber_rating'
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=True, index=True)
     organization_id = synonym("asset_id")
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False)
@@ -412,7 +425,7 @@ class CyberRating(Base, SoftDeleteMixin):
 class Finding(Base, SoftDeleteMixin):
     __tablename__ = 'findings'
     
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     finding_id = Column(String(36), unique=True, nullable=False, index=True)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
@@ -471,6 +484,10 @@ class AssetMetric(Base):
     
     # Asset-level Cyber Score (Math Section 5.2)
     asset_cyber_score = Column(Float, default=0)                   # max(0, pqc_score - penalty)
+
+    # HNDL (Harvest-Now-Decrypt-Later) risk fields (Sprint 3)
+    hndl_risk_score = Column(Float, nullable=True)   # 0-100 composite HNDL exposure score
+    hndl_flags = Column(Text, nullable=True)          # JSON array of detected HNDL risk flags
     
     # Timestamps
     calculated_at = Column(DateTime, default=func.now())
@@ -488,7 +505,7 @@ class OrgPQCMetric(Base):
     """
     __tablename__ = 'org_pqc_metrics'
     
-    id = Column(BigInteger, primary_key=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
     metric_date = Column(DateTime, nullable=False, unique=True, index=True)
     
     # Counts (Math Section 2.1)
@@ -539,7 +556,7 @@ class CertExpiryBucket(Base):
     """
     __tablename__ = 'cert_expiry_buckets'
     
-    id = Column(BigInteger, primary_key=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
     bucket_date = Column(DateTime, nullable=False, unique=True, index=True)
     
     # Expiry Bucket Counts (Math Section 2.5)
@@ -578,6 +595,13 @@ class TLSComplianceScore(Base):
     weak_tls_version_count = Column(Integer, default=0)    # TLS < 1.2
     weak_cipher_count = Column(Integer, default=0)         # Deprecated
     weak_key_length_count = Column(Integer, default=0)     # Key < threshold
+
+    # TLS Resilience Tier (Sprint 4)
+    resilience_tier = Column(
+        Enum('critical', 'medium', 'low', name='resilience_tier_enum'),
+        nullable=True,
+        index=True
+    )
     
     # Summary
     total_endpoints_scanned = Column(Integer, default=0)
@@ -674,7 +698,7 @@ class AssetSSLProfile(Base, SoftDeleteMixin):
     """
     __tablename__ = 'asset_ssl_profiles'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='CASCADE'), nullable=False, index=True)
 
@@ -716,7 +740,7 @@ class DomainEvent(Base):
     """
     __tablename__ = 'domain_events'
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     asset_id = Column(BigInteger, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
     scan_id = Column(BigInteger, ForeignKey('scans.id', ondelete='SET NULL'), nullable=True)
 
@@ -743,3 +767,79 @@ class DomainEvent(Base):
     # Relationships
     asset = relationship("Asset")
     scan = relationship("Scan", foreign_keys=[scan_id])
+
+
+# =============================================================================
+# SPRINT 1: NEW MODELS — Subdomain Discovery, Vulnerability Cache, AI Audit Log
+# =============================================================================
+
+class Subdomain(Base):
+    """
+    Discovered subdomains per parent asset.
+
+    Populated by network_discovery.discover_subdomains().
+    Promoted subdomains create a new Asset row with asset_type='subdomain'
+    and is_inventoried=True.
+    """
+    __tablename__ = 'subdomains'
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    parent_asset_id = Column(
+        BigInteger, ForeignKey('assets.id', ondelete='CASCADE'),
+        nullable=False, index=True
+    )
+    subdomain = Column(String(512), nullable=False, index=True)
+    record_type = Column(String(20), nullable=False, default='A')
+    ip = Column(String(80), nullable=True)
+    is_inventoried = Column(Boolean, default=False, nullable=False)
+    is_deleted = Column(Boolean, default=False, nullable=False, index=True)
+    discovered_at = Column(DateTime, default=func.now())
+    created_at = Column(DateTime, default=func.now())
+
+    parent_asset = relationship("Asset", foreign_keys=[parent_asset_id])
+
+
+class VulnerabilityCache(Base):
+    """
+    CVE data cached per asset with a 24-hour TTL.
+
+    Source: CIRCL CVE Search API (primary) or NVD API (fallback).
+    Entries older than 24h from fetched_at are considered stale and refreshed
+    on the next /api/vulnerabilities/refresh call.
+    """
+    __tablename__ = 'vulnerability_cache'
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    asset_id = Column(
+        BigInteger, ForeignKey('assets.id', ondelete='CASCADE'),
+        nullable=False, index=True
+    )
+    cve_id = Column(String(30), nullable=False, index=True)
+    severity = Column(String(20), nullable=False, default='unknown', index=True)
+    cvss = Column(Float, nullable=True)
+    description = Column(Text, nullable=True)
+    mitigation = Column(Text, nullable=True)
+    published_at = Column(DateTime, nullable=True)
+    source = Column(String(50), nullable=False, default='nvd')
+    fetched_at = Column(DateTime, nullable=False, default=func.now(), index=True)
+
+    asset = relationship("Asset")
+
+
+class AiAuditLog(Base):
+    """
+    Immutable append-only log of every AI assistant request.
+
+    Entries are NEVER updated or deleted. Used for audit, rate-limit forensics,
+    and model usage accounting.
+    """
+    __tablename__ = 'ai_audit_log'
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    user_id = Column(String(36), nullable=True, index=True)
+    ip_address = Column(String(80), nullable=True)
+    message_hash = Column(String(64), nullable=False)  # SHA-256 of sanitized message
+    model_used = Column(String(100), nullable=True)
+    rag_enabled = Column(Boolean, default=False, nullable=False)
+    token_count = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=func.now(), nullable=False, index=True)

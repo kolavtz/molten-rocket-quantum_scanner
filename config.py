@@ -507,6 +507,8 @@ MAX_LOGIN_ATTEMPTS = int(
     )
 )
 LOGIN_LOCKOUT_MINUTES = int(os.environ.get("QSS_LOGIN_LOCKOUT_MINUTES", "15"))
+# REQUIRE_2FA: when True, all users are required to configure 2FA on next login
+REQUIRE_2FA = os.environ.get("QSS_REQUIRE_2FA", "false").lower() == "true"
 
 # ---------------------------------------------------------------------------
 # SMTP / Email

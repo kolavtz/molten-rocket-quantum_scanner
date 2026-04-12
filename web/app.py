@@ -23,6 +23,10 @@ import json
 import re
 import base64
 import hashlib
+import io
+import pyotp
+import qrcode
+import secrets
 
 import os
 import uuid
@@ -125,6 +129,7 @@ from config import (
     HSTS_SECONDS,
     MAX_LOGIN_ATTEMPTS,
     LOGIN_LOCKOUT_MINUTES,
+    REQUIRE_2FA,
     SESSION_COOKIE_NAME,
     SESSION_IDLE_TIMEOUT_SECONDS,
     AUDIT_LOG_PAGE_SIZE,
@@ -181,6 +186,28 @@ limiter = Limiter(
     storage_uri=RATELIMIT_STORAGE_URI,
     enabled=RATELIMIT_ENABLED,
 )
+
+# Sprint 2: Log all rate-limit violations to the audit table.
+try:
+    from middleware.rate_limit_logger import log_rate_limit_violation
+    limiter.request_filter(lambda: False)  # no-op filter; real hook below
+    @limiter.request_filter
+    def _noop_filter():
+        return False  # Never exempt any request from limiter counting
+
+    # Flask-Limiter ≥ 3.x uses on_breach for violation callbacks
+    @app.after_request
+    def _check_rate_limit_violation(response):
+        """If the limiter set the 429 status, log the violation."""
+        if response.status_code == 429:
+            try:
+                from middleware.rate_limit_logger import log_rate_limit_violation
+                log_rate_limit_violation(None, request)
+            except Exception:
+                pass
+        return response
+except Exception:
+    pass
 
 def get_dashboard_data() -> dict:
     """Return real-time dashboard aggregation totals."""
@@ -1013,10 +1040,10 @@ def _persist_split_discovery_rows(
                     """
                     INSERT INTO discovery_domains (
                         scan_id, asset_id, domain, status, promoted_to_inventory,
-                        promoted_at, created_at, updated_at
+                        promoted_at, created_at, updated_at, is_deleted
                     ) VALUES (
                         :scan_id, :asset_id, :domain, :status, :promoted_to_inventory,
-                        :promoted_at, :created_at, :updated_at
+                        :promoted_at, :created_at, :updated_at, :is_deleted
                     )
                     """
                 ),
@@ -1029,6 +1056,7 @@ def _persist_split_discovery_rows(
                     "promoted_at": promoted_at,
                     "created_at": now,
                     "updated_at": now,
+                    "is_deleted": False,
                 },
             )
 
@@ -1060,10 +1088,10 @@ def _persist_split_discovery_rows(
                     """
                     INSERT INTO discovery_ips (
                         scan_id, asset_id, ip_address, subnet, location, status,
-                        promoted_to_inventory, promoted_at, created_at, updated_at
+                        promoted_to_inventory, promoted_at, created_at, updated_at, is_deleted
                     ) VALUES (
                         :scan_id, :asset_id, :ip_address, :subnet, :location, :status,
-                        :promoted_to_inventory, :promoted_at, :created_at, :updated_at
+                        :promoted_to_inventory, :promoted_at, :created_at, :updated_at, :is_deleted
                     )
                     """
                 ),
@@ -1078,6 +1106,7 @@ def _persist_split_discovery_rows(
                     "promoted_at": promoted_at,
                     "created_at": now,
                     "updated_at": now,
+                    "is_deleted": False,
                 },
             )
 
@@ -1100,10 +1129,10 @@ def _persist_split_discovery_rows(
                     """
                     INSERT INTO discovery_software (
                         scan_id, asset_id, product, version, category, status,
-                        promoted_to_inventory, promoted_at, created_at, updated_at
+                        promoted_to_inventory, promoted_at, created_at, updated_at, is_deleted
                     ) VALUES (
                         :scan_id, :asset_id, :product, :version, :category, :status,
-                        :promoted_to_inventory, :promoted_at, :created_at, :updated_at
+                        :promoted_to_inventory, :promoted_at, :created_at, :updated_at, :is_deleted
                     )
                     """
                 ),
@@ -1118,6 +1147,7 @@ def _persist_split_discovery_rows(
                     "promoted_at": promoted_at,
                     "created_at": now,
                     "updated_at": now,
+                    "is_deleted": False,
                 },
             )
 
@@ -1143,11 +1173,11 @@ def _persist_split_discovery_rows(
                     INSERT INTO discovery_ssl (
                         scan_id, asset_id, endpoint, tls_version, cipher_suite, key_exchange,
                         key_length, subject_cn, issuer, valid_until, pqc_score, pqc_assessment, status,
-                        promoted_to_inventory, promoted_at, created_at, updated_at
+                        promoted_to_inventory, promoted_at, created_at, updated_at, is_deleted
                     ) VALUES (
                         :scan_id, :asset_id, :endpoint, :tls_version, :cipher_suite, :key_exchange,
                         :key_length, :subject_cn, :issuer, :valid_until, :pqc_score, :pqc_assessment, :status,
-                        :promoted_to_inventory, :promoted_at, :created_at, :updated_at
+                        :promoted_to_inventory, :promoted_at, :created_at, :updated_at, :is_deleted
                     )
                     """
                 ),
@@ -1169,6 +1199,7 @@ def _persist_split_discovery_rows(
                     "promoted_at": promoted_at,
                     "created_at": now,
                     "updated_at": now,
+                    "is_deleted": False,
                 },
             )
 def _normalize_tls_result(raw_result: dict) -> dict:
@@ -1688,7 +1719,7 @@ def run_scan_pipeline(
             elif overall_score >= 40:
                 score_risk = "High"
             inventory_asset = Asset(
-                name=canonical_target,
+                target=canonical_target,
                 url=f"https://{canonical_target}" if canonical_target and not canonical_target.startswith(("http://", "https://")) else canonical_target,
                 asset_type="Web App",
                 owner=str(scanned_by or "Unassigned"),
@@ -1754,7 +1785,8 @@ def run_scan_pipeline(
                     existing_cert = db_session.query(Certificate).filter(func.lower(Certificate.serial) == normalized_serial.lower()).first()
                 if existing_cert is None and endpoint_str:
                     existing_cert = db_session.query(Certificate).filter(Certificate.endpoint == endpoint_str).first()
-            except Exception:
+            except Exception as existing_cert_exc:
+                with open("debug_cert.txt", "a") as f: f.write(f"EXISTING_CERT EXCEPTION: {existing_cert_exc}\\n")
                 existing_cert = None
 
             details_json_text = json.dumps(tls.get("certificate_details") or {}, default=_json_default)
@@ -1829,6 +1861,8 @@ def run_scan_pipeline(
                     certificate_details=details_json_text,
                 )
                 db_session.add(cert_obj)
+        
+        db_session.flush() # Ensure certificates have IDs before service calls
             
         # PQC
         for pq in pqc_dicts:
@@ -2159,6 +2193,7 @@ def run_scan_pipeline(
         if _db_table_exists("digital_labels") and scan_pk is not None:
             try:
                 from src.services.digital_label_service import DigitalLabelService
+                from src.services.subdomain_service import SubdomainService
 
                 label_result = DigitalLabelService.calculate_and_store_digital_label(
                     asset_id=asset_id,
@@ -2166,10 +2201,42 @@ def run_scan_pipeline(
                     auto_commit=False,
                 )
                 report["digital_label"] = label_result
+
+                # Subdomain Discovery Sync (Sprint 1 specialized model)
+                sub_count = SubdomainService.sync_from_certificate(asset_id, int(scan_pk))
+                report["subdomain_discovery"] = {"new_subdomains": sub_count}
+
             except Exception as label_exc:
                 report["digital_label"] = {
                     "error": str(label_exc),
                 }
+        report["status"] = "complete"
+        report["timestamp"] = datetime.now(timezone.utc).isoformat()
+
+        if tls_results:
+            primary_tls = tls_results[0]
+            report["latest_certificate"] = {
+                "subject_cn": primary_tls.get("subject_cn"),
+                "issuer_cn": primary_tls.get("issuer_cn"),
+                "fingerprint_sha256": primary_tls.get("fingerprint_sha256") or primary_tls.get("cert_sha256") or primary_tls.get("fingerprint"),
+                "valid_until": primary_tls.get("valid_until"),
+            }
+
+        # --- SESSION AUDIT START ---
+        from src.models import Certificate, Asset, Scan
+        new_certs = [o for o in db_session.new if isinstance(o, Certificate)]
+        new_assets = [o for o in db_session.new if isinstance(o, Asset)]
+        new_scans = [o for o in db_session.new if isinstance(o, Scan)]
+        session_audit = {
+            "new_certificates_count": len(new_certs),
+            "new_assets_count": len(new_assets),
+            "new_scans_count": len(new_scans),
+            "total_new_objects": len(db_session.new),
+            "dirty_objects_count": len(db_session.dirty),
+            "deleted_objects_count": len(db_session.deleted),
+        }
+        report["session_audit"] = session_audit
+        # --- SESSION AUDIT END ---
 
         db_session.commit()
         report["orm_persisted"] = True
@@ -2246,6 +2313,35 @@ def login():
                 flash("Your account has been suspended. Contact an administrator.", "error")
                 return render_template("login.html", locked=False)
 
+            # Force password change first if required
+            if user_data.get("must_change_password"):
+                token = db.create_password_setup_token(user_data["id"], expires_hours=2)
+                if token:
+                    _audit("auth", "password_change_required", "success", target_user_id=user_data["id"], details={"reason": "must_change_password"})
+                    flash("Please set a new password before continuing.", "warning")
+                    return redirect(url_for("setup_password", token=token))
+
+            # If 2FA is required by policy or already enabled for this user, defer full login
+            if REQUIRE_2FA or user_data.get("two_factor_enabled"):
+                # stash pre-2FA context and redirect to the appropriate 2FA flow
+                session["pre_2fa_user_id"] = user_data["id"]
+                session["pre_2fa_remember"] = remember
+                session["pre_2fa_request_ip"] = request_ip
+
+                _audit(
+                    "auth",
+                    "mfa_required",
+                    "info",
+                    target_user_id=user_data["id"],
+                    details={"require_2fa": bool(REQUIRE_2FA), "two_factor_enabled": bool(user_data.get("two_factor_enabled"))},
+                )
+
+                if user_data.get("two_factor_enabled"):
+                    return redirect(url_for("two_factor_login"))
+                else:
+                    return redirect(url_for("two_factor_setup"))
+
+            # No 2FA required — complete login immediately
             db.mark_login_success(user_data["id"])
             user = User(user_data)
             session.clear()
@@ -2257,13 +2353,6 @@ def login():
                 target_user_id=user_data["id"],
                 details={"role": user.role, "remember": remember, "login_ip": request_ip},
             )
-
-            if user_data.get("must_change_password"):
-                token = db.create_password_setup_token(user_data["id"], expires_hours=2)
-                if token:
-                    _audit("auth", "password_change_required", "success", target_user_id=user_data["id"], details={"reason": "must_change_password"})
-                    flash("Please set a new password before continuing.", "warning")
-                    return redirect(url_for("setup_password", token=token))
 
             return redirect(url_for('quantumshield_dashboard.dashboard_home'))
         else:
@@ -2284,6 +2373,151 @@ def login():
             flash("Invalid credentials. Access denied.", "error")
 
     return render_template("login.html", locked=locked)
+
+
+@app.route("/2fa/setup", methods=["GET", "POST"])
+def two_factor_setup():
+    """TOTP setup flow for users who have successfully passed password verification but need to enable 2FA.
+
+    The pre-2FA context is stored in session['pre_2fa_user_id'] after password verification.
+    """
+    pre_id = session.get("pre_2fa_user_id")
+    if not pre_id:
+        flash("Session expired or invalid. Please log in again.", "error")
+        return redirect(url_for("login"))
+
+    user = db.get_user_by_id(pre_id)
+    if not user:
+        flash("User not found. Please log in again.", "error")
+        return redirect(url_for("login"))
+
+    if request.method == "GET":
+        # Generate one-time secret and provisioning QR
+        secret = pyotp.random_base32()
+        session["pre_2fa_secret"] = secret
+        issuer = "QuantumShield"
+        name = user.get("email") or user.get("username") or user.get("id")
+        uri = pyotp.totp.TOTP(secret).provisioning_uri(name=name, issuer_name=issuer)
+
+        img = qrcode.make(uri)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        png_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+
+        return render_template("setup_2fa.html", qr_image=f"data:image/png;base64,{png_b64}", secret=secret, user=user)
+
+    # POST: verify the token and persist
+    code = (request.form.get("otp") or (request.get_json(silent=True) or {}).get("otp"))
+    secret = session.get("pre_2fa_secret")
+    if not secret:
+        flash("Setup session expired. Start setup again.", "error")
+        return redirect(url_for("login"))
+
+    totp = pyotp.TOTP(secret)
+    if totp.verify(str(code or "").strip(), valid_window=1):
+        # Create backup codes (show once)
+        backup_plain = [secrets.token_hex(4) for _ in range(10)]
+        hashed_entries = []
+        for c in backup_plain:
+            hashed_entries.append({"code_hash": hashlib.sha256(c.encode()).hexdigest(), "used": False})
+
+        backup_json = json.dumps(hashed_entries)
+
+        # Persist encrypted secret + backup codes
+        if db.set_user_2fa(pre_id, secret, backup_json):
+            # complete login
+            db.mark_login_success(pre_id)
+            user_data = db.get_user_by_id(pre_id)
+            remember = bool(session.get("pre_2fa_remember", False))
+            session.pop("pre_2fa_secret", None)
+            session.pop("pre_2fa_user_id", None)
+            session.pop("pre_2fa_remember", None)
+            session.pop("pre_2fa_request_ip", None)
+            session.clear()
+            login_user(User(user_data), remember=remember)
+            _audit("auth", "2fa_enabled", "success", target_user_id=pre_id)
+            # Show backup codes to user once
+            return render_template("show_backup_codes.html", backup_codes=backup_plain)
+
+        flash("Failed to enable 2FA. Try again or contact admin.", "error")
+        return redirect(url_for("login"))
+
+
+@app.route("/2fa/login", methods=["GET", "POST"])
+@limiter.limit("10 per minute")
+def two_factor_login():
+    """Verify TOTP during login for users who have two_factor_enabled.
+
+    Expects session['pre_2fa_user_id'] to be set by the initial password check.
+    """
+    pre_id = session.get("pre_2fa_user_id")
+    if not pre_id:
+        flash("Session expired. Please log in again.", "error")
+        return redirect(url_for("login"))
+
+    user = db.get_user_by_id(pre_id)
+    if not user:
+        flash("User not found. Please log in again.", "error")
+        return redirect(url_for("login"))
+
+    if request.method == "GET":
+        return render_template("two_factor_login.html", user=user)
+
+    code = (request.form.get("otp") or (request.get_json(silent=True) or {}).get("otp"))
+    # Attempt TOTP verification
+    enc_secret = user.get("two_factor_secret")
+    secret = db._decrypt_data(enc_secret) if enc_secret else None
+    ok = False
+    if secret:
+        totp = pyotp.TOTP(secret)
+        ok = totp.verify(str(code or "").strip(), valid_window=1)
+
+    if ok:
+        db.mark_login_success(pre_id)
+        user_data = db.get_user_by_id(pre_id)
+        remember = bool(session.get("pre_2fa_remember", False))
+        session.pop("pre_2fa_user_id", None)
+        session.pop("pre_2fa_remember", None)
+        session.pop("pre_2fa_request_ip", None)
+        session.clear()
+        login_user(User(user_data), remember=remember)
+        _audit("auth", "login_success_2fa", "success", target_user_id=pre_id)
+        return redirect(url_for('quantumshield_dashboard.dashboard_home'))
+
+    # If TOTP failed, allow backup code usage
+    enc_backup = user.get("backup_codes")
+    used_backup = False
+    if enc_backup:
+        try:
+            dec = db._decrypt_data(enc_backup)
+            backup_list = json.loads(dec or "[]")
+            provided_hash = hashlib.sha256(str(code or "").encode()).hexdigest()
+            for entry in backup_list:
+                if isinstance(entry, dict) and entry.get("code_hash") == provided_hash and not entry.get("used"):
+                    # mark used and persist
+                    if db.mark_backup_code_used(pre_id, provided_hash):
+                        used_backup = True
+                        break
+        except Exception:
+            used_backup = False
+
+    if used_backup:
+        db.mark_login_success(pre_id)
+        user_data = db.get_user_by_id(pre_id)
+        remember = bool(session.get("pre_2fa_remember", False))
+        session.pop("pre_2fa_user_id", None)
+        session.pop("pre_2fa_remember", None)
+        session.pop("pre_2fa_request_ip", None)
+        session.clear()
+        login_user(User(user_data), remember=remember)
+        _audit("auth", "login_success_backup_code", "success", target_user_id=pre_id)
+        flash("Logged in using backup code. That code is now invalid.", "warning")
+        return redirect(url_for('quantumshield_dashboard.dashboard_home'))
+
+    # Failed verification
+    db.mark_login_failure(pre_id, MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_MINUTES)
+    flash("Invalid authentication code. Try again.", "error")
+    return redirect(url_for("two_factor_login"))
 
 
 @app.route("/forgot-password", methods=["GET", "POST"])
@@ -2646,6 +2880,34 @@ def admin_reset_user_password(user_id: str):
                 "message": f"SMTP failed: {str(exc)}"
             }), 500
         flash(f"SMTP failed. Temporary setup link: {setup_url}", "warning")
+    return redirect(url_for("admin_users"))
+
+
+@app.route("/admin/users/<user_id>/reset-2fa", methods=["POST"])
+@role_required(list(ADMIN_PANEL_ROLES))
+def admin_reset_user_2fa(user_id: str):
+    """Admin endpoint to clear a user's 2FA configuration so they must re-setup on next login."""
+    wants_json = _expects_json_response()
+
+    user = db.get_user_by_id(user_id)
+    if not user:
+        _audit("admin", "reset_2fa", "failed", target_user_id=user_id, details={"reason": "user_not_found"})
+        if wants_json:
+            return jsonify({"status": "error", "message": "User not found."}), 404
+        flash("User not found.", "error")
+        return redirect(url_for("admin_users"))
+
+    if not db.reset_user_2fa(user_id):
+        _audit("admin", "reset_2fa", "failed", target_user_id=user_id, details={"reason": "db_update_failed"})
+        if wants_json:
+            return jsonify({"status": "error", "message": "Failed to reset 2FA."}), 500
+        flash("Failed to reset 2FA.", "error")
+        return redirect(url_for("admin_users"))
+
+    _audit("admin", "reset_2fa", "success", target_user_id=user_id, details={"initiated_by": current_user.id})
+    if wants_json:
+        return jsonify({"status": "success", "message": "2FA reset."}), 200
+    flash("2FA reset for user.", "success")
     return redirect(url_for("admin_users"))
 
 
@@ -3984,6 +4246,22 @@ def reporting():
             "empty": True
         }
     return render_template("reporting.html", vm=vm)
+
+
+# Sprint 6: Vulnerabilities page route
+@app.route("/vulnerabilities")
+@login_required
+def vulnerabilities_page():
+    """
+    Render the Vulnerabilities Intelligence dashboard.
+
+    The page is a pure API-first shell — all data is fetched client-side
+    via /api/v1/vulnerabilities (paginated CVE list) and
+    /api/v1/vulnerabilities/stats (severity counters).
+
+    No data is passed from this server-side view to prevent stale renders.
+    """
+    return render_template("vulnerabilities.html")
 
 
 @app.route("/scan", methods=["POST"])
@@ -5351,7 +5629,7 @@ def recycle_bin():
     """
     from src.db import db_session
     from src.models import Asset, Scan, Certificate, PQCClassification, CBOMEntry, ComplianceScore, CBOMSummary, CyberRating, \
-        DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware
+        DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, Subdomain
     
     # Check admin/manager permission for destructive actions
     ALLOWED_RESTORE_ROLES = {"Admin", "Manager"}
@@ -5425,7 +5703,7 @@ def recycle_bin():
                         asset.deleted_by_user_id = None
 
                         # Restore child records tied to this asset
-                        for model in (DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, Certificate, PQCClassification, CBOMEntry, ComplianceScore):
+                        for model in (DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, Certificate, PQCClassification, CBOMEntry, ComplianceScore, Subdomain):
                             try:
                                 rows = db_session.query(model).filter(model.asset_id == asset.id, model.is_deleted == True).all()
                             except Exception:
@@ -5455,7 +5733,7 @@ def recycle_bin():
                                         s_row.deleted_at = None
                                         s_row.deleted_by_user_id = None
 
-                                for s_model in (DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, ComplianceScore, CyberRating):
+                                for s_model in (DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, ComplianceScore, CyberRating, Subdomain):
                                     s_rows = db_session.query(s_model).filter(s_model.scan_id == scan.id, s_model.is_deleted == True).all()
                                     for s_row in s_rows:
                                         s_row.is_deleted = False
@@ -5497,7 +5775,7 @@ def recycle_bin():
                                 s_row.deleted_at = None
                                 s_row.deleted_by_user_id = None
 
-                        for s_model in (DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, ComplianceScore, CyberRating):
+                        for s_model in (DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, ComplianceScore, CyberRating, Subdomain):
                             s_rows = db_session.query(s_model).filter(s_model.scan_id == scan.id, s_model.is_deleted == True).all()
                             for s_row in s_rows:
                                 s_row.is_deleted = False
@@ -5688,7 +5966,98 @@ def _check_concurrency():
     atexit.register(_cleanup_pid)
 
 
+def _auto_update_on_start():
+    """Optional auto-update on startup: fetch origin/<branch> and reset if newer.
+
+    Controlled by environment variables:
+      - QSS_AUTO_UPDATE_ON_START (true|false) — enable check at startup
+      - QSS_ALLOW_AUTO_PULL (true|false) — allow performing a hard reset to remote
+      - QSS_GIT_BRANCH — branch name to compare (default: main)
+
+    Safety: requires clean working tree to perform a hard reset. If pull is performed
+    the process re-execs itself to pick up new code. No secrets are stored here.
+    """
+    try:
+        if os.environ.get("QSS_AUTO_UPDATE_ON_START", "false").lower() != "true":
+            return
+        if os.environ.get("QSS_AUTO_UPDATE_PERFORMED") == "1":
+            logger.info("Auto-update already performed; skipping.")
+            return
+
+        import shutil
+        import subprocess
+
+        git = shutil.which("git")
+        if not git:
+            logger.warning("Auto-update requested but 'git' is not available on PATH.")
+            return
+
+        # Ensure we're inside a work-tree
+        p = subprocess.run([git, "rev-parse", "--is-inside-work-tree"], cwd=BASE_DIR, capture_output=True, text=True)
+        if p.returncode != 0 or "true" not in p.stdout:
+            logger.warning("Not a git work tree (or git rev-parse failed). Skipping auto-update.")
+            return
+
+        branch = os.environ.get("QSS_GIT_BRANCH", "main")
+
+        # Fetch remote branch reference
+        fetch = subprocess.run([git, "fetch", "origin", branch], cwd=BASE_DIR, capture_output=True, text=True)
+        if fetch.returncode != 0:
+            logger.warning("git fetch failed: %s", fetch.stderr.strip())
+            return
+
+        local = subprocess.run([git, "rev-parse", "HEAD"], cwd=BASE_DIR, capture_output=True, text=True)
+        remote = subprocess.run([git, "rev-parse", f"origin/{branch}"], cwd=BASE_DIR, capture_output=True, text=True)
+        if local.returncode != 0 or remote.returncode != 0:
+            logger.warning("Failed to read commit hashes; skipping auto-update.")
+            return
+
+        local_sha = local.stdout.strip()
+        remote_sha = remote.stdout.strip()
+        if not local_sha or not remote_sha:
+            logger.info("Could not determine commit SHAs; skipping auto-update.")
+            return
+
+        if local_sha == remote_sha:
+            logger.info("Local repository is up-to-date with origin/%s", branch)
+            return
+
+        logger.info("Remote origin/%s differs from local HEAD (%s -> %s)", branch, local_sha[:8], remote_sha[:8])
+
+        if os.environ.get("QSS_ALLOW_AUTO_PULL", "false").lower() != "true":
+            logger.warning("Auto-pull disabled (set QSS_ALLOW_AUTO_PULL=true to enable). Skipping update.")
+            return
+
+        # Ensure no uncommitted changes exist (avoid data loss)
+        status = subprocess.run([git, "status", "--porcelain"], cwd=BASE_DIR, capture_output=True, text=True)
+        if status.stdout.strip():
+            logger.warning("Uncommitted changes present in working tree; refusing hard reset. Clean the tree or disable auto-update.")
+            return
+
+        # Perform hard reset to remote branch
+        reset = subprocess.run([git, "reset", "--hard", f"origin/{branch}"], cwd=BASE_DIR, capture_output=True, text=True)
+        if reset.returncode != 0:
+            logger.warning("git reset failed: %s", reset.stderr.strip())
+            return
+
+        logger.info("Pulled latest code from origin/%s — restarting process to pick up changes.", branch)
+        # Prevent looping by marking performed and re-exec the process
+        os.environ["QSS_AUTO_UPDATE_PERFORMED"] = "1"
+        python = sys.executable
+        os.execv(python, [python] + sys.argv)
+
+    except Exception as exc:
+        logger.warning("Auto-update check failed: %s", exc)
+
+
 if __name__ == "__main__":
+    # Optionally auto-update code from the remote before boot.
+    # Controlled by QSS_AUTO_UPDATE_ON_START and QSS_ALLOW_AUTO_PULL environment variables.
+    try:
+        _auto_update_on_start()
+    except Exception:
+        pass
+
     _start_scheduler_if_enabled()
     _bootstrap_runtime_state()
 

@@ -306,6 +306,9 @@ After integration:
 | `/api/admin/metrics` | GET | Admin | Admin dashboard |
 | `/api/docs` | GET | Login | OpenAPI spec |
 | `/docs` | GET | Login | HTML docs |
+| `/2fa/setup` | GET/POST | Login | Show provisioning QR (GET). Verify first TOTP and enable 2FA (POST) — returns one-time backup codes. |
+| `/2fa/login` | GET/POST | Login | TOTP / backup-code verification during login. Server-side rate-limited (default 10/min per IP). |
+| `/admin/users/{id}/reset-2fa` | POST | Admin | Clear a user's 2FA config so they must reconfigure 2FA on next login. |
 
 ## 🆘 Troubleshooting
 

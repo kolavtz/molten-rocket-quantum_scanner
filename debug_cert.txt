@@ -1,0 +1,1 @@
+ADDED cert: pipeline-rich-cert-1235228417.example\nADDED cert: pipeline-rich-cert-b195ad51a6.example\nADDED cert: pipeline-rich-cert-a75fb434aa.example\nADDED cert: pipeline-rich-cert-c46f91bd60.example\nADDED cert: pipeline-rich-cert-48044ac49a.example\nADDED cert: pipeline-rich-cert-47271df801.example\nADDED cert: pipeline-rich-cert-5b61f16be7.example\n

@@ -8,9 +8,10 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required
 from src.db import db_session as SessionLocal
 from src.models import (
-    Asset, Certificate, Scan,
+    Asset, Certificate, Scan, Subdomain,
     DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware
 )
+from src.services.subdomain_service import SubdomainService
 from utils.api_helper import (
     paginated_response, api_response, apply_soft_delete_filter,
     extract_pagination_params, validate_pagination_params,
@@ -102,7 +103,8 @@ def get_discovery():
             "domains": DiscoveryDomain,
             "ssl": DiscoverySSL,
             "ips": DiscoveryIP,
-            "software": DiscoverySoftware
+            "software": DiscoverySoftware,
+            "subdomains": Subdomain
         }
         
         if tab not in tab_model_map:
@@ -136,6 +138,8 @@ def get_discovery():
                 query = query.filter(DiscoveryIP.ip_address.ilike(search_val))
             elif tab == "software":
                 query = query.filter(DiscoverySoftware.product.ilike(search_val))
+            elif tab == "subdomains":
+                query = query.filter(Subdomain.subdomain.ilike(search_val))
         
         # Total
         total = query.count()
@@ -176,18 +180,19 @@ def get_discovery():
             elif isinstance(item, DiscoverySSL): identifier = item.endpoint
             elif isinstance(item, DiscoveryIP): identifier = item.ip_address
             elif isinstance(item, DiscoverySoftware): identifier = item.product
+            elif isinstance(item, Subdomain): identifier = item.subdomain
 
             row = {
                 "id": item.id,
                 "identifier": identifier,
-                "status": item.status,
-                "detection_date": format_datetime(detected_at),
+                "status": getattr(item, "status", "new"),
+                "detection_date": format_datetime(detected_at or getattr(item, "discovered_at", None)),
                 "asset_name": asset_name,
                 "asset_risk_level": asset_risk_level,
                 "risk_score": _risk_score_from_level(asset_risk_level),
                 "scan_id": item.scan_id,
                 "asset_id": item.asset_id,
-                "promoted": getattr(item, "promoted_to_inventory", False)
+                "promoted": getattr(item, "promoted_to_inventory", False) or getattr(item, "is_inventoried", False)
             }
 
             if isinstance(item, DiscoveryDomain):
@@ -220,6 +225,13 @@ def get_discovery():
                     "cpe": item.cpe,
                 })
 
+            elif isinstance(item, Subdomain):
+                row.update({
+                    "domain_name": item.subdomain,
+                    "record_type": item.record_type,
+                    "parent_asset_id": item.parent_asset_id,
+                })
+            
             items_data.append(row)
         
         db.close()
@@ -370,6 +382,13 @@ def promote_discovery_to_asset():
             db.close()
             return api_response(success=False, message=f"Invalid tab: {tab}", status_code=400)
         
+        if tab == "subdomains":
+            asset = SubdomainService.promote_to_inventory(discovery_id, owner=payload.get("owner") or getattr(current_user, "username", "System"))
+            db.close()
+            if asset:
+                return api_response(success=True, data={"asset_id": asset.id, "discovery_id": discovery_id})
+            return api_response(success=False, message="Subdomain promotion failed", status_code=500)
+
         discovery = db.query(model).filter(model.id == discovery_id, model.is_deleted == False).first()
         if not discovery:
             db.close()

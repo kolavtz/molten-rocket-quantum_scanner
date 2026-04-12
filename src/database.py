@@ -932,11 +932,73 @@ def init_db() -> bool:
             "ALTER TABLE assets ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
             "ALTER TABLE assets ADD COLUMN IF NOT EXISTS deleted_at DATETIME",
             "ALTER TABLE assets ADD COLUMN IF NOT EXISTS deleted_by_user_id BIGINT",
+            # ── Sprint 1: HNDL detection fields on asset_metrics ──
+            "ALTER TABLE asset_metrics ADD COLUMN IF NOT EXISTS hndl_risk_score FLOAT NULL",
+            "ALTER TABLE asset_metrics ADD COLUMN IF NOT EXISTS hndl_flags LONGTEXT NULL",
+            # ── Sprint 1: TLS resilience tier on tls_compliance_scores ──
+            "ALTER TABLE tls_compliance_scores ADD COLUMN IF NOT EXISTS resilience_tier VARCHAR(20) NULL",
+            # ── Sprint 1: Two-factor authentication fields on users ──
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled TINYINT(1) NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_secret VARCHAR(64) NULL",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS backup_codes LONGTEXT NULL",
+            # ── Sprint 1: CBOM superseded tracking ──
+            "ALTER TABLE cbom_entries ADD COLUMN IF NOT EXISTS superseded_at DATETIME NULL",
         ]:
             try:
                 cur.execute(alter_cmd)
             except Exception:
                 pass # Column likely already exists
+
+        # Sprint 1: Create new tables (subdomains, vulnerability_cache, ai_audit_log)
+        for create_sql in [
+            """CREATE TABLE IF NOT EXISTS subdomains (
+                id              BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                parent_asset_id BIGINT NOT NULL,
+                subdomain       VARCHAR(512) NOT NULL,
+                record_type     VARCHAR(20) NOT NULL DEFAULT 'A',
+                ip              VARCHAR(80) NULL,
+                is_inventoried  TINYINT(1) NOT NULL DEFAULT 0,
+                is_deleted      TINYINT(1) NOT NULL DEFAULT 0,
+                discovered_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_sub_parent (parent_asset_id),
+                INDEX idx_sub_deleted (is_deleted)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci""",
+
+            """CREATE TABLE IF NOT EXISTS vulnerability_cache (
+                id           BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                asset_id     BIGINT NOT NULL,
+                cve_id       VARCHAR(30) NOT NULL,
+                severity     VARCHAR(20) NOT NULL DEFAULT 'unknown',
+                cvss         FLOAT NULL,
+                description  LONGTEXT NULL,
+                mitigation   LONGTEXT NULL,
+                published_at DATETIME NULL,
+                source       VARCHAR(50) NOT NULL DEFAULT 'nvd',
+                fetched_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_vc_asset (asset_id),
+                INDEX idx_vc_severity (severity),
+                INDEX idx_vc_fetched (fetched_at),
+                UNIQUE KEY uq_vc_asset_cve (asset_id, cve_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci""",
+
+            """CREATE TABLE IF NOT EXISTS ai_audit_log (
+                id           BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                user_id      VARCHAR(36) NULL,
+                ip_address   VARCHAR(80) NULL,
+                message_hash VARCHAR(64) NOT NULL,
+                model_used   VARCHAR(100) NULL,
+                rag_enabled  TINYINT(1) NOT NULL DEFAULT 0,
+                token_count  INT NULL,
+                created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_ai_user (user_id),
+                INDEX idx_ai_created (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci""",
+        ]:
+            try:
+                cur.execute(create_sql)
+            except Exception as e:
+                logger.warning("Sprint-1 table creation warning: %s", e)
 
         try:
             cur.execute("CREATE INDEX idx_assets_is_deleted ON assets(is_deleted)")
@@ -2063,6 +2125,120 @@ def update_user_profile(user_id: str, role: Optional[str] = None, is_active: Opt
         return cur.rowcount > 0
     except Exception as exc:
         logger.error("MySQL update_user_profile error: %s", exc)
+        return False
+    finally:
+        conn.close()
+
+
+def set_user_2fa(user_id: str, secret: str, backup_codes_json: Optional[str] = None) -> bool:
+    """Persist an encrypted TOTP secret and (optionally) encrypted backup codes for a user.
+
+    secret: plain TOTP base32 secret (will be encrypted with Fernet if available)
+    backup_codes_json: JSON-encoded backup codes (already hashed) -- will be encrypted if possible
+    """
+    conn = _get_connection()
+    if conn is None:
+        return False
+    try:
+        enc_secret = _encrypt_data(secret) if secret is not None else None
+        enc_backup = _encrypt_data(backup_codes_json) if backup_codes_json is not None else None
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE users
+            SET two_factor_secret = %s,
+                backup_codes = %s,
+                two_factor_enabled = TRUE
+            WHERE id = %s
+            """,
+            (enc_secret, enc_backup, str(user_id)),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as exc:
+        logger.warning("MySQL set_user_2fa error: %s", exc)
+        return False
+    finally:
+        conn.close()
+
+
+def reset_user_2fa(user_id: str) -> bool:
+    """Reset/clear a user's 2FA configuration (admin action).
+
+    Clears the stored secret and backup codes and disables 2FA for the account.
+    """
+    conn = _get_connection()
+    if conn is None:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE users
+            SET two_factor_secret = NULL,
+                backup_codes = NULL,
+                two_factor_enabled = FALSE
+            WHERE id = %s
+            """,
+            (str(user_id),),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as exc:
+        logger.warning("MySQL reset_user_2fa error: %s", exc)
+        return False
+    finally:
+        conn.close()
+
+
+def mark_backup_code_used(user_id: str, code_hash: str) -> bool:
+    """Mark a backup code as used for the user. Returns True if an unused code was marked."""
+    conn = _get_connection()
+    if conn is None:
+        return False
+    try:
+        cur = conn.cursor(pymysql.cursors.DictCursor)
+        cur.execute("SELECT backup_codes FROM users WHERE id = %s", (str(user_id),))
+        row = cur.fetchone()
+        if not row or not row.get("backup_codes"):
+            return False
+
+        try:
+            dec = _decrypt_data(row.get("backup_codes") or "")
+            codes = json.loads(dec) if dec else []
+        except Exception:
+            # Corrupt or non-JSON; bail out
+            return False
+
+        changed = False
+        for entry in codes:
+            # support both dict-form and simple string hash form
+            if isinstance(entry, dict):
+                h = entry.get("code_hash")
+                used = bool(entry.get("used"))
+                if h == code_hash and not used:
+                    entry["used"] = True
+                    changed = True
+                    break
+            else:
+                # old-format: list of hashes
+                if entry == code_hash:
+                    # convert to new format
+                    codes = [{"code_hash": c, "used": (c == code_hash)} for c in codes]
+                    changed = True
+                    break
+
+        if not changed:
+            return False
+
+        new_blob = json.dumps(codes)
+        enc_blob = _encrypt_data(new_blob) if new_blob else None
+        update_cur = conn.cursor()
+        update_cur.execute("UPDATE users SET backup_codes = %s WHERE id = %s", (enc_blob, str(user_id)))
+        conn.commit()
+        return update_cur.rowcount > 0
+    except Exception as exc:
+        logger.warning("mark_backup_code_used failed: %s", exc)
         return False
     finally:
         conn.close()

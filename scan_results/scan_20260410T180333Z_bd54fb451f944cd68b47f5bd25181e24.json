@@ -1,0 +1,10 @@
+{
+  "scan_id": "bulk-real-csv-1",
+  "target": "10.10.10.10",
+  "status": "complete",
+  "total_assets": 1,
+  "overview": {
+    "average_compliance_score": 70
+  },
+  "requested_target": "google.com"
+}

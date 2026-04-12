@@ -215,6 +215,7 @@
         '/pqc-posture': 'Posture of PQC',
         '/cyber-rating': 'Cyber Rating',
         '/reporting': 'Reporting',
+        '/vulnerabilities': 'Vulnerabilities',
         '/profile': 'Profile',
         '/admin/api': 'Admin API',
         '/docs': 'Docs'
@@ -260,6 +261,10 @@
 
                     <a href="/reporting" class="nav-link {% if request.path == '/reporting' %}active{% endif %}" title="Reporting System">
                         <i class="fa-solid fa-chart-pie"></i> <span class="nav-text">REPORTS</span>
+                    </a>
+
+                    <a href="/vulnerabilities" class="nav-link {% if request.path == '/vulnerabilities' %}active{% endif %}" title="CVE Vulnerability Intelligence">
+                        <i class="fa-solid fa-bug-slash"></i> <span class="nav-text">VULNS</span>
                     </a>
 
                     <!-- Admin Access (Conditional) -->

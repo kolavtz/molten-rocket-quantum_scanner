@@ -39,10 +39,10 @@ def test_scan_modal_included_in_base():
 
 def test_scan_table_calls_modal_open(authenticated_client):
     """Test that scan table uses modal open instead of navigation."""
-    with open('web/templates/scans.html', 'r') as f:
+    with open('web/templates/scans.html', 'r', encoding='utf-8') as f:
         content = f.read()
-    # Check that the action button function calls ScanDetailModal.open
-    assert "window.ScanDetailModal && window.ScanDetailModal.open" in content, "Scan table does not call ScanDetailModal.open()"
+    # Check that the action button function calls the new details handler
+    assert "window.QuantumShieldScans.showRecordDetails" in content, "Scan table does not call showRecordDetails()"
 
 
 def test_api_scan_result_endpoint_exists(authenticated_client):

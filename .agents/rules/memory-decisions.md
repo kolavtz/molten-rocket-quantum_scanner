@@ -6,6 +6,9 @@ Format: [DATE] Area – Decision – Rationale
 - [YYYY-MM-DD] …
 - [2026-03-20] Database bootstrap – Canonical schema init lives in `src/database.py`; `src/db.py` must not drop/recreate metadata – prevents destructive drift that removed `scans.report_json`/`scan_id` and broke FKs.
 - [2026-03-20] Dashboard resilience – Asset and scan view builders must tolerate mixed legacy row shapes (`target` vs `name`) and mixed scan feeds (DB + in-memory) – keeps routes stable during migrations and DB outages.
+- [2026-04-10] Test persistence – Identified SQLite `:memory:` isolation as a root cause for test failures in multi-module SQLAlchemy environments. Resolved by switching to file-based SQLite `tests/test_qss_internal.db` for the CI/Test profile.
+- [2026-04-10] Datetime handling – Standardized on naive `now()` (offset-naive datetimes) for ORM service layers to avoid comparison crashes with MySQL/SQLite defaults.
+- [2026-04-10] Connection pooling – Implemented `StaticPool` in `src/db.py` to ensure consistent data persistence across connection lifecycles in testing.
 - [2026-03-20] Table UX – For interactive dashboard tables, prefer client-side sort/search/pagination and return full row sets from route handlers – prevents full-page reloads and avoids sorting only a server page slice.
 - [2026-03-20] Scheduler overlap policy – If an automated inventory sweep starts while another scan is running, log and skip that cycle (status=in_progress) instead of treating as an error.
 - [2026-03-20] Logging portability – Use ASCII-only status text in scheduler logs to avoid Windows cp1252 encoding failures in console handlers.

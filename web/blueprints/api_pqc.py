@@ -187,3 +187,85 @@ def get_pqc_assets():
     
     except Exception as e:
         return api_response(success=False, message=str(e), status_code=500)[0], 500
+
+
+# ── Sprint 3: HNDL Risk Endpoint ─────────────────────────────────────
+
+@api_pqc.route("/hndl", methods=["GET"])
+@login_required
+def get_hndl_summary():
+    """
+    GET /api/pqc-posture/hndl
+
+    Returns organisation-wide Harvest-Now-Decrypt-Later (HNDL) exposure.
+
+    Response:
+    {
+      "success": true,
+      "data": {
+        "total_exposed": 5,
+        "avg_hndl_score": 62.3,
+        "top_flags": [{"flag": "weak_rsa_2048bit", "count": 3}],
+        "exposed_assets": [{"asset_id": 1, "score": 90.0, "flags": [...]}],
+        "banner": {
+          "show": true,
+          "severity": "high",
+          "message": "5 assets are exposed to HNDL attacks. Migrate RSA keys to 3072+ bits."
+        }
+      }
+    }
+    """
+    try:
+        from src.services.pqc_calculation_service import PQCCalculationService
+
+        summary = PQCCalculationService.get_org_hndl_summary()
+
+        total_exposed = int(summary.get("total_exposed", 0))
+        avg_score = float(summary.get("avg_hndl_score", 0.0))
+
+        # Build actionable banner message
+        if total_exposed == 0:
+            banner = {
+                "show": False,
+                "severity": "none",
+                "message": "No HNDL exposure detected. All scanned assets use quantum-safe key sizes.",
+            }
+        elif avg_score >= 70:
+            banner = {
+                "show": True,
+                "severity": "critical",
+                "message": (
+                    f"{total_exposed} asset(s) have critical HNDL exposure (avg score {avg_score:.0f}/100). "
+                    "Attackers can harvest encrypted traffic today for future quantum decryption. "
+                    "Migrate RSA/ECC keys to NIST PQC algorithms immediately."
+                ),
+            }
+        elif avg_score >= 40:
+            banner = {
+                "show": True,
+                "severity": "high",
+                "message": (
+                    f"{total_exposed} asset(s) are exposed to HNDL risk (avg score {avg_score:.0f}/100). "
+                    "Prioritise migration to RSA-3072+ or ECDSA P-384+ before 2030."
+                ),
+            }
+        else:
+            banner = {
+                "show": True,
+                "severity": "medium",
+                "message": (
+                    f"{total_exposed} asset(s) have low-level HNDL indicators. "
+                    "Review certificate validity periods and TLS cipher configurations."
+                ),
+            }
+
+        return api_response(
+            success=True,
+            data={
+                **summary,
+                "banner": banner,
+            },
+        )[0], 200
+
+    except Exception as exc:
+        return api_response(success=False, message=str(exc), status_code=500)[0], 500

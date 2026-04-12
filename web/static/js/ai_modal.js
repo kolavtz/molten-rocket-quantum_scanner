@@ -28,6 +28,8 @@
 
     sendBtn && sendBtn.addEventListener('click', async function () {
       const q = (queryInput.value || '').trim();
+      const assetEl = el('aiAssetId');
+      const assetId = assetEl ? (assetEl.value || '').trim() : '';
       if (!q) {
         responseHost.textContent = 'Please enter a question.';
         return;
@@ -37,7 +39,7 @@
       responseHost.textContent = '';
 
       // Try SSE streaming endpoint first; if it fails, fall back to regular POST
-      const qs = api.buildQuery({ query: q });
+      const qs = api.buildQuery({ query: q, asset_id: assetId });
       const streamUrl = `${api.baseUrl}/ai/cbom-query/stream?${qs}`;
       let evtSource;
       let streaming = false;
@@ -63,7 +65,7 @@
           try { evtSource.close(); } catch (err) {}
           // Fallback to fetch-based request
           try {
-            const res = await api.fetch('/ai/cbom-query', { method: 'POST', body: { query: q } });
+            const res = await api.fetch('/ai/cbom-query', { method: 'POST', body: { query: q, asset_id: assetId } });
             if (res && res.answer) {
               responseHost.innerText = res.answer;
             } else if (res && res.message) {
@@ -81,7 +83,7 @@
       } else {
         // No streaming support; regular POST
         try {
-          const res = await api.fetch('/ai/cbom-query', { method: 'POST', body: { query: q } });
+          const res = await api.fetch('/ai/cbom-query', { method: 'POST', body: { query: q, asset_id: assetId } });
           if (res && res.answer) {
             responseHost.innerText = res.answer;
           } else if (res && res.message) {

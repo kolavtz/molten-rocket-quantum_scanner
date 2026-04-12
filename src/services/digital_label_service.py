@@ -8,7 +8,9 @@ enterprise score context, then persists them into `digital_labels` and
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
+import logging
+logger = logging.getLogger(__name__)
 from typing import Dict, Tuple
 
 from sqlalchemy import and_
@@ -24,24 +26,40 @@ class DigitalLabelService:
 
     @staticmethod
     def _get_or_create_asset_metric(asset_id: int) -> AssetMetric:
-        """Get or create AssetMetric row safely under concurrent writes."""
-        metric = db_session.query(AssetMetric).filter(AssetMetric.asset_id == asset_id).first()
+        """Get or create AssetMetric row safely without session rollbacks."""
+        # 1. Check identity map
+        metric = db_session.get(AssetMetric, asset_id)
         if metric:
             return metric
 
-        savepoint = db_session.begin_nested()
-        try:
-            metric = AssetMetric(asset_id=asset_id)
-            db_session.add(metric)
-            db_session.flush()
-            savepoint.commit()
-            return metric
-        except IntegrityError:
-            savepoint.rollback()
-            existing = db_session.query(AssetMetric).filter(AssetMetric.asset_id == asset_id).first()
-            if existing:
-                return existing
-            raise
+        # 2. Check pending objects in session
+        for m in db_session.new:
+            if isinstance(m, AssetMetric) and getattr(m, 'asset_id', None) == asset_id:
+                return m
+
+        # 3. Create and add defensively
+        metric = AssetMetric(asset_id=asset_id)
+        db_session.add(metric)
+        return metric
+
+    @staticmethod
+    def _get_or_create_digital_label_record(asset_id: int) -> DigitalLabel:
+        """Get or create DigitalLabel row safely without session rollbacks."""
+        # 1. Check identity map (DigitalLabel might use asset_id as PK or unique)
+        # Based on models.py, DigitalLabel has its own auto-inc ID, but asset_id is unique/index.
+        record = db_session.query(DigitalLabel).filter(DigitalLabel.asset_id == asset_id).first()
+        if record:
+            return record
+
+        # 2. Check pending objects in session
+        for m in db_session.new:
+            if isinstance(m, DigitalLabel) and getattr(m, 'asset_id', None) == asset_id:
+                return m
+
+        # 3. Create and add defensively
+        record = DigitalLabel(asset_id=asset_id)
+        db_session.add(record)
+        return record
 
     @staticmethod
     def assign_label(
@@ -198,11 +216,8 @@ class DigitalLabelService:
             critical_findings=int(critical_findings_count or 0),
         )
 
-        record = db_session.query(DigitalLabel).filter(DigitalLabel.asset_id == asset_id).first()
-        if not record:
-            record = DigitalLabel(asset_id=asset_id)
-            db_session.add(record)
-
+        record = DigitalLabelService._get_or_create_digital_label_record(asset_id)
+        
         reason_payload = {
             **reason,
             "pqc_score": pqc_score,
@@ -218,11 +233,11 @@ class DigitalLabelService:
         record.based_on_finding_count = int(findings_count or 0)
         record.based_on_critical_findings = int(critical_findings_count or 0) > 0
         record.based_on_enterprise_score = enterprise_score
-        record.label_generated_at = datetime.utcnow()
-        record.label_updated_at = datetime.utcnow()
+        record.label_generated_at = datetime.now(timezone.utc)
+        record.label_updated_at = datetime.now(timezone.utc)
 
         metric.digital_label = label
-        metric.last_updated = datetime.utcnow()
+        metric.last_updated = datetime.now(timezone.utc)
 
         if auto_commit:
             db_session.commit()
