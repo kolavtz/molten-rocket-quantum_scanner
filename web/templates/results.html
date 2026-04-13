@@ -271,122 +271,144 @@
         {% endfor %}
     </div>
 </section>
-<!-- Detailed Tabs: CBOM, DNS, Certificates, Mitigations -->
-<section id="details-tabs" style="margin-top: 2rem;">
-    <div class="glass-card" style="padding: 1rem;">
-        <div style="display:flex; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
-            <button class="tab-button active" data-tab="cbom" style="padding:0.5rem 0.8rem;">CBOM</button>
-            <button class="tab-button" data-tab="dns" style="padding:0.5rem 0.8rem;">DNS & Discovery</button>
-            <button class="tab-button" data-tab="certs" style="padding:0.5rem 0.8rem;">Certificates</button>
-            <button class="tab-button" data-tab="mitigations" style="padding:0.5rem 0.8rem;">Mitigations</button>
+<!-- Continuous Single-Page Document Sections -->
+<section id="scan-document" style="margin-top: 2rem; display:flex; flex-direction:column; gap:1rem;">
+    <div class="glass-card" style="padding:1rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+            <h2 style="margin:0; font-size:1rem; text-transform:uppercase; letter-spacing:1px;">CBOM Snapshot</h2>
+            <a href="/cbom/{{ scan_id }}" class="button small">Download full CBOM JSON</a>
         </div>
-
-        <div id="tab-cbom" class="tab-panel" style="display:block;">
-            {% if report.cbom %}
-            <div style="margin-bottom:0.5rem;">
-                <a href="/cbom/{{ scan_id }}" class="button small">Download full CBOM JSON</a>
+        {% if report.cbom %}
+            <div style="margin-top:0.75rem; color:var(--text-secondary); font-size:0.86rem;">
+                Components: <strong>{{ (report.cbom.components|length) if report.cbom.components else (report.cbom_components or 0) }}</strong>
             </div>
-            <pre style="white-space: pre-wrap; max-height: 420px; overflow: auto; background: var(--bg_card); padding:1rem; border-radius:6px;">{{ report.cbom | default({}) | tojson }}</pre>
-            {% else %}
-            <div style="color: var(--text-secondary);">CBOM not available for this scan.</div>
-            {% endif %}
-        </div>
-
-        <div id="tab-dns" class="tab-panel" style="display:none;">
-            {% if report.dns_records %}
-            <table class="scans-table" style="width:100%; margin-top:0.5rem;">
-                <thead><tr><th>TYPE</th><th>VALUE</th><th>HOST</th><th>RESOLVED_AT</th></tr></thead>
-                <tbody>
-                    {% for r in report.dns_records %}
-                    <tr>
-                        <td>{{ r.record_type }}</td>
-                        <td><code>{{ r.record_value }}</code></td>
-                        <td>{{ r.hostname or report.target }}</td>
-                        <td style="font-size:0.75rem; color: var(--text-muted);">{{ r.resolved_at or '' }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <div style="color: var(--text-secondary);">No DNS records were collected for this scan.</div>
-            {% endif %}
-        </div>
-
-        <div id="tab-certs" class="tab-panel" style="display:none;">
-            {% if report.tls_results %}
-                {% for tls in report.tls_results %}
-                <div class="glass-card" style="padding:0.8rem; margin-bottom:0.6rem;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <strong>{{ tls.host }}:{{ tls.port }}</strong>
-                            <div style="font-size:0.8rem; color: var(--text-muted);">{{ tls.subject_cn or tls.subject }}</div>
-                        </div>
-                        <div style="text-align:right; font-size:0.8rem; color: var(--text-muted);">{{ tls.cert_status }} • {{ tls.key_length }} bits</div>
-                    </div>
-                    <div style="margin-top:0.6rem; font-size:0.85rem; color: var(--text-secondary);">
-                        Issuer: {{ tls.issuer_cn }} {{ tls.issuer_o and (' / ' ~ tls.issuer_o) }}
-                        <br>Serial: <code>{{ tls.serial_number }}</code>
-                        <br>SHA256: <code>{{ tls.cert_sha256 }}</code>
-                        <br>Validity: {{ tls.valid_from }} → {{ tls.valid_to }}
-                        <br>Days remaining: <strong>{{ tls.get('days_remaining') if tls.get('days_remaining') is not none else (tls.get('cert_days_remaining') if tls.get('cert_days_remaining') is not none else 'N/A') }}</strong>
-                        <br>Signature: {{ tls.get('signature_algorithm') or (tls.get('certificate_details') and tls.get('certificate_details').get('certificate_signature_algorithm')) or 'N/A' }}
-                        <br>Key algorithm: {{ tls.get('key_algorithm') or (tls.get('certificate_details') and tls.get('certificate_details').get('subject_public_key_info', {}).get('subject_public_key_algorithm')) or 'N/A' }} • <small>{{ tls.get('key_length') or (tls.get('certificate_details') and tls.get('certificate_details').get('subject_public_key_info', {}).get('subject_public_key_bits')) or 'N/A' }} bits</small>
-                        <br>SANs: {{ (tls.get('san_domains')|join(', ')) if tls.get('san_domains') else '—' }}
-                        <br>Chain length: {{ tls.get('cert_chain_length') or tls.get('certificate_chain_length') or 0 }}
-                    </div>
-                    <details style="margin-top:0.6rem;">
-                        <summary>Full certificate details</summary>
-                        <pre style="white-space: pre-wrap; margin-top:0.5rem; background: var(--bg_card); padding:1rem; border-radius:6px;">{{ tls.certificate_details | default({}) | tojson }}</pre>
-                    </details>
-                </div>
-                {% endfor %}
-            {% else %}
-            <div style="color: var(--text-secondary);">No TLS/Certificate data available for this scan.</div>
-            {% endif %}
-        </div>
-
-        <div id="tab-mitigations" class="tab-panel" style="display:none;">
-            {% if report.recommendations_detailed %}
-                {% for rec in report.recommendations_detailed %}
-                <div class="glass-card" style="padding:0.8rem; margin-bottom:0.6rem;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div><strong>{{ rec.title or rec.get('title') or 'Recommendation' }}</strong></div>
-                        <div style="font-size:0.8rem; color: var(--text-muted);">Priority: {{ rec.priority or rec.get('priority') or 'n/a' }}</div>
-                    </div>
-                    <p style="color: var(--text-secondary); font-size:0.9rem; margin-top:0.5rem;">{{ rec.description or rec.get('description') }}</p>
-                    {% if rec.server_configs %}
-                    <details>
-                        <summary>Server configuration snippets</summary>
-                        <div style="margin-top:0.5rem;">
-                            {% for key, snippet in rec.server_configs.items() %}
-                            <div style="margin-bottom:0.6rem;">
-                                <strong>{{ key }}</strong>
-                                <pre style="white-space: pre-wrap; background: var(--bg_card); padding:0.75rem; border-radius:6px;">{{ snippet }}</pre>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </details>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            {% else %}
-            <div style="color: var(--text-secondary);">No mitigation recommendations found for this scan.</div>
-            {% endif %}
-        </div>
+        {% else %}
+            <div style="margin-top:0.75rem; color:var(--text-secondary);">CBOM not available for this scan.</div>
+        {% endif %}
     </div>
 
-    <script>
-        (function(){
-            const btns = document.querySelectorAll('.tab-button');
-            const panels = document.querySelectorAll('.tab-panel');
-            btns.forEach(b => b.addEventListener('click', function(){
-                const t = this.dataset.tab;
-                btns.forEach(x => x.classList.remove('active'));
-                this.classList.add('active');
-                panels.forEach(p => p.style.display = (p.id === 'tab-' + t) ? 'block' : 'none');
-            }));
-        })();
-    </script>
+    <div class="glass-card" id="ssl-certificate-details" style="padding:1rem;">
+        <h2 style="margin:0 0 0.75rem 0; font-size:1rem; text-transform:uppercase; letter-spacing:1px;">SSL Certificate Details Captured in this Scan</h2>
+        {% if report.tls_results %}
+        <div style="display:flex; flex-direction:column; gap:1rem;">
+            {% for tls in report.tls_results %}
+            {% set issued_to = tls.get('issued_to') or {} %}
+            {% set issued_by = tls.get('issued_by') or {} %}
+            {% set validity_obj = (tls.get('certificate_details') and tls.get('certificate_details').get('validity')) or {} %}
+            {% set spki = (tls.get('certificate_details') and tls.get('certificate_details').get('subject_public_key_info')) or {} %}
+            {% set vf = tls.valid_from or validity_obj.get('not_before') or '-' %}
+            {% set vt = tls.valid_to or validity_obj.get('not_after') or '-' %}
+            {% set cert_fp = tls.cert_sha256 or tls.certificate_sha256 or (tls.get('certificate_details') and tls.get('certificate_details').get('fingerprint_sha256')) or '-' %}
+            {% set pub_fp = tls.public_key_fingerprint_sha256 or spki.get('public_key_fingerprint_sha256') or '-' %}
+            <div class="glass-card" style="padding:1rem; border:1px solid var(--border-subtle);">
+                <div style="display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; align-items:flex-start; border-bottom:1px solid var(--border-subtle); padding-bottom:0.75rem; margin-bottom:0.75rem;">
+                    <div>
+                        <h3 style="margin:0; font-size:0.95rem;">{{ tls.host }}:{{ tls.port }}</h3>
+                        <div style="color:var(--text-secondary); font-size:0.8rem; margin-top:0.25rem;">{{ tls.tls_version or '-' }} · {{ tls.cipher_suite or '-' }}</div>
+                    </div>
+                    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
+                        <span class="status-badge" style="color: {% if tls.cert_status == 'Expired' %}var(--danger){% elif tls.cert_status == 'Expiring Soon' %}var(--warn){% else %}var(--safe){% endif %};">{{ tls.cert_status or 'Unknown' }}</span>
+                        <span class="status-badge">{{ tls.key_length or spki.get('subject_public_key_bits') or 'N/A' }} BIT KEY</span>
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:0.75rem;">
+                    <div class="glass-card" style="padding:0.9rem; border:1px solid var(--border-subtle);">
+                        <div style="font-size:0.68rem; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.35rem;">Issued To</div>
+                        <div style="font-size:0.82rem; line-height:1.45; color:var(--text-primary);">
+                            CN: {{ issued_to.get('common_name') or tls.subject_cn or '-' }}<br>
+                            O: {{ issued_to.get('organization') or tls.subject_o or '-' }}<br>
+                            OU: {{ issued_to.get('organizational_unit') or tls.subject_ou or '-' }}
+                        </div>
+                    </div>
+                    <div class="glass-card" style="padding:0.9rem; border:1px solid var(--border-subtle);">
+                        <div style="font-size:0.68rem; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.35rem;">Issued By</div>
+                        <div style="font-size:0.82rem; line-height:1.45; color:var(--text-primary);">
+                            CN: {{ issued_by.get('common_name') or tls.issuer_cn or '-' }}<br>
+                            O: {{ issued_by.get('organization') or tls.issuer_o or '-' }}<br>
+                            OU: {{ issued_by.get('organizational_unit') or tls.issuer_ou or '-' }}
+                        </div>
+                    </div>
+                    <div class="glass-card" style="padding:0.9rem; border:1px solid var(--border-subtle);">
+                        <div style="font-size:0.68rem; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.35rem;">Validity</div>
+                        <div style="font-size:0.82rem; line-height:1.45; color:var(--text-primary);">
+                            Issued: {{ vf }}<br>
+                            Expires: {{ vt }}<br>
+                            Days Left: {{ tls.get('days_remaining') if tls.get('days_remaining') is not none else 'N/A' }}
+                        </div>
+                    </div>
+                    <div class="glass-card" style="padding:0.9rem; border:1px solid var(--border-subtle);">
+                        <div style="font-size:0.68rem; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.35rem;">Fingerprints</div>
+                        <div style="font-size:0.72rem; line-height:1.45; color:var(--text-primary); word-break:break-all;">
+                            Cert: <code>{{ cert_fp }}</code><br>
+                            Pub: <code>{{ pub_fp }}</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+            <div style="color:var(--text-secondary);">No TLS/Certificate data available for this scan.</div>
+        {% endif %}
+    </div>
+
+    <div class="glass-card" id="scan-history-same-target" style="padding:1rem;">
+        <h2 style="margin:0 0 0.75rem 0; font-size:1rem; text-transform:uppercase; letter-spacing:1px;">Previous Scan History (Same Domain / Host / IP)</h2>
+        {% if report.related_scan_history %}
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+            {% for hs in report.related_scan_history %}
+            <div class="glass-card" style="padding:0.95rem 1rem; border:1px solid var(--border-subtle);">
+                <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
+                    <div>
+                        <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted);">Scan ID</div>
+                        <div style="font-family:monospace; font-size:0.88rem; margin-top:0.2rem;">{{ hs.scan_id }}</div>
+                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.3rem;">{{ hs.target or report.target }}</div>
+                    </div>
+                    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
+                        <span class="status-badge">{{ hs.status|upper }}</span>
+                        <span class="status-badge">PQC {{ hs.overall_pqc_score }}</span>
+                        <span class="status-badge">COMPLIANCE {{ hs.compliance_score }}</span>
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:0.75rem; margin-top:0.75rem;">
+                    <div>
+                        <div style="font-size:0.68rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted);">Started</div>
+                        <div style="font-size:0.82rem; margin-top:0.2rem;">{{ hs.started_at or '-' }}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.68rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted);">Completed</div>
+                        <div style="font-size:0.82rem; margin-top:0.2rem;">{{ hs.completed_at or '-' }}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.68rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted);">Assets</div>
+                        <div style="font-size:0.82rem; margin-top:0.2rem;">{{ hs.total_assets }}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.68rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted);">Open</div>
+                        <div style="margin-top:0.2rem;"><a href="/results/{{ hs.scan_id }}" class="button ghost sm" style="padding:0.25rem 0.55rem;">View</a></div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+            <div style="color:var(--text-secondary);">No previous scans found for this target yet.</div>
+        {% endif %}
+    </div>
+
+    <div class="glass-card" style="padding:1rem;">
+        <h2 style="margin:0 0 0.75rem 0; font-size:1rem; text-transform:uppercase; letter-spacing:1px;">Mitigations</h2>
+        {% if report.recommendations_detailed %}
+            {% for rec in report.recommendations_detailed %}
+            <div style="padding:0.65rem 0; border-top:1px solid var(--border-subtle);">
+                <strong>{{ rec.title or rec.get('title') or 'Recommendation' }}</strong>
+                <div style="font-size:0.8rem; color: var(--text-secondary); margin-top:0.35rem;">{{ rec.description or rec.get('description') }}</div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="color: var(--text-secondary);">No mitigation recommendations found for this scan.</div>
+        {% endif %}
+    </div>
 </section>
 
 <!-- Actions -->

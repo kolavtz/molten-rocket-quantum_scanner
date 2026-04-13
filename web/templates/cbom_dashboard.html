@@ -16,7 +16,7 @@
   </div>
 
   <!-- ── Tab Bar ────────────────────────────────────────── -->
-  <nav class="cbom-tabs" role="tablist">
+  <nav class="cbom-tabs" role="tablist" style="display:none;">
     <button class="cbom-tab active" data-tab="overview"    onclick="switchTab('overview')"    role="tab">Overview</button>
     <button class="cbom-tab"        data-tab="ssltls"      onclick="switchTab('ssltls')"      role="tab">SSL / TLS</button>
     <button class="cbom-tab"        data-tab="findings"    onclick="switchTab('findings')"    role="tab">Findings</button>
@@ -67,6 +67,23 @@
     <!-- Search + Table Controls -->
     <div class="table-toolbar">
       <input type="text" id="cbomSearchInput" class="cbom-search" placeholder="Search asset, CA, cipher…" onkeydown="if(event.key==='Enter')doSearch()">
+      <select id="cbomSortField" class="asset-select" style="min-width:170px" onchange="applyTableControls()">
+        <option value="asset_name">Sort: Asset</option>
+        <option value="key_length">Sort: Key Length</option>
+        <option value="tls_version">Sort: Protocol</option>
+        <option value="cipher_suite">Sort: Cipher</option>
+        <option value="ca">Sort: CA / Issuer</option>
+        <option value="valid_until" selected>Sort: Expires</option>
+      </select>
+      <select id="cbomSortOrder" class="asset-select" style="min-width:120px" onchange="applyTableControls()">
+        <option value="asc" selected>Asc</option>
+        <option value="desc">Desc</option>
+      </select>
+      <select id="cbomPageSize" class="asset-select" style="min-width:120px" onchange="applyTableControls()">
+        <option value="10">10 / page</option>
+        <option value="25" selected>25 / page</option>
+        <option value="50">50 / page</option>
+      </select>
       <button class="btn-primary" onclick="doSearch()">Search</button>
       <span class="table-meta" id="tableMeta"></span>
     </div>
@@ -89,6 +106,12 @@
       <button id="prevBtn" class="btn-ghost" onclick="changePage(-1)" disabled>&#8592; Prev</button>
       <span id="pagerInfo" class="pager-info"></span>
       <button id="nextBtn" class="btn-ghost" onclick="changePage(1)"  disabled>Next &#8594;</button>
+    </div>
+
+    <div class="cbom-selected-panel" id="cbomSelectedPanel">
+      <div id="cbomSelectedDetails" class="table-loading" style="min-height: 140px; display:flex; align-items:center; justify-content:center; text-align:center;">
+        Select a CBOM row to inspect the certificate and linked scan details.
+      </div>
     </div>
   </section>
 
@@ -294,6 +317,23 @@
 .table-loading { text-align:center; color:var(--c-muted); padding:2rem; }
 .empty-state-row td { text-align:center; color:var(--c-muted); padding:3rem; }
 
+/* Selected CBOM details */
+.cbom-selected-panel { margin-top:1.25rem; background:var(--c-surface); backdrop-filter:var(--glass); border:1px solid var(--c-border); border-radius:var(--radius); padding:1.25rem; }
+.cbom-detail-shell { display:flex; flex-direction:column; gap:1rem; }
+.cbom-detail-hero { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap; }
+.cbom-detail-kicker { font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; color:var(--c-muted); margin-bottom:.25rem; }
+.cbom-detail-title { margin:0; font-size:1.05rem; color:var(--c-text); }
+.cbom-detail-subtitle { margin:.25rem 0 0; color:var(--c-muted); font-size:.82rem; }
+.cbom-detail-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
+.cbom-detail-metrics { display:flex; flex-wrap:wrap; gap:.5rem; }
+.cbom-detail-chip { padding:.35rem .65rem; border-radius:999px; font-size:.75rem; color:var(--c-text); background:rgba(148,163,184,.12); border:1px solid rgba(148,163,184,.2); }
+.cbom-detail-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:.75rem; }
+.cbom-detail-item { padding:.8rem .9rem; border:1px solid rgba(148,163,184,.16); border-radius:10px; background:rgba(255,255,255,.03); display:flex; flex-direction:column; gap:.25rem; }
+.cbom-detail-label { font-size:.68rem; text-transform:uppercase; letter-spacing:.08em; color:var(--c-muted); }
+.cbom-detail-value { font-size:.88rem; color:var(--c-text); word-break:break-word; }
+.cbom-scan-strip { display:flex; gap:.5rem; flex-wrap:wrap; }
+.cbom-scan-badge { padding:.28rem .6rem; border:1px solid rgba(56,189,248,.35); border-radius:999px; font-size:.7rem; color:var(--c-accent); background:rgba(56,189,248,.08); }
+
 /* Pager */
 .pager { display:flex; align-items:center; gap:1rem; justify-content:center; margin-top:1rem; }
 .pager-info { font-size:.83rem; color:var(--c-muted); }
@@ -383,6 +423,8 @@
 .x509-row { display:flex; gap:.5rem; padding:.2rem 0; border-bottom:1px solid var(--c-border); }
 .x509-key { width:200px; flex-shrink:0; color:var(--c-muted); }
 .x509-val { color:var(--c-text); word-break:break-all; font-family:monospace; }
+.x509-wrap { max-height:0; overflow:hidden; transition:max-height .28s ease, opacity .24s ease, margin-top .2s ease; opacity:0; margin-top:0; }
+.x509-wrap.expanded { opacity:1; margin-top:.5rem; }
 
 @media(max-width:1024px){
   .kpi-grid   { grid-template-columns:repeat(3,1fr); }
@@ -393,6 +435,14 @@
   .kpi-grid   { grid-template-columns:1fr 1fr; }
   .charts-row { grid-template-columns:1fr; }
   .cbom-page  { padding:1rem; }
+  .table-toolbar { display:grid; grid-template-columns:1fr; }
+  .table-toolbar .asset-select,
+  .table-toolbar .btn-primary,
+  .table-toolbar .cbom-search { width:100%; max-width:100%; }
+  .table-meta { margin-left:0; }
+  .cbom-table { font-size:.8rem; }
+  .cbom-table th, .cbom-table td { padding:.55rem .6rem; }
+  .cbom-detail-grid { grid-template-columns:1fr; }
 }
 </style>
 
@@ -403,8 +453,14 @@
 // ── State ────────────────────────────────────────────────
 let cbomPage = 1;
 let cbomSearch = '';
+let cbomPageSize = 25;
+let cbomSortField = 'valid_until';
+let cbomSortOrder = 'asc';
 let cbomHasNext = false;
 let cbomHasPrev = false;
+let cbomCurrentRows = [];
+let cbomSelectedIndex = -1;
+let cbomExpandedIndex = -1;
 
 // ── Utilities ─────────────────────────────────────────────
 const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -443,7 +499,7 @@ async function syncCbom() {
     fetch(`/api/cbom/metrics`),
     // Bug fix: /api/cbom/charts now exists as a standalone route
     fetch(`/api/cbom/charts`),
-    fetch(`/api/cbom/entries?page=${cbomPage}&page_size=25&search=${encodeURIComponent(cbomSearch)}`),
+    fetch(`/api/cbom/entries?page=${cbomPage}&page_size=${cbomPageSize}&sort=${encodeURIComponent(cbomSortField)}&order=${encodeURIComponent(cbomSortOrder)}&search=${encodeURIComponent(cbomSearch)}`),
   ]);
 
   if (metricsRes.status === 'fulfilled') {
@@ -467,7 +523,7 @@ async function syncCbom() {
     const r = await entriesRes.value.json().catch(()=>({}));
     if (r.success) {
       renderEntries(r.data?.items || []);
-      updatePager(r.data?.total || 0, cbomPage, 25);
+      updatePager(r.data?.total || 0, cbomPage, cbomPageSize);
     }
   } else {
     document.getElementById('cbomTableBody').innerHTML =
@@ -547,16 +603,38 @@ function renderCiphers(usage) {
 // ── Entries Table ─────────────────────────────────────────
 function renderEntries(items) {
   const tbody = document.getElementById('cbomTableBody');
+  cbomCurrentRows = Array.isArray(items) ? items : [];
+  cbomSelectedIndex = -1;
+  cbomExpandedIndex = -1;
   if (!items.length) {
     tbody.innerHTML = '<tr class="empty-state-row"><td colspan="8">No CBOM entries found. Run a scan to populate inventory.</td></tr>';
+    const selected = document.getElementById('cbomSelectedDetails');
+    if (selected) {
+      selected.textContent = 'Select a CBOM row to inspect the certificate and linked scan details.';
+    }
     return;
   }
   tbody.innerHTML = items.map((row, i) => {
     const detailsId = `x509-${i}`;
     const cd = row.certificate_details || {};
+    const x509 = row.x509_minimum || {};
+    const issuedTo = x509.issued_to || {};
+    const issuedBy = x509.issued_by || {};
+    const validityMin = x509.validity_period || {};
+    const fpMin = x509.sha256_fingerprints || {};
     const spki = cd.subject_public_key_info || {};
     const validity = cd.validity || {};
     const x509rows = [
+      ['Subject CN', issuedTo.common_name],
+      ['Subject O', issuedTo.organization],
+      ['Subject OU', issuedTo.organizational_unit],
+      ['Issuer CN', issuedBy.common_name],
+      ['Issuer O', issuedBy.organization],
+      ['Issuer OU', issuedBy.organizational_unit],
+      ['Issued On', validityMin.issued_on],
+      ['Expires On', validityMin.expires_on],
+      ['Certificate SHA-256', fpMin.certificate],
+      ['Public Key SHA-256', fpMin.public_key],
       ['Version', cd.certificate_version],
       ['Serial', cd.serial_number],
       ['Signature Algorithm', cd.certificate_signature_algorithm],
@@ -591,11 +669,117 @@ function renderEntries(items) {
       <td>${esc(row.ca || row.issuer_cn || '—')}</td>
       <td>${fmtDate(row.valid_until)}</td>
       <td>
-        <button class="btn-ghost view-x509-btn" data-asset-id="${row.asset_id||''}" data-cert-fp="${esc(cd.fingerprint_sha256)}" onclick="openCertModal('${detailsId}', this.dataset.assetId, this.dataset.certFp)" style="cursor:pointer;color:var(--c-accent);font-size:.78rem">View X.509</button>
-        <div id="${detailsId}-wrap" class="x509-wrap" style="display:none">${x509Html}</div>
+        <button id="cbomDetailBtn-${i}" class="btn-ghost view-x509-btn" data-entry-index="${i}" onclick="showEntryDetails(${i})" style="cursor:pointer;color:var(--c-accent);font-size:.78rem">View Details</button>
+        <button class="btn-ghost" onclick="openScanResult('${esc(row.scan_id || '')}')" style="cursor:pointer;color:var(--c-success);font-size:.78rem;margin-left:.35rem">Open Scan</button>
+        <div id="${detailsId}-wrap" class="x509-wrap">${x509Html}</div>
       </td>
     </tr>`;
   }).join('');
+
+  if (cbomCurrentRows.length) {
+    showEntryDetails(0, { scroll: false });
+  }
+}
+
+function buildEntryDetailsMarkup(row) {
+  const cd = row.certificate_details || {};
+  const x509 = row.x509_minimum || {};
+  const issuedTo = x509.issued_to || {};
+  const issuedBy = x509.issued_by || {};
+  const validityMin = x509.validity_period || {};
+  const fpMin = x509.sha256_fingerprints || {};
+  const spki = cd.subject_public_key_info || {};
+  const details = [
+    ['Subject CN', issuedTo.common_name || row.subject_cn || '—'],
+    ['Subject O', issuedTo.organization || row.subject_o || '—'],
+    ['Subject OU', issuedTo.organizational_unit || row.subject_ou || '—'],
+    ['Issuer CN', issuedBy.common_name || row.issuer_cn || '—'],
+    ['Issuer O', issuedBy.organization || row.issuer_o || '—'],
+    ['Issuer OU', issuedBy.organizational_unit || row.issuer_ou || '—'],
+    ['Valid From', validityMin.issued_on || row.valid_from || '—'],
+    ['Expires On', validityMin.expires_on || row.valid_until || '—'],
+    ['Certificate SHA-256', fpMin.certificate || row.fingerprint_sha256 || '—'],
+    ['Public Key SHA-256', fpMin.public_key || spki.public_key_fingerprint_sha256 || '—'],
+    ['Key Algorithm', row.public_key_type || spki.subject_public_key_algorithm || '—'],
+    ['Key Length', row.key_length ? `${row.key_length} bits` : (spki.subject_public_key_bits ? `${spki.subject_public_key_bits} bits` : '—')],
+    ['TLS Version', row.tls_version || '—'],
+    ['Cipher Suite', row.cipher_suite || '—'],
+    ['Last Scan', row.last_scan || row.valid_until || '—'],
+  ];
+
+  return `
+    <div class="cbom-detail-shell">
+      <div class="cbom-detail-hero">
+        <div>
+          <div class="cbom-detail-kicker">Selected CBOM row</div>
+          <h3 class="cbom-detail-title">${esc(row.asset_name || 'Unknown asset')}</h3>
+          <p class="cbom-detail-subtitle">${esc(row.endpoint || row.subject_cn || 'TLS / X.509 certificate details')}</p>
+          <div class="cbom-scan-strip" style="margin-top:.5rem;">
+            <span class="cbom-scan-badge">Scan: ${esc(row.scan_id || 'N/A')}</span>
+            <span class="cbom-scan-badge">Asset ID: ${esc(row.asset_id || 'N/A')}</span>
+            <span class="cbom-scan-badge">Expires: ${esc(row.valid_until || 'N/A')}</span>
+          </div>
+        </div>
+        <div class="cbom-detail-actions">
+          <button class="btn-ghost" type="button" onclick="openScanResult('${esc(row.scan_id || '')}')">Open Scan Result</button>
+          <a class="btn-primary" href="/cbom/${esc(row.scan_id || '')}" download>Download CBOM JSON</a>
+        </div>
+      </div>
+      <div class="cbom-detail-metrics">
+        <div class="cbom-detail-chip">${esc(row.cert_status || 'Unknown status')}</div>
+        <div class="cbom-detail-chip">${esc(row.tls_version || 'Unknown TLS')}</div>
+        <div class="cbom-detail-chip">${esc(row.key_length ? `${row.key_length} bit key` : 'Key length unavailable')}</div>
+        <div class="cbom-detail-chip">${esc(row.ca || row.issuer_cn || 'Unknown CA / issuer')}</div>
+      </div>
+      <div class="cbom-detail-grid">
+        ${details.map(([label, value]) => `
+          <div class="cbom-detail-item">
+            <span class="cbom-detail-label">${esc(label)}</span>
+            <span class="cbom-detail-value">${esc(value)}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+function showEntryDetails(index, opts = {}) {
+  const row = cbomCurrentRows[index];
+  if (!row) return;
+  cbomSelectedIndex = index;
+  const panel = document.getElementById('cbomSelectedDetails');
+  if (!panel) return;
+  panel.innerHTML = buildEntryDetailsMarkup(row);
+  toggleInlineX509Drawer(index);
+  if (opts.scroll !== false) {
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function toggleInlineX509Drawer(index) {
+  const wrappers = document.querySelectorAll('.x509-wrap');
+  wrappers.forEach((el) => {
+    el.classList.remove('expanded');
+    el.style.maxHeight = '0px';
+  });
+
+  const buttons = document.querySelectorAll('.view-x509-btn');
+  buttons.forEach((btn) => {
+    if (btn && btn.id && btn.id.startsWith('cbomDetailBtn-')) btn.textContent = 'View Details';
+  });
+
+  if (cbomExpandedIndex === index) {
+    cbomExpandedIndex = -1;
+    return;
+  }
+
+  const wrap = document.getElementById(`x509-${index}-wrap`);
+  if (!wrap) return;
+  wrap.classList.add('expanded');
+  wrap.style.maxHeight = `${Math.max(140, wrap.scrollHeight + 12)}px`;
+  cbomExpandedIndex = index;
+
+  const selectedBtn = document.getElementById(`cbomDetailBtn-${index}`);
+  if (selectedBtn) selectedBtn.textContent = 'Collapse';
 }
 
 // ── Pager ─────────────────────────────────────────────────
@@ -614,6 +798,21 @@ function updatePager(total, page, pageSize) {
 
 function changePage(dir) { cbomPage = Math.max(1, cbomPage + dir); syncCbom(); }
 function doSearch() { cbomSearch = document.getElementById('cbomSearchInput').value; cbomPage = 1; syncCbom(); }
+function applyTableControls() {
+  cbomSortField = document.getElementById('cbomSortField').value || 'valid_until';
+  cbomSortOrder = document.getElementById('cbomSortOrder').value || 'asc';
+  cbomPageSize = parseInt(document.getElementById('cbomPageSize').value || '25', 10) || 25;
+  cbomPage = 1;
+  syncCbom();
+}
+function openScanResult(scanId) {
+  const sid = String(scanId || '').trim();
+  if (!sid) {
+    alert('No linked scan available for this row yet.');
+    return;
+  }
+  window.location.href = `/results/${encodeURIComponent(sid)}`;
+}
 
 // ── Export ────────────────────────────────────────────────
 async function exportCbom() {

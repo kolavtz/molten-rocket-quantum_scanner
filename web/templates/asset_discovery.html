@@ -190,6 +190,50 @@
         color: var(--text-muted);
         font-size: 0.72rem;
     }
+
+    .cluster-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 0.66rem;
+        font-weight: 700;
+        color: var(--accent);
+        background: rgba(0, 255, 204, 0.08);
+        border: 1px solid rgba(0, 255, 204, 0.2);
+        margin-top: 0.25rem;
+    }
+
+    .cluster-group-row td {
+        background: rgba(255, 255, 255, 0.025);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        color: var(--text-secondary);
+        font-size: 0.72rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        padding: 0.5rem 0.75rem;
+    }
+
+    .discovery-inventory-strip {
+        margin-bottom: 1rem;
+        display: flex;
+        gap: 0.65rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .discovery-inventory-strip .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border: 1px solid var(--border-subtle);
+        border-radius: 999px;
+        padding: 0.28rem 0.65rem;
+        font-size: 0.68rem;
+        color: var(--text-secondary);
+        background: rgba(255,255,255,0.03);
+    }
 </style>
 {% endblock %}
 
@@ -250,6 +294,12 @@
             </select>
         </div>
 
+        <div class="discovery-inventory-strip" id="inventoryStrip">
+            <span class="chip"><i class="fa-solid fa-layer-group"></i> Clustering by source target / scan origin</span>
+            <span class="chip" id="inventoryStripPending">Pending additions: --</span>
+            <span class="chip" id="inventoryStripCluster">Clusters in view: --</span>
+        </div>
+
         <!-- Tables -->
         <div id="tab-domains" class="discovery-tab-content">
             <div class="table-scroll">
@@ -258,10 +308,11 @@
                         <tr>
                             <th>Discovery Date</th>
                             <th>Domain Name</th>
+                            <th>Cluster</th>
                             <th>Registrar</th>
                             <th>Company</th>
                             <th>Status</th>
-                            <th>Inventory</th>
+                            <th>Add to Inventory</th>
                         </tr>
                     </thead>
                     <tbody id="domainsTableBody"></tbody>
@@ -276,10 +327,11 @@
                         <tr>
                             <th>Fingerprint</th>
                             <th>Common Name</th>
+                            <th>Cluster</th>
                             <th>Valid From</th>
                             <th>Issuer</th>
                             <th>Status</th>
-                            <th>Actions</th>
+                            <th>Add to Inventory</th>
                         </tr>
                     </thead>
                     <tbody id="sslTableBody"></tbody>
@@ -293,11 +345,12 @@
                     <thead>
                         <tr>
                             <th>IP Address</th>
+                            <th>Cluster</th>
                             <th>Ports</th>
                             <th>Subnet</th>
                             <th>Location</th>
                             <th>Status</th>
-                            <th>Actions</th>
+                            <th>Add to Inventory</th>
                         </tr>
                     </thead>
                     <tbody id="ipTableBody"></tbody>
@@ -311,11 +364,12 @@
                     <thead>
                         <tr>
                             <th>Product</th>
+                            <th>Cluster</th>
                             <th>Version</th>
                             <th>Type</th>
                             <th>Host</th>
                             <th>Status</th>
-                            <th>Actions</th>
+                            <th>Add to Inventory</th>
                         </tr>
                     </thead>
                     <tbody id="softwareTableBody"></tbody>
@@ -397,10 +451,10 @@
     let graphDirection = 'LR';
 
     const TAB_META = {
-        domains: { apiTab: 'domains', bodyId: 'domainsTableBody' },
-        ssl: { apiTab: 'ssl', bodyId: 'sslTableBody' },
-        ip: { apiTab: 'ips', bodyId: 'ipTableBody' },
-        software: { apiTab: 'software', bodyId: 'softwareTableBody' }
+        domains: { apiTab: 'domains', bodyId: 'domainsTableBody', colSpan: 7 },
+        ssl: { apiTab: 'ssl', bodyId: 'sslTableBody', colSpan: 7 },
+        ip: { apiTab: 'ips', bodyId: 'ipTableBody', colSpan: 7 },
+        software: { apiTab: 'software', bodyId: 'softwareTableBody', colSpan: 7 }
     };
 
     function csrfToken() {
@@ -442,12 +496,18 @@
         return `<button class="inventory-status-chip status-pending js-promote-discovery" data-tab="${escapeHtml(tabKey)}" data-id="${escapeHtml(row.id)}">Add to Inventory</button>`;
     }
 
+    function clusterChip(row) {
+        const label = row.cluster_label || row.cluster_key || 'unclustered';
+        return `<span class="cluster-chip"><i class="fa-solid fa-diagram-project"></i> ${escapeHtml(label)}</span>`;
+    }
+
     function rowMarkup(tabKey, row) {
         if (tabKey === 'domains') {
             return `
                 <tr data-asset-id="${escapeHtml(row.asset_id || '')}">
                     <td style="font-size:0.75rem;">${escapeHtml(row.detection_date || '--')}</td>
                     <td><div style="font-weight:600;">${escapeHtml(row.domain_name || row.identifier || '--')}</div></td>
+                    <td>${clusterChip(row)}</td>
                     <td style="font-size:0.75rem;">${escapeHtml(row.registrar || '--')}</td>
                     <td style="font-size:0.75rem;">${escapeHtml(row.asset_name || '--')}</td>
                     <td>${statusPill(row.status)}</td>
@@ -460,6 +520,7 @@
                 <tr data-asset-id="${escapeHtml(row.asset_id || '')}">
                     <td style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-secondary);">${escapeHtml(fingerprint ? `${fingerprint.slice(0, 20)}…` : '--')}</td>
                     <td><div style="font-weight:600;">${escapeHtml(row.subject_cn || row.asset_name || '--')}</div></td>
+                    <td>${clusterChip(row)}</td>
                     <td style="font-size:0.75rem;">${escapeHtml(row.valid_until || '--')}</td>
                     <td style="font-size:0.75rem;">${escapeHtml(row.issuer || '--')}</td>
                     <td>${statusPill(row.status)}</td>
@@ -470,6 +531,7 @@
             return `
                 <tr data-asset-id="${escapeHtml(row.asset_id || '')}">
                     <td><div style="font-weight:600;">${escapeHtml(row.ip_address || row.identifier || '--')}</div><div style="font-size:0.65rem; color:var(--text-muted);">${escapeHtml(row.asn || '--')}</div></td>
+                    <td>${clusterChip(row)}</td>
                     <td style="font-size:0.75rem;">--</td>
                     <td style="font-size:0.75rem;">${escapeHtml(row.subnet || '--')}</td>
                     <td style="font-size:0.75rem;">${escapeHtml(row.location || '--')}</td>
@@ -480,6 +542,7 @@
         return `
             <tr data-asset-id="${escapeHtml(row.asset_id || '')}">
                 <td><div style="font-weight:600;">${escapeHtml(row.product || row.identifier || '--')}</div></td>
+                <td>${clusterChip(row)}</td>
                 <td style="font-size:0.75rem;">${escapeHtml(row.version || '--')}</td>
                 <td style="font-size:0.75rem;">${escapeHtml(row.category || '--')}</td>
                 <td style="font-size:0.75rem;">${escapeHtml(row.asset_name || '--')}</td>
@@ -488,10 +551,34 @@
             </tr>`;
     }
 
-    function setTableState(bodyId, message, type = 'normal') {
+    function setTableState(bodyId, message, type = 'normal', colSpan = 7) {
         const tbody = document.getElementById(bodyId);
         if (!tbody) return;
-        tbody.innerHTML = `<tr><td colspan="6" class="table-state ${type === 'error' ? 'error' : ''}">${escapeHtml(message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${colSpan}" class="table-state ${type === 'error' ? 'error' : ''}">${escapeHtml(message)}</td></tr>`;
+    }
+
+    function groupedRowsMarkup(tabKey, items) {
+        let lastCluster = null;
+        const html = [];
+        for (const row of items) {
+            const cluster = String(row.cluster_label || row.cluster_key || 'unclustered');
+            if (cluster !== lastCluster) {
+                html.push(`<tr class="cluster-group-row"><td colspan="7">Cluster · ${escapeHtml(cluster)}</td></tr>`);
+                lastCluster = cluster;
+            }
+            html.push(rowMarkup(tabKey, row));
+        }
+        return html.join('');
+    }
+
+    function updateInventoryStrip(items) {
+        const pendingEl = document.getElementById('inventoryStripPending');
+        const clusterEl = document.getElementById('inventoryStripCluster');
+        if (!pendingEl || !clusterEl) return;
+        const pendingCount = items.filter((row) => !(row.promoted || row.asset_id)).length;
+        const clusterSet = new Set(items.map((row) => String(row.cluster_label || row.cluster_key || 'unclustered')));
+        pendingEl.textContent = `Pending additions: ${pendingCount}`;
+        clusterEl.textContent = `Clusters in view: ${clusterSet.size}`;
     }
 
     function updatePagerMeta(total, page, pageSize) {
@@ -527,7 +614,7 @@
 
         const search = document.getElementById('globalSearch')?.value || '';
         const pageSize = Number(document.getElementById('pageSizeSelect')?.value || 25);
-        setTableState(tabMeta.bodyId, 'Loading data…');
+        setTableState(tabMeta.bodyId, 'Loading data…', 'normal', tabMeta.colSpan || 7);
 
         try {
             const params = new URLSearchParams({
@@ -551,14 +638,22 @@
             const data = payload.data || {};
             let items = Array.isArray(data.items) ? data.items : [];
             items = applyClientFilters(items);
+            items = items.sort((a, b) => {
+                const ca = String(a.cluster_label || a.cluster_key || '').toLowerCase();
+                const cb = String(b.cluster_label || b.cluster_key || '').toLowerCase();
+                if (ca < cb) return -1;
+                if (ca > cb) return 1;
+                return String(b.detection_date || '').localeCompare(String(a.detection_date || ''));
+            });
             const tbody = document.getElementById(tabMeta.bodyId);
             if (!tbody) return;
 
             if (!items.length) {
-                setTableState(tabMeta.bodyId, 'No discoveries found for this filter. Run a scan to populate data.');
+                setTableState(tabMeta.bodyId, 'No discoveries found for this filter. Run a scan to populate data.', 'normal', tabMeta.colSpan || 7);
             } else {
-                tbody.innerHTML = items.map((row) => rowMarkup(activeTab, row)).join('');
+                tbody.innerHTML = groupedRowsMarkup(activeTab, items);
             }
+            updateInventoryStrip(items);
 
             hasNextPage = Boolean(data.page && data.total_pages && data.page < data.total_pages);
             hasPrevPage = Boolean(data.page && data.page > 1);
@@ -567,7 +662,7 @@
             hasNextPage = false;
             hasPrevPage = currentPage > 1;
             updatePagerMeta(0, currentPage, Number(document.getElementById('pageSizeSelect')?.value || 25));
-            setTableState(tabMeta.bodyId, err.message || 'Error loading discoveries.', 'error');
+            setTableState(tabMeta.bodyId, err.message || 'Error loading discoveries.', 'error', tabMeta.colSpan || 7);
         }
     }
 

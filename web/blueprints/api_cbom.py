@@ -184,6 +184,7 @@ def get_cbom_entries():
             items.append({
                 "asset_id": row.get("asset_id"),
                 "asset_name": row.get("asset_name"),
+                "scan_id": row.get("scan_id"),
                 "cert_status": row.get("cert_status"),
                 "is_current": row.get("is_current", False),
                 "key_length": row.get("key_length"),
@@ -199,6 +200,7 @@ def get_cbom_entries():
                 "last_seen_at": row.get("last_seen_at"),
                 "fingerprint_sha256": row.get("fingerprint_sha256"),
                 "certificate_details": row.get("certificate_details"),
+                "x509_minimum": row.get("x509_minimum"),
                 "last_scan": last_scan,
             })
 

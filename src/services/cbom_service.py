@@ -965,6 +965,7 @@ class CbomService:
                     ),
                     "certificate_details": certificate_details,
                     "x509_minimum": x509_minimum,
+                        "scan_id": str(getattr(scan, "scan_id", "") or ""),
                     "last_scan": (
                         getattr(scan, "scanned_at", None)
                         or getattr(scan, "completed_at", None)
@@ -1022,6 +1023,11 @@ class CbomService:
 
                 valid_until = getattr(dssl, "valid_until", None)
                 valid_from = None
+                resolved_valid_from = (
+                    str(report_row.get("valid_from") or "").strip()
+                    or str((report_certificate_details.get("validity") or {}).get("not_before") or "").strip()
+                    or None
+                )
                 resolved_valid_until = valid_until.isoformat() if hasattr(valid_until, "isoformat") and valid_until else None
                 if not resolved_valid_until:
                     resolved_valid_until = (
@@ -1052,7 +1058,7 @@ class CbomService:
                     "certificate_signature": "",
                     "issuer": issuer_value,
                     "validity": {
-                        "not_before": str(report_row.get("valid_from") or ""),
+                        "not_before": resolved_valid_from or "",
                         "not_after": resolved_valid_until or "",
                     },
                     "subject": subject_cn_value,
@@ -1102,7 +1108,7 @@ class CbomService:
                     issuer_cn="",
                     issuer_o=issuer_value,
                     issuer_ou="",
-                    valid_from="",
+                    valid_from=resolved_valid_from or "",
                     valid_until=resolved_valid_until or "",
                     cert_fingerprint_sha256=resolved_fingerprint,
                     public_key_fingerprint_sha256=resolved_public_key_fingerprint,
@@ -1129,12 +1135,15 @@ class CbomService:
                         "issuer_cn": "",
                         "issuer_o": "",
                         "issuer_ou": "",
-                        "valid_from": valid_from.isoformat() if hasattr(valid_from, "isoformat") and valid_from else None,
+                        "valid_from": (
+                            valid_from.isoformat() if hasattr(valid_from, "isoformat") and valid_from else resolved_valid_from
+                        ),
                         "valid_until": resolved_valid_until,
                         "fingerprint_sha256": resolved_fingerprint,
                         "cert_status": resolved_cert_status,
                         "certificate_details": merged_certificate_details,
                         "x509_minimum": x509_minimum,
+                        "scan_id": str(getattr(scan, "scan_id", "") or ""),
                         "last_scan": (
                             getattr(scan, "scanned_at", None)
                             or getattr(scan, "completed_at", None)

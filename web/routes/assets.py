@@ -85,6 +85,29 @@ def _normalize_target(raw_target: str) -> str:
     return target
 
 
+def _derive_cluster_label(value: str) -> str:
+    seed = _normalize_target(value)
+    if not seed:
+        return "unclustered"
+
+    try:
+        ip_obj = ipaddress.ip_address(seed)
+        if isinstance(ip_obj, ipaddress.IPv4Address):
+            parts = seed.split(".")
+            if len(parts) == 4:
+                return f"{parts[0]}.{parts[1]}.{parts[2]}.0/24"
+        if isinstance(ip_obj, ipaddress.IPv6Address):
+            return f"{seed[:19]}::/64"
+        return seed
+    except ValueError:
+        pass
+
+    labels = [label for label in seed.split(".") if label]
+    if len(labels) >= 2:
+        return ".".join(labels[-2:])
+    return seed
+
+
 def _asset_match_keys(asset: Asset) -> set[str]:
     """Build canonical matching keys so duplicate/legacy asset rows can be deleted together."""
     keys: set[str] = set()
@@ -282,6 +305,7 @@ def _decorate_asset_rows(rows: list[dict], csrf_token: str) -> list[dict]:
             {
                 **row,
                 "select_html": f'<input type="checkbox" class="asset-select-checkbox" name="asset_ids" value="{escape(str(row.get("id") or ""))}" data-row-checkbox>',
+                "cluster_label": row.get("cluster_label") or _derive_cluster_label(str(row.get("name") or row.get("target") or row.get("url") or row.get("ipv4") or "")),
                 "risk_html": f'<span class="risk-pill risk-{escape(risk.lower())}">{escape(risk)}</span>',
                 "cert_status_html": f'<span class="cert-pill cert-{escape(cert_status.lower().replace(" ", "-"))}"{cert_title_attr}>{escape(cert_status)}</span>',
                 "actions_html": _make_action_html(row, csrf_token),
@@ -303,6 +327,7 @@ def _build_headers() -> list[dict]:
             "class_name": "select-column sticky-column",
         },
         {"label": "Asset Name", "field": "name", "sortable": True, "class_name": "asset-name-column"},
+        {"label": "Cluster", "field": "cluster_label", "sortable": True, "class_name": "cluster-column"},
         {"label": "URL", "field": "url", "sortable": True, "class_name": "url-column"},
         {"label": "Type", "field": "asset_type", "sortable": True},
         {"label": "Owner", "field": "owner", "sortable": True},
@@ -419,6 +444,7 @@ def _serialize_asset_api_row(row: dict[str, Any]) -> dict[str, Any]:
         "scan_status": str(row.get("scan_status") or "Never"),
         "scan_kind": str(row.get("scan_kind") or "N/A"),
         "scanned_by": str(row.get("scanned_by") or "N/A"),
+        "cluster_label": _derive_cluster_label(str(row.get("name") or row.get("asset_name") or row.get("target") or row.get("url") or row.get("ipv4") or "")),
         "ipv4": str(row.get("ipv4") or ""),
         "ipv6": str(row.get("ipv6") or ""),
         "tls_version": str(row.get("tls_version") or "Unknown"),
@@ -464,6 +490,7 @@ def build_assets_api_response(
         search=search,
         searchable_columns=[
             "name",
+            "cluster_label",
             "url",
             "asset_type",
             "owner",

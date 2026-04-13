@@ -58,6 +58,8 @@ def test_results_view_renders_and_shows_cbom(app_client, tmp_path):
         html = resp.data.decode("utf-8")
         assert "CBOM" in html
         assert "Download full CBOM JSON" in html
+        assert "SSL Certificate Details Captured in this Scan" in html
+        assert "Previous Scan History (Same Domain / Host / IP)" in html
         # Certificate serial should be visible in the certs tab content
         assert "1234" in html
         assert "example.test" in html

@@ -1279,6 +1279,19 @@ def _normalize_tls_result(raw_result: dict) -> dict:
     valid_to = _parse_cert_time(str(cert.get("not_after") or ""))
 
     certificate_details = cert.get("certificate_details") if isinstance(cert.get("certificate_details"), dict) else {}
+    spki = certificate_details.get("subject_public_key_info") if isinstance(certificate_details.get("subject_public_key_info"), dict) else {}
+    public_key_fp = str(spki.get("public_key_fingerprint_sha256") or "").strip()
+
+    issued_to = {
+        "common_name": subject_cn or "<Not Part Of Certificate>",
+        "organization": subject_o or "<Not Part Of Certificate>",
+        "organizational_unit": subject_ou or "<Not Part Of Certificate>",
+    }
+    issued_by = {
+        "common_name": issuer_cn or "<Not Part Of Certificate>",
+        "organization": issuer_o or "<Not Part Of Certificate>",
+        "organizational_unit": issuer_ou or "<Not Part Of Certificate>",
+    }
 
     return {
         "host": raw.get("host"),
@@ -1306,15 +1319,21 @@ def _normalize_tls_result(raw_result: dict) -> dict:
         "public_key_pem": str(cert.get("public_key_pem") or ""),
         "signature_algorithm": str(cert.get("signature_algorithm") or ""),
         "cert_sha256": str(cert.get("fingerprint_sha256") or ""),
+        "public_key_fingerprint_sha256": public_key_fp,
+        "certificate_sha256": str(cert.get("fingerprint_sha256") or ""),
         "san_domains": cert.get("san_domains") if isinstance(cert.get("san_domains"), list) else [],
         "certificate_details": certificate_details,
+        "issued_to": issued_to,
+        "issued_by": issued_by,
         "valid_from": valid_from,
         "valid_to": valid_to,
         "valid_from_dt": _parse_cert_datetime(str(cert.get("not_before") or "")),
         "valid_until_dt": _parse_cert_datetime(str(cert.get("not_after") or "")),
         "cert_days_remaining": cert_days,
+        "days_remaining": cert_days,
         "cert_expired": cert_expired,
         "cert_status": cert_status,
+        "cert_chain_length": int(raw.get("certificate_chain_length") or 0),
         "error": raw.get("error"),
     }
 
@@ -4750,6 +4769,68 @@ def results(scan_id: str):
     except Exception:
         # Don't fail view rendering because of sanitization issues
         pass
+
+    # Add previous scan history for the same target/host (real DB data only)
+    try:
+        from sqlalchemy import or_, func
+        from src.db import db_session
+        from src.models import Scan
+
+        report_target_raw = str(report.get("target") or "").strip()
+        report_target_norm = report_target_raw.lower()
+        history_items: list[dict[str, typing.Any]] = []
+
+        if report_target_norm:
+            scan_rows = (
+                db_session.query(Scan)
+                .filter(
+                    Scan.is_deleted == False,
+                    or_(
+                        func.lower(func.coalesce(Scan.normalized_target, "")) == report_target_norm,
+                        func.lower(func.coalesce(Scan.target, "")) == report_target_norm,
+                        func.lower(func.coalesce(Scan.requested_target, "")) == report_target_norm,
+                    ),
+                )
+                .order_by(func.coalesce(Scan.scanned_at, Scan.completed_at, Scan.started_at, Scan.created_at).desc())
+                .limit(25)
+                .all()
+            )
+
+            for row in scan_rows:
+                row_scan_id = str(getattr(row, "scan_id", "") or getattr(row, "scan_uid", "") or "").strip()
+                if not row_scan_id or row_scan_id == str(scan_id):
+                    continue
+
+                history_items.append(
+                    {
+                        "scan_id": row_scan_id,
+                        "target": str(getattr(row, "target", "") or getattr(row, "requested_target", "") or ""),
+                        "status": str(getattr(row, "status", "") or "unknown"),
+                        "started_at": getattr(row, "started_at", None).isoformat() if getattr(row, "started_at", None) else None,
+                        "completed_at": (
+                            getattr(row, "completed_at", None).isoformat()
+                            if getattr(row, "completed_at", None)
+                            else (
+                                getattr(row, "scanned_at", None).isoformat()
+                                if getattr(row, "scanned_at", None)
+                                else None
+                            )
+                        ),
+                        "total_assets": int(getattr(row, "total_assets", 0) or 0),
+                        "compliance_score": float(getattr(row, "compliance_score", 0) or 0),
+                        "overall_pqc_score": float(getattr(row, "overall_pqc_score", 0) or 0),
+                    }
+                )
+
+        report["related_scan_history"] = history_items
+    except Exception as history_exc:
+        logger.warning("Could not build related scan history for results(%s): %s", scan_id, history_exc)
+        report["related_scan_history"] = []
+    finally:
+        try:
+            db_session.remove()
+        except Exception:
+            pass
 
     return render_template("results.html", report=report, scan_id=scan_id)
 

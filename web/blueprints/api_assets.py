@@ -4,6 +4,8 @@ Paginated, sortable, searchable asset and discovery data.
 """
 
 import json
+import ipaddress
+from urllib.parse import urlparse
 from flask import Blueprint, request, jsonify
 from flask_login import login_required
 from src.db import db_session as SessionLocal
@@ -21,6 +23,40 @@ from sqlalchemy import func, or_, and_
 from middleware.api_auth import api_guard
 
 api_assets = Blueprint("api_assets", __name__, url_prefix="/api")
+
+
+def _normalize_cluster_seed(value: str) -> str:
+    raw = str(value or "").strip().lower()
+    if not raw:
+        return ""
+    if "://" in raw:
+        parsed = urlparse(raw)
+        raw = (parsed.hostname or parsed.netloc or parsed.path or raw).strip().lower()
+    return raw
+
+
+def _derive_cluster_label(value: str) -> str:
+    seed = _normalize_cluster_seed(value)
+    if not seed:
+        return "unclustered"
+
+    try:
+        ip_obj = ipaddress.ip_address(seed)
+        if isinstance(ip_obj, ipaddress.IPv4Address):
+            parts = seed.split(".")
+            if len(parts) == 4:
+                return f"{parts[0]}.{parts[1]}.{parts[2]}.0/24"
+        if isinstance(ip_obj, ipaddress.IPv6Address):
+            return f"{seed[:19]}::/64"
+        return seed
+    except ValueError:
+        pass
+
+    host = seed.split(":", 1)[0]
+    labels = [label for label in host.split(".") if label]
+    if len(labels) >= 2:
+        return ".".join(labels[-2:])
+    return host
 
 
 def _discovery_detected_at_expr(model):
@@ -122,7 +158,7 @@ def get_discovery():
         # Build query
         detected_at_expr = _discovery_detected_at_expr(model)
         query = (
-            db.query(model, detected_at_expr.label("detected_at"))
+            db.query(model, detected_at_expr.label("detected_at"), Scan.target.label("scan_target"))
             .outerjoin(Scan, model.scan_id == Scan.id)
             .filter(model.is_deleted == False)
         )
@@ -170,7 +206,7 @@ def get_discovery():
             }
             return int(lookup.get(str(level or "").strip().lower(), 50))
 
-        for item, detected_at in items:
+        for item, detected_at, scan_target in items:
             asset_name = getattr(item.asset, 'target', '') if hasattr(item, 'asset') and item.asset else ''
             asset_risk_level = getattr(item.asset, 'risk_level', '') if hasattr(item, 'asset') and item.asset else ''
             
@@ -182,6 +218,9 @@ def get_discovery():
             elif isinstance(item, DiscoverySoftware): identifier = item.product
             elif isinstance(item, Subdomain): identifier = item.subdomain
 
+            cluster_seed = str(scan_target or asset_name or identifier or "").strip()
+            cluster_label = _derive_cluster_label(cluster_seed)
+
             row = {
                 "id": item.id,
                 "identifier": identifier,
@@ -192,7 +231,10 @@ def get_discovery():
                 "risk_score": _risk_score_from_level(asset_risk_level),
                 "scan_id": item.scan_id,
                 "asset_id": item.asset_id,
-                "promoted": getattr(item, "promoted_to_inventory", False) or getattr(item, "is_inventoried", False)
+                "promoted": getattr(item, "promoted_to_inventory", False) or getattr(item, "is_inventoried", False),
+                "cluster_key": cluster_label,
+                "cluster_label": cluster_label,
+                "cluster_seed": cluster_seed,
             }
 
             if isinstance(item, DiscoveryDomain):
@@ -430,6 +472,10 @@ def promote_discovery_to_asset():
         
         db.commit()
         db.close()
-        return api_response(success=True, data={"asset_id": asset.id, "discovery_id": discovery_id})
+        return api_response(success=True, data={
+            "asset_id": asset.id,
+            "discovery_id": discovery_id,
+            "cluster_key": _derive_cluster_label(str(getattr(discovery, "scan", None).target if getattr(discovery, "scan", None) else target)),
+        })
     except Exception as e:
         return api_response(success=False, message=str(e), status_code=500)
