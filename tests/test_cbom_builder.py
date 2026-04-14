@@ -157,6 +157,52 @@ class TestCBOMBuilder:
         assert by_endpoint[("beta.example.com", 8443)].risk_level == "LOW"
         assert by_endpoint[("beta.example.com", 8443)].is_quantum_safe is True
 
+    def test_build_handles_flat_certificate_fields(self):
+        builder = CBOMBuilder()
+
+        tls_results = [{
+            "host": "google.com",
+            "port": 443,
+            "protocol_version": "TLSv1.3",
+            "cipher_suite": "TLS_AES_256_GCM_SHA384",
+            "cipher_bits": 256,
+            "key_exchange": "TLS1.3-ECDHE",
+            "certificate": {
+                "subject_cn": "google.com",
+                "issuer_cn": "Google Trust Services",
+                "serial_number": "1234",
+                "not_before": "Jan  1 00:00:00 2024 GMT",
+                "not_after": "Dec 31 23:59:59 2026 GMT",
+                "signature_algorithm": "sha256WithRSAEncryption",
+                "public_key_bits": 4096,
+                "certificate_details": {
+                    "subject_public_key_info": {
+                        "subject_public_key_bits": 4096,
+                        "public_key_algorithm": "RSA",
+                    },
+                    "fingerprint_sha256": "FF" * 32,
+                },
+            },
+        }]
+
+        pqc_assessments = [{
+            "host": "google.com",
+            "port": 443,
+            "is_quantum_safe": False,
+            "overall_status": "quantum_vulnerable",
+            "risk_level": "HIGH",
+        }]
+
+        cbom = builder.build(tls_results, pqc_assessments)
+        asset = cbom.assets[0]
+
+        assert asset.cert_subject == "google.com"
+        assert asset.cert_issuer == "Google Trust Services"
+        assert asset.cert_public_key_bits == 4096
+        assert asset.cert_public_key_type == "RSA"
+        assert cbom.certificates[0]["subject_name"] == "google.com"
+        assert cbom.certificates[0]["subject_public_key_ref"] == "RSA-4096"
+
 
 class TestCycloneDXGenerator:
     """Tests for CycloneDXGenerator."""

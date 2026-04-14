@@ -501,12 +501,16 @@ def _ensure_scans_compat_columns(cur) -> None:
                 target_parts.append("NULLIF(normalized_target, '')")
             if "requested_target" in refreshed:
                 target_parts.append("NULLIF(requested_target, '')")
+            if "scan_id" in refreshed:
+                target_parts.append("NULLIF(scan_id, '')")
+            if "scan_uid" in refreshed:
+                target_parts.append("NULLIF(scan_uid, '')")
             if target_parts:
                 coalesce_expr = ", ".join(target_parts)
                 cur.execute(
                     f"""
                     UPDATE scans
-                    SET target = COALESCE({coalesce_expr})
+                    SET target = COALESCE({coalesce_expr}, CONCAT('scan-', CAST(id AS CHAR)))
                     WHERE target IS NULL OR target = ''
                     """
                 )
@@ -982,8 +986,10 @@ def init_db() -> bool:
             "ALTER TABLE tls_compliance_scores ADD COLUMN IF NOT EXISTS resilience_tier VARCHAR(20) NULL",
             # ── Sprint 1: Two-factor authentication fields on users ──
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled TINYINT(1) NOT NULL DEFAULT 0",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_secret VARCHAR(64) NULL",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_secret LONGTEXT NULL",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS backup_codes LONGTEXT NULL",
+            "ALTER TABLE users MODIFY COLUMN two_factor_secret LONGTEXT NULL",
+            "ALTER TABLE users MODIFY COLUMN backup_codes LONGTEXT NULL",
             # ── Sprint 1: CBOM superseded tracking ──
             "ALTER TABLE cbom_entries ADD COLUMN IF NOT EXISTS superseded_at DATETIME NULL",
         ]:
@@ -1576,8 +1582,19 @@ def list_scans(limit: int = 50) -> List[Dict[str, Any]]:
             data, is_encrypted = row
             if is_encrypted and isinstance(data, str):
                 data = _decrypt_data(data)
-            report = json.loads(data) if isinstance(data, str) else data
-            results.append(report)
+            if isinstance(data, str):
+                payload = data.strip()
+                if not payload:
+                    continue
+                try:
+                    parsed = json.loads(payload)
+                except Exception:
+                    logger.warning("Skipping malformed scan report_json row while listing scans.")
+                    continue
+                if isinstance(parsed, dict):
+                    results.append(parsed)
+            elif isinstance(data, dict):
+                results.append(data)
         return results
     except Exception as exc:
         logger.error("MySQL list_scans error: %s", exc)
@@ -2137,8 +2154,8 @@ def create_invited_user(
             """
             INSERT INTO users
                 (id, employee_id, username, email, password_hash, role, created_by,
-                 is_active, must_change_password, failed_login_attempts)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE, TRUE, 0)
+                 is_active, must_change_password, failed_login_attempts, two_factor_enabled)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE, TRUE, 0, FALSE)
             """,
             (
                 user_id,
@@ -2195,10 +2212,19 @@ def set_user_2fa(user_id: str, secret: str, backup_codes_json: Optional[str] = N
     """
     conn = _get_connection()
     if conn is None:
+        logger.error("set_user_2fa: Failed to get database connection for user_id=%s", user_id)
         return False
     try:
         enc_secret = _encrypt_data(secret) if secret is not None else None
+        if secret and enc_secret is None:
+            logger.error("set_user_2fa: Encryption failed for TOTP secret (user_id=%s). ENCRYPTION_KEY may not be configured.", user_id)
+            return False
+        
         enc_backup = _encrypt_data(backup_codes_json) if backup_codes_json is not None else None
+        if backup_codes_json and enc_backup is None:
+            logger.error("set_user_2fa: Encryption failed for backup codes (user_id=%s). ENCRYPTION_KEY may not be configured.", user_id)
+            return False
+        
         cur = conn.cursor()
         cur.execute(
             """
@@ -2211,9 +2237,14 @@ def set_user_2fa(user_id: str, secret: str, backup_codes_json: Optional[str] = N
             (enc_secret, enc_backup, str(user_id)),
         )
         conn.commit()
-        return cur.rowcount > 0
+        rows_affected = cur.rowcount
+        if rows_affected == 0:
+            logger.warning("set_user_2fa: UPDATE affected 0 rows. User may not exist (user_id=%s)", user_id)
+            return False
+        logger.info("set_user_2fa: Successfully updated 2FA for user_id=%s", user_id)
+        return True
     except Exception as exc:
-        logger.warning("MySQL set_user_2fa error: %s", exc)
+        logger.error("set_user_2fa: MySQL error for user_id=%s: %s", user_id, exc, exc_info=True)
         return False
     finally:
         conn.close()

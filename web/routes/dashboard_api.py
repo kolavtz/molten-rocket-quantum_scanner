@@ -44,6 +44,8 @@ from utils.api_helper import (
 
 api_dashboards_bp = Blueprint("api_dashboards", __name__)
 
+_INVALID_DISCOVERY_IP_VALUES = ("-", "--", "n/a", "na", "unknown", "0.0.0.0", "::")
+
 PQC_STATUS_EXPLANATIONS = {
     "safe": "Algorithms or certificates currently classified as quantum-safe.",
     "unsafe": "Cryptography currently classified as not quantum-safe.",
@@ -97,12 +99,93 @@ def _coerce_int(value: Any) -> int | None:
 
 
 def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
+    if tab == "subdomains":
+        if not _table_exists("subdomains"):
+            return [], 0
+
+        like = f"%{params['search']}%" if params.get("search") else None
+        where_parts = ["COALESCE(d.is_deleted, 0) = 0"]
+        where_parts.append("COALESCE(d.subdomain, '') NOT LIKE '*.%'")
+        sql_params: dict[str, Any] = {
+            "limit": params["page_size"],
+            "offset": (params["page"] - 1) * params["page_size"],
+        }
+
+        if like:
+            for idx, column_name in enumerate(("d.subdomain", "a.target", "a.owner", "d.record_type")):
+                key = f"search_{idx}"
+                sql_params[key] = like
+            search_clauses = [f"{column_name} LIKE :search_{idx}" for idx, column_name in enumerate(("d.subdomain", "a.target", "a.owner", "d.record_type"))]
+            where_parts.append("(" + " OR ".join(search_clauses) + ")")
+
+        where_sql = " AND ".join(where_parts)
+        sort_map = {
+            "id": "d.id",
+            "name": "d.subdomain",
+            "detection_date": "COALESCE(d.discovered_at, d.created_at)",
+            "status": "CASE WHEN COALESCE(d.is_inventoried, 0) = 1 THEN 'confirmed' ELSE 'new' END",
+            "record_type": "d.record_type",
+            "parent_asset": "a.target",
+        }
+        sort_sql = sort_map.get(params.get("sort") or "", sort_map["detection_date"])
+        order_sql = "DESC" if str(params.get("order", "asc")).lower() == "desc" else "ASC"
+
+        query_sql = f"""
+            SELECT
+                d.id,
+                d.subdomain AS name,
+                CASE WHEN COALESCE(d.is_inventoried, 0) = 1 THEN 'confirmed' ELSE 'new' END AS status,
+                COALESCE(d.discovered_at, d.created_at) AS detection_date,
+                d.parent_asset_id,
+                d.record_type,
+                COALESCE(d.is_inventoried, 0) AS is_inventoried,
+                a.id AS asset_id,
+                a.target AS asset_name,
+                a.owner AS owner
+            FROM subdomains d
+            LEFT JOIN assets a
+                ON a.id = d.parent_asset_id
+               AND COALESCE(a.is_deleted, 0) = 0
+            WHERE {where_sql}
+            ORDER BY {sort_sql} {order_sql}, d.id DESC
+            LIMIT :limit OFFSET :offset
+        """
+        count_sql = f"""
+            SELECT COUNT(*)
+            FROM subdomains d
+            LEFT JOIN assets a
+                ON a.id = d.parent_asset_id
+               AND COALESCE(a.is_deleted, 0) = 0
+            WHERE {where_sql}
+        """
+
+        rows = db_session.execute(text(query_sql), sql_params).mappings().all()
+        total = int(db_session.execute(text(count_sql), sql_params).scalar() or 0)
+        items = [
+            {
+                "id": _coerce_int(row.get("id")) or 0,
+                "tab": tab,
+                "detection_date": to_iso(row.get("detection_date")),
+                "name": str(row.get("name") or "").strip() or None,
+                "status": row.get("status"),
+                "asset_id": _coerce_int(row.get("asset_id")),
+                "asset_name": row.get("asset_name"),
+                "owner": row.get("owner"),
+                "domain_name": str(row.get("name") or "").strip() or None,
+                "record_type": str(row.get("record_type") or "").strip() or None,
+                "parent_asset_id": _coerce_int(row.get("parent_asset_id")),
+                "promoted": bool(_coerce_int(row.get("is_inventoried")) or 0),
+            }
+            for row in rows
+        ]
+        return items, total
+
     config = {
         "domains": {
             "table": "discovery_domains",
             "value_col": "domain",
             "name_expr": "d.domain",
-            "search_cols": ["d.domain", "a.target", "a.owner"],
+            "search_cols": ["d.domain", "d.registrar", "a.target", "a.owner"],
             "sort_map": {
                 "id": "d.id",
                 "name": "d.domain",
@@ -134,24 +217,17 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
                 "status": "d.status",
             },
         },
-        "subdomains": {
-            "table": "subdomains",
-            "value_col": "subdomain",
-            "name_expr": "d.subdomain",
-            "search_cols": ["d.subdomain", "a.target", "a.owner"],
-            "sort_map": {
-                "id": "d.id",
-                "name": "d.subdomain",
-                "detection_date": "d.discovered_at",
-                "status": "''", # Subdomains don't have a status column yet in the schema provided
-            },
-        },
     }.get(tab)
     if not config or not _table_exists(config["table"]):
         return [], 0
 
     like = f"%{params['search']}%" if params.get("search") else None
     where_parts = ["COALESCE(d.is_deleted, 0) = 0"]
+    if tab == "ips":
+        where_parts.append("COALESCE(TRIM(d.ip_address), '') <> ''")
+        where_parts.append(
+            "LOWER(COALESCE(TRIM(d.ip_address), '')) NOT IN ('-', '--', 'n/a', 'na', 'unknown', '0.0.0.0', '::')"
+        )
     sql_params: dict[str, Any] = {
         "limit": params["page_size"],
         "offset": (params["page"] - 1) * params["page_size"],
@@ -167,15 +243,20 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
     where_sql = " AND ".join(where_parts)
     sort_sql = config["sort_map"].get(params.get("sort") or "", config["sort_map"]["detection_date"])
     order_sql = "DESC" if str(params.get("order", "asc")).lower() == "desc" else "ASC"
+    select_fields = [
+        "d.id",
+        f"{config['name_expr']} AS name",
+        "d.status",
+        "COALESCE(d.updated_at, d.created_at) AS detection_date",
+        "a.id AS asset_id",
+        "a.target AS asset_name",
+        "a.owner AS owner",
+    ]
+    if tab == "domains":
+        select_fields.append("d.registrar AS registrar")
     query_sql = f"""
         SELECT
-            d.id,
-            {config["name_expr"]} AS name,
-            d.status,
-            COALESCE(d.updated_at, d.created_at) AS detection_date,
-            a.id AS asset_id,
-            a.target AS asset_name,
-            a.owner AS owner
+            {', '.join(select_fields)}
         FROM {config["table"]} d
         LEFT JOIN assets a
             ON a.id = d.asset_id
@@ -201,6 +282,14 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
         }
         for row in rows
     ]
+    if tab == "domains":
+        for row, item in zip(rows, items):
+            item["domain_name"] = str(row.get("name") or "").strip() or None
+            item["registrar"] = str(row.get("registrar") or "").strip() or None
+    else:
+        for item in items:
+            item["domain_name"] = None
+            item["registrar"] = None
     return items, total
 
 
@@ -826,6 +915,68 @@ def api_assets_geo_locations():
             "kpis": {
                 "mapped_assets": len(items),
             },
+        },
+        filters={"limit": limit},
+    )
+
+
+@api_dashboards_bp.route("/api/discovery/ip-locations", methods=["GET"])
+@api_dashboards_bp.route("/api/v1/discovery/ip-locations", methods=["GET"])
+@login_required
+@api_guard
+def api_discovery_ip_locations():
+    limit = max(1, min(request.args.get("limit", default=200, type=int), 500))
+
+    rows = (
+        db_session.query(DiscoveryIP, Asset)
+        .outerjoin(Asset, DiscoveryIP.asset_id == Asset.id)
+        .filter(DiscoveryIP.is_deleted == False)
+        .filter(func.trim(func.coalesce(DiscoveryIP.ip_address, "")) != "")
+        .filter(~func.lower(func.trim(func.coalesce(DiscoveryIP.ip_address, ""))).in_(_INVALID_DISCOVERY_IP_VALUES))
+        .order_by(DiscoveryIP.discovered_at.desc(), DiscoveryIP.id.desc())
+        .limit(limit)
+        .all()
+    )
+
+    items: list[dict[str, Any]] = []
+    seen_ips: set[str] = set()
+    for discovery_ip, asset in rows:
+        ip = str(getattr(discovery_ip, "ip_address", "") or "").strip()
+        if not ip or ip in seen_ips:
+            continue
+        seen_ips.add(ip)
+
+        geo = geo_service.get_location(ip)
+        geo_status = str((geo or {}).get("status") or "").lower()
+        if geo_status not in {"success", "private"}:
+            continue
+
+        lat = float((geo or {}).get("lat") or 0.0)
+        lon = float((geo or {}).get("lon") or 0.0)
+        if not lat and not lon:
+            continue
+
+        items.append(
+            {
+                "id": int(getattr(discovery_ip, "id", 0) or 0),
+                "ip": ip,
+                "asset_id": int(getattr(asset, "id", 0) or 0) if asset else None,
+                "asset_name": str(getattr(asset, "target", "") or "") if asset else "",
+                "location": str(getattr(discovery_ip, "location", "") or ""),
+                "lat": lat,
+                "lon": lon,
+                "city": (geo or {}).get("city") or "Unknown",
+                "country": (geo or {}).get("country") or "Unknown",
+                "reverse_location": str((geo or {}).get("reverse_location") or ""),
+                "status": str(getattr(discovery_ip, "status", "") or "new"),
+                "detection_date": to_iso(getattr(discovery_ip, "discovered_at", None) or getattr(discovery_ip, "created_at", None)),
+            }
+        )
+
+    return success_response(
+        {
+            "items": items,
+            "total": len(items),
         },
         filters={"limit": limit},
     )
@@ -1721,6 +1872,28 @@ def api_reports_cleanup_stale():
             if table_count:
                 by_table[getattr(model, "__tablename__", str(model))] = table_count
                 cleaned += table_count
+
+        invalid_ip_rows = (
+            db_session.query(DiscoveryIP)
+            .filter(DiscoveryIP.is_deleted == False)
+            .filter(
+                or_(
+                    DiscoveryIP.ip_address.is_(None),
+                    func.trim(func.coalesce(DiscoveryIP.ip_address, "")) == "",
+                    func.lower(func.trim(func.coalesce(DiscoveryIP.ip_address, ""))).in_(_INVALID_DISCOVERY_IP_VALUES),
+                )
+            )
+            .all()
+        )
+        invalid_count = 0
+        for row in invalid_ip_rows:
+            row.is_deleted = True
+            row.deleted_at = now_utc
+            row.status = "false_positive"
+            invalid_count += 1
+        if invalid_count:
+            by_table["discovery_ips_invalid_placeholder"] = invalid_count
+            cleaned += invalid_count
 
         db_session.commit()
     except Exception as exc:

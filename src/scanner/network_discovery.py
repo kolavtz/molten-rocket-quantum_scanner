@@ -40,6 +40,7 @@ class DiscoveredEndpoint:
 
     host: str
     port: int
+    sni_hostname: Optional[str] = None
     service: str = ""
     is_tls: bool = False
     banner: str = ""
@@ -177,6 +178,7 @@ class NetworkScanner:
             scan_ports = [port_from_url] + list(scan_ports)
 
         hosts = self._resolve_target(clean_target)
+        sni_hostname = clean_target if self._should_use_sni(clean_target) else None
 
         tasks: list[tuple[str, int]] = []
         for host in hosts:
@@ -188,7 +190,7 @@ class NetworkScanner:
             max_workers=self.max_workers
         ) as pool:
             futures = {
-                pool.submit(self._probe_endpoint, h, p): (h, p)
+                pool.submit(self._probe_endpoint, h, p, sni_hostname): (h, p)
                 for h, p in tasks
             }
             for future in concurrent.futures.as_completed(futures):
@@ -225,6 +227,7 @@ class NetworkScanner:
             scan_ports = [port_from_url] + list(scan_ports)
 
         hosts = self._resolve_target(clean_target)
+        sni_hostname = clean_target if self._should_use_sni(clean_target) else None
 
         tasks: list[tuple[str, int]] = []
         for host in hosts:
@@ -236,7 +239,7 @@ class NetworkScanner:
             max_workers=self.max_workers
         ) as pool:
             futures = {
-                pool.submit(self._probe_endpoint, h, p): (h, p)
+                pool.submit(self._probe_endpoint, h, p, sni_hostname): (h, p)
                 for h, p in tasks
             }
             for future in concurrent.futures.as_completed(futures):
@@ -309,7 +312,7 @@ class NetworkScanner:
             return [target]
 
     def _probe_endpoint(
-        self, host: str, port: int
+        self, host: str, port: int, sni_hostname: Optional[str] = None
     ) -> Optional[DiscoveredEndpoint]:
         """Attempt a TLS connection to *host*:*port*.
 
@@ -320,6 +323,7 @@ class NetworkScanner:
         ep = DiscoveredEndpoint(
             host=host,
             port=port,
+            sni_hostname=sni_hostname,
             service=service,
             is_public=self.is_public_facing(host),
         )
@@ -338,7 +342,7 @@ class NetworkScanner:
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE  # we just want to probe, not verify
         try:
-            tls_sock = ctx.wrap_socket(sock, server_hostname=host)
+            tls_sock = ctx.wrap_socket(sock, server_hostname=sni_hostname or host)
             ep.is_tls = True
             ep.banner = tls_sock.version() or ""
             tls_sock.close()
@@ -355,6 +359,21 @@ class NetworkScanner:
             return None
 
         return ep
+
+    @staticmethod
+    def _should_use_sni(target: str) -> bool:
+        """Return True when *target* is a hostname that should be sent as SNI."""
+        try:
+            ipaddress.ip_address(target)
+            return False
+        except ValueError:
+            pass
+
+        try:
+            ipaddress.ip_network(target, strict=False)
+            return False
+        except ValueError:
+            return True
 
     # ------------------------------------------------------------------
     # Utility

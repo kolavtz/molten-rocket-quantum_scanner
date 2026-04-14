@@ -167,15 +167,16 @@ class TLSAnalyzer:
     # ------------------------------------------------------------------
 
     def analyze_endpoint(
-        self, host: str, port: int = 443
+        self, host: str, port: int = 443, sni_hostname: Optional[str] = None
     ) -> TLSEndpointResult:
         """Perform full TLS analysis on *host*:*port* with retry logic."""
         result = TLSEndpointResult(host=host, port=port)
+        handshake_name = sni_hostname or host
 
         last_exc: Optional[Exception] = None
         for attempt in range(self.MAX_RETRIES):
             try:
-                self._analyze_with_stdlib(result, host, port)
+                self._analyze_with_stdlib(result, host, port, handshake_name)
                 last_exc = None
                 result.retry_count = attempt
                 break
@@ -193,7 +194,7 @@ class TLSAnalyzer:
         # Note: Enrichment is non-fatal; we preserve core stdlib results even if this fails.
         if HAS_SSLYZE and (result.error is None or "stdlib" not in result.error):
             try:
-                self._augment_with_sslyze(result, host, port)
+                self._augment_with_sslyze(result, host, port, handshake_name)
             except Exception as exc:
                 # Log enrichment failure but don't poison the result if stdlib worked
                 if not result.cipher_suite:
@@ -202,7 +203,7 @@ class TLSAnalyzer:
         # Detect HSTS
         if result.cipher_suite:
             try:
-                result.hsts_enabled, result.hsts_max_age = self._detect_hsts(host, port)
+                result.hsts_enabled, result.hsts_max_age = self._detect_hsts(host, port, handshake_name)
             except Exception:
                 pass
 
@@ -212,7 +213,12 @@ class TLSAnalyzer:
 
         return result
 
-    def get_supported_protocols(self, host: str, port: int = 443) -> List[str]:
+    def get_supported_protocols(
+        self,
+        host: str,
+        port: int = 443,
+        server_name: Optional[str] = None,
+    ) -> List[str]:
         """Probe which TLS protocol versions the server supports.
 
         Includes TLS 1.0 and 1.1 probing (handled gracefully on modern OS
@@ -233,7 +239,7 @@ class TLSAnalyzer:
                 ctx.minimum_version = version
                 ctx.maximum_version = version
                 sock = socket.create_connection((host, port), timeout=self.timeout)
-                tls_sock = ctx.wrap_socket(sock, server_hostname=host)
+                tls_sock = ctx.wrap_socket(sock, server_hostname=server_name or host)
                 tls_sock.close()
                 supported.append(name)
             except Exception:
@@ -253,7 +259,7 @@ class TLSAnalyzer:
                 else:
                     ctx.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_2 | ssl.OP_NO_TLSv1_3
                 sock = socket.create_connection((host, port), timeout=self.timeout)
-                tls_sock = ctx.wrap_socket(sock, server_hostname=host)
+                tls_sock = ctx.wrap_socket(sock, server_hostname=server_name or host)
                 tls_sock.close()
                 supported.append(name)
             except Exception:
@@ -262,17 +268,20 @@ class TLSAnalyzer:
 
         return supported
 
+
     # ------------------------------------------------------------------
     # Private — HSTS detection
     # ------------------------------------------------------------------
 
-    def _detect_hsts(self, host: str, port: int) -> Tuple[bool, Optional[int]]:
+    def _detect_hsts(
+        self, host: str, port: int, server_name: Optional[str] = None
+    ) -> Tuple[bool, Optional[int]]:
         """Issue a HEAD request and check for Strict-Transport-Security header."""
         try:
             conn = http.client.HTTPSConnection(
-                host, port=port, timeout=min(self.timeout, 5)
+                server_name or host, port=port, timeout=min(self.timeout, 5)
             )
-            conn.request("HEAD", "/", headers={"Host": host})
+            conn.request("HEAD", "/", headers={"Host": server_name or host})
             resp = conn.getresponse()
             hsts_header = resp.getheader("Strict-Transport-Security", "")
             conn.close()
@@ -317,7 +326,11 @@ class TLSAnalyzer:
     # ------------------------------------------------------------------
 
     def _analyze_with_stdlib(
-        self, result: TLSEndpointResult, host: str, port: int
+        self,
+        result: TLSEndpointResult,
+        host: str,
+        port: int,
+        server_name: Optional[str] = None,
     ) -> None:
         """Populate *result* using Python's built-in ``ssl`` module."""
         ctx = ssl.create_default_context()
@@ -325,7 +338,7 @@ class TLSAnalyzer:
         ctx.verify_mode = ssl.CERT_NONE
 
         sock = socket.create_connection((host, port), timeout=self.timeout)
-        tls_sock = ctx.wrap_socket(sock, server_hostname=host)
+        tls_sock = ctx.wrap_socket(sock, server_hostname=server_name or host)
 
         # Cipher info
         cipher_info = tls_sock.cipher()  # (name, version, bits)
@@ -348,7 +361,9 @@ class TLSAnalyzer:
             )
 
         # Supported protocols
-        result.supported_protocols = self.get_supported_protocols(host, port)
+        result.supported_protocols = self.get_supported_protocols(
+            host, port, server_name=server_name
+        )
 
         tls_sock.close()
 
@@ -421,6 +436,41 @@ class TLSAnalyzer:
                 )
                 cert_obj = x509.load_der_x509_certificate(cert_der)
                 pub = cert_obj.public_key()
+
+                # Backfill core identity + validity fields from DER when stdlib cert_dict is sparse.
+                if not info.serial_number:
+                    info.serial_number = format(getattr(cert_obj, "serial_number", 0), "X")
+
+                try:
+                    not_before_dt = getattr(cert_obj, "not_valid_before_utc", None) or getattr(cert_obj, "not_valid_before", None)
+                    not_after_dt = getattr(cert_obj, "not_valid_after_utc", None) or getattr(cert_obj, "not_valid_after", None)
+                except Exception:
+                    not_before_dt = None
+                    not_after_dt = None
+
+                if not info.not_before and not_before_dt is not None:
+                    try:
+                        info.not_before = not_before_dt.strftime("%b %d %H:%M:%S %Y GMT")
+                    except Exception:
+                        info.not_before = str(not_before_dt)
+
+                if not info.not_after and not_after_dt is not None:
+                    try:
+                        info.not_after = not_after_dt.strftime("%b %d %H:%M:%S %Y GMT")
+                    except Exception:
+                        info.not_after = str(not_after_dt)
+
+                # Recompute expiry from DER-backed validity when possible.
+                if not info.days_until_expiry and not_after_dt is not None:
+                    try:
+                        now = datetime.datetime.now(datetime.timezone.utc)
+                        if getattr(not_after_dt, "tzinfo", None) is None:
+                            not_after_dt = not_after_dt.replace(tzinfo=datetime.timezone.utc)
+                        delta = not_after_dt - now
+                        info.days_until_expiry = delta.days
+                        info.is_expired = delta.days < 0
+                    except Exception:
+                        pass
 
                 if isinstance(pub, rsa.RSAPublicKey):
                     info.public_key_type = "RSA"
@@ -602,6 +652,14 @@ class TLSAnalyzer:
                 if not info.issuer_o:
                     info.issuer_o = issuer_o
 
+                # Backfill SANs from DER if stdlib dict omitted them.
+                if not info.san_domains:
+                    try:
+                        san_ext = cert_obj.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+                        info.san_domains = [str(name) for name in san_ext.value.get_values_for_type(x509.DNSName)]
+                    except Exception:
+                        pass
+
                 info.certificate_details = {
                     "certificate_version": str(getattr(cert_obj, "version", "")),
                     "serial_number": str(info.serial_number or format(getattr(cert_obj, "serial_number", 0), "X")),
@@ -681,11 +739,15 @@ class TLSAnalyzer:
     # ------------------------------------------------------------------
 
     def _augment_with_sslyze(
-        self, result: TLSEndpointResult, host: str, port: int
+        self,
+        result: TLSEndpointResult,
+        host: str,
+        port: int,
+        server_name: Optional[str] = None,
     ) -> None:
         """Use SSLyze for deeper inspection (chain length and scanner metadata)."""
         scanner = Scanner()
-        server_location = ServerNetworkLocation(host, int(port))
+        server_location = ServerNetworkLocation(server_name or host, int(port))
 
         raw_scan_results = scanner.scan(server_location)
         if not isinstance(raw_scan_results, Iterable):

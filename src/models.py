@@ -67,7 +67,7 @@ class User(Base):
     
     # Two-Factor Authentication (Sprint 12)
     two_factor_enabled = Column(Boolean, default=False, nullable=False)
-    two_factor_secret = Column(String(64), nullable=True)  # Fernet-encrypted TOTP base32 secret
+    two_factor_secret = Column(Text, nullable=True)  # Fernet-encrypted TOTP base32 secret
     backup_codes = Column(Text, nullable=True)             # JSON-encoded hashed backup codes
 
     created_at = Column(DateTime, default=func.now(), nullable=False)

@@ -231,8 +231,20 @@ class CBOMBuilder:
         """Merge TLS result + PQC assessment into a CryptoAsset."""
         cert = tls.get("certificate") or {}
 
-        subject_cn = cert.get("subject", {}).get("commonName", "")
-        issuer_cn = cert.get("issuer", {}).get("commonName", "")
+        subject_cn = self._cert_text(
+            cert,
+            ("subject_cn",),
+            ("subject", "commonName"),
+            ("certificate_details", "subject_cn"),
+            ("certificate_details", "subject", "commonName"),
+        )
+        issuer_cn = self._cert_text(
+            cert,
+            ("issuer_cn",),
+            ("issuer", "commonName"),
+            ("certificate_details", "issuer_cn"),
+            ("certificate_details", "issuer", "commonName"),
+        )
 
         return CryptoAsset(
             host=tls.get("host", ""),
@@ -244,15 +256,27 @@ class CBOMBuilder:
             key_exchange=tls.get("key_exchange", ""),
             cert_subject=subject_cn,
             cert_issuer=issuer_cn,
-            cert_serial=cert.get("serial_number", ""),
-            cert_not_before=cert.get("not_before", ""),
-            cert_not_after=cert.get("not_after", ""),
-            cert_signature_algorithm=cert.get("signature_algorithm", ""),
-            cert_public_key_type=cert.get("public_key_type", ""),
-            cert_public_key_bits=cert.get("public_key_bits", 0),
-            cert_fingerprint=cert.get("fingerprint_sha256", ""),
-            cert_is_expired=cert.get("is_expired", False),
-            cert_days_until_expiry=cert.get("days_until_expiry", 0),
+            cert_serial=self._cert_text(cert, ("serial_number",), ("certificate_details", "serial_number")),
+            cert_not_before=self._cert_text(cert, ("not_before",), ("certificate_details", "not_before")),
+            cert_not_after=self._cert_text(cert, ("not_after",), ("certificate_details", "not_after")),
+            cert_signature_algorithm=self._cert_text(cert, ("signature_algorithm",), ("certificate_details", "signature_algorithm")),
+            cert_public_key_type=self._cert_text(cert, ("public_key_type",), ("certificate_details", "subject_public_key_info", "public_key_algorithm")),
+            cert_public_key_bits=self._cert_int(
+                cert,
+                ("public_key_bits",),
+                ("certificate_details", "subject_public_key_info", "subject_public_key_bits"),
+            ),
+            cert_fingerprint=self._cert_text(
+                cert,
+                ("fingerprint_sha256",),
+                ("certificate_details", "fingerprint_sha256"),
+            ),
+            cert_is_expired=bool(self._cert_value(cert, ("is_expired",), ("certificate_details", "is_expired"), default=False)),
+            cert_days_until_expiry=self._cert_int(
+                cert,
+                ("days_until_expiry",),
+                ("certificate_details", "days_until_expiry"),
+            ),
             is_quantum_safe=pqc.get("is_quantum_safe", False),
             pqc_status=pqc.get("overall_status", "quantum_vulnerable"),
             risk_level=pqc.get("risk_level", "HIGH"),
@@ -288,7 +312,7 @@ class CBOMBuilder:
 
         # 3. Signature algorithm from certificate
         cert = tls.get("certificate") or {}
-        sig_algo = cert.get("signature_algorithm", "")
+        sig_algo = self._cert_text(cert, ("signature_algorithm",), ("certificate_details", "signature_algorithm"))
         if sig_algo:
             algo_names.add(sig_algo)
 
@@ -313,19 +337,28 @@ class CBOMBuilder:
     ) -> None:
         """Extract Key record from the certificate's public key."""
         cert = tls.get("certificate") or {}
-        pk_type = cert.get("public_key_type", "")
+        pk_type = self._cert_text(
+            cert,
+            ("public_key_type",),
+            ("certificate_details", "subject_public_key_info", "public_key_algorithm"),
+        )
         if not pk_type:
             return
 
-        key_state = "expired" if cert.get("is_expired", False) else "active"
+        key_state = "expired" if bool(self._cert_value(cert, ("is_expired",), ("certificate_details", "is_expired"), default=False)) else "active"
+        key_bits = self._cert_int(
+            cert,
+            ("public_key_bits",),
+            ("certificate_details", "subject_public_key_info", "subject_public_key_bits"),
+        )
         cbom.keys.append({
-            "name": f"{pk_type}-{cert.get('public_key_bits', 0)}",
+            "name": f"{pk_type}-{key_bits}",
             "asset_type": "key",
-            "id": cert.get("serial_number", str(uuid.uuid4())),
+            "id": self._cert_text(cert, ("serial_number",), ("certificate_details", "serial_number")) or str(uuid.uuid4()),
             "state": key_state,
-            "size": cert.get("public_key_bits", 0),
-            "creation_date": cert.get("not_before", ""),
-            "activation_date": cert.get("not_before", ""),
+            "size": key_bits,
+            "creation_date": self._cert_text(cert, ("not_before",), ("certificate_details", "not_before")),
+            "activation_date": self._cert_text(cert, ("not_before",), ("certificate_details", "not_before")),
             "host": asset.host,
             "port": asset.port,
         })
@@ -353,29 +386,45 @@ class CBOMBuilder:
     ) -> None:
         """Extract Certificate record for CERT-IN CBOM."""
         cert = tls.get("certificate") or {}
-        subject_cn = cert.get("subject", {}).get("commonName", "")
+        subject_cn = self._cert_text(
+            cert,
+            ("subject_cn",),
+            ("subject", "commonName"),
+            ("certificate_details", "subject_cn"),
+            ("certificate_details", "subject", "commonName"),
+        )
         if not subject_cn:
             return
 
-        issuer_cn = cert.get("issuer", {}).get("commonName", "")
-        sig_algo = cert.get("signature_algorithm", "")
+        issuer_cn = self._cert_text(
+            cert,
+            ("issuer_cn",),
+            ("issuer", "commonName"),
+            ("certificate_details", "issuer_cn"),
+            ("certificate_details", "issuer", "commonName"),
+        )
+        sig_algo = self._cert_text(cert, ("signature_algorithm",), ("certificate_details", "signature_algorithm"))
+        public_key_ref = (
+            f"{self._cert_text(cert, ('public_key_type',), ('certificate_details', 'subject_public_key_info', 'public_key_algorithm'))}-"
+            f"{self._cert_int(cert, ('public_key_bits',), ('certificate_details', 'subject_public_key_info', 'subject_public_key_bits'))}"
+        )
 
         cbom.certificates.append({
             "name": subject_cn,
             "asset_type": "certificate",
             "subject_name": subject_cn,
             "issuer_name": issuer_cn,
-            "not_valid_before": cert.get("not_before", ""),
-            "not_valid_after": cert.get("not_after", ""),
+            "not_valid_before": self._cert_text(cert, ("not_before",), ("certificate_details", "not_before")),
+            "not_valid_after": self._cert_text(cert, ("not_after",), ("certificate_details", "not_after")),
             "signature_algorithm_ref": sig_algo,
             "signature_algorithm_oid": ALGORITHM_OID_MAP.get(sig_algo, ""),
-            "subject_public_key_ref": f"{cert.get('public_key_type', '')}-{cert.get('public_key_bits', 0)}",
+            "subject_public_key_ref": public_key_ref,
             "format": "X.509",
             "extension": ".crt",
-            "fingerprint_sha256": cert.get("fingerprint_sha256", ""),
-            "serial_number": cert.get("serial_number", ""),
-            "is_expired": cert.get("is_expired", False),
-            "days_until_expiry": cert.get("days_until_expiry", 0),
+            "fingerprint_sha256": self._cert_text(cert, ("fingerprint_sha256",), ("certificate_details", "fingerprint_sha256")),
+            "serial_number": self._cert_text(cert, ("serial_number",), ("certificate_details", "serial_number")),
+            "is_expired": bool(self._cert_value(cert, ("is_expired",), ("certificate_details", "is_expired"), default=False)),
+            "days_until_expiry": self._cert_int(cert, ("days_until_expiry",), ("certificate_details", "days_until_expiry")),
             "host": asset.host,
             "port": asset.port,
         })
@@ -414,3 +463,34 @@ class CBOMBuilder:
         except (TypeError, ValueError):
             normalized_port = 0
         return normalized_host, normalized_port
+
+    @staticmethod
+    def _cert_value(cert: Dict[str, Any], *paths: tuple[str, ...], default: Any = "") -> Any:
+        """Return the first non-empty value found in *cert* across *paths*."""
+        for path in paths:
+            current: Any = cert
+            for key in path:
+                if not isinstance(current, dict):
+                    current = None
+                    break
+                current = current.get(key)
+            if current not in (None, ""):
+                return current
+        return default
+
+    @classmethod
+    def _cert_text(cls, cert: Dict[str, Any], *paths: tuple[str, ...], default: str = "") -> str:
+        value = cls._cert_value(cert, *paths, default=default)
+        if isinstance(value, str):
+            return value.strip()
+        if value in (None, ""):
+            return default
+        return str(value).strip()
+
+    @classmethod
+    def _cert_int(cls, cert: Dict[str, Any], *paths: tuple[str, ...], default: int = 0) -> int:
+        value = cls._cert_value(cert, *paths, default=default)
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default

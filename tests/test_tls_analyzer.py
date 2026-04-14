@@ -3,6 +3,7 @@ Unit tests for the TLS Analyzer module.
 """
 import pytest
 from unittest.mock import MagicMock
+import datetime
 
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -103,7 +104,15 @@ def test_analyze_with_stdlib_parses_der_when_peer_cert_dict_empty(monkeypatch):
 
     monkeypatch.setattr("src.scanner.tls_analyzer.socket.create_connection", lambda *args, **kwargs: fake_plain_sock)
     monkeypatch.setattr("src.scanner.tls_analyzer.ssl.create_default_context", lambda: fake_ctx)
-    monkeypatch.setattr(analyzer, "get_supported_protocols", lambda host, port: ["TLSv1.3"])
+    captured_protocol_args = {}
+
+    def fake_get_supported_protocols(host, port, server_name=None):
+        captured_protocol_args["host"] = host
+        captured_protocol_args["port"] = port
+        captured_protocol_args["server_name"] = server_name
+        return ["TLSv1.3"]
+
+    monkeypatch.setattr(analyzer, "get_supported_protocols", fake_get_supported_protocols)
 
     expected_cert = CertificateInfo(serial_number="SER123")
     parser_calls = {}
@@ -115,9 +124,43 @@ def test_analyze_with_stdlib_parses_der_when_peer_cert_dict_empty(monkeypatch):
 
     monkeypatch.setattr(analyzer, "_parse_stdlib_cert", fake_parse)
 
-    analyzer._analyze_with_stdlib(result, "example.com", 443)
+    analyzer._analyze_with_stdlib(result, "142.250.190.78", 443, "example.com")
 
     assert result.certificate is expected_cert
     assert parser_calls["cert_dict"] == {}
     assert parser_calls["cert_der"] == b"fake-der"
     assert result.cipher_suite == "TLS_AES_256_GCM_SHA384"
+    assert fake_ctx.wrap_socket.call_args.kwargs["server_hostname"] == "example.com"
+    assert captured_protocol_args["server_name"] == "example.com"
+
+
+def test_parse_stdlib_cert_backfills_validity_from_der():
+    cryptography = pytest.importorskip("cryptography")
+    from cryptography import x509
+    from cryptography.x509.oid import NameOID
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "example.com")]))
+        .issuer_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Example CA")]))
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - datetime.timedelta(days=1))
+        .not_valid_after(now + datetime.timedelta(days=30))
+        .add_extension(x509.SubjectAlternativeName([x509.DNSName("example.com")]), critical=False)
+        .sign(key, hashes.SHA256())
+    )
+    cert_der = cert.public_bytes(serialization.Encoding.DER)
+
+    analyzer = TLSAnalyzer()
+    parsed = analyzer._parse_stdlib_cert({}, cert_der)
+
+    assert parsed.not_before
+    assert parsed.not_after
+    assert parsed.days_until_expiry >= 0
+    assert parsed.serial_number
+    assert parsed.san_domains == ["example.com"]

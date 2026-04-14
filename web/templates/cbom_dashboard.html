@@ -229,15 +229,15 @@
 <!-- ─── Styles ──────────────────────────────────────────── -->
 <style>
 :root {
-  --c-bg:       #0b0f1a;
-  --c-surface:  rgba(15,23,42,.62);
-  --c-border:   rgba(148,163,184,.28);
-  --c-text:     #f1f5f9;
-  --c-muted:    #cbd5e1;
-  --c-accent:   #38bdf8;
-  --c-success:  #34d399;
-  --c-warning:  #fbbf24;
-  --c-danger:   #f87171;
+  --c-bg:       var(--bg-primary);
+  --c-surface:  color-mix(in srgb, var(--bg-card) 86%, transparent);
+  --c-border:   color-mix(in srgb, var(--border-subtle) 78%, transparent);
+  --c-text:     var(--text-primary);
+  --c-muted:    var(--text-secondary);
+  --c-accent:   var(--accent);
+  --c-success:  var(--safe);
+  --c-warning:  var(--warn);
+  --c-danger:   var(--danger);
   --radius:     12px;
   --glass:      blur(16px) saturate(1.4);
 }
@@ -277,7 +277,7 @@
 .bar-chart-inner { display:flex; flex-direction:column; gap:.5rem; }
 .bar-row { display:flex; align-items:center; gap:.75rem; font-size:.82rem; }
 .bar-label { width:60px; color:var(--c-muted); text-align:right; flex-shrink:0; }
-.bar-track { flex:1; background:rgba(255,255,255,.06); border-radius:4px; height:8px; overflow:hidden; }
+.bar-track { flex:1; background:color-mix(in srgb, var(--bg-input) 85%, transparent); border-radius:4px; height:8px; overflow:hidden; }
 .bar-fill  { height:100%; border-radius:4px; background:linear-gradient(90deg,var(--c-accent),#818cf8);
   transition:width .5s ease; }
 .bar-count { width:32px; color:var(--c-muted); font-size:.78rem; }
@@ -309,11 +309,13 @@
 .table-meta { font-size:.8rem; color:var(--c-muted); margin-left:auto; }
 .table-wrap { overflow-x:auto; border-radius:var(--radius); border:1px solid var(--c-border); }
 .cbom-table { width:100%; border-collapse:collapse; font-size:.85rem; }
-.cbom-table thead { background:rgba(255,255,255,.04); }
+.cbom-table thead { background:color-mix(in srgb, var(--bg-secondary) 70%, transparent); }
 .cbom-table th { padding:.75rem 1rem; text-align:left; color:var(--c-muted); font-weight:600;
   font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; }
 .cbom-table td { padding:.7rem 1rem; border-top:1px solid var(--c-border); vertical-align:top; color:var(--c-text); }
-.cbom-table tbody tr:hover { background:rgba(255,255,255,.03); }
+.cbom-table td.cbom-details-cell { position:relative; min-width:220px; }
+.cbom-table td.cbom-details-cell .detail-actions-inline { display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; }
+.cbom-table tbody tr:hover { background:color-mix(in srgb, var(--accent) 8%, var(--bg-card) 92%); }
 .table-loading { text-align:center; color:var(--c-muted); padding:2rem; }
 .empty-state-row td { text-align:center; color:var(--c-muted); padding:3rem; }
 
@@ -328,7 +330,7 @@
 .cbom-detail-metrics { display:flex; flex-wrap:wrap; gap:.5rem; }
 .cbom-detail-chip { padding:.35rem .65rem; border-radius:999px; font-size:.75rem; color:var(--c-text); background:rgba(148,163,184,.12); border:1px solid rgba(148,163,184,.2); }
 .cbom-detail-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:.75rem; }
-.cbom-detail-item { padding:.8rem .9rem; border:1px solid rgba(148,163,184,.16); border-radius:10px; background:rgba(255,255,255,.03); display:flex; flex-direction:column; gap:.25rem; }
+.cbom-detail-item { padding:.8rem .9rem; border:1px solid color-mix(in srgb, var(--border-subtle) 55%, transparent); border-radius:10px; background:color-mix(in srgb, var(--bg-secondary) 45%, transparent); display:flex; flex-direction:column; gap:.25rem; }
 .cbom-detail-label { font-size:.68rem; text-transform:uppercase; letter-spacing:.08em; color:var(--c-muted); }
 .cbom-detail-value { font-size:.88rem; color:var(--c-text); word-break:break-word; }
 .cbom-scan-strip { display:flex; gap:.5rem; flex-wrap:wrap; }
@@ -423,8 +425,31 @@
 .x509-row { display:flex; gap:.5rem; padding:.2rem 0; border-bottom:1px solid var(--c-border); }
 .x509-key { width:200px; flex-shrink:0; color:var(--c-muted); }
 .x509-val { color:var(--c-text); word-break:break-all; font-family:monospace; }
-.x509-wrap { max-height:0; overflow:hidden; transition:max-height .28s ease, opacity .24s ease, margin-top .2s ease; opacity:0; margin-top:0; }
-.x509-wrap.expanded { opacity:1; margin-top:.5rem; }
+.x509-wrap {
+  position:absolute;
+  top:2.2rem;
+  right:.65rem;
+  width:min(760px, calc(100vw - 8rem));
+  max-height:0;
+  overflow:hidden;
+  transition:max-height .24s ease, opacity .2s ease, transform .2s ease;
+  opacity:0;
+  transform:translateY(-4px);
+  margin-top:0;
+  pointer-events:none;
+  z-index:30;
+  background:var(--c-surface);
+  border:1px solid var(--c-border);
+  border-radius:10px;
+  box-shadow:0 18px 28px color-mix(in srgb, var(--bg-primary) 75%, transparent);
+}
+.x509-wrap.expanded {
+  opacity:1;
+  transform:translateY(0);
+  pointer-events:auto;
+  overflow:auto;
+  padding:.55rem .7rem;
+}
 
 @media(max-width:1024px){
   .kpi-grid   { grid-template-columns:repeat(3,1fr); }
@@ -443,6 +468,12 @@
   .cbom-table { font-size:.8rem; }
   .cbom-table th, .cbom-table td { padding:.55rem .6rem; }
   .cbom-detail-grid { grid-template-columns:1fr; }
+  .x509-wrap {
+    left:.45rem;
+    right:.45rem;
+    width:auto;
+    top:2.35rem;
+  }
 }
 </style>
 
@@ -624,6 +655,12 @@ function renderEntries(items) {
     const fpMin = x509.sha256_fingerprints || {};
     const spki = cd.subject_public_key_info || {};
     const validity = cd.validity || {};
+    const resolvedAssetName = row.asset_name || row.endpoint || row.subject_cn || '—';
+    const resolvedKeyLength = row.key_length || spki.subject_public_key_bits || 0;
+    const resolvedTls = row.tls_version || cd.tls_version || '—';
+    const resolvedCipher = row.cipher_suite || cd.cipher_suite || '—';
+    const resolvedIssuer = row.ca || row.issuer_cn || issuedBy.common_name || cd.issuer || '—';
+    const resolvedValidUntil = row.valid_until || validityMin.expires_on || validity.not_after || null;
     const x509rows = [
       ['Subject CN', issuedTo.common_name],
       ['Subject O', issuedTo.organization],
@@ -661,16 +698,18 @@ function renderEntries(items) {
       : '<span style="color:var(--c-muted);font-size:.78rem">No X.509 details stored yet.</span>';
 
     return `<tr>
-      <td>${esc(row.asset_name || '—')}</td>
+      <td>${esc(resolvedAssetName)}</td>
       <td>${certBadgeHtml(row.cert_status)}</td>
-      <td>${row.key_length ? row.key_length + ' bit' : '—'}</td>
-      <td>${esc(row.tls_version || '—')}</td>
-      <td style="font-family:monospace;font-size:.78rem">${esc((row.cipher_suite||'').slice(0,36))}</td>
-      <td>${esc(row.ca || row.issuer_cn || '—')}</td>
-      <td>${fmtDate(row.valid_until)}</td>
-      <td>
-        <button id="cbomDetailBtn-${i}" class="btn-ghost view-x509-btn" data-entry-index="${i}" onclick="showEntryDetails(${i})" style="cursor:pointer;color:var(--c-accent);font-size:.78rem">View Details</button>
-        <button class="btn-ghost" onclick="openScanResult('${esc(row.scan_id || '')}')" style="cursor:pointer;color:var(--c-success);font-size:.78rem;margin-left:.35rem">Open Scan</button>
+      <td>${resolvedKeyLength ? esc(String(resolvedKeyLength) + ' bit') : '—'}</td>
+      <td>${esc(resolvedTls)}</td>
+      <td style="font-family:monospace;font-size:.78rem">${esc(String(resolvedCipher).slice(0,36))}</td>
+      <td>${esc(resolvedIssuer)}</td>
+      <td>${fmtDate(resolvedValidUntil)}</td>
+      <td class="cbom-details-cell">
+        <div class="detail-actions-inline">
+          <button id="cbomDetailBtn-${i}" class="btn-ghost view-x509-btn" data-entry-index="${i}" onclick="showEntryDetails(${i})" style="cursor:pointer;color:var(--c-accent);font-size:.78rem">View Details</button>
+          <button class="btn-ghost" onclick="openScanResult('${esc(row.scan_id || '')}')" style="cursor:pointer;color:var(--c-success);font-size:.78rem">Open Scan</button>
+        </div>
         <div id="${detailsId}-wrap" class="x509-wrap">${x509Html}</div>
       </td>
     </tr>`;
@@ -689,17 +728,29 @@ function buildEntryDetailsMarkup(row) {
   const validityMin = x509.validity_period || {};
   const fpMin = x509.sha256_fingerprints || {};
   const spki = cd.subject_public_key_info || {};
+  const validity = cd.validity || {};
+  const resolvedIssuedOn = validityMin.issued_on || row.valid_from || validity.not_before || '—';
+  const resolvedExpiresOn = validityMin.expires_on || row.valid_until || validity.not_after || '—';
+  const resolvedCertFp = fpMin.certificate || row.fingerprint_sha256 || cd.fingerprint_sha256 || '—';
+  const resolvedPkFp = fpMin.public_key || spki.public_key_fingerprint_sha256 || '—';
+  const resolvedSubjectO = issuedTo.organization || row.subject_o || '—';
+  const resolvedSubjectOU = issuedTo.organizational_unit || row.subject_ou || '—';
+  const resolvedIssuerO = issuedBy.organization || row.issuer_o || '—';
+  const resolvedIssuerOU = issuedBy.organizational_unit || row.issuer_ou || '—';
+  const resolvedAssetName = row.asset_name || row.endpoint || row.subject_cn || 'Unknown asset';
+  const resolvedSubtitle = row.endpoint || row.subject_cn || cd.subject || 'TLS / X.509 certificate details';
+  const resolvedIssuer = row.ca || row.issuer_cn || issuedBy.common_name || cd.issuer || 'Unknown CA / issuer';
   const details = [
     ['Subject CN', issuedTo.common_name || row.subject_cn || '—'],
-    ['Subject O', issuedTo.organization || row.subject_o || '—'],
-    ['Subject OU', issuedTo.organizational_unit || row.subject_ou || '—'],
+    ['Subject O', resolvedSubjectO],
+    ['Subject OU', resolvedSubjectOU],
     ['Issuer CN', issuedBy.common_name || row.issuer_cn || '—'],
-    ['Issuer O', issuedBy.organization || row.issuer_o || '—'],
-    ['Issuer OU', issuedBy.organizational_unit || row.issuer_ou || '—'],
-    ['Valid From', validityMin.issued_on || row.valid_from || '—'],
-    ['Expires On', validityMin.expires_on || row.valid_until || '—'],
-    ['Certificate SHA-256', fpMin.certificate || row.fingerprint_sha256 || '—'],
-    ['Public Key SHA-256', fpMin.public_key || spki.public_key_fingerprint_sha256 || '—'],
+    ['Issuer O', resolvedIssuerO],
+    ['Issuer OU', resolvedIssuerOU],
+    ['Valid From', resolvedIssuedOn],
+    ['Expires On', resolvedExpiresOn],
+    ['Certificate SHA-256', resolvedCertFp],
+    ['Public Key SHA-256', resolvedPkFp],
     ['Key Algorithm', row.public_key_type || spki.subject_public_key_algorithm || '—'],
     ['Key Length', row.key_length ? `${row.key_length} bits` : (spki.subject_public_key_bits ? `${spki.subject_public_key_bits} bits` : '—')],
     ['TLS Version', row.tls_version || '—'],
@@ -712,8 +763,8 @@ function buildEntryDetailsMarkup(row) {
       <div class="cbom-detail-hero">
         <div>
           <div class="cbom-detail-kicker">Selected CBOM row</div>
-          <h3 class="cbom-detail-title">${esc(row.asset_name || 'Unknown asset')}</h3>
-          <p class="cbom-detail-subtitle">${esc(row.endpoint || row.subject_cn || 'TLS / X.509 certificate details')}</p>
+          <h3 class="cbom-detail-title">${esc(resolvedAssetName)}</h3>
+          <p class="cbom-detail-subtitle">${esc(resolvedSubtitle)}</p>
           <div class="cbom-scan-strip" style="margin-top:.5rem;">
             <span class="cbom-scan-badge">Scan: ${esc(row.scan_id || 'N/A')}</span>
             <span class="cbom-scan-badge">Asset ID: ${esc(row.asset_id || 'N/A')}</span>
@@ -729,7 +780,7 @@ function buildEntryDetailsMarkup(row) {
         <div class="cbom-detail-chip">${esc(row.cert_status || 'Unknown status')}</div>
         <div class="cbom-detail-chip">${esc(row.tls_version || 'Unknown TLS')}</div>
         <div class="cbom-detail-chip">${esc(row.key_length ? `${row.key_length} bit key` : 'Key length unavailable')}</div>
-        <div class="cbom-detail-chip">${esc(row.ca || row.issuer_cn || 'Unknown CA / issuer')}</div>
+        <div class="cbom-detail-chip">${esc(resolvedIssuer)}</div>
       </div>
       <div class="cbom-detail-grid">
         ${details.map(([label, value]) => `
@@ -775,12 +826,20 @@ function toggleInlineX509Drawer(index) {
   const wrap = document.getElementById(`x509-${index}-wrap`);
   if (!wrap) return;
   wrap.classList.add('expanded');
-  wrap.style.maxHeight = `${Math.max(140, wrap.scrollHeight + 12)}px`;
+  wrap.style.maxHeight = `${Math.min(420, Math.max(170, wrap.scrollHeight + 12))}px`;
   cbomExpandedIndex = index;
 
   const selectedBtn = document.getElementById(`cbomDetailBtn-${index}`);
   if (selectedBtn) selectedBtn.textContent = 'Collapse';
 }
+
+document.addEventListener('click', (event) => {
+  const inDetailsCell = event.target && event.target.closest && event.target.closest('.cbom-details-cell');
+  if (inDetailsCell) return;
+  if (cbomExpandedIndex !== -1) {
+    toggleInlineX509Drawer(cbomExpandedIndex);
+  }
+});
 
 // ── Pager ─────────────────────────────────────────────────
 function updatePager(total, page, pageSize) {

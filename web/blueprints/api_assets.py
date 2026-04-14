@@ -24,6 +24,8 @@ from middleware.api_auth import api_guard
 
 api_assets = Blueprint("api_assets", __name__, url_prefix="/api")
 
+_INVALID_DISCOVERY_TARGETS = {"", "-", "--", "n/a", "na", "unknown", "0.0.0.0", "::"}
+
 
 def _normalize_cluster_seed(value: str) -> str:
     raw = str(value or "").strip().lower()
@@ -33,6 +35,32 @@ def _normalize_cluster_seed(value: str) -> str:
         parsed = urlparse(raw)
         raw = (parsed.hostname or parsed.netloc or parsed.path or raw).strip().lower()
     return raw
+
+
+_MULTI_LABEL_PUBLIC_SUFFIXES = {
+    "co.uk",
+    "org.uk",
+    "gov.uk",
+    "ac.uk",
+    "com.au",
+    "net.au",
+    "org.au",
+    "co.in",
+    "com.br",
+    "com.sg",
+    "co.jp",
+    "co.kr",
+}
+
+
+def _registrable_domain(host: str) -> str:
+    labels = [label for label in str(host or "").strip(".").split(".") if label]
+    if len(labels) <= 2:
+        return ".".join(labels)
+    suffix2 = ".".join(labels[-2:]).lower()
+    if suffix2 in _MULTI_LABEL_PUBLIC_SUFFIXES and len(labels) >= 3:
+        return ".".join(labels[-3:])
+    return ".".join(labels[-2:])
 
 
 def _derive_cluster_label(value: str) -> str:
@@ -53,10 +81,8 @@ def _derive_cluster_label(value: str) -> str:
         pass
 
     host = seed.split(":", 1)[0]
-    labels = [label for label in host.split(".") if label]
-    if len(labels) >= 2:
-        return ".".join(labels[-2:])
-    return host
+    reg_domain = _registrable_domain(host)
+    return reg_domain or host
 
 
 def _discovery_detected_at_expr(model):
@@ -150,10 +176,81 @@ def get_discovery():
                 status_code=400
             )[0], 400
         
-        model = tab_model_map[tab]
         db = SessionLocal()
         params = extract_pagination_params()
         page, page_size = validate_pagination_params(params["page"], params["page_size"])
+
+        # Subdomains live in a dedicated table with different shape (no scan_id / asset_id columns).
+        if tab == "subdomains":
+            sub_query = (
+                db.query(Subdomain, Asset.target.label("parent_target"))
+                .outerjoin(Asset, Subdomain.parent_asset_id == Asset.id)
+                .filter(Subdomain.is_deleted == False)
+                .filter(~Subdomain.subdomain.like("*.%"))
+            )
+
+            if params["search"]:
+                search_val = f"%{params['search']}%"
+                sub_query = sub_query.filter(
+                    or_(
+                        Subdomain.subdomain.ilike(search_val),
+                        Asset.target.ilike(search_val),
+                        Asset.owner.ilike(search_val),
+                    )
+                )
+
+            total = sub_query.count()
+            sort_field = (params.get("sort") or "detection_date").lower()
+            if sort_field in {"domain_name", "name", "identifier", "subdomain"}:
+                sort_col = Subdomain.subdomain
+            elif sort_field in {"record_type", "type"}:
+                sort_col = Subdomain.record_type
+            elif sort_field in {"parent_asset", "asset_name"}:
+                sort_col = Asset.target
+            else:
+                sort_col = Subdomain.discovered_at
+
+            if params["order"].lower() == "desc":
+                sub_query = sub_query.order_by(sort_col.desc(), Subdomain.id.desc())
+            else:
+                sub_query = sub_query.order_by(sort_col.asc(), Subdomain.id.asc())
+
+            rows = sub_query.offset((page - 1) * page_size).limit(page_size).all()
+            items_data = []
+            for item, parent_target in rows:
+                identifier = str(getattr(item, "subdomain", "") or "")
+                cluster_seed = str(identifier or parent_target or "").strip()
+                cluster_label = _derive_cluster_label(cluster_seed)
+                row = {
+                    "id": int(getattr(item, "id", 0) or 0),
+                    "identifier": identifier,
+                    "status": "confirmed" if bool(getattr(item, "is_inventoried", False)) else "new",
+                    "detection_date": format_datetime(getattr(item, "discovered_at", None)),
+                    "asset_name": str(parent_target or ""),
+                    "asset_risk_level": "",
+                    "risk_score": 50,
+                    "scan_id": None,
+                    "asset_id": int(getattr(item, "parent_asset_id", 0) or 0),
+                    "promoted": bool(getattr(item, "is_inventoried", False)),
+                    "cluster_key": cluster_label,
+                    "cluster_label": cluster_label,
+                    "cluster_seed": cluster_seed,
+                    "domain_name": identifier,
+                    "record_type": str(getattr(item, "record_type", "") or ""),
+                    "parent_asset_id": int(getattr(item, "parent_asset_id", 0) or 0),
+                }
+                items_data.append(row)
+
+            db.close()
+            return paginated_response(
+                items=items_data,
+                total=total,
+                page=page,
+                page_size=page_size,
+                filters={"tab": tab, "sort": params["sort"], "order": params["order"], "search": params["search"]}
+            )[0], 200
+
+        model = tab_model_map[tab]
         
         # Build query
         detected_at_expr = _discovery_detected_at_expr(model)
@@ -162,6 +259,9 @@ def get_discovery():
             .outerjoin(Scan, model.scan_id == Scan.id)
             .filter(model.is_deleted == False)
         )
+        if tab == "ips":
+            query = query.filter(func.trim(func.coalesce(DiscoveryIP.ip_address, "")) != "")
+            query = query.filter(~func.lower(func.trim(func.coalesce(DiscoveryIP.ip_address, ""))).in_(tuple(_INVALID_DISCOVERY_TARGETS - {""})))
         
         # Apply search
         if params["search"]:
@@ -218,7 +318,7 @@ def get_discovery():
             elif isinstance(item, DiscoverySoftware): identifier = item.product
             elif isinstance(item, Subdomain): identifier = item.subdomain
 
-            cluster_seed = str(scan_target or asset_name or identifier or "").strip()
+            cluster_seed = str(identifier or scan_target or asset_name or "").strip()
             cluster_label = _derive_cluster_label(cluster_seed)
 
             row = {
@@ -229,8 +329,8 @@ def get_discovery():
                 "asset_name": asset_name,
                 "asset_risk_level": asset_risk_level,
                 "risk_score": _risk_score_from_level(asset_risk_level),
-                "scan_id": item.scan_id,
-                "asset_id": item.asset_id,
+                "scan_id": getattr(item, "scan_id", None),
+                "asset_id": getattr(item, "asset_id", None),
                 "promoted": getattr(item, "promoted_to_inventory", False) or getattr(item, "is_inventoried", False),
                 "cluster_key": cluster_label,
                 "cluster_label": cluster_label,
@@ -309,6 +409,8 @@ def get_discovery_ip_locations():
             db.query(DiscoveryIP, detected_at_expr.label("detected_at"))
             .outerjoin(Scan, DiscoveryIP.scan_id == Scan.id)
             .filter(DiscoveryIP.is_deleted == False)
+            .filter(func.trim(func.coalesce(DiscoveryIP.ip_address, "")) != "")
+            .filter(~func.lower(func.trim(func.coalesce(DiscoveryIP.ip_address, ""))).in_(tuple(_INVALID_DISCOVERY_TARGETS - {""})))
             .order_by(detected_at_expr.desc(), DiscoveryIP.id.desc())
             .limit(limit)
             .all()
@@ -323,7 +425,45 @@ def get_discovery_ip_locations():
             seen_ips.add(ip)
 
             geo = geo_service.get_location(ip)
-            if str(geo.get("status") or "").lower() not in {"success", "private"}:
+            geo_status = str(geo.get("status") or "").lower()
+
+            # Fallback: use persisted scan.report_json asset_locations when live geo lookup fails.
+            if geo_status not in {"success", "private"} and getattr(row, "scan_id", None):
+                scan_row = db.query(Scan).filter(Scan.id == row.scan_id).first()
+                if scan_row is not None:
+                    raw_report = getattr(scan_row, "report_json", None)
+                    parsed_report = None
+                    if isinstance(raw_report, dict):
+                        parsed_report = raw_report
+                    elif isinstance(raw_report, str):
+                        text_payload = raw_report.strip()
+                        if text_payload:
+                            try:
+                                parsed_report = json.loads(text_payload)
+                            except Exception:
+                                parsed_report = None
+
+                    if isinstance(parsed_report, dict):
+                        for pt in (parsed_report.get("asset_locations") or []):
+                            if str(pt.get("ip") or "").strip() != ip:
+                                continue
+                            geo = {
+                                "status": "success",
+                                "lat": float(pt.get("lat") or 0.0),
+                                "lon": float(pt.get("lon") or 0.0),
+                                "city": str(pt.get("city") or "Unknown"),
+                                "country": str(pt.get("country") or "Unknown"),
+                                "reverse_location": str(pt.get("reverse_location") or ""),
+                            }
+                            geo_status = "success"
+                            break
+
+            if geo_status not in {"success", "private"}:
+                continue
+
+            lat = float(geo.get("lat") or 0.0)
+            lon = float(geo.get("lon") or 0.0)
+            if not lat and not lon:
                 continue
 
             items_data.append({
@@ -332,8 +472,8 @@ def get_discovery_ip_locations():
                 "asset_id": row.asset_id,
                 "asset_name": getattr(getattr(row, "asset", None), "target", "") if getattr(row, "asset", None) else "",
                 "location": str(getattr(row, "location", "") or ""),
-                "lat": float(geo.get("lat") or 0.0),
-                "lon": float(geo.get("lon") or 0.0),
+                "lat": lat,
+                "lon": lon,
                 "city": geo.get("city") or "Unknown",
                 "country": geo.get("country") or "Unknown",
                 "reverse_location": str(geo.get("reverse_location") or ""),
@@ -412,6 +552,13 @@ def promote_discovery_to_asset():
             db.close()
             return api_response(success=False, message="discovery_id is required", status_code=400)
         
+        if tab == "subdomains":
+            asset = SubdomainService.promote_to_inventory(discovery_id, owner=payload.get("owner") or getattr(current_user, "username", "System"))
+            db.close()
+            if asset:
+                return api_response(success=True, data={"asset_id": asset.id, "discovery_id": discovery_id})
+            return api_response(success=False, message="Subdomain promotion failed", status_code=500)
+
         # Model mapping
         tab_model_map = {
             "domains": DiscoveryDomain,
@@ -423,13 +570,6 @@ def promote_discovery_to_asset():
         if not model:
             db.close()
             return api_response(success=False, message=f"Invalid tab: {tab}", status_code=400)
-        
-        if tab == "subdomains":
-            asset = SubdomainService.promote_to_inventory(discovery_id, owner=payload.get("owner") or getattr(current_user, "username", "System"))
-            db.close()
-            if asset:
-                return api_response(success=True, data={"asset_id": asset.id, "discovery_id": discovery_id})
-            return api_response(success=False, message="Subdomain promotion failed", status_code=500)
 
         discovery = db.query(model).filter(model.id == discovery_id, model.is_deleted == False).first()
         if not discovery:
@@ -447,6 +587,13 @@ def promote_discovery_to_asset():
         if not target:
             db.close()
             return api_response(success=False, message="Cannot infer target", status_code=400)
+        if target in _INVALID_DISCOVERY_TARGETS:
+            discovery.status = "false_positive"
+            discovery.is_deleted = True
+            discovery.deleted_at = func.now()
+            db.commit()
+            db.close()
+            return api_response(success=False, message="Invalid placeholder discovery record was removed.", status_code=400)
         
         asset = db.query(Asset).filter(Asset.target == target).first()
         if not asset:

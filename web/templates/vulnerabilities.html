@@ -206,6 +206,128 @@
 
 /* Skeleton stats */
 .skel-num { display: inline-block; width: 48px; height: 2rem; background: var(--bg-secondary); border-radius: 4px; animation: shimmer 1.5s infinite; background-size: 200% 100%; background-image: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-secondary) 50%, var(--bg-card) 75%); }
+
+/* Software/Hardware Grouped View */
+.vuln-view-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 0.5rem;
+}
+.vuln-view-tabs button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+.vuln-view-tabs button:hover { color: var(--text-primary); }
+.vuln-view-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.software-groups-wrapper {
+    display: grid;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+.software-group-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 1.25rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.software-group-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.1);
+}
+.software-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+.software-group-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.software-group-stats {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.software-stat-item {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+.software-stat-item .stat-value {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.software-stat-item .sev-critical { color: var(--danger); }
+.software-stat-item .sev-high { color: #f97316; }
+.software-stat-item .sev-medium { color: var(--warn); }
+.software-stat-item .sev-low { color: var(--safe); }
+
+.software-cves-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+.cve-item {
+    display: grid;
+    grid-template-columns: 130px 90px 1fr 120px;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.65rem;
+    background: rgba(255,255,255,0.02);
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle);
+    font-size: 0.8rem;
+}
+.cve-item-id {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cve-item-severity { text-align: center; }
+.cve-item-cvss {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+}
+.cve-item-desc {
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cve-item-asset {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 1200px) {
+    .cve-item {
+        grid-template-columns: 1fr;
+        gap: 0.4rem;
+    }
+}
 </style>
 {% endblock %}
 
@@ -288,8 +410,85 @@
         </select>
     </div>
 
+    <!-- View Tabs -->
+    <div class="vuln-view-tabs">
+        <button class="view-tab-btn active" data-view="table" onclick="switchView('table')">
+            <i class="fa-solid fa-table"></i> Detailed List
+        </button>
+        <button class="view-tab-btn" data-view="software" onclick="switchView('software')">
+            <i class="fa-solid fa-cube"></i> By Software
+        </button>
+        <button class="view-tab-btn" data-view="multi-source" onclick="switchView('multi-source')">
+            <i class="fa-solid fa-network-wired"></i> All Sources
+        </button>
+    </div>
+
+    <!-- Multi-Source Deduplicated View -->
+    <div id="multiSourceView" style="display:none;">
+        <div style="margin-bottom:1rem; padding:0.75rem; background:rgba(34,211,238,0.1); border:1px solid var(--border-subtle); border-radius:6px; font-size:0.8rem; color:var(--text-secondary);">
+            <i class="fa-solid fa-info-circle"></i> 
+            <strong>Multi-Source Deduplication:</strong> This view queries OSV, CIRCL, and NVD APIs in parallel and shows unique CVEs. 
+            Same CVE from multiple sources appears once with source attribution below severity.
+        </div>
+        <div class="vuln-filters" style="margin-bottom:1rem;">
+            <input type="text" id="multiSourceSearchInput" placeholder="Search package name..." style="flex:1; min-width:200px;">
+            <button class="btn-refresh" onclick="queryMultiSource()">
+                <i class="fa-solid fa-search"></i> Query All Sources
+            </button>
+        </div>
+        <div class="vuln-table-wrapper" id="multiSourceTableWrapper">
+            <table class="vuln-table" id="multiSourceTable">
+                <thead>
+                    <tr>
+                        <th>CVE ID</th>
+                        <th>Severity</th>
+                        <th>CVSS</th>
+                        <th>Description</th>
+                        <th>Published</th>
+                        <th>Sources Found</th>
+                    </tr>
+                </thead>
+                <tbody id="multiSourceTableBody">
+                    <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">
+                        <i class="fa-solid fa-magnifying-glass" style="margin-right:0.5rem;"></i>
+                        Enter a package name and click "Query All Sources" to search across OSV, CIRCL, and NVD APIs.
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div id="multiSourceStats" style="display:none; margin-top:1.25rem; padding:1rem; background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:8px; font-size:0.8rem;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:1rem;">
+                <div>
+                    <div style="color:var(--text-muted); margin-bottom:0.25rem;">Total Unique CVEs</div>
+                    <div style="font-size:1.4rem; font-weight:700; color:var(--accent);" id="multiSourceTotalCount">0</div>
+                </div>
+                <div>
+                    <div style="color:var(--text-muted); margin-bottom:0.25rem;">Sources Found</div>
+                    <div style="font-size:1.4rem; font-weight:700; color:var(--text-primary);" id="multiSourceSourceCount">0</div>
+                </div>
+                <div>
+                    <div style="color:var(--text-muted); margin-bottom:0.25rem;">Critical</div>
+                    <div style="font-size:1.4rem; font-weight:700; color:var(--danger);" id="multiSourceCriticalCount">0</div>
+                </div>
+                <div>
+                    <div style="color:var(--text-muted); margin-bottom:0.25rem;">High</div>
+                    <div style="font-size:1.4rem; font-weight:700; color:#f97316;" id="multiSourceHighCount">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Software/Hardware Grouped View -->
+    <div id="softwareGroupsView" style="display:none;">
+        <div class="software-groups-wrapper" id="softwareGroupsContainer">
+            <div style="text-align:center; padding:2rem; color:var(--text-muted);">
+                <i class="fa-solid fa-spinner fa-spin"></i> Loading software vulnerabilities...
+            </div>
+        </div>
+    </div>
+
     <!-- Table -->
-    <div class="vuln-table-wrapper">
+    <div id="tableView" class="vuln-table-wrapper">
         <table class="vuln-table" id="vulnTable">
             <thead>
                 <tr>
@@ -506,6 +705,213 @@
             if (icon) { icon.className = 'fa-solid fa-arrows-rotate'; }
         }
     };
+
+    // ── Software Grouped View ──────────────────────────────────────────
+    window.switchView = function(viewName) {
+        const tableView = document.getElementById('tableView');
+        const softwareView = document.getElementById('softwareGroupsView');
+        const multiSourceView = document.getElementById('multiSourceView');
+        const tabBtns = document.querySelectorAll('.view-tab-btn');
+        
+        tabBtns.forEach(btn => btn.classList.remove('active'));
+        
+        if (viewName === 'software') {
+            tableView.style.display = 'none';
+            softwareView.style.display = 'block';
+            multiSourceView.style.display = 'none';
+            document.querySelector('[data-view="software"]').classList.add('active');
+            loadSoftwareGroups();
+        } else if (viewName === 'multi-source') {
+            tableView.style.display = 'none';
+            softwareView.style.display = 'none';
+            multiSourceView.style.display = 'block';
+            document.querySelector('[data-view="multi-source"]').classList.add('active');
+        } else {
+            tableView.style.display = 'block';
+            softwareView.style.display = 'none';
+            multiSourceView.style.display = 'none';
+            document.querySelector('[data-view="table"]').classList.add('active');
+        }
+    };
+
+    // ── Multi-Source Query ─────────────────────────────────────────────
+    window.queryMultiSource = async function() {
+        const searchInput = document.getElementById('multiSourceSearchInput');
+        const packageName = (searchInput.value || '').trim();
+        
+        if (!packageName) {
+            alert('Please enter a package name');
+            return;
+        }
+        
+        const tbody = document.getElementById('multiSourceTableBody');
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem;"><i class="fa-solid fa-spinner fa-spin"></i> Querying all sources...</td></tr>';
+        
+        try {
+            const csrf = document.querySelector('meta[name="csrf-token"]');
+            const r = await fetch(`${API_BASE}/multi-source`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrf ? csrf.content : '',
+                },
+                body: JSON.stringify({
+                    package_name: packageName,
+                    ecosystem: 'PyPI',
+                    search_term: packageName,
+                }),
+            });
+            
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const json = await r.json();
+            
+            if (json.success) {
+                renderMultiSource(json.data || {});
+            } else {
+                throw new Error(json.message || 'Query failed');
+            }
+        } catch(e) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--danger); padding:2rem;">
+                <i class="fa-solid fa-triangle-exclamation"></i> Query failed: ${e.message}
+            </td></tr>`;
+            document.getElementById('multiSourceStats').style.display = 'none';
+        }
+    };
+
+    function renderMultiSource(data) {
+        const vulnerabilities = data.vulnerabilities || [];
+        const summary = data.summary || {};
+        const tbody = document.getElementById('multiSourceTableBody');
+        
+        if (vulnerabilities.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6">
+                <div class="vuln-empty">
+                    <i class="fa-solid fa-shield-check sev-low"></i>
+                    <div class="empty-title">No vulnerabilities found</div>
+                    <div class="empty-hint">Try searching for a different package name.</div>
+                </div>
+            </td></tr>`;
+            document.getElementById('multiSourceStats').style.display = 'none';
+            return;
+        }
+        
+        tbody.innerHTML = vulnerabilities.map(vuln => {
+            const cvss = (vuln.cvss != null) ? parseFloat(vuln.cvss).toFixed(1) : '—';
+            const published = vuln.published_at ? new Date(vuln.published_at).toLocaleDateString() : '—';
+            const desc = (vuln.description || '—').substring(0, 120) + (vuln.description && vuln.description.length > 120 ? '…' : '');
+            const sources = vuln.sources || [];
+            const sourceBadges = sources.map(src => 
+                `<span style="display:inline-block; padding:0.2rem 0.4rem; background:rgba(34,211,238,0.2); border:1px solid rgba(34,211,238,0.4); border-radius:3px; font-size:0.7rem; color:var(--accent); margin-right:0.3rem; text-transform:uppercase; font-weight:600;">${src}</span>`
+            ).join('');
+            
+            return `<tr>
+                <td class="cve-id" style="font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:var(--accent); white-space:nowrap;">
+                    <a href="https://nvd.nist.gov/vuln/detail/${vuln.cve_id}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;">
+                        ${vuln.cve_id}
+                    </a>
+                </td>
+                <td>${sevBadge(vuln.severity)}</td>
+                <td class="cvss-score" style="color:${cvssColor(vuln.cvss || 0)}; font-family:'JetBrains Mono',monospace; font-weight:600;">${cvss}</td>
+                <td class="desc-cell" style="font-size:0.78rem; color:var(--text-muted); max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${(vuln.description || '').replace(/"/g,'&quot;')}">${desc}</td>
+                <td style="white-space:nowrap; font-size:0.78rem;">${published}</td>
+                <td style="font-size:0.75rem;">${sourceBadges}</td>
+            </tr>`;
+        }).join('');
+        
+        // Show stats
+        const statsContainer = document.getElementById('multiSourceStats');
+        document.getElementById('multiSourceTotalCount').textContent = (summary.total_vulnerabilities || 0).toLocaleString();
+        document.getElementById('multiSourceSourceCount').textContent = (summary.total_unique_sources || 0);
+        document.getElementById('multiSourceCriticalCount').textContent = (summary.severity_breakdown?.critical || 0);
+        document.getElementById('multiSourceHighCount').textContent = (summary.severity_breakdown?.high || 0);
+        statsContainer.style.display = 'block';
+    }
+
+    // Mouse over search input: clear placeholder-like hint
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('multiSourceSearchInput');
+        if (searchInput) {
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    window.queryMultiSource();
+                }
+            });
+        }
+    });
+
+    async function loadSoftwareGroups() {
+        const container = document.getElementById('softwareGroupsContainer');
+        try {
+            const r = await fetch(`${API_BASE}/aggregated?status=open`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const json = await r.json();
+            renderSoftwareGroups(json.data || {});
+        } catch(e) {
+            container.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--danger);">
+                <i class="fa-solid fa-triangle-exclamation"></i> Failed to load software groups: ${e.message}
+            </div>`;
+        }
+    }
+
+    function renderSoftwareGroups(data) {
+        const bySwOrHw = data.by_software || {};
+        const summary = data.summary || {};
+        const container = document.getElementById('softwareGroupsContainer');
+
+        if (Object.keys(bySwOrHw).length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding:3rem; color:var(--text-muted);">
+                <i class="fa-solid fa-shield-check sev-low" style="font-size:2.5rem; margin-bottom:0.5rem;"></i>
+                <div style="font-weight:700; color:var(--text-secondary); margin-bottom:0.4rem;">No open vulnerabilities detected</div>
+                <div style="font-size:0.82rem;">Run a Refresh CVEs scan to fetch the latest data from CIRCL & NVD APIs.</div>
+            </div>`;
+            return;
+        }
+
+        let html = '';
+        for (const [_swName, swData] of Object.entries(bySwOrHw)) {
+            const total = swData.total || 0;
+            const crit = swData.critical || 0;
+            const high = swData.high || 0;
+            const med = swData.medium || 0;
+            const low = swData.low || 0;
+            const vulns = swData.vulnerabilities || [];
+
+            html += `<div class="software-group-card">
+                <div class="software-group-header">
+                    <div class="software-group-name">
+                        <i class="fa-solid fa-box" style="margin-right:0.5rem; opacity:0.7;"></i>${swData.name || _swName}
+                    </div>
+                    <div class="software-group-stats">
+                        <div class="software-stat-item">
+                            <span style="color:var(--text-muted);">Total:</span>
+                            <span class="stat-value">${total}</span>
+                        </div>
+                        ${crit > 0 ? `<div class="software-stat-item"><i class="fa-solid fa-circle sev-critical" style="font-size:0.5rem;"></i><span class="stat-value sev-critical">${crit}</span></div>` : ''}
+                        ${high > 0 ? `<div class="software-stat-item"><i class="fa-solid fa-circle sev-high" style="font-size:0.5rem;"></i><span class="stat-value sev-high">${high}</span></div>` : ''}
+                        ${med > 0 ? `<div class="software-stat-item"><i class="fa-solid fa-circle sev-medium" style="font-size:0.5rem;"></i><span class="stat-value sev-medium">${med}</span></div>` : ''}
+                        ${low > 0 ? `<div class="software-stat-item"><i class="fa-solid fa-circle sev-low" style="font-size:0.5rem;"></i><span class="stat-value sev-low">${low}</span></div>` : ''}
+                    </div>
+                </div>
+                <div class="software-cves-list">
+                    ${vulns.map(v => `<div class="cve-item">
+                        <div class="cve-item-id">
+                            <a href="https://nvd.nist.gov/vuln/detail/${v.cve_id}" target="_blank" style="color:var(--accent); text-decoration:none;">
+                                ${v.cve_id}
+                            </a>
+                        </div>
+                        <div class="cve-item-severity">${sevBadge(v.severity)}</div>
+                        <div class="cve-item-desc" title="${(v.description || '').replace(/"/g, '&quot;')}">${(v.description || '—').substring(0, 80)}</div>
+                        <div class="cve-item-asset"><i class="fa-solid fa-server" style="margin-right:0.3rem; opacity:0.6;"></i>${v.asset || '—'}</div>
+                    </div>`).join('')}
+                </div>
+            </div>`;
+        }
+        
+        container.innerHTML = html;
+    }
 
     // ── Boot ──────────────────────────────────────────────────────────
     loadStats();

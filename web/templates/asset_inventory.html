@@ -34,7 +34,7 @@
         align-items: center;
         justify-content: center;
         z-index: 99000;
-        padding: clamp(0.75rem, 3vw, 2rem);
+        padding: clamp(0.25rem, 1.25vw, 0.9rem);
         opacity: 0;
         visibility: hidden;
         pointer-events: none;
@@ -46,9 +46,10 @@
         pointer-events: auto;
     }
     .inv-modal-shell {
-        width: 92%;
-        max-width: 860px;
-        max-height: 88vh;
+        width: min(98vw, 1840px);
+        height: min(96dvh, 1200px);
+        max-width: none;
+        max-height: none;
         background: var(--bg-card, #0a0e14);
         border: 1px solid rgba(255,255,255,0.1);
         border-radius: 18px;
@@ -89,8 +90,93 @@
     .inv-modal-close:hover { background: var(--danger, #ff3366); color: #fff; border-color: var(--danger); }
     .inv-modal-body {
         flex: 1;
-        overflow-y: auto;
-        padding: 1.5rem 1.75rem;
+        overflow: hidden;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .inv-modal-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.9rem 1.25rem;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+        background: rgba(255,255,255,0.02);
+    }
+
+    .inv-modal-toolbar .meta {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        min-width: 0;
+    }
+
+    .inv-modal-toolbar .meta .title {
+        font-size: 0.9rem;
+        font-weight: 800;
+        color: var(--text-primary);
+    }
+
+    .inv-modal-toolbar .meta .subtitle {
+        font-size: 0.72rem;
+        color: var(--text-secondary);
+        font-family: 'JetBrains Mono', monospace;
+        word-break: break-all;
+    }
+
+    .inv-modal-toolbar .actions {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        flex-shrink: 0;
+    }
+
+    .scan-result-frame {
+        width: 100%;
+        flex: 1;
+        min-height: 0;
+        height: 100%;
+        border: 0;
+        background: #05070b;
+        display: none;
+    }
+
+    .scan-result-loading,
+    .scan-result-empty {
+        padding: 2rem;
+        text-align: center;
+        color: var(--text-muted);
+        border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    @media (max-width: 900px) {
+        .inv-modal-overlay {
+            padding: 0;
+        }
+        .inv-modal-shell {
+            width: 100vw;
+            height: 100dvh;
+            border-radius: 0;
+        }
+        .inv-modal-header,
+        .inv-modal-toolbar {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        .inv-modal-toolbar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .inv-modal-toolbar .actions {
+            justify-content: stretch;
+        }
+        .inv-modal-toolbar .actions > * {
+            flex: 1;
+            text-align: center;
+        }
     }
 
     /* Scan history table */
@@ -249,23 +335,23 @@
         </div>
         <div class="glass-card metric-card">
             <div class="metric-title">Platform Scans</div>
-            <div class="metric-value">{{ vm.kpis.total_scans or 0 }}</div>
+            <div class="metric-value" id="kpiPlatformScans">{{ vm.kpis.total_scans or 0 }}</div>
             <div class="metric-trend" style="color:var(--pqc-safe);">Real-time</div>
         </div>
         <div class="glass-card metric-card">
             <div class="metric-title">Exposure Score</div>
-            <div class="metric-value" style="color:var(--risk-high);">{{ vm.kpis.avg_pqc_score or 0 }}</div>
+            <div class="metric-value" id="kpiExposureScore" style="color:var(--risk-high);">{{ vm.kpis.avg_pqc_score or 0 }}</div>
             <div class="metric-trend">Aggregate</div>
         </div>
         <div class="glass-card metric-card">
             <div class="metric-title">Quantum Safe</div>
-            <div class="metric-value" style="color:var(--pqc-safe);">{{ vm.kpis.quantum_safe_percent or 0 }}%</div>
+            <div class="metric-value" id="kpiQuantumSafePct" style="color:var(--pqc-safe);">{{ vm.kpis.quantum_safe_percent or 0 }}%</div>
             <div class="metric-trend">Verified</div>
         </div>
     </div>
 
     <!-- Inventory Table Shell -->
-    <section class="glass-card" style="padding: 1.5rem;" data-table-shell>
+    <section class="glass-card" style="padding: 1.5rem;" data-table-shell data-current-page="{{ page_data.page or 1 }}" data-total-pages="{{ ((page_data.total_count or 0) + (page_data.page_size or 25) - 1) // (page_data.page_size or 25) }}">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem;">
             <div>
                 <h3 style="margin:0;">Managed Assets</h3>
@@ -355,22 +441,34 @@
 <!-- Modals -->
 {% include "modals/asset_edit.html" %}
 
-<!-- Scan History Modal (now properly centred with inv-modal-overlay) -->
+<!-- Scan Result Modal -->
 <div id="assetScanModal" class="inv-modal-overlay" role="dialog" aria-modal="true" aria-hidden="true">
     <div class="inv-modal-shell">
         <div class="inv-modal-header">
             <div>
-                <h2 id="scanModalTitle">Scan History</h2>
+                <h2 id="scanModalTitle">Scan Result Preview</h2>
                 <div id="scanModalSubtitle" style="font-size:0.78rem; color:var(--text-secondary); margin-top:2px; font-family:'JetBrains Mono',monospace;"></div>
             </div>
             <button class="inv-modal-close" id="closeScanModal" aria-label="Close">×</button>
         </div>
         <div class="inv-modal-body">
-            <div id="scanHistoryContent">
-                <div style="text-align:center; padding:3rem; color:var(--text-muted);">
-                    <i class="fa-solid fa-circle-notch fa-spin" style="font-size:2rem;"></i>
-                    <p style="margin-top:1rem;">Loading scan history…</p>
+            <div class="inv-modal-toolbar">
+                <div class="meta">
+                    <div class="title" id="scanModalResultsTitle">Loading result…</div>
+                    <div class="subtitle" id="scanModalResultsUrl"></div>
                 </div>
+                <div class="actions">
+                    <a id="scanModalFullscreenLink" class="button secondary" target="_blank" rel="noopener noreferrer" style="padding:0.45rem 0.8rem; font-size:0.78rem; text-decoration:none;">View Full Screen</a>
+                    <button id="scanModalCloseFooter" class="button" style="padding:0.45rem 0.8rem; font-size:0.78rem;">Close Popup</button>
+                </div>
+            </div>
+            <div id="scanResultLoading" class="scan-result-loading">
+                <i class="fa-solid fa-circle-notch fa-spin" style="font-size:2rem;"></i>
+                <p style="margin-top:1rem;">Loading scan results…</p>
+            </div>
+            <iframe id="scanResultFrame" class="scan-result-frame" title="Scan Result Preview" loading="lazy" referrerpolicy="same-origin"></iframe>
+            <div id="scanResultEmpty" class="scan-result-empty" style="display:none;">
+                Select a row with a valid scan to preview its results.
             </div>
         </div>
     </div>
@@ -453,15 +551,25 @@
                     const deletedIds = data.deleted_ids || [];
 
                     if (deletedIds.length > 0) {
+                        let removedAny = false;
                         deletedIds.forEach(id => {
-                            const el = document.querySelector(`[data-asset-id="${id}"]`);
-                            const tr = el ? el.closest('tr') : null;
-                            if (tr) tr.remove();
+                            const tr = _getRowByAssetId(id);
+                            if (tr) {
+                                tr.remove();
+                                removedAny = true;
+                            }
                         });
+                        if (!removedAny && row) {
+                            row.remove();
+                        }
                     } else if (row) {
                         row.remove();
                     }
                     _updateInventoryCount(-( (data.deleted_count) || 1 ));
+                    _refreshInventoryKpis();
+                    if (_navigateToPreviousPageIfSparse()) {
+                        return;
+                    }
                     _flashBanner(data.message || 'Asset moved to Recycle Bin.', 'success');
                 } else {
                     _flashBanner(data.message || 'Delete failed via API, retrying secure form submit…', 'error');
@@ -509,9 +617,67 @@
         setTimeout(() => banner.remove(), 4000);
     }
 
+    async function _refreshInventoryKpis() {
+        try {
+            const resp = await fetch('/api/home/metrics', {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' }
+            });
+            const payload = await resp.json();
+            if (!resp.ok || payload?.success === false) {
+                return;
+            }
+            const kpis = payload?.data?.kpis || {};
+            const totalAssets = Number(kpis.total_assets || 0);
+            const totalScans = Number(kpis.total_scans || 0);
+            const avgPqc = Number(kpis.avg_pqc_score || 0);
+            const quantumSafePct = Number(kpis.quantum_safe_pct || 0);
+
+            const totalAssetsEl = document.getElementById('activeInventoryCount');
+            const totalScansEl = document.getElementById('kpiPlatformScans');
+            const avgPqcEl = document.getElementById('kpiExposureScore');
+            const qSafeEl = document.getElementById('kpiQuantumSafePct');
+
+            if (totalAssetsEl) totalAssetsEl.textContent = totalAssets.toLocaleString();
+            if (totalScansEl) totalScansEl.textContent = totalScans.toLocaleString();
+            if (avgPqcEl) avgPqcEl.textContent = avgPqc.toFixed(1);
+            if (qSafeEl) qSafeEl.textContent = `${quantumSafePct.toFixed(1)}%`;
+        } catch (_err) {
+            // Non-blocking telemetry refresh
+        }
+    }
+
+    function _navigateToPreviousPageIfSparse() {
+        const shell = document.querySelector('[data-table-shell]');
+        const currentPage = Number(shell?.dataset?.currentPage || '1');
+        if (!Number.isFinite(currentPage) || currentPage <= 1) {
+            return false;
+        }
+
+        const tbody = document.querySelector('.table-component .scans-table tbody');
+        if (!tbody) {
+            return false;
+        }
+
+        const meaningfulRows = Array.from(tbody.querySelectorAll('tr')).filter((tr) => !tr.querySelector('.empty-state'));
+        if (meaningfulRows.length > 0) {
+            return false;
+        }
+
+        const params = new URLSearchParams(window.location.search || '');
+        params.set('page', String(currentPage - 1));
+        window.location.search = params.toString();
+        return true;
+    }
+
     function _getRowByAssetId(assetId) {
         if (!assetId) return null;
-        const trigger = document.querySelector(`[data-asset-id="${assetId}"]`);
+        const byCheckbox = document.querySelector(`input[name="asset_ids"][value="${String(assetId)}"]`);
+        if (byCheckbox) {
+            return byCheckbox.closest('tr');
+        }
+        const trigger = document.querySelector(`[data-asset-id="${String(assetId)}"]`);
         return trigger ? trigger.closest('tr') : null;
     }
 
@@ -546,8 +712,20 @@
     const scanModal = document.getElementById('assetScanModal');
     const scanModalTitle = document.getElementById('scanModalTitle');
     const scanModalSubtitle = document.getElementById('scanModalSubtitle');
-    const scanHistoryContent = document.getElementById('scanHistoryContent');
+    const scanModalResultsTitle = document.getElementById('scanModalResultsTitle');
+    const scanModalResultsUrl = document.getElementById('scanModalResultsUrl');
+    const scanModalFullscreenLink = document.getElementById('scanModalFullscreenLink');
+    const scanResultFrame = document.getElementById('scanResultFrame');
+    const scanResultLoading = document.getElementById('scanResultLoading');
+    const scanResultEmpty = document.getElementById('scanResultEmpty');
     const closeScanModal = document.getElementById('closeScanModal');
+    const closeScanModalFooter = document.getElementById('scanModalCloseFooter');
+    let lastScanTrigger = null;
+
+    function _setScanModalLoading(isLoading) {
+        if (scanResultLoading) scanResultLoading.style.display = isLoading ? 'block' : 'none';
+        if (scanResultFrame) scanResultFrame.style.display = isLoading ? 'none' : 'block';
+    }
 
     function openScanModal() {
         scanModal.classList.add('open');
@@ -558,75 +736,95 @@
         scanModal.classList.remove('open');
         scanModal.setAttribute('aria-hidden', 'true');
         document.removeEventListener('keydown', _escScanModal);
+        if (scanResultFrame) {
+            scanResultFrame.src = 'about:blank';
+        }
+        _setScanModalLoading(true);
+        if (lastScanTrigger && typeof lastScanTrigger.focus === 'function') {
+            lastScanTrigger.focus({ preventScroll: true });
+        }
     }
     function _escScanModal(e) {
         if (e.key === 'Escape') closeScanModalFn();
     }
 
     closeScanModal.addEventListener('click', closeScanModalFn);
+    closeScanModalFooter?.addEventListener('click', closeScanModalFn);
     scanModal.addEventListener('click', (e) => { if (e.target === scanModal) closeScanModalFn(); });
 
-    /* Delegate 'Scans' button clicks */
+    /* Delegate 'View' button clicks */
     document.addEventListener('click', async (e) => {
-        const btn = e.target.closest('[data-open-asset-scan]');
+        const btn = e.target.closest('[data-open-scan-result]');
         if (!btn) return;
 
         const assetId = btn.dataset.assetId;
         const assetName = btn.dataset.assetName || `Asset #${assetId}`;
+        const scanId = String(btn.dataset.lastScanId || '').trim();
+        const resultUrl = String(btn.dataset.resultUrl || (scanId ? `/results/${scanId}` : '')).trim();
 
-        scanModalTitle.textContent = `Scan History`;
+        lastScanTrigger = btn;
+        scanModalTitle.textContent = 'Scan Result Preview';
         scanModalSubtitle.textContent = assetName;
-        scanHistoryContent.innerHTML = `<div style="text-align:center;padding:3rem;color:var(--text-muted);"><i class="fa-solid fa-circle-notch fa-spin" style="font-size:2rem;"></i><p style="margin-top:1rem;">Loading…</p></div>`;
+        if (scanModalResultsTitle) scanModalResultsTitle.textContent = scanId ? `Previewing scan ${scanId}` : 'No scan result available';
+        if (scanModalResultsUrl) scanModalResultsUrl.textContent = resultUrl || 'No results URL available';
+        if (scanModalFullscreenLink) {
+            scanModalFullscreenLink.href = resultUrl || '#';
+            scanModalFullscreenLink.style.pointerEvents = resultUrl ? 'auto' : 'none';
+            scanModalFullscreenLink.style.opacity = resultUrl ? '1' : '0.5';
+        }
+
+        if (!resultUrl) {
+            if (scanResultEmpty) scanResultEmpty.style.display = 'block';
+            if (scanResultEmpty) scanResultEmpty.textContent = 'Select a row with a valid scan to preview its results.';
+            _setScanModalLoading(false);
+            openScanModal();
+            return;
+        }
+
+        if (scanResultEmpty) scanResultEmpty.style.display = 'none';
+        _setScanModalLoading(true);
         openScanModal();
 
         try {
-            const resp = await fetch(`/api/assets/${assetId}/scans`, {
-                headers: { 'Accept': 'application/json', 'X-CSRFToken': getCsrf() }
-            });
-            const result = await resp.json();
-            if (!resp.ok || !result.success) throw new Error(result.message || 'Failed');
-
-            const { items, total } = result.data;
-            if (!items || items.length === 0) {
-                scanHistoryContent.innerHTML = `<div style="text-align:center;padding:3rem;color:var(--text-muted);"><i class="fa-solid fa-inbox" style="font-size:2rem;opacity:0.3;"></i><p style="margin-top:1rem;">No scans recorded yet for this asset.</p></div>`;
-                return;
+            if (scanResultFrame) {
+                scanResultFrame.src = resultUrl;
+                scanResultFrame.onload = () => {
+                    _setScanModalLoading(false);
+                };
+            } else {
+                _setScanModalLoading(false);
             }
-
-            scanHistoryContent.innerHTML = `
-                <div style="margin-bottom:1rem;font-size:0.8rem;color:var(--text-secondary);">${total} scan(s) on record</div>
-                <div style="overflow-x:auto;">
-                <table class="scan-history-table">
-                    <thead>
-                        <tr>
-                            <th>Scan ID</th>
-                            <th>Status</th>
-                            <th>Started</th>
-                            <th>Completed</th>
-                            <th>PQC Score</th>
-                            <th>Services</th>
-                            <th>Certs</th>
-                            <th>CBOM</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${items.map(s => `
-                        <tr>
-                            <td style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--accent);">${(s.scan_id||'').slice(0,12)}…</td>
-                            <td><span class="risk-pill ${s.status === 'completed' ? 'risk-low' : 'risk-medium'}">${s.status}</span></td>
-                            <td style="font-size:0.75rem;">${s.started_at ? new Date(s.started_at).toLocaleString() : '--'}</td>
-                            <td style="font-size:0.75rem;">${s.completed_at ? new Date(s.completed_at).toLocaleString() : '--'}</td>
-                            <td style="color:var(--accent);font-weight:700;">${s.pqc_score !== null ? s.pqc_score.toFixed(1) : '--'}</td>
-                            <td>${s.services_discovered}</td>
-                            <td>${s.total_certificates}</td>
-                            <td>${s.cbom_components}</td>
-                        </tr>`).join('')}
-                    </tbody>
-                </table>
-                </div>`;
         } catch (err) {
-            scanHistoryContent.innerHTML = `<div style="color:var(--danger);padding:2rem;text-align:center;">Error: ${err.message}</div>`;
+            _setScanModalLoading(false);
+            if (scanResultEmpty) {
+                scanResultEmpty.style.display = 'block';
+                scanResultEmpty.textContent = `Error loading results preview: ${err.message}`;
+            }
         }
     });
+
+    /* Legacy safety net: if a row still uses the old asset-details trigger, route it to scan results when available. */
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-open-asset-details]');
+        if (!btn) return;
+        const resultUrl = String(btn.dataset.resultUrl || '').trim();
+        const scanId = String(btn.dataset.lastScanId || '').trim();
+        if (!resultUrl && !scanId) return;
+
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const proxyBtn = document.createElement('button');
+        proxyBtn.type = 'button';
+        proxyBtn.dataset.openScanResult = 'true';
+        proxyBtn.dataset.assetId = btn.dataset.assetId || '';
+        proxyBtn.dataset.assetName = btn.dataset.assetName || '';
+        proxyBtn.dataset.lastScanId = scanId;
+        proxyBtn.dataset.resultUrl = resultUrl || (scanId ? `/results/${scanId}` : '');
+        proxyBtn.hidden = true;
+        document.body.appendChild(proxyBtn);
+        proxyBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+        proxyBtn.remove();
+    }, true);
 
     /* ─── Scan All Inventory status indicator ─── */
     document.getElementById('scanAllInventoryForm').addEventListener('submit', async (e) => {
@@ -656,9 +854,11 @@
             if (response.ok && (result.status === 'started' || result.status === 'in_progress')) {
                 statusEl.textContent = 'Scan all inventory has been queued and is running in the background.';
                 statusEl.style.color = 'var(--pqc-safe)';
+                _refreshInventoryKpis();
             } else if (response.ok && result.status === 'complete') {
                 statusEl.textContent = 'Scan all inventory completed successfully.';
                 statusEl.style.color = 'var(--pqc-safe)';
+                _refreshInventoryKpis();
             } else {
                 statusEl.textContent = 'Scan all inventory failed to start: ' + (result.message || 'unknown error');
                 statusEl.style.color = 'var(--danger)';
@@ -714,6 +914,7 @@
                 feedback.style.color = 'var(--pqc-safe)';
                 feedback.textContent = result.message || 'Scan completed. Refreshing inventory…';
                 _updateInventoryCount(result.data?.created ? 1 : 0);
+                _refreshInventoryKpis();
                 setTimeout(() => location.reload(), 3000);
             } else {
                 feedback.style.color = 'var(--danger, #ff3366)';
@@ -816,6 +1017,7 @@
                     }
                     _flashBanner(data.message || `Submitting bulk scan for ${uniqueIds.length} asset(s)…`, 'success');
                     _startPollingStatus();
+                    _refreshInventoryKpis();
                     return;
                 }
                 throw new Error(data.message || 'Bulk scan request failed.');
@@ -843,12 +1045,19 @@
                 const data = await resp.json();
                 if (resp.ok && data.status === 'success') {
                     _flashBanner(data.message || `Moved ${uniqueIds.length} asset(s) to Recycle Bin.`, 'success');
-                    uniqueIds.forEach(id => {
-                        const tr = document.querySelector(`[data-asset-id="${id}"]`)?.closest('tr');
+                    const serverDeletedIds = Array.isArray(data.deleted_ids) && data.deleted_ids.length
+                        ? data.deleted_ids
+                        : uniqueIds;
+                    serverDeletedIds.forEach(id => {
+                        const tr = _getRowByAssetId(id);
                         if (tr) tr.remove();
                     });
-                    _updateInventoryCount(-uniqueIds.length);
+                    _updateInventoryCount(-(Number(data.deleted_count) || serverDeletedIds.length || uniqueIds.length));
                     updateSelectionUI();
+                    _refreshInventoryKpis();
+                    if (_navigateToPreviousPageIfSparse()) {
+                        return;
+                    }
                 } else {
                     throw new Error(data.message || 'Bulk delete API failed.');
                 }
@@ -898,6 +1107,7 @@
                 }
                 _flashBanner(data.message || 'Scan initialized.', responseStatus === 'warning' ? 'warning' : 'success');
                 _startPollingStatus();
+                _refreshInventoryKpis();
             } else {
                 throw new Error(data.message || 'Scan failed.');
             }
@@ -942,6 +1152,17 @@
     if (document.querySelectorAll('.row-scan-status-badge.status-queued, .row-scan-status-badge.status-started, .row-scan-status-badge.status-running').length > 0) {
         _startPollingStatus();
     }
+
+    _refreshInventoryKpis();
+    const kpiInterval = window.setInterval(() => {
+        if (!document.hidden) {
+            _refreshInventoryKpis();
+        }
+    }, 20000);
+
+    window.addEventListener('beforeunload', () => {
+        window.clearInterval(kpiInterval);
+    });
 
 })();
 </script>
@@ -1067,9 +1288,7 @@
                 if (resp.ok && data.status === 'success') {
                     closeEditModal();
                     /* Update the row's risk pill in DOM */
-                    const riskPill = document.querySelector(`[data-asset-id="${assetId}"]`)
-                        ?.closest('tr')
-                        ?.querySelector('.risk-pill');
+                    const riskPill = _getRowByAssetId(assetId)?.querySelector('.risk-pill');
                     if (riskPill) {
                         riskPill.className = `risk-pill risk-${riskLevel.toLowerCase()}`;
                         riskPill.textContent = riskLevel;

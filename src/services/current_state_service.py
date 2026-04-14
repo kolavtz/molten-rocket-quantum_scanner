@@ -289,13 +289,33 @@ class CurrentStateService:
             except Exception:
                 san_domains = [cert.san_domains]
 
+        def detail_value(*paths: tuple[str, ...], default: Any = "") -> Any:
+            current_root: Any = cert_details
+            for path in paths:
+                current: Any = current_root
+                for key in path:
+                    if not isinstance(current, dict):
+                        current = None
+                        break
+                    current = current.get(key)
+                if current not in (None, ""):
+                    return current
+            return default
+
+        subject_cn = cert.subject_cn or detail_value(("subject_cn",), ("subject", "commonName"))
+        subject_o = cert.subject_o or detail_value(("subject_o",), ("subject", "organizationName"))
+        issuer_cn = cert.issuer_cn or detail_value(("issuer_cn",), ("issuer", "commonName"))
+        issuer_o = cert.issuer_o or detail_value(("issuer_o",), ("issuer", "organizationName"))
+        public_key_type = cert.public_key_type or detail_value(("public_key_type",), ("subject_public_key_info", "public_key_algorithm"))
+        key_length = cert.key_length or detail_value(("subject_public_key_info", "subject_public_key_bits"), default=0)
+
         return {
             "id": cert.id,
             "cert_status": _cls._compute_cert_status(cert),
-            "subject_cn": cert.subject_cn,
-            "subject_o": cert.subject_o,
-            "issuer_cn": cert.issuer_cn,
-            "issuer_o": cert.issuer_o,
+            "subject_cn": subject_cn,
+            "subject_o": subject_o,
+            "issuer_cn": issuer_cn,
+            "issuer_o": issuer_o,
             "serial": cert.serial,
             "fingerprint_sha256": cert.fingerprint_sha256,
             "valid_from": cert.valid_from.isoformat() if cert.valid_from else None,
@@ -305,9 +325,9 @@ class CurrentStateService:
             "is_self_signed": cert.is_self_signed,
             "is_current": cert.is_current,
             "tls_version": cert.tls_version,
-            "key_length": cert.key_length,
+            "key_length": key_length,
             "key_algorithm": cert.key_algorithm,
-            "public_key_type": cert.public_key_type,
+            "public_key_type": public_key_type,
             "cipher_suite": cert.cipher_suite,
             "signature_algorithm": cert.signature_algorithm,
             "ca": cert.ca,

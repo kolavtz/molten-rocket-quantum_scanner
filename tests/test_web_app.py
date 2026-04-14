@@ -134,7 +134,7 @@ class TestModulePages:
         assert b'data-table-mode="server"' in resp.data
         assert b'data-table-shell' in resp.data
         assert b'data-bulk-form' in resp.data
-        assert b'data-open-asset-details' in resp.data
+        assert b'data-open-scan-result' in resp.data
         assert b'>View</button>' in resp.data
         assert b'>Details</button>' not in resp.data
         assert b'>Scans</button>' not in resp.data
@@ -707,7 +707,12 @@ class TestScanPipelinePersistence:
              patch('web.app.RecommendationEngine') as rec_engine_cls, \
              patch('web.app.ReportGenerator') as reporter_cls, \
              patch('web.app.CycloneDXGenerator') as cdx_cls, \
-             patch('web.app._collect_dns_records', return_value=[{'record_type': 'A', 'record_value': '203.0.113.10'}]), \
+             patch('web.app._collect_dns_records', return_value=[
+                 {'record_type': 'A', 'record_value': '203.0.113.10'},
+                 {'record_type': 'CNAME', 'record_value': f'api.{target}.'},
+                 {'record_type': 'MX', 'record_value': f'10 mail.{target}.'},
+                 {'record_type': 'NS', 'record_value': 'ns1.unrelated-zone.net.'},
+             ]), \
              patch('web.app._geolocate_ip', return_value={'ip': '203.0.113.10', 'lat': 12.9, 'lon': 77.6, 'city': 'Bengaluru', 'region': 'KA', 'country': 'India'}):
 
             asset = Asset(target=target, asset_type='Web App', owner='tester', risk_level='Medium', is_deleted=False)
@@ -800,6 +805,22 @@ class TestScanPipelinePersistence:
         ).scalar()
         assert int(detail_resp or 0) >= 1
 
+        discovered_domains = db_session.execute(
+            text(
+                """
+                SELECT domain
+                FROM discovery_domains
+                WHERE asset_id = :asset_id
+                """
+            ),
+            {"asset_id": int(asset.id)},
+        ).scalars().all()
+        discovered_domains_set = {str(item or "").strip().lower() for item in discovered_domains}
+        assert target in discovered_domains_set
+        assert f"www.{target}" in discovered_domains_set
+        assert f"api.{target}" in discovered_domains_set
+        assert f"mail.{target}" in discovered_domains_set
+
         discovery_row = db_session.execute(
             text(
                 """
@@ -824,6 +845,24 @@ class TestScanPipelinePersistence:
         assert latest_cert.get('fingerprint_sha256').lower() == fingerprint.lower()
         assert isinstance(latest_cert.get('certificate_details'), dict)
         assert latest_cert['certificate_details'].get('certificate_signature_algorithm') == 'sha256WithRSAEncryption'
+
+    def test_collect_related_domains_filters_unrelated_dns(self):
+        target = "portal.example.com"
+        tls_results = [{"san_domains": ["www.example.com", "*.api.example.com"]}]
+        dns_records = [
+            {"record_type": "CNAME", "record_value": "api.example.com."},
+            {"record_type": "MX", "record_value": "10 mail.example.com."},
+            {"record_type": "NS", "record_value": "ns1.other-zone.net."},
+        ]
+
+        domains = web_app_module._collect_related_domains(target, tls_results, dns_records)
+        domain_set = set(domains)
+
+        assert "portal.example.com" in domain_set
+        assert "www.example.com" in domain_set
+        assert "api.example.com" in domain_set
+        assert "mail.example.com" in domain_set
+        assert "ns1.other-zone.net" not in domain_set
 
 
 class TestAssetDeletionRoutes:

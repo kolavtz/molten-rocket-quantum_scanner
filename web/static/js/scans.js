@@ -93,9 +93,29 @@
     var panel = document.getElementById('scanDetailPanel');
     var empty = document.getElementById('scanDetailEmpty');
     var content = document.getElementById('scanDetailContent');
+    var disclosure = document.getElementById('scanDetailDisclosure');
+    var summary = document.getElementById('scanDetailDisclosureSummary');
     if (panel) panel.style.display = 'block';
     if (empty) empty.style.display = hasContent ? 'none' : 'block';
     if (content) content.style.display = hasContent ? 'block' : 'none';
+    if (disclosure) {
+      disclosure.style.display = hasContent ? 'block' : 'none';
+      disclosure.open = !!hasContent;
+    }
+    if (summary) {
+      var titleNode = summary.querySelector('span');
+      if (titleNode) titleNode.textContent = hasContent ? 'Collapse Open Scan' : 'Open Scan';
+    }
+  }
+
+  function syncDisclosureLabel() {
+    var disclosure = document.getElementById('scanDetailDisclosure');
+    var summary = document.getElementById('scanDetailDisclosureSummary');
+    if (!disclosure || !summary) return;
+    var titleNode = summary.querySelector('span');
+    if (titleNode) {
+      titleNode.textContent = disclosure.open ? 'Collapse Open Scan' : 'Open Scan';
+    }
   }
 
   function setDetailText(id, value) {
@@ -300,6 +320,7 @@
   function switchMode(mode, canBulk) {
     var tabSingle = document.getElementById('tabSingle');
     var tabBulk = document.getElementById('tabBulk');
+    var disclosure = document.getElementById('scanDetailDisclosure');
     var modeSingle = document.getElementById('modeSingle');
     var modeBulk = document.getElementById('modeBulk');
 
@@ -367,6 +388,11 @@
         togglePanel('addToInventoryBulk', 'inventoryBulkFields');
       });
       togglePanel('addToInventoryBulk', 'inventoryBulkFields');
+    }
+
+    if (disclosure) {
+      disclosure.addEventListener('toggle', syncDisclosureLabel);
+      syncDisclosureLabel();
     }
 
     document.querySelectorAll('[data-target-quick]').forEach(function (btn) {

@@ -189,7 +189,13 @@
 
   <div id="scanDetailEmpty" style="color:var(--text-secondary); padding:0.6rem 0;">Choose a scan from the table below to view its record, live state, and full report.</div>
 
-  <div id="scanDetailContent" style="display:none;">
+  <details id="scanDetailDisclosure" style="display:none; border:1px solid var(--border-subtle); border-radius:14px; padding:0.85rem; background:rgba(255,255,255,0.02);">
+    <summary id="scanDetailDisclosureSummary" style="cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; gap:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">
+      <span>Open Scan</span>
+      <span style="font-size:0.72rem; color:var(--text-secondary); text-transform:none; font-weight:600;">Certificate and scan telemetry</span>
+    </summary>
+
+    <div id="scanDetailContent" style="display:block; margin-top:0.9rem;">
     <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:0.6rem; margin-bottom:0.8rem;">
       <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Scan ID</div><div id="scanDetailId" style="font-weight:700; word-break:break-word;"></div></div>
       <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Target</div><div id="scanDetailTarget" style="font-weight:700; word-break:break-word;"></div></div>
@@ -259,7 +265,8 @@
         </table>
       </div>
     </div>
-  </div>
+    </div>
+  </details>
 </section>
 
 {% if can_bulk_scan %}
@@ -511,6 +518,12 @@
 </script>
 
 <style>
+  #scanDetailDisclosure summary::-webkit-details-marker {
+    display: none;
+  }
+  #scanDetailDisclosure[open] summary {
+    margin-bottom: 0.4rem;
+  }
   .scan-tab {
     background: transparent;
     border: none;

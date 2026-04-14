@@ -28,3 +28,6 @@ results/
 *.swp
 *.swo
 scripts/reset_admin_creds.py
+scan_results/2d0c8f23_cbom.json
+scan_results/*
+

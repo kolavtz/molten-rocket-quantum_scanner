@@ -238,6 +238,8 @@ def _get_inventory_kpis() -> dict:
 def _make_action_html(asset: dict, csrf_token: str) -> str:
     asset_id = int(asset.get("id") or 0)
     asset_name = escape(str(asset.get("name") or ""))
+    last_scan_id = str(asset.get("last_scan_id") or "").strip()
+    result_url = url_for("results", scan_id=last_scan_id) if last_scan_id else ""
     edit_data = {
         "asset_id": asset_id,
         "name": asset.get("name") or "",
@@ -245,6 +247,8 @@ def _make_action_html(asset: dict, csrf_token: str) -> str:
         "owner": asset.get("owner") or "",
         "risk_level": asset.get("risk_level") or "Medium",
         "last_scan": asset.get("last_scan") or "",
+        "last_scan_id": last_scan_id,
+        "result_url": result_url,
     }
     data_attrs = " ".join(
         f'data-{key.replace("_", "-")}="{escape(str(value))}"'
@@ -263,10 +267,12 @@ def _make_action_html(asset: dict, csrf_token: str) -> str:
             <button
                 type="button"
                 class="btn-mini btn-view"
-                data-open-asset-details
+                                data-open-scan-result
                 data-asset-id="{asset_id}"
                 data-asset-name="{asset_name}"
-                                title="Open combined asset view (details, scans, and telemetry)"
+                                data-last-scan-id="{escape(last_scan_id)}"
+                                data-result-url="{escape(result_url)}"
+                                title="Open scan result preview"
                         >View</button>
       <form action="{url_for('assets.asset_scan')}" method="post" class="inline-form">
         <input type="hidden" name="csrf_token" value="{csrf_token}">
@@ -304,7 +310,7 @@ def _decorate_asset_rows(rows: list[dict], csrf_token: str) -> list[dict]:
         decorated.append(
             {
                 **row,
-                "select_html": f'<input type="checkbox" class="asset-select-checkbox" name="asset_ids" value="{escape(str(row.get("id") or ""))}" data-row-checkbox>',
+                "select_html": f'<input type="checkbox" class="asset-select-checkbox" name="asset_ids" value="{escape(str(row.get("id") or ""))}" data-row-checkbox data-asset-id="{escape(str(row.get("id") or ""))}">',
                 "cluster_label": row.get("cluster_label") or _derive_cluster_label(str(row.get("name") or row.get("target") or row.get("url") or row.get("ipv4") or "")),
                 "risk_html": f'<span class="risk-pill risk-{escape(risk.lower())}">{escape(risk)}</span>',
                 "cert_status_html": f'<span class="cert-pill cert-{escape(cert_status.lower().replace(" ", "-"))}"{cert_title_attr}>{escape(cert_status)}</span>',
@@ -875,11 +881,15 @@ def build_comprehensive_asset_dto(asset_id: int) -> dict[str, Any] | None:
                 "certificate_details": certificate_details,
             } if latest_cert_payload else None,
             "cbom": [{
-                "algorithm": e.algorithm,
-                "category": e.category,
-                "key_length": e.key_length,
-                "nist_status": e.nist_status,
-                "quantum_safe": e.quantum_safe
+                "algorithm": getattr(e, "algorithm_name", None) or getattr(e, "algorithm", None),
+                "category": getattr(e, "category", None),
+                "key_length": getattr(e, "key_length", None),
+                "nist_status": getattr(e, "nist_status", None),
+                "quantum_safe": bool(
+                    getattr(e, "quantum_safe_flag", None)
+                    if getattr(e, "quantum_safe_flag", None) is not None
+                    else getattr(e, "quantum_safe", False)
+                ),
             } for e in cbom_entries],
             "pqc": {
                 "score": float(scan.overall_pqc_score or 0) if scan else 0.0,

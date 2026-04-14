@@ -190,3 +190,23 @@ class TestDiscoverTargets:
         results = scanner.discover_targets("8.8.4.4")
 
         assert len(results) == 0
+
+    @mock.patch('src.scanner.network_discovery.ssl.create_default_context')
+    @mock.patch('src.scanner.network_discovery.socket.socket')
+    def test_probe_uses_sni_hostname_when_available(self, mock_socket_cls, mock_ssl_ctx):
+        mock_sock = mock.MagicMock()
+        mock_socket_cls.return_value = mock_sock
+
+        mock_ctx = mock.MagicMock()
+        mock_ssl_ctx.return_value = mock_ctx
+        mock_tls_sock = mock.MagicMock()
+        mock_tls_sock.version.return_value = "TLSv1.3"
+        mock_ctx.wrap_socket.return_value = mock_tls_sock
+
+        scanner = NetworkScanner(ports=[443], max_workers=1)
+        endpoint = scanner._probe_endpoint("142.250.190.78", 443, "google.com")
+
+        assert endpoint is not None
+        assert endpoint.sni_hostname == "google.com"
+        mock_ctx.wrap_socket.assert_called_once()
+        assert mock_ctx.wrap_socket.call_args.kwargs["server_hostname"] == "google.com"

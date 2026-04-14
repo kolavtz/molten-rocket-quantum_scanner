@@ -7,6 +7,15 @@ def test_security_headers_present_on_login(app_client):
     assert "X-Frame-Options" in resp.headers
     assert "X-Content-Type-Options" in resp.headers
     assert "Content-Security-Policy" in resp.headers
+    assert resp.headers.get("X-Frame-Options") == "DENY"
+    assert "frame-ancestors 'none'" in resp.headers.get("Content-Security-Policy", "")
+
+
+def test_results_page_allows_same_origin_iframe(app_client):
+    resp = app_client.get("/results/4b0984fe")
+    # Results page may 404 in a clean test database, but headers should still show the iframe policy.
+    assert resp.headers.get("X-Frame-Options") == "SAMEORIGIN"
+    assert "frame-ancestors 'self'" in resp.headers.get("Content-Security-Policy", "")
 
 
 def test_login_csrf_missing_token_shows_user_friendly_message():

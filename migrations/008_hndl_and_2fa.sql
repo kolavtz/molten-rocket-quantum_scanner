@@ -22,10 +22,10 @@ ALTER TABLE tls_compliance_scores
 ALTER TABLE users
     ADD COLUMN IF NOT EXISTS two_factor_enabled TINYINT(1) NOT NULL DEFAULT 0
         COMMENT '1 = TOTP 2FA enabled for this user',
-    ADD COLUMN IF NOT EXISTS two_factor_secret VARCHAR(64) NULL
+    ADD COLUMN IF NOT EXISTS two_factor_secret LONGTEXT NULL
         COMMENT 'Fernet-encrypted TOTP base32 secret',
-    ADD COLUMN IF NOT EXISTS backup_codes JSON NULL
-        COMMENT 'JSON array of hashed single-use backup codes';
+    ADD COLUMN IF NOT EXISTS backup_codes LONGTEXT NULL
+        COMMENT 'Encrypted JSON array of hashed single-use backup codes';
 
 -- ─────────────────────────────────────────────
 -- cbom_entries: superseded tracking for history

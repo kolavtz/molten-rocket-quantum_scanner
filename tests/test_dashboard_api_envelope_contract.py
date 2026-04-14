@@ -32,6 +32,7 @@ def _assert_universal_success_envelope(payload: dict) -> None:
         "/api/home/metrics",
         "/api/assets",
         "/api/discovery?tab=domains",
+        "/api/discovery?tab=subdomains",
         "/api/discovery?tab=ssl",
         "/api/discovery?tab=ips",
         "/api/discovery?tab=software",

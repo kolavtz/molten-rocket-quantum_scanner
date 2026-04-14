@@ -81,6 +81,19 @@ def _parse_int(value: Any, default: int) -> int:
         return default
 
 
+def _ensure_dict(value: Any) -> Dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, dict):
+                return parsed
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return {}
+    return {}
+
+
 # ─── /api/cbom/metrics ───────────────────────────────────────────────────────
 
 @api_cbom.route("/metrics", methods=["GET"])
@@ -181,9 +194,13 @@ def get_cbom_entries():
             last_scan = row.get("last_scan")
             if hasattr(last_scan, "isoformat"):
                 last_scan = last_scan.isoformat()
+            certificate_details = _ensure_dict(row.get("certificate_details"))
+            x509_minimum = _ensure_dict(row.get("x509_minimum"))
             items.append({
                 "asset_id": row.get("asset_id"),
                 "asset_name": row.get("asset_name"),
+                "endpoint": row.get("endpoint"),
+                "serial": row.get("serial"),
                 "scan_id": row.get("scan_id"),
                 "cert_status": row.get("cert_status"),
                 "is_current": row.get("is_current", False),
@@ -193,14 +210,18 @@ def get_cbom_entries():
                 "ca": row.get("ca"),
                 "tls_version": row.get("tls_version"),
                 "subject_cn": row.get("subject_cn"),
+                "subject_o": row.get("subject_o"),
+                "subject_ou": row.get("subject_ou"),
                 "issuer_cn": row.get("issuer_cn"),
+                "issuer_o": row.get("issuer_o"),
+                "issuer_ou": row.get("issuer_ou"),
                 "valid_from": row.get("valid_from"),
                 "valid_until": row.get("valid_until"),
                 "first_seen_at": row.get("first_seen_at"),
                 "last_seen_at": row.get("last_seen_at"),
                 "fingerprint_sha256": row.get("fingerprint_sha256"),
-                "certificate_details": row.get("certificate_details"),
-                "x509_minimum": row.get("x509_minimum"),
+                "certificate_details": certificate_details,
+                "x509_minimum": x509_minimum,
                 "last_scan": last_scan,
             })
 
