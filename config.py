@@ -23,6 +23,40 @@ IS_PRODUCTION = APP_ENV in {"production", "prod"}
 SESSION_COOKIE_NAME = os.environ.get("QSS_SESSION_COOKIE_NAME", "quantumshield_session")
 
 # ---------------------------------------------------------------------------
+# GitHub Release Update Manager
+# ---------------------------------------------------------------------------
+GITHUB_REPO_OWNER = os.environ.get("QSS_GITHUB_REPO_OWNER", "").strip()
+GITHUB_REPO_NAME = os.environ.get("QSS_GITHUB_REPO_NAME", "").strip()
+GITHUB_RELEASE_ASSET_NAME = os.environ.get("QSS_GITHUB_RELEASE_ASSET_NAME", "").strip()
+GITHUB_TOKEN = os.environ.get("QSS_GITHUB_TOKEN", os.environ.get("GITHUB_TOKEN", "")).strip()
+GITHUB_RELEASES_API_URL = os.environ.get(
+    "QSS_GITHUB_RELEASES_API_URL",
+    f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/releases/latest"
+    if GITHUB_REPO_OWNER and GITHUB_REPO_NAME else "",
+).strip()
+GITHUB_UPDATE_ENABLED = os.environ.get(
+    "QSS_GITHUB_UPDATE_ENABLED",
+    os.environ.get("QSS_AUTO_UPDATE_ON_START", "false"),
+).lower() == "true"
+GITHUB_UPDATE_ON_START = os.environ.get(
+    "QSS_GITHUB_UPDATE_ON_START",
+    os.environ.get("QSS_AUTO_UPDATE_ON_START", "false"),
+).lower() == "true"
+GITHUB_UPDATE_SCHEDULED = os.environ.get(
+    "QSS_GITHUB_UPDATE_SCHEDULED",
+    os.environ.get("QSS_AUTO_UPDATE_SCHEDULED", "false"),
+).lower() == "true"
+GITHUB_UPDATE_INTERVAL_MINUTES = int(os.environ.get(
+    "QSS_GITHUB_UPDATE_INTERVAL_MINUTES",
+    os.environ.get("QSS_AUTO_UPDATE_INTERVAL_MINUTES", "60"),
+))
+ALLOW_AUTO_UPDATE = os.environ.get(
+    "QSS_ALLOW_AUTO_UPDATE",
+    os.environ.get("QSS_ALLOW_AUTO_PULL", "false"),
+).lower() == "true"
+
+
+# ---------------------------------------------------------------------------
 # Network Scanning — Security & Scope
 # ---------------------------------------------------------------------------
 # Allow scanning of private/local networks (RFC 1918, loopback)

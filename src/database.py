@@ -1307,26 +1307,39 @@ def init_db() -> bool:
                 admin_username = os.environ.get("QSS_ADMIN_USERNAME", "admin")
                 admin_email = os.environ.get("QSS_ADMIN_EMAIL", "admin@localhost")
                 admin_employee_id = os.environ.get("QSS_ADMIN_EMPLOYEE_ID", "ADMIN-001")
-                admin_pass = os.environ.get("QSS_ADMIN_PASSWORD", "Admin@12345678")
-                cur.execute(
-                    """
-                    INSERT INTO users
-                        (id, employee_id, username, email, password_hash, role, is_active, must_change_password, password_changed_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        str(uuid.uuid4()),
-                        admin_employee_id,
-                        admin_username,
-                        admin_email,
-                        generate_password_hash(admin_pass),
-                        "Admin",
-                        True,
-                        False,
-                        _utcnow(),
-                    ),
-                )
-                logger.info("Default admin user created.")
+                # Only auto-create the default admin if a non-placeholder password is explicitly provided.
+                admin_pass = os.environ.get("QSS_ADMIN_PASSWORD", None)
+                admin_default_placeholder = "Admin@12345678"
+
+                if not admin_pass or admin_pass.strip() == "" or admin_pass == admin_default_placeholder:
+                    logger.warning(
+                        "Skipping default admin seeding: QSS_ADMIN_PASSWORD not set or uses default placeholder. "
+                        "Create an admin manually or set a secure QSS_ADMIN_PASSWORD before startup."
+                    )
+                else:
+                    # Create admin but require immediate password change on first login (must_change_password=True)
+                    try:
+                        cur.execute(
+                            """
+                            INSERT INTO users
+                                (id, employee_id, username, email, password_hash, role, is_active, must_change_password, password_changed_at)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            """,
+                            (
+                                str(uuid.uuid4()),
+                                admin_employee_id,
+                                admin_username,
+                                admin_email,
+                                generate_password_hash(admin_pass),
+                                "Admin",
+                                True,
+                                True,   # require password change
+                                None,   # password_changed_at NULL until user sets a password
+                            ),
+                        )
+                        logger.info("Default admin user created (must_change_password=True).")
+                    except Exception as e:
+                        logger.warning("Failed to seed admin user: %s", e)
             conn.commit()
         except Exception as e:
             logger.warning("Could not seed default admin user: %s", e)

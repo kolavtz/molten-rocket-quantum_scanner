@@ -591,8 +591,25 @@ def role_required(roles):
                         "login_url": url_for("login"),
                     }), 401
                 return redirect(url_for('login'))
-            if current_user.role not in roles:
-                _audit("auth", "authorization_denied", "denied", details={"required_roles": roles, "actual_role": current_user.role})
+            # Ensure user is active
+            if not getattr(current_user, "is_active", True):
+                _audit("auth", "authorization_denied_inactive_account", "denied", details={"required_roles": roles, "actual_role": getattr(current_user, "role", None)})
+                if _expects_json_response():
+                    return jsonify({
+                        "status": "error",
+                        "message": "Account inactive.",
+                    }), 403
+                flash("Your account is inactive. Contact an administrator.", "error")
+                return redirect(url_for('login'))
+
+            # Normalize required roles and perform authorization check
+            try:
+                required = { _normalize_role_name(r) for r in (roles or []) }
+            except Exception:
+                required = set(roles or [])
+
+            if getattr(current_user, "role", None) not in required:
+                _audit("auth", "authorization_denied", "denied", details={"required_roles": list(required), "actual_role": current_user.role})
                 if _expects_json_response():
                     return jsonify({
                         "status": "error",
@@ -887,6 +904,34 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 logger.info("QuantumShield application starting up...")
+
+# Enforce critical configuration in production to avoid insecure defaults
+try:
+    from config import IS_PRODUCTION, ENCRYPTION_KEY, DEBUG as CONFIG_DEBUG, RATELIMIT_STORAGE_URI as CONFIG_RATELIMIT_STORAGE_URI
+    if IS_PRODUCTION:
+        insecure_placeholders = {"dev-secret-change-in-production", "change-this-secret-in-production", "change-this-audit-secret-in-production", ""}
+        if not SECRET_KEY or SECRET_KEY in insecure_placeholders:
+            logger.critical("SECRET_KEY not configured securely for production (QSS_SECRET_KEY). Aborting startup.")
+            raise RuntimeError("SECRET_KEY must be set to a secure value in production (QSS_SECRET_KEY).")
+        if not ENCRYPTION_KEY:
+            logger.critical("ENCRYPTION_KEY not configured. It is required to protect at-rest secrets (2FA backup codes). Aborting startup.")
+            raise RuntimeError("ENCRYPTION_KEY must be set in production (QSS_ENCRYPTION_KEY).")
+        # Prevent running with DEBUG enabled in production
+        if bool(CONFIG_DEBUG):
+            logger.critical("DEBUG is enabled in production. Aborting startup.")
+            raise RuntimeError("DEBUG must be disabled in production.")
+        # Warn / fail when rate-limiter uses in-memory storage in multi-instance production
+        if isinstance(CONFIG_RATELIMIT_STORAGE_URI, str) and CONFIG_RATELIMIT_STORAGE_URI.startswith("memory"):
+            logger.critical("RATELIMIT_STORAGE_URI is using in-memory storage in production. Configure Redis or other backend for accurate rate-limiting across instances.")
+            raise RuntimeError("RATELIMIT_STORAGE_URI must be set to a persistent backend (e.g., redis://) in production.")
+        # Enforce secure session cookie in production regardless of prior config
+        try:
+            app.config['SESSION_COOKIE_SECURE'] = True
+        except Exception:
+            pass
+except Exception:
+    # Bubble up initialization failure so deploys fail fast when config is invalid
+    raise
 
 # In-memory store — hydrated from MySQL on cold start
 scan_store: dict = {}
@@ -2520,7 +2565,7 @@ def root_index():
 
 
 @app.route("/login", methods=["GET", "POST"])
-@limiter.limit("100 per minute")
+@limiter.limit("10 per minute")
 def login():
     """Secure login page — CSRF protected, rate-limited, lockout-aware."""
     if current_user.is_authenticated:
@@ -6301,98 +6346,32 @@ def _check_concurrency():
 
 
 def _auto_update_on_start():
-    """Optional auto-update on startup: fetch origin/<branch> and reset if newer.
-
-    Controlled by environment variables:
-      - QSS_AUTO_UPDATE_ON_START (true|false) — enable check at startup
-      - QSS_ALLOW_AUTO_PULL (true|false) — allow performing a hard reset to remote
-      - QSS_GIT_BRANCH — branch name to compare (default: main)
-
-    Safety: requires clean working tree to perform a hard reset. If pull is performed
-    the process re-execs itself to pick up new code. No secrets are stored here.
-    """
+    """Run the GitHub release-based startup update check."""
     try:
-        if os.environ.get("QSS_AUTO_UPDATE_ON_START", "false").lower() != "true":
+        if DEBUG and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
             return
-        if os.environ.get("QSS_AUTO_UPDATE_PERFORMED") == "1":
-            logger.info("Auto-update already performed; skipping.")
-            return
-
-        import shutil
-        import subprocess
-
-        git = shutil.which("git")
-        if not git:
-            logger.warning("Auto-update requested but 'git' is not available on PATH.")
-            return
-
-        # Ensure we're inside a work-tree
-        p = subprocess.run([git, "rev-parse", "--is-inside-work-tree"], cwd=BASE_DIR, capture_output=True, text=True)
-        if p.returncode != 0 or "true" not in p.stdout:
-            logger.warning("Not a git work tree (or git rev-parse failed). Skipping auto-update.")
-            return
-
-        branch = os.environ.get("QSS_GIT_BRANCH", "main")
-
-        # Fetch remote branch reference
-        fetch = subprocess.run([git, "fetch", "origin", branch], cwd=BASE_DIR, capture_output=True, text=True)
-        if fetch.returncode != 0:
-            logger.warning("git fetch failed: %s", fetch.stderr.strip())
-            return
-
-        local = subprocess.run([git, "rev-parse", "HEAD"], cwd=BASE_DIR, capture_output=True, text=True)
-        remote = subprocess.run([git, "rev-parse", f"origin/{branch}"], cwd=BASE_DIR, capture_output=True, text=True)
-        if local.returncode != 0 or remote.returncode != 0:
-            logger.warning("Failed to read commit hashes; skipping auto-update.")
-            return
-
-        local_sha = local.stdout.strip()
-        remote_sha = remote.stdout.strip()
-        if not local_sha or not remote_sha:
-            logger.info("Could not determine commit SHAs; skipping auto-update.")
-            return
-
-        if local_sha == remote_sha:
-            logger.info("Local repository is up-to-date with origin/%s", branch)
-            return
-
-        logger.info("Remote origin/%s differs from local HEAD (%s -> %s)", branch, local_sha[:8], remote_sha[:8])
-
-        if os.environ.get("QSS_ALLOW_AUTO_PULL", "false").lower() != "true":
-            logger.warning("Auto-pull disabled (set QSS_ALLOW_AUTO_PULL=true to enable). Skipping update.")
-            return
-
-        # Ensure no uncommitted changes exist (avoid data loss)
-        status = subprocess.run([git, "status", "--porcelain"], cwd=BASE_DIR, capture_output=True, text=True)
-        if status.stdout.strip():
-            logger.warning("Uncommitted changes present in working tree; refusing hard reset. Clean the tree or disable auto-update.")
-            return
-
-        # Perform hard reset to remote branch
-        reset = subprocess.run([git, "reset", "--hard", f"origin/{branch}"], cwd=BASE_DIR, capture_output=True, text=True)
-        if reset.returncode != 0:
-            logger.warning("git reset failed: %s", reset.stderr.strip())
-            return
-
-        logger.info("Pulled latest code from origin/%s — restarting process to pick up changes.", branch)
-        # Prevent looping by marking performed and re-exec the process
-        os.environ["QSS_AUTO_UPDATE_PERFORMED"] = "1"
-        python = sys.executable
-        os.execv(python, [python] + sys.argv)
-
+        from src.services.github_update_manager import run_startup_update_check
+        run_startup_update_check()
     except Exception as exc:
-        logger.warning("Auto-update check failed: %s", exc)
+        logger.warning("GitHub startup update check failed: %s", exc)
 
 
-if __name__ == "__main__":
-    # Optionally auto-update code from the remote before boot.
-    # Controlled by QSS_AUTO_UPDATE_ON_START and QSS_ALLOW_AUTO_PULL environment variables.
+def main() -> None:
+    # Optionally auto-update from GitHub Releases before boot.
     try:
         _auto_update_on_start()
     except Exception:
         pass
 
     _start_scheduler_if_enabled()
+    try:
+        from src.services.github_update_manager import start_scheduled_update_checks
+        if DEBUG and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+            pass
+        else:
+            start_scheduled_update_checks()
+    except Exception as exc:
+        logger.warning("Failed to start GitHub scheduled update watcher: %s", exc)
     _bootstrap_runtime_state()
 
     print(f"\n{'='*60}")
@@ -6445,3 +6424,7 @@ if __name__ == "__main__":
             print("  [WARN] Waitress not installed - falling back to Flask dev server")
             print("     Install with: pip install waitress")
             app.run(host=FLASK_HOST, port=FLASK_PORT, debug=False, ssl_context="adhoc")
+
+
+if __name__ == "__main__":
+    main()

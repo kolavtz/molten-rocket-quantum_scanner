@@ -61,4 +61,4 @@ jobs:
               docker-compose pull || true
               docker-compose up -d --build || true
             fi
-*** End Patch
+              # Removed accidental '*** End Patch' marker

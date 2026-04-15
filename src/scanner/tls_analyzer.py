@@ -122,9 +122,7 @@ class TLSEndpointResult:
 
     @property
     def is_successful(self) -> bool:
-        # A scan is successful if we captured the core cipher suite,
-        # even if an enrichment error (like SSLyze) occurred.
-        return self.cipher_suite != ""
+        return self.error is None and self.cipher_suite != ""
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -167,16 +165,15 @@ class TLSAnalyzer:
     # ------------------------------------------------------------------
 
     def analyze_endpoint(
-        self, host: str, port: int = 443, sni_hostname: Optional[str] = None
+        self, host: str, port: int = 443
     ) -> TLSEndpointResult:
         """Perform full TLS analysis on *host*:*port* with retry logic."""
         result = TLSEndpointResult(host=host, port=port)
-        handshake_name = sni_hostname or host
 
         last_exc: Optional[Exception] = None
         for attempt in range(self.MAX_RETRIES):
             try:
-                self._analyze_with_stdlib(result, host, port, handshake_name)
+                self._analyze_with_stdlib(result, host, port)
                 last_exc = None
                 result.retry_count = attempt
                 break
@@ -191,19 +188,16 @@ class TLSAnalyzer:
             result.retry_count = self.MAX_RETRIES
 
         # Augment with SSLyze if available
-        # Note: Enrichment is non-fatal; we preserve core stdlib results even if this fails.
-        if HAS_SSLYZE and (result.error is None or "stdlib" not in result.error):
+        if HAS_SSLYZE and result.error is None:
             try:
-                self._augment_with_sslyze(result, host, port, handshake_name)
+                self._augment_with_sslyze(result, host, port)
             except Exception as exc:
-                # Log enrichment failure but don't poison the result if stdlib worked
-                if not result.cipher_suite:
-                    result.error = result.error or f"sslyze enrichment failed: {exc}"
+                result.error = result.error or f"sslyze enrichment failed: {exc}"
 
         # Detect HSTS
-        if result.cipher_suite:
+        if result.error is None:
             try:
-                result.hsts_enabled, result.hsts_max_age = self._detect_hsts(host, port, handshake_name)
+                result.hsts_enabled, result.hsts_max_age = self._detect_hsts(host, port)
             except Exception:
                 pass
 
@@ -213,12 +207,7 @@ class TLSAnalyzer:
 
         return result
 
-    def get_supported_protocols(
-        self,
-        host: str,
-        port: int = 443,
-        server_name: Optional[str] = None,
-    ) -> List[str]:
+    def get_supported_protocols(self, host: str, port: int = 443) -> List[str]:
         """Probe which TLS protocol versions the server supports.
 
         Includes TLS 1.0 and 1.1 probing (handled gracefully on modern OS
@@ -239,7 +228,7 @@ class TLSAnalyzer:
                 ctx.minimum_version = version
                 ctx.maximum_version = version
                 sock = socket.create_connection((host, port), timeout=self.timeout)
-                tls_sock = ctx.wrap_socket(sock, server_hostname=server_name or host)
+                tls_sock = ctx.wrap_socket(sock, server_hostname=host)
                 tls_sock.close()
                 supported.append(name)
             except Exception:
@@ -259,7 +248,7 @@ class TLSAnalyzer:
                 else:
                     ctx.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_2 | ssl.OP_NO_TLSv1_3
                 sock = socket.create_connection((host, port), timeout=self.timeout)
-                tls_sock = ctx.wrap_socket(sock, server_hostname=server_name or host)
+                tls_sock = ctx.wrap_socket(sock, server_hostname=host)
                 tls_sock.close()
                 supported.append(name)
             except Exception:
@@ -268,20 +257,17 @@ class TLSAnalyzer:
 
         return supported
 
-
     # ------------------------------------------------------------------
     # Private — HSTS detection
     # ------------------------------------------------------------------
 
-    def _detect_hsts(
-        self, host: str, port: int, server_name: Optional[str] = None
-    ) -> Tuple[bool, Optional[int]]:
+    def _detect_hsts(self, host: str, port: int) -> Tuple[bool, Optional[int]]:
         """Issue a HEAD request and check for Strict-Transport-Security header."""
         try:
             conn = http.client.HTTPSConnection(
-                server_name or host, port=port, timeout=min(self.timeout, 5)
+                host, port=port, timeout=min(self.timeout, 5)
             )
-            conn.request("HEAD", "/", headers={"Host": server_name or host})
+            conn.request("HEAD", "/", headers={"Host": host})
             resp = conn.getresponse()
             hsts_header = resp.getheader("Strict-Transport-Security", "")
             conn.close()
@@ -326,11 +312,7 @@ class TLSAnalyzer:
     # ------------------------------------------------------------------
 
     def _analyze_with_stdlib(
-        self,
-        result: TLSEndpointResult,
-        host: str,
-        port: int,
-        server_name: Optional[str] = None,
+        self, result: TLSEndpointResult, host: str, port: int
     ) -> None:
         """Populate *result* using Python's built-in ``ssl`` module."""
         ctx = ssl.create_default_context()
@@ -338,7 +320,7 @@ class TLSAnalyzer:
         ctx.verify_mode = ssl.CERT_NONE
 
         sock = socket.create_connection((host, port), timeout=self.timeout)
-        tls_sock = ctx.wrap_socket(sock, server_hostname=server_name or host)
+        tls_sock = ctx.wrap_socket(sock, server_hostname=host)
 
         # Cipher info
         cipher_info = tls_sock.cipher()  # (name, version, bits)
@@ -361,9 +343,7 @@ class TLSAnalyzer:
             )
 
         # Supported protocols
-        result.supported_protocols = self.get_supported_protocols(
-            host, port, server_name=server_name
-        )
+        result.supported_protocols = self.get_supported_protocols(host, port)
 
         tls_sock.close()
 
@@ -436,41 +416,6 @@ class TLSAnalyzer:
                 )
                 cert_obj = x509.load_der_x509_certificate(cert_der)
                 pub = cert_obj.public_key()
-
-                # Backfill core identity + validity fields from DER when stdlib cert_dict is sparse.
-                if not info.serial_number:
-                    info.serial_number = format(getattr(cert_obj, "serial_number", 0), "X")
-
-                try:
-                    not_before_dt = getattr(cert_obj, "not_valid_before_utc", None) or getattr(cert_obj, "not_valid_before", None)
-                    not_after_dt = getattr(cert_obj, "not_valid_after_utc", None) or getattr(cert_obj, "not_valid_after", None)
-                except Exception:
-                    not_before_dt = None
-                    not_after_dt = None
-
-                if not info.not_before and not_before_dt is not None:
-                    try:
-                        info.not_before = not_before_dt.strftime("%b %d %H:%M:%S %Y GMT")
-                    except Exception:
-                        info.not_before = str(not_before_dt)
-
-                if not info.not_after and not_after_dt is not None:
-                    try:
-                        info.not_after = not_after_dt.strftime("%b %d %H:%M:%S %Y GMT")
-                    except Exception:
-                        info.not_after = str(not_after_dt)
-
-                # Recompute expiry from DER-backed validity when possible.
-                if not info.days_until_expiry and not_after_dt is not None:
-                    try:
-                        now = datetime.datetime.now(datetime.timezone.utc)
-                        if getattr(not_after_dt, "tzinfo", None) is None:
-                            not_after_dt = not_after_dt.replace(tzinfo=datetime.timezone.utc)
-                        delta = not_after_dt - now
-                        info.days_until_expiry = delta.days
-                        info.is_expired = delta.days < 0
-                    except Exception:
-                        pass
 
                 if isinstance(pub, rsa.RSAPublicKey):
                     info.public_key_type = "RSA"
@@ -652,14 +597,6 @@ class TLSAnalyzer:
                 if not info.issuer_o:
                     info.issuer_o = issuer_o
 
-                # Backfill SANs from DER if stdlib dict omitted them.
-                if not info.san_domains:
-                    try:
-                        san_ext = cert_obj.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
-                        info.san_domains = [str(name) for name in san_ext.value.get_values_for_type(x509.DNSName)]
-                    except Exception:
-                        pass
-
                 info.certificate_details = {
                     "certificate_version": str(getattr(cert_obj, "version", "")),
                     "serial_number": str(info.serial_number or format(getattr(cert_obj, "serial_number", 0), "X")),
@@ -739,14 +676,72 @@ class TLSAnalyzer:
     # ------------------------------------------------------------------
 
     def _augment_with_sslyze(
-        self,
-        result: TLSEndpointResult,
-        host: str,
-        port: int,
-        server_name: Optional[str] = None,
+        self, result: TLSEndpointResult, host: str, port: int
     ) -> None:
         """Use SSLyze for deeper inspection (chain length and scanner metadata)."""
         scanner = Scanner()
+        server_location = ServerNetworkLocation(host, int(port))
+
+        raw_scan_results = scanner.scan(server_location)
+        if not isinstance(raw_scan_results, Iterable):
+            return
+
+        for scan_result in raw_scan_results:
+            self._extract_sslyze_chain_length(result, scan_result)
+
+    def _extract_sslyze_chain_length(self, result: TLSEndpointResult, scan_result: Any) -> None:
+        """Best-effort extraction of cert chain length across SSLyze result shapes."""
+        # Common modern layout: scan_result.scan_result.certificate_info
+        candidates: list[Any] = [scan_result]
+        scan_result_attr = getattr(scan_result, "scan_result", None)
+        if scan_result_attr is not None:
+            candidates.append(scan_result_attr)
+
+        for candidate in candidates:
+            cert_info = getattr(candidate, "certificate_info", None)
+            if cert_info is None:
+                continue
+
+            # Most SSLyze certificate plugin outputs expose deployed_certificate_chain.
+            deployed_chain = getattr(cert_info, "deployed_certificate_chain", None)
+            if deployed_chain is None:
+                continue
+
+            certs = getattr(deployed_chain, "certificates", None)
+            if isinstance(certs, list) and certs:
+                result.certificate_chain_length = len(certs)
+                return
+
+            if isinstance(deployed_chain, list) and deployed_chain:
+                result.certificate_chain_length = len(deployed_chain)
+                return
+
+    # ------------------------------------------------------------------
+    # Private — Key Exchange extraction
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _extract_key_exchange(cipher_suite: str) -> str:
+        """Derive key exchange mechanism from cipher suite name.
+
+        Examples::
+
+            'ECDHE-RSA-AES256-GCM-SHA384'  → 'ECDHE'
+            'TLS_AES_256_GCM_SHA384'       → 'TLS1.3-ECDHE'
+            'TLS_CHACHA20_POLY1305_SHA256'  → 'TLS1.3-ECDHE'
+        """
+        upper = cipher_suite.upper()
+
+        # TLS 1.3 cipher suites don't embed kex in name;
+        # key exchange is always ephemeral (usually X25519/ECDHE)
+        if upper.startswith("TLS_AES") or upper.startswith("TLS_CHACHA"):
+            return "TLS1.3-ECDHE"
+
+        for pattern, kex in CIPHER_KEX_PATTERNS.items():
+            if pattern.upper() in upper:
+                return kex
+
+        return "UNKNOWN"
         server_location = ServerNetworkLocation(server_name or host, int(port))
 
         raw_scan_results = scanner.scan(server_location)

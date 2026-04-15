@@ -6,14 +6,20 @@ import time
 def kill_port(port):
     print(f"Checking port {port}...")
     try:
-        # On Windows: netstat -ano | findstr LISTENING | findstr :[port]
-        output = subprocess.check_output(f'netstat -ano | findstr LISTENING | findstr :{port}', shell=True).decode()
+        # On Windows: avoid shell=True; run netstat and parse output in Python
+        output = subprocess.check_output(["netstat", "-ano"]).decode(errors='ignore')
         for line in output.strip().splitlines():
-            parts = line.split()
-            if len(parts) > 4:
-                pid = parts[-1]
-                print(f"Killing PID {pid} listening on {port}...")
-                subprocess.run(f'taskkill /F /PID {pid}', shell=True)
+            if f":{port}" in line and "LISTENING" in line:
+                parts = line.split()
+                if parts:
+                    pid = parts[-1]
+                    print(f"Killing PID {pid} listening on {port}...")
+                    # Use argument list to avoid shell injection
+                    try:
+                        subprocess.run(["taskkill", "/F", "/PID", str(pid)], check=False)
+                    except Exception:
+                        # Fall back to non-throwing call
+                        subprocess.call(["taskkill", "/F", "/PID", str(pid)])
     except subprocess.CalledProcessError:
         print(f"No active listeners found on port {port}")
     except Exception as e:

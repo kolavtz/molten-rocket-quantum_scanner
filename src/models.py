@@ -46,36 +46,13 @@ class SoftDeleteMixin:
 class User(Base):
     __tablename__ = 'users'
     id = Column(String(36), primary_key=True)
-    employee_id = Column(String(64), unique=True, nullable=True)
-    username = Column(String(150), unique=True, nullable=False)
-    email = Column(String(255), unique=True, nullable=True)
-    password_hash = Column(String(255), nullable=False, default='')
-    role = Column(String(50), nullable=False, default="Viewer")
-    created_by = Column(String(36), ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False, index=True)
-    
-    # Security and Password Management (Sprint 1)
-    password_setup_token_hash = Column(String(64), unique=True, nullable=True)
-    password_setup_token_expiry = Column(DateTime, nullable=True)
-    must_change_password = Column(Boolean, default=True, nullable=False)
-    failed_login_attempts = Column(Integer, default=0, nullable=False)
-    lockout_until = Column(DateTime, nullable=True)
-    locked_until = Column(DateTime, nullable=True)  # Legacy alias
-    last_login_at = Column(DateTime, nullable=True)
-    password_changed_at = Column(DateTime, nullable=True)
-    api_key_hash = Column(String(64), unique=True, nullable=True)
-    
+    username = Column(String(50), unique=True, nullable=False)
+    role = Column(String(50), default="Viewer")
+    password_hash = Column(String(255), default='')
     # Two-Factor Authentication (Sprint 12)
     two_factor_enabled = Column(Boolean, default=False, nullable=False)
-    two_factor_secret = Column(Text, nullable=True)  # Fernet-encrypted TOTP base32 secret
+    two_factor_secret = Column(String(64), nullable=True)  # Fernet-encrypted TOTP base32 secret
     backup_codes = Column(Text, nullable=True)             # JSON-encoded hashed backup codes
-
-    created_at = Column(DateTime, default=func.now(), nullable=False)
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
-
-    # Self-referencing relationship
-    creator = relationship("User", remote_side=[id], backref="created_users")
-
 
 class Asset(Base, SoftDeleteMixin):
     __tablename__ = 'assets'

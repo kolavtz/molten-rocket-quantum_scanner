@@ -194,20 +194,29 @@ The workflow file is `.github/workflows/ci-cd-deploy.yml` and will:
 
 Note: The deployment commands are intentionally conservative — replace `quantumshield.service` with your systemd service name or adjust the restart commands to match your environment.
 
-Auto-update on start
+Auto-update on start or schedule
 
-If you want the running app process itself to check the remote for updates when the process starts, enable the following environment variables on the server (in the app's runtime environment):
+If you want the running app process itself to check GitHub Releases for updates, enable the following environment variables on the server (in the app's runtime environment):
 
-- `QSS_AUTO_UPDATE_ON_START=true` — enable startup update check
-- `QSS_ALLOW_AUTO_PULL=true` — allow the process to perform a hard reset to `origin/<branch>` (dangerous if local changes exist)
-- `QSS_GIT_BRANCH=main` — branch to compare/checkout
+- `QSS_GITHUB_REPO_OWNER=your-github-org-or-user`
+- `QSS_GITHUB_REPO_NAME=your-repository-name`
+- `QSS_GITHUB_UPDATE_ON_START=true` — check for a newer release before boot
+- `QSS_ALLOW_AUTO_UPDATE=true` — allow the process to install the newer wheel/archive
 
-Behavior: if enabled and the local HEAD differs from `origin/<branch]`, the process will (when `QSS_ALLOW_AUTO_PULL=true` and working tree is clean) reset to the remote and re-exec the Python process so the new code is used.
+Optional scheduler:
+
+- `QSS_GITHUB_UPDATE_SCHEDULED=true` — keep checking in a background thread
+- `QSS_GITHUB_UPDATE_INTERVAL_MINUTES=60` — how often to poll GitHub Releases
+- `QSS_GITHUB_RELEASE_ASSET_NAME=` — pin a specific release asset if desired
+- `QSS_GITHUB_TOKEN=` — optional token for private repos or rate-limit relief
+
+Behavior: if enabled and GitHub has a newer release tag, the process installs the latest package asset with `pip` and then re-execs the current process so the new code is used.
 
 Security and safety
 
 - Do NOT store private SSH keys or production secrets in the repository. Use GitHub Secrets for the Actions workflow.
-- Auto-pulling from a remote may overwrite local changes. Only enable `QSS_ALLOW_AUTO_PULL=true` on servers where the repo directory is managed by CI or otherwise safe to overwrite.
+- Use GitHub Releases or PyPI as the source of truth for updates; keep the release tag/version in sync with the package version.
+- Only enable auto-update on servers where an automatic restart is acceptable.
 
 ## 🔬 NIST PQC Standards Validated
 

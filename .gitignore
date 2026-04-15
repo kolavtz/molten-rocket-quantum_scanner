@@ -31,3 +31,10 @@ scripts/reset_admin_creds.py
 scan_results/2d0c8f23_cbom.json
 scan_results/*
 
+web/__pycache__/app.cpython-313.pyc
+web/__pycache__/*
+
+# Python package build artifacts
+build/
+dist/
+*.egg-info/
