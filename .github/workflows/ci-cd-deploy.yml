@@ -1,9 +1,21 @@
-name: CI/CD — Test & Deploy
+name: CI/CD — Production Deploy
 
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag, or SHA to deploy to production'
+        required: false
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
 
 jobs:
   test:
@@ -12,9 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -27,7 +39,9 @@ jobs:
     name: Deploy to production
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    environment:
+      name: production
     steps:
       - uses: actions/checkout@v4
       - name: Deploy to production via SSH
@@ -40,25 +54,61 @@ jobs:
           script: |
             set -euo pipefail
             DEPLOY_DIR="${{ secrets.PRODUCTION_DEPLOY_PATH }}"
-            BRANCH="${{ secrets.PRODUCTION_BRANCH }}"
+            BRANCH="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || secrets.PRODUCTION_BRANCH }}"
+            REPO_URL="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
             if [ -z "$DEPLOY_DIR" ]; then
               echo "PRODUCTION_DEPLOY_PATH secret is required. Aborting."
               exit 1
             fi
             BRANCH=${BRANCH:-main}
-            echo "Deploying branch $BRANCH to $DEPLOY_DIR"
-            cd "$DEPLOY_DIR"
-            git fetch --all --prune
-            git reset --hard origin/$BRANCH
+            if ! echo "$BRANCH" | grep -Eq '^[A-Za-z0-9._/-]+$'; then
+              echo "Invalid production ref: $BRANCH"
+              exit 1
+            fi
+            TEMP_DIR=$(mktemp -d)
+            trap 'rm -rf "$TEMP_DIR"' EXIT
+            echo "Deploying branch $BRANCH to $DEPLOY_DIR using a temporary git clone"
+            git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$TEMP_DIR/repo"
+            mkdir -p "$DEPLOY_DIR"
+
+            # Copy only the runtime files the app needs right now.
+            # This avoids relying on a persistent git checkout on the server.
+            rsync -a --delete \
+              --exclude '.git/' \
+              --exclude '.github/' \
+              --exclude '.venv/' \
+              --exclude '__pycache__/' \
+              --exclude '.pytest_cache/' \
+              --exclude '.env' \
+              --exclude '.env.*' \
+              --exclude 'certs/' \
+              --exclude 'instance/' \
+              --exclude 'scanner.db' \
+              --exclude '*.sqlite' \
+              --exclude '*.sqlite3' \
+              --exclude 'scan_results/' \
+              --exclude 'tmp/' \
+              --exclude 'app.log' \
+              --exclude 'error.log' \
+              --exclude 'out*.log' \
+              --exclude 'out*.txt' \
+              --exclude 'server_boot_out*.txt' \
+              --exclude 'dist/' \
+              --exclude 'build/' \
+              --exclude '*.egg-info/' \
+              "$TEMP_DIR/repo/" "$DEPLOY_DIR/"
+
             python -m pip install --upgrade pip
-            pip install -r requirements.txt || true
+            if [ -f "$DEPLOY_DIR/requirements.txt" ]; then
+              pip install -r "$DEPLOY_DIR/requirements.txt"
+            fi
             # Restart systemd service (replace 'quantumshield' with your service name)
             if command -v systemctl >/dev/null 2>&1; then
               sudo systemctl restart quantumshield.service || true
             fi
             # Fallback: Docker Compose
-            if [ -f docker-compose.yml ]; then
+            if [ -f "$DEPLOY_DIR/docker-compose.yml" ] || [ -f "$DEPLOY_DIR/compose.yml" ]; then
+              cd "$DEPLOY_DIR"
               docker-compose pull || true
               docker-compose up -d --build || true
             fi
-              # Removed accidental '*** End Patch' marker

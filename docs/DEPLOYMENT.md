@@ -83,6 +83,7 @@ docker compose up -d
 4. **Reverse proxy** — put Nginx or Caddy in front for TLS termination
 5. **Persist results** — mount `scan_results/` to a durable volume or switch to a database
 6. **Rate limiting** — add Flask-Limiter to prevent scan abuse via the API
+7. **GitHub Actions production environment** — bind the deploy workflow to a GitHub Environment named `production` and store the SSH deployment secrets there so production approvals and secret scope stay isolated from CI jobs.
 
 ---
 

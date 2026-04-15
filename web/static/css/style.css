@@ -233,7 +233,7 @@ html {
 }
 
 body {
-    font-family: 'JetBrains Mono', 'Inter', monospace;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background:
         radial-gradient(circle at 16% 18%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 26%),
         radial-gradient(circle at 82% 12%, color-mix(in srgb, var(--safe) 12%, transparent), transparent 22%),
@@ -2776,4 +2776,123 @@ code.tls-value {
 
 .pnb-btn:hover:not(:disabled) {
     color: var(--bg-primary);
+}
+
+/* ── Footer ── */
+.footer {
+    margin-top: 3rem;
+    padding: 1.25rem 1.5rem;
+    border-top: 1px solid color-mix(in srgb, var(--border-subtle) 60%, transparent);
+    background: color-mix(in srgb, var(--bg-secondary) 80%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.footer-container {
+    max-width: 1480px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.footer-text {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+}
+
+.footer-brand {
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
+}
+
+.footer-https-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--safe);
+    background: color-mix(in srgb, var(--safe) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--safe) 30%, transparent);
+    padding: 0.2rem 0.5rem;
+    border-radius: 100px;
+}
+
+.footer-sub {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+    opacity: 0.65;
+}
+
+/* ── Custom Scrollbar (Webkit) ── */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--border-subtle) 80%, var(--accent) 20%);
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--border-hover);
+}
+
+/* ── Animate-fade-in utility ── */
+.animate-fade-in {
+    animation: _fadeSlideIn 0.4s var(--easing-out) both;
+}
+
+@keyframes _fadeSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── Skip-to-main-content (accessibility) ── */
+.skip-link {
+    position: absolute;
+    top: -100%;
+    left: 1rem;
+    z-index: 9999;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    padding: 0.5rem 1rem;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    font-weight: 600;
+    font-size: var(--text-sm);
+    text-decoration: none;
+    transition: top 0.2s;
+}
+.skip-link:focus {
+    top: 0;
+}
+
+/* ── Gradient text utility ── */
+.gradient-text {
+    background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--safe) 70%, var(--accent) 30%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }

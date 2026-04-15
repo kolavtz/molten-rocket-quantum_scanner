@@ -177,6 +177,7 @@ Helper scripts included:
 ## CI/CD and Auto-update
 
 This repository includes a GitHub Actions workflow to run tests and deploy to a production server when changes land on `main`.
+The deploy job is bound to the GitHub Environment named `production`, so you can add environment-specific protection rules and secrets in GitHub without changing the workflow file.
 
 Configuration (set these as GitHub repository secrets):
 
@@ -187,36 +188,39 @@ Configuration (set these as GitHub repository secrets):
 - `PRODUCTION_DEPLOY_PATH` — absolute path on the server where the repo is checked out
 - `PRODUCTION_BRANCH` — branch to deploy (default `main`)
 
+GitHub Environment setup:
+
+- Create or reuse an environment named `production`
+- Store the secrets above in that environment so deploy approvals and secret scope stay isolated from non-production workflows
+- Optionally add a `PRODUCTION_URL` environment variable if you want the Actions UI to show the live app URL
+
 The workflow file is `.github/workflows/ci-cd-deploy.yml` and will:
 
 1. Run tests (pytest)
-2. If tests pass, SSH into the production server, `git fetch` and `git reset --hard origin/<branch>`, install requirements, and attempt to restart `quantumshield.service` (or use Docker Compose if present).
+2. If tests pass, SSH into the production server, perform a temporary `git clone` of the requested ref, copy only the runtime files the app needs into `PRODUCTION_DEPLOY_PATH`, install requirements from that copied tree, and attempt to restart `quantumshield.service` (or use Docker Compose if present).
 
 Note: The deployment commands are intentionally conservative — replace `quantumshield.service` with your systemd service name or adjust the restart commands to match your environment.
 
-Auto-update on start or schedule
+Temporary deploy model
 
-If you want the running app process itself to check GitHub Releases for updates, enable the following environment variables on the server (in the app's runtime environment):
+- The server does not keep a persistent git checkout for production updates.
+- Each deployment clones the latest branch into a temporary directory, then copies only the required app files into the live deployment path.
+- This is a short-term bridge until the full CI/CD pipeline is implemented later.
 
-- `QSS_GITHUB_REPO_OWNER=your-github-org-or-user`
-- `QSS_GITHUB_REPO_NAME=your-repository-name`
-- `QSS_GITHUB_UPDATE_ON_START=true` — check for a newer release before boot
-- `QSS_ALLOW_AUTO_UPDATE=true` — allow the process to install the newer wheel/archive
+Auto-update on start
 
-Optional scheduler:
+If you want the running app process itself to check the remote for updates when the process starts, enable the following environment variables on the server (in the app's runtime environment):
 
-- `QSS_GITHUB_UPDATE_SCHEDULED=true` — keep checking in a background thread
-- `QSS_GITHUB_UPDATE_INTERVAL_MINUTES=60` — how often to poll GitHub Releases
-- `QSS_GITHUB_RELEASE_ASSET_NAME=` — pin a specific release asset if desired
-- `QSS_GITHUB_TOKEN=` — optional token for private repos or rate-limit relief
+- `QSS_AUTO_UPDATE_ON_START=true` — enable startup update check
+- `QSS_ALLOW_AUTO_PULL=true` — allow the process to perform a hard reset to `origin/<branch>` (dangerous if local changes exist)
+- `QSS_GIT_BRANCH=main` — branch to compare/checkout
 
-Behavior: if enabled and GitHub has a newer release tag, the process installs the latest package asset with `pip` and then re-execs the current process so the new code is used.
+Behavior: if enabled and the local HEAD differs from `origin/<branch]`, the process will (when `QSS_ALLOW_AUTO_PULL=true` and working tree is clean) reset to the remote and re-exec the Python process so the new code is used.
 
 Security and safety
 
 - Do NOT store private SSH keys or production secrets in the repository. Use GitHub Secrets for the Actions workflow.
-- Use GitHub Releases or PyPI as the source of truth for updates; keep the release tag/version in sync with the package version.
-- Only enable auto-update on servers where an automatic restart is acceptable.
+- Auto-pulling from a remote may overwrite local changes. Only enable `QSS_ALLOW_AUTO_PULL=true` on servers where the repo directory is managed by CI or otherwise safe to overwrite.
 
 ## 🔬 NIST PQC Standards Validated
 

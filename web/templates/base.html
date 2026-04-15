@@ -7,10 +7,12 @@
     <meta name="description" content="Scan, assess, and certify your systems for Post-Quantum Cryptography (PQC) readiness. Generate CBOM, validate NIST compliance, and get actionable migration recommendations.">
     <meta name="color-scheme" content="light dark">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/table.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/quantum_ui_refresh.css') }}">
@@ -205,11 +207,13 @@
     </style>
 </head>
 <body class="{% if current_user.is_authenticated %}dashboard-auth{% endif %}">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     {% set section_map = {
         '/': 'Home',
         '/scans': 'Scan Center',
         '/scan-center': 'Scan Center',
         '/asset-inventory': 'Asset Inventory',
+        '/dashboard/assets': 'Asset Inventory',
         '/asset-discovery': 'Asset Discovery',
         '/cbom-dashboard': 'CBOM',
         '/pqc-posture': 'Posture of PQC',
@@ -218,6 +222,10 @@
         '/vulnerabilities': 'Vulnerabilities',
         '/profile': 'Profile',
         '/admin/api': 'Admin API',
+        '/admin/users': 'Users',
+        '/admin/audit': 'Audit',
+        '/admin/theme': 'Theme',
+        '/recycle-bin': 'Recycle Bin',
         '/docs': 'Docs'
     } %}
     {% set section_title = section_map.get(request.path, 'Dashboard') %}    <!-- Navigation -->
@@ -239,12 +247,12 @@
                         <i class="fa-solid fa-bolt"></i> <span class="nav-text">SCANS</span>
                     </a>
 
-                    <a href="/asset-inventory" class="nav-link {% if request.path == '/asset-inventory' %}active{% endif %}" title="Asset Inventory">
+                    <a href="/asset-inventory" class="nav-link {% if request.path in ['/asset-inventory', '/dashboard/assets'] %}active{% endif %}" title="Asset Inventory">
                         <i class="fa-solid fa-database"></i> <span class="nav-text">INVENTORY</span>
                     </a>
 
                     <a href="/asset-discovery" class="nav-link {% if request.path == '/asset-discovery' %}active{% endif %}" title="Asset Discovery">
-                        <i class="fa-solid fa-radar"></i> <span class="nav-text">DISCOVERY</span>
+                        <i class="fa-solid fa-satellite-dish"></i> <span class="nav-text">DISCOVERY</span>
                     </a>
 
                     <a href="/cbom-dashboard" class="nav-link {% if request.path == '/cbom-dashboard' %}active{% endif %}" title="CBOM Dashboard">
@@ -311,7 +319,6 @@
         </div>
 
     </nav>
- </nav>
     <script>
     (function(){
         var btn = document.getElementById('navHamburger');
@@ -416,7 +423,7 @@
     </script>
 
     <!-- Main Content -->
-    <main class="main-content">
+    <main class="main-content" id="main-content">
         {% block content %}{% endblock %}
     </main>
 
@@ -464,6 +471,9 @@
         <div class="footer-container">
             <p class="footer-text">
                 <span class="footer-brand" id="footerDateLabel">--/--/---- | PNB Hackathon 2026</span>
+                <span class="footer-https-badge" title="All traffic is encrypted via HTTPS">
+                    <i class="fa-solid fa-lock" aria-hidden="true"></i> HTTPS
+                </span>
             </p>
             <p class="footer-sub">
                 CYBER OBSERVABILITY | CRYPTO POSTURE | EXECUTIVE REPORTING

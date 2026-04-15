@@ -7,8 +7,18 @@
   .report-head h2 { margin:0; font-size:clamp(1.6rem,2.7vw,2.2rem); text-transform:uppercase; max-width: calc(100% - 180px); }
   .report-head p { margin:0.35rem 0 0; color:var(--text-secondary); }
   .report-head a.button { white-space:nowrap; margin-top:0.25rem; }
-  .report-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.85rem; }
-  .report-nav { min-height:145px; }
+  .report-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:0.85rem; }
+  .report-nav { cursor: pointer; text-align: left; border-color: var(--border-subtle);
+    padding: 1rem 0.85rem; transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--bg-card);
+    min-height: 110px; display: flex; flex-direction: column; gap: 0.35rem; overflow: visible; }
+  .report-nav:hover, .report-nav:focus-visible {
+    transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.08); outline: none; border-color: var(--accent);
+  }
+  .report-nav:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+  .report-nav-icon { font-size: 1.2rem; color: var(--accent); flex-shrink: 0; }
+  .report-nav-title { font-weight: 700; font-size: 0.85rem; line-height: 1.3; overflow-wrap: break-word; word-break: break-word; white-space: normal; }
+  .report-nav-desc { font-size: 0.72rem; color: var(--text-secondary); line-height: 1.4; overflow-wrap: break-word; word-break: break-word; white-space: normal; }
   .report-form { padding:1rem; display:grid; gap:0.6rem; }
   .reporting-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; min-height: auto; }
   .report-table-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
@@ -20,27 +30,6 @@
   .report-api.error { color:var(--danger); border-color: color-mix(in srgb, var(--danger) 44%, transparent); }
   .report-sync-anchor { font-size:0.74rem; color:var(--text-secondary); display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; }
   .report-sync-dot { width:8px; height:8px; border-radius:50%; background:var(--safe); display:inline-block; }
-  .report-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:0.85rem; }
-  .report-nav {
-    cursor: pointer;
-    text-align: left;
-    border-color: var(--border-subtle);
-    padding: 1rem;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-    border: 1px solid var(--border-subtle);
-    border-radius: 10px;
-    background: var(--bg-card);
-  }
-  .report-nav:hover,
-  .report-nav:focus-visible {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 16px rgba(0,0,0,0.08);
-    outline: none;
-    border-color: var(--accent);
-  }
-  .report-nav:focus-visible {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
-  }
   .report-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:0.75rem; }
   .report-kpi { padding:0.95rem; border-left:3px solid var(--accent); }
   .report-kpi.warn { border-left-color:var(--warn); }
@@ -48,8 +37,6 @@
   .report-kpi .label { font-size:0.65rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.12em; }
   .report-kpi .value { margin-top:0.3rem; font-size:1.6rem; font-weight:800; line-height:1; }
   .reporting-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
-  .report-form { padding:1rem; display:grid; gap:0.6rem; }
-  .report-form h3 { margin-bottom:0.2rem; }
   .report-form label { font-size:0.82rem; }
   .report-form input[type="text"],
   .report-form input[type="password"],
@@ -60,7 +47,6 @@
     border:1px solid var(--border-subtle); color:var(--text-primary);
     padding:0.35rem 0.5rem; border-radius:6px;
   }
-  .report-table-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
   .report-title { margin:0 0 0.65rem; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-secondary); }
   .report-toolbar { display:flex; justify-content:space-between; align-items:center; gap:0.6rem; margin-bottom:0.7rem; flex-wrap:wrap; }
   .report-toolbar input { width:100%; max-width:220px; }
@@ -109,22 +95,22 @@
     <h3 style="margin-bottom:0.6rem;">Reporting Options</h3>
     <div class="report-cards">
       <button onclick="document.getElementById('schedSection').scrollIntoView({behavior:'smooth'})"
-        class="glass-card report-nav" style="padding:1rem;border-color:var(--accent);">
-        <div style="font-size:1.3rem;margin-bottom:0.3rem;"><i class="fa-solid fa-calendar-days"></i></div>
-        <div style="font-weight:700;font-size:0.9rem;">Scheduled Reporting</div>
-        <div style="font-size:0.75rem;color:var(--text-secondary);">Automate periodic delivery to email or file</div>
+        class="glass-card report-nav" style="border-color:var(--accent);">
+        <div class="report-nav-icon"><i class="fa-solid fa-calendar-days"></i></div>
+        <div class="report-nav-title">Scheduled Reporting</div>
+        <div class="report-nav-desc">Automate periodic delivery to email or file</div>
       </button>
       <button onclick="document.getElementById('ondemandSection').scrollIntoView({behavior:'smooth'})"
-        class="glass-card report-nav" style="padding:1rem;border-color:var(--safe);">
-        <div style="font-size:1.3rem;margin-bottom:0.3rem;"><i class="fa-solid fa-bolt"></i></div>
-        <div style="font-weight:700;font-size:0.9rem;">On-Demand Reporting</div>
-        <div style="font-size:0.75rem;color:var(--text-secondary);">Generate and download a report right now</div>
+        class="glass-card report-nav" style="border-color:var(--safe);">
+        <div class="report-nav-icon" style="color:var(--safe);"><i class="fa-solid fa-bolt"></i></div>
+        <div class="report-nav-title">On-Demand Reporting</div>
+        <div class="report-nav-desc">Generate and download a report right now</div>
       </button>
       <button onclick="document.getElementById('summarySection').scrollIntoView({behavior:'smooth'})"
-        class="glass-card report-nav" style="padding:1rem;border-color:var(--warn);">
-        <div style="font-size:1.3rem;margin-bottom:0.3rem;"><i class="fa-solid fa-chart-column"></i></div>
-        <div style="font-weight:700;font-size:0.9rem;">Executives Reporting</div>
-        <div style="font-size:0.75rem;color:var(--text-secondary);">Summary metrics for executive stakeholders</div>
+        class="glass-card report-nav" style="border-color:var(--warn);">
+        <div class="report-nav-icon" style="color:var(--warn);"><i class="fa-solid fa-chart-column"></i></div>
+        <div class="report-nav-title">Executives Reporting</div>
+        <div class="report-nav-desc">Summary metrics for executive stakeholders</div>
       </button>
     </div>
   </section>

@@ -365,6 +365,37 @@ class CbomService:
         return "Valid"
 
     @staticmethod
+    def _row_priority(row: Dict[str, Any]) -> tuple:
+        """Rank CBOM rows so the dashboard prefers current, recently observed rows."""
+
+        def _dt_score(value: Any) -> float:
+            if value is None:
+                return 0.0
+            if hasattr(value, "timestamp"):
+                try:
+                    return float(value.timestamp())
+                except Exception:
+                    return 0.0
+            if isinstance(value, str):
+                raw = value.strip()
+                if not raw:
+                    return 0.0
+                try:
+                    return float(datetime.fromisoformat(raw.replace("Z", "+00:00")).timestamp())
+                except Exception:
+                    return 0.0
+            return 0.0
+
+        return (
+            1 if bool(row.get("is_current")) else 0,
+            _dt_score(row.get("last_seen_at")),
+            _dt_score(row.get("last_scan")),
+            _dt_score(row.get("valid_until")),
+            _dt_score(row.get("first_seen_at")),
+            int(row.get("record_id") or 0),
+        )
+
+    @staticmethod
     def _build_applications_query(
         asset_id: Optional[int],
         start_date: Optional[str],
@@ -628,45 +659,6 @@ class CbomService:
             .filter(*cert_filters)
         )
 
-        discovery_ssl_query = None
-        if cls._table_exists("discovery_ssl"):
-            discovery_ssl_query = (
-                db_session.query(DiscoverySSL, Asset, Scan)
-                .join(Scan, DiscoverySSL.scan_id == Scan.id)
-                .outerjoin(Asset, DiscoverySSL.asset_id == Asset.id)
-                .filter(
-                    DiscoverySSL.is_deleted == False,
-                    Scan.is_deleted == False,
-                    Scan.status == "complete",
-                    # Exclude discovery rows attached to deleted assets.
-                    or_(Asset.id == None, Asset.is_deleted == False),
-                )
-            )
-            if asset_id is not None:
-                discovery_ssl_query = discovery_ssl_query.filter(DiscoverySSL.asset_id == asset_id)
-            if start_date or end_date:
-                scan_time_expr = func.coalesce(Scan.scanned_at, Scan.completed_at, Scan.started_at)
-                if start_date:
-                    try:
-                        discovery_ssl_query = discovery_ssl_query.filter(scan_time_expr >= datetime.fromisoformat(start_date))
-                    except ValueError:
-                        pass
-                if end_date:
-                    try:
-                        discovery_ssl_query = discovery_ssl_query.filter(scan_time_expr <= datetime.fromisoformat(end_date))
-                    except ValueError:
-                        pass
-            search_term_normalized = (search_term or "").strip()
-            if search_term_normalized:
-                like = f"%{search_term_normalized}%"
-                discovery_ssl_query = discovery_ssl_query.filter(
-                    func.coalesce(DiscoverySSL.endpoint, "").ilike(like)
-                    | func.coalesce(DiscoverySSL.issuer, "").ilike(like)
-                    | func.coalesce(DiscoverySSL.cipher_suite, "").ilike(like)
-                    | func.coalesce(DiscoverySSL.subject_cn, "").ilike(like)
-                    | func.coalesce(Asset.target, "").ilike(like)
-                )
-
         now = datetime.now()
 
         scan_count = scan_query.count()
@@ -674,39 +666,11 @@ class CbomService:
 
         cert_count = cert_query.count()
 
-        discovery_ssl_rows = []
-        discovery_ssl_count = 0
-        if discovery_ssl_query is not None:
-            discovery_ssl_rows = discovery_ssl_query.all()
-            discovery_ssl_count = len(discovery_ssl_rows)
-
         active_certificates = cert_query.filter(Certificate.valid_until != None, Certificate.valid_until >= now).count()
         weak_tls_count = cert_query.filter(Certificate.tls_version.in_(cls.WEAK_TLS_VERSIONS)).count()
         weak_key_count = cert_query.filter(Certificate.key_length != None, Certificate.key_length < 2048).count()
         expired_count = cert_query.filter(Certificate.valid_until != None, Certificate.valid_until < now).count()
         self_signed_count = cert_query.filter(Certificate.issuer != None, Certificate.subject != None, Certificate.issuer == Certificate.subject).count()
-
-        if discovery_ssl_rows:
-            for dssl, _asset, _scan in discovery_ssl_rows:
-                valid_until = getattr(dssl, "valid_until", None)
-                if valid_until is not None and valid_until >= now:
-                    active_certificates += 1
-                tls_version = str(getattr(dssl, "tls_version", "") or "")
-                if tls_version in cls.WEAK_TLS_VERSIONS:
-                    weak_tls_count += 1
-                key_length = getattr(dssl, "key_length", None)
-                if key_length is not None:
-                    try:
-                        if int(key_length) < 2048:
-                            weak_key_count += 1
-                    except (TypeError, ValueError):
-                        pass
-                if valid_until is not None and valid_until < now:
-                    expired_count += 1
-                issuer = str(getattr(dssl, "issuer", "") or "").strip().lower()
-                subject_cn = str(getattr(dssl, "subject_cn", "") or "").strip().lower()
-                if issuer and subject_cn and issuer == subject_cn:
-                    self_signed_count += 1
 
         cbom_entry_issue_count = (
             db_session.query(func.count(CBOMEntry.id))
@@ -798,37 +762,6 @@ class CbomService:
         if not tls_dist:
             tls_dist = {"No Data": 0}
 
-        if discovery_ssl_rows:
-            discovery_asset_ids = {
-                int(getattr(dssl, "asset_id", 0) or 0)
-                for dssl, _asset, _scan in discovery_ssl_rows
-                if getattr(dssl, "asset_id", None) is not None
-            }
-            if discovery_asset_ids:
-                site_count = max(int(site_count or 0), len(discovery_asset_ids))
-
-            for dssl, _asset, _scan in discovery_ssl_rows:
-                key_len_val = getattr(dssl, "key_length", None)
-                key_bucket = "Unknown"
-                try:
-                    if key_len_val is not None:
-                        key_bucket = str(int(key_len_val))
-                except (TypeError, ValueError):
-                    key_bucket = "Unknown"
-                key_length_dist[key_bucket] = int(key_length_dist.get(key_bucket, 0) or 0) + 1
-
-                cipher_key = str(getattr(dssl, "cipher_suite", "") or "Unknown")[:40]
-                cipher_dist[cipher_key] = int(cipher_dist.get(cipher_key, 0) or 0) + 1
-
-                issuer_key = str(getattr(dssl, "issuer", "") or "Unknown")[:40]
-                ca_dist[issuer_key] = int(ca_dist.get(issuer_key, 0) or 0) + 1
-
-                tls_key = str(getattr(dssl, "tls_version", "") or "Unknown")
-                tls_dist[tls_key] = int(tls_dist.get(tls_key, 0) or 0) + 1
-
-            # Keep top lists bounded and ordered for chart payloads
-            cipher_dist = dict(sorted(cipher_dist.items(), key=lambda kv: int(kv[1] or 0), reverse=True)[:10])
-            ca_dist = dict(sorted(ca_dist.items(), key=lambda kv: int(kv[1] or 0), reverse=True)[:10])
 
         app_query = cls._build_applications_query(
             asset_id=asset_id,

@@ -122,7 +122,9 @@ class TLSEndpointResult:
 
     @property
     def is_successful(self) -> bool:
-        return self.error is None and self.cipher_suite != ""
+        # A scan is successful if we captured the core cipher suite,
+        # even if an enrichment error (like SSLyze) occurred.
+        return self.cipher_suite != ""
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -188,14 +190,17 @@ class TLSAnalyzer:
             result.retry_count = self.MAX_RETRIES
 
         # Augment with SSLyze if available
-        if HAS_SSLYZE and result.error is None:
+        # Note: Enrichment is non-fatal; we preserve core stdlib results even if this fails.
+        if HAS_SSLYZE and (result.error is None or "stdlib" not in result.error):
             try:
                 self._augment_with_sslyze(result, host, port)
             except Exception as exc:
-                result.error = result.error or f"sslyze enrichment failed: {exc}"
+                # Log enrichment failure but don't poison the result if stdlib worked
+                if not result.cipher_suite:
+                    result.error = result.error or f"sslyze enrichment failed: {exc}"
 
         # Detect HSTS
-        if result.error is None:
+        if result.cipher_suite:
             try:
                 result.hsts_enabled, result.hsts_max_age = self._detect_hsts(host, port)
             except Exception:
@@ -681,68 +686,6 @@ class TLSAnalyzer:
         """Use SSLyze for deeper inspection (chain length and scanner metadata)."""
         scanner = Scanner()
         server_location = ServerNetworkLocation(host, int(port))
-
-        raw_scan_results = scanner.scan(server_location)
-        if not isinstance(raw_scan_results, Iterable):
-            return
-
-        for scan_result in raw_scan_results:
-            self._extract_sslyze_chain_length(result, scan_result)
-
-    def _extract_sslyze_chain_length(self, result: TLSEndpointResult, scan_result: Any) -> None:
-        """Best-effort extraction of cert chain length across SSLyze result shapes."""
-        # Common modern layout: scan_result.scan_result.certificate_info
-        candidates: list[Any] = [scan_result]
-        scan_result_attr = getattr(scan_result, "scan_result", None)
-        if scan_result_attr is not None:
-            candidates.append(scan_result_attr)
-
-        for candidate in candidates:
-            cert_info = getattr(candidate, "certificate_info", None)
-            if cert_info is None:
-                continue
-
-            # Most SSLyze certificate plugin outputs expose deployed_certificate_chain.
-            deployed_chain = getattr(cert_info, "deployed_certificate_chain", None)
-            if deployed_chain is None:
-                continue
-
-            certs = getattr(deployed_chain, "certificates", None)
-            if isinstance(certs, list) and certs:
-                result.certificate_chain_length = len(certs)
-                return
-
-            if isinstance(deployed_chain, list) and deployed_chain:
-                result.certificate_chain_length = len(deployed_chain)
-                return
-
-    # ------------------------------------------------------------------
-    # Private — Key Exchange extraction
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _extract_key_exchange(cipher_suite: str) -> str:
-        """Derive key exchange mechanism from cipher suite name.
-
-        Examples::
-
-            'ECDHE-RSA-AES256-GCM-SHA384'  → 'ECDHE'
-            'TLS_AES_256_GCM_SHA384'       → 'TLS1.3-ECDHE'
-            'TLS_CHACHA20_POLY1305_SHA256'  → 'TLS1.3-ECDHE'
-        """
-        upper = cipher_suite.upper()
-
-        # TLS 1.3 cipher suites don't embed kex in name;
-        # key exchange is always ephemeral (usually X25519/ECDHE)
-        if upper.startswith("TLS_AES") or upper.startswith("TLS_CHACHA"):
-            return "TLS1.3-ECDHE"
-
-        for pattern, kex in CIPHER_KEX_PATTERNS.items():
-            if pattern.upper() in upper:
-                return kex
-
-        return "UNKNOWN"
-        server_location = ServerNetworkLocation(server_name or host, int(port))
 
         raw_scan_results = scanner.scan(server_location)
         if not isinstance(raw_scan_results, Iterable):

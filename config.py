@@ -18,43 +18,7 @@ APP_NAME = "Quantum-Safe TLS Scanner"
 APP_VERSION = "1.0.0"
 SECRET_KEY = os.environ.get("QSS_SECRET_KEY", "dev-secret-change-in-production")
 DEBUG = os.environ.get("QSS_DEBUG", "true").lower() == "true"
-APP_ENV = str(os.environ.get("QSS_ENV") or os.environ.get("FLASK_ENV") or "development").strip().lower()
-IS_PRODUCTION = APP_ENV in {"production", "prod"}
 SESSION_COOKIE_NAME = os.environ.get("QSS_SESSION_COOKIE_NAME", "quantumshield_session")
-
-# ---------------------------------------------------------------------------
-# GitHub Release Update Manager
-# ---------------------------------------------------------------------------
-GITHUB_REPO_OWNER = os.environ.get("QSS_GITHUB_REPO_OWNER", "").strip()
-GITHUB_REPO_NAME = os.environ.get("QSS_GITHUB_REPO_NAME", "").strip()
-GITHUB_RELEASE_ASSET_NAME = os.environ.get("QSS_GITHUB_RELEASE_ASSET_NAME", "").strip()
-GITHUB_TOKEN = os.environ.get("QSS_GITHUB_TOKEN", os.environ.get("GITHUB_TOKEN", "")).strip()
-GITHUB_RELEASES_API_URL = os.environ.get(
-    "QSS_GITHUB_RELEASES_API_URL",
-    f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/releases/latest"
-    if GITHUB_REPO_OWNER and GITHUB_REPO_NAME else "",
-).strip()
-GITHUB_UPDATE_ENABLED = os.environ.get(
-    "QSS_GITHUB_UPDATE_ENABLED",
-    os.environ.get("QSS_AUTO_UPDATE_ON_START", "false"),
-).lower() == "true"
-GITHUB_UPDATE_ON_START = os.environ.get(
-    "QSS_GITHUB_UPDATE_ON_START",
-    os.environ.get("QSS_AUTO_UPDATE_ON_START", "false"),
-).lower() == "true"
-GITHUB_UPDATE_SCHEDULED = os.environ.get(
-    "QSS_GITHUB_UPDATE_SCHEDULED",
-    os.environ.get("QSS_AUTO_UPDATE_SCHEDULED", "false"),
-).lower() == "true"
-GITHUB_UPDATE_INTERVAL_MINUTES = int(os.environ.get(
-    "QSS_GITHUB_UPDATE_INTERVAL_MINUTES",
-    os.environ.get("QSS_AUTO_UPDATE_INTERVAL_MINUTES", "60"),
-))
-ALLOW_AUTO_UPDATE = os.environ.get(
-    "QSS_ALLOW_AUTO_UPDATE",
-    os.environ.get("QSS_ALLOW_AUTO_PULL", "false"),
-).lower() == "true"
-
 
 # ---------------------------------------------------------------------------
 # Network Scanning — Security & Scope
@@ -545,20 +509,6 @@ MAX_LOGIN_ATTEMPTS = int(
 LOGIN_LOCKOUT_MINUTES = int(os.environ.get("QSS_LOGIN_LOCKOUT_MINUTES", "15"))
 # REQUIRE_2FA: when True, all users are required to configure 2FA on next login
 REQUIRE_2FA = os.environ.get("QSS_REQUIRE_2FA", "false").lower() == "true"
-# Role-scoped mandatory 2FA (applies even when REQUIRE_2FA is false)
-_raw_required_roles = os.environ.get("QSS_REQUIRE_2FA_ROLES", "Admin,Manager")
-REQUIRE_2FA_ROLES = tuple(
-    role.strip().title()
-    for role in str(_raw_required_roles or "").split(",")
-    if role and role.strip()
-)
-# Dev-only bypass for policy-enforced 2FA setup/login redirect.
-# Never active in production (hard-disabled below).
-ALLOW_2FA_DEV_BYPASS = (
-    os.environ.get("QSS_2FA_DEV_BYPASS", os.environ.get("DEBUG_LOGIN_BYPASS", "false")).lower() == "true"
-)
-if IS_PRODUCTION and ALLOW_2FA_DEV_BYPASS:
-    ALLOW_2FA_DEV_BYPASS = False
 
 # ---------------------------------------------------------------------------
 # SMTP / Email

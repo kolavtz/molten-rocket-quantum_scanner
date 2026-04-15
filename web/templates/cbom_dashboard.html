@@ -64,54 +64,60 @@
       </div>
     </div>
 
-    <!-- Search + Table Controls -->
-    <div class="table-toolbar">
-      <input type="text" id="cbomSearchInput" class="cbom-search" placeholder="Search asset, CA, cipher…" onkeydown="if(event.key==='Enter')doSearch()">
-      <select id="cbomSortField" class="asset-select" style="min-width:170px" onchange="applyTableControls()">
-        <option value="asset_name">Sort: Asset</option>
-        <option value="key_length">Sort: Key Length</option>
-        <option value="tls_version">Sort: Protocol</option>
-        <option value="cipher_suite">Sort: Cipher</option>
-        <option value="ca">Sort: CA / Issuer</option>
-        <option value="valid_until" selected>Sort: Expires</option>
-      </select>
-      <select id="cbomSortOrder" class="asset-select" style="min-width:120px" onchange="applyTableControls()">
-        <option value="asc" selected>Asc</option>
-        <option value="desc">Desc</option>
-      </select>
-      <select id="cbomPageSize" class="asset-select" style="min-width:120px" onchange="applyTableControls()">
-        <option value="10">10 / page</option>
-        <option value="25" selected>25 / page</option>
-        <option value="50">50 / page</option>
-      </select>
-      <button class="btn-primary" onclick="doSearch()">Search</button>
-      <span class="table-meta" id="tableMeta"></span>
-    </div>
+    <div class="cbom-workbench">
+      <div class="cbom-list-pane">
+        <!-- Search + Table Controls -->
+        <div class="table-toolbar">
+          <input type="text" id="cbomSearchInput" class="cbom-search" placeholder="Search asset, CA, cipher…" onkeydown="if(event.key==='Enter')doSearch()">
+          <select id="cbomSortField" class="asset-select" style="min-width:170px" onchange="applyTableControls()">
+            <option value="asset_name">Sort: Asset</option>
+            <option value="key_length">Sort: Key Length</option>
+            <option value="tls_version">Sort: Protocol</option>
+            <option value="cipher_suite">Sort: Cipher</option>
+            <option value="ca">Sort: CA / Issuer</option>
+            <option value="valid_until" selected>Sort: Expires</option>
+          </select>
+          <select id="cbomSortOrder" class="asset-select" style="min-width:120px" onchange="applyTableControls()">
+            <option value="asc" selected>Asc</option>
+            <option value="desc">Desc</option>
+          </select>
+          <select id="cbomPageSize" class="asset-select" style="min-width:120px" onchange="applyTableControls()">
+            <option value="10">10 / page</option>
+            <option value="25" selected>25 / page</option>
+            <option value="50">50 / page</option>
+          </select>
+          <button class="btn-primary" onclick="doSearch()">Search</button>
+          <span class="table-meta" id="tableMeta"></span>
+        </div>
 
-    <!-- Inventory Table -->
-    <div class="table-wrap">
-      <table class="cbom-table" aria-label="CBOM inventory">
-        <thead>
-          <tr>
-            <th>Asset</th><th>Status</th><th>Key Len</th><th>Protocol</th>
-            <th>Cipher Suite</th><th>CA / Issuer</th><th>Expires</th><th>Details</th>
-          </tr>
-        </thead>
-        <tbody id="cbomTableBody">
-          <tr><td colspan="8" class="table-loading">Loading inventory…</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="pager" id="pagerRow">
-      <button id="prevBtn" class="btn-ghost" onclick="changePage(-1)" disabled>&#8592; Prev</button>
-      <span id="pagerInfo" class="pager-info"></span>
-      <button id="nextBtn" class="btn-ghost" onclick="changePage(1)"  disabled>Next &#8594;</button>
-    </div>
-
-    <div class="cbom-selected-panel" id="cbomSelectedPanel">
-      <div id="cbomSelectedDetails" class="table-loading" style="min-height: 140px; display:flex; align-items:center; justify-content:center; text-align:center;">
-        Select a CBOM row to inspect the certificate and linked scan details.
+        <!-- Inventory Table -->
+        <div class="table-wrap">
+          <table class="cbom-table" aria-label="CBOM inventory">
+            <thead>
+              <tr>
+                <th>Asset</th><th>Status</th><th>Key Len</th><th>Protocol</th>
+                <th>Cipher Suite</th><th>CA / Issuer</th><th>Expires</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="cbomTableBody">
+              <tr><td colspan="8" class="table-loading">Loading inventory…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pager" id="pagerRow">
+          <button id="prevBtn" class="btn-ghost" onclick="changePage(-1)" disabled>&#8592; Prev</button>
+          <span id="pagerInfo" class="pager-info"></span>
+          <button id="nextBtn" class="btn-ghost" onclick="changePage(1)"  disabled>Next &#8594;</button>
+        </div>
       </div>
+
+      <aside class="cbom-detail-pane">
+        <div class="cbom-selected-panel" id="cbomSelectedPanel">
+          <div id="cbomSelectedDetails" class="table-loading" style="min-height: 140px; display:flex; align-items:center; justify-content:center; text-align:center;">
+            Select a website record to inspect the certificate and linked scan details.
+          </div>
+        </div>
+      </aside>
     </div>
   </section>
 

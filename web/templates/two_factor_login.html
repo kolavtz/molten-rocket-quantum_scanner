@@ -2,30 +2,271 @@
 
 {% block title %}Two-Factor Authentication // QuantumShield{% endblock %}
 
+{% block head %}
+<style>
+/* Reuse login-page styles, supplement 2FA-specific elements */
+body.login-page {
+    background:
+        radial-gradient(ellipse 60% 50% at 20% 40%, rgba(74,158,173,0.08) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 80% 70%, rgba(74,158,173,0.06) 0%, transparent 70%),
+        var(--bg-dark, #0f1219);
+    min-height: 100vh;
+}
+
+.login-page-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    padding: 2rem 1rem;
+    gap: 1.5rem;
+}
+
+/* ── Banner ── */
+.login-banner { text-align: center; max-width: 560px; }
+.login-banner .banner-series {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 2.5px;
+    text-transform: uppercase; color: var(--text-secondary, #8a9bb0);
+    margin-bottom: 0.4rem; font-family: 'JetBrains Mono', monospace;
+}
+.login-banner .banner-event {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+    color: var(--accent, #4a9ead); letter-spacing: 1.5px;
+    text-transform: uppercase; margin-bottom: 0.2rem;
+}
+.login-banner .banner-divider {
+    width: 48px; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent, #4a9ead), transparent);
+    margin: 0.75rem auto; border-radius: 2px;
+}
+
+/* ── Card ── */
+.login-card {
+    width: 100%; max-width: 400px;
+    background: rgba(17, 21, 32, 0.82);
+    border: 1px solid rgba(74, 158, 173, 0.18);
+    border-radius: 16px; padding: 2.25rem 2rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    position: relative; overflow: hidden;
+}
+.login-card::before {
+    content: ''; position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent, #4a9ead), transparent);
+    opacity: 0.6;
+}
+
+/* ── Card header ── */
+.login-card-header { margin-bottom: 1.75rem; display: flex; align-items: flex-start; gap: 0.75rem; }
+.login-card-header .shield-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, rgba(74,158,173,0.2), rgba(74,158,173,0.08));
+    border: 1px solid rgba(74,158,173,0.3); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.95rem; color: var(--accent, #4a9ead); flex-shrink: 0; margin-top: 2px;
+}
+.login-card-header h1 {
+    font-size: 1.05rem; font-weight: 800; letter-spacing: 0.5px;
+    text-transform: uppercase; margin: 0 0 0.2rem; color: var(--text-primary, #f3f4f6);
+}
+.login-card-header p {
+    color: var(--text-muted, #5a6a7e); font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace; margin: 0;
+}
+
+/* ── OTP input group ── */
+.lf-group { margin-bottom: 1.2rem; }
+.lf-label {
+    display: block; margin-bottom: 0.35rem; font-size: 0.67rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--text-muted, #5a6a7e); font-family: 'JetBrains Mono', monospace;
+}
+.lf-input-wrap { position: relative; }
+.login-card .lf-input-wrap .lf-icon {
+    position: absolute; left: 0.95rem; top: 50%; width: 1rem; text-align: center;
+    transform: translateY(-50%); color: var(--text-muted, #5a6a7e); font-size: 0.78rem;
+    pointer-events: none; transition: color 0.2s;
+}
+.login-card .lf-input-wrap input.lf-input {
+    width: 100%; box-sizing: border-box;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(74,158,173,0.15);
+    border-radius: 8px; padding: 0.75rem 0.9rem 0.75rem 2.9rem;
+    color: var(--text-primary, #f3f4f6); font-family: 'JetBrains Mono', monospace;
+    font-size: 1.05rem; letter-spacing: 0.25em; text-align: center;
+    outline: none; transition: border-color 0.22s, background 0.22s, box-shadow 0.22s;
+}
+.login-card .lf-input-wrap input.lf-input::placeholder {
+    color: rgba(142, 165, 184, 0.35); letter-spacing: 0.1em; font-size: 0.85rem;
+}
+.login-card .lf-input-wrap input.lf-input:focus {
+    border-color: var(--accent, #4a9ead); background: rgba(74,158,173,0.06);
+    box-shadow: 0 0 0 3px rgba(74,158,173,0.12);
+}
+.lf-input-wrap:focus-within .lf-icon { color: var(--accent, #4a9ead); }
+
+/* ── Helper text ── */
+.lf-helper {
+    font-size: 0.67rem; font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted, #5a6a7e); margin-top: 0.4rem;
+    display: flex; align-items: center; gap: 0.35rem;
+}
+
+/* ── Submit button ── */
+.btn-authorize {
+    width: 100%; position: relative; overflow: hidden;
+    background: linear-gradient(135deg, var(--accent, #4a9ead), #3a8a9d);
+    color: #0a0f18; border: none; border-radius: 8px; padding: 0.85rem;
+    font-weight: 800; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
+    text-transform: uppercase; letter-spacing: 1.5px; cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
+    box-shadow: 0 4px 16px rgba(74,158,173,0.3); margin-top: 0.5rem;
+}
+.btn-authorize:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(74,158,173,0.4); filter: brightness(1.08); }
+.btn-authorize:active { transform: translateY(0); }
+.btn-authorize::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+    transform: translateX(-100%); transition: transform 0.4s;
+}
+.btn-authorize:hover::after { transform: translateX(100%); }
+
+/* ── Security note ── */
+.login-security-note {
+    display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+    margin-top: 1.25rem; font-size: 0.62rem; color: var(--text-muted, #5a6a7e);
+    font-family: 'JetBrains Mono', monospace; opacity: 0.7;
+}
+
+/* ── Flash messages ── */
+.flash-box {
+    display: flex; align-items: flex-start; gap: 0.5rem; border-radius: 8px;
+    padding: 0.7rem 0.85rem; margin-bottom: 1.25rem; font-size: 0.73rem;
+    font-weight: 600; font-family: 'JetBrains Mono', monospace; line-height: 1.45;
+}
+.flash-box.flash-error { background: rgba(200, 70, 70, 0.10); border: 1px solid rgba(200, 70, 70, 0.35); color: #e07070; }
+.flash-box.flash-warning { background: rgba(224, 166, 50, 0.10); border: 1px solid rgba(224, 166, 50, 0.30); color: #e0a632; }
+.flash-box.flash-success { background: rgba(72, 187, 120, 0.10); border: 1px solid rgba(72, 187, 120, 0.28); color: #70cc96; }
+
+/* ── Light theme ── */
+html[data-theme='light'] .login-card {
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, var(--text-primary) 20%);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14), inset 0 1px 0 rgba(255,255,255,0.75);
+}
+html[data-theme='light'] .login-card .lf-input-wrap input.lf-input {
+    background: color-mix(in srgb, var(--bg-input) 85%, #ffffff 15%);
+    border-color: color-mix(in srgb, var(--border-subtle) 70%, var(--text-secondary) 30%);
+    color: var(--text-primary, #0f172a);
+}
+</style>
+{% endblock %}
+
 {% block content %}
+<script>document.body.classList.add('login-page');</script>
+
 <div class="login-page-wrapper">
-  <div class="login-card">
-    <div class="login-card-header">
-      <div class="shield-icon">🔒</div>
-      <div>
-        <h1>Enter Authentication Code</h1>
-        <p>Enter the 6-digit code from your authenticator app, or use a backup code.</p>
-      </div>
+
+    <!-- Banner -->
+    <div class="login-banner">
+        <div class="banner-series">PNB Hackathon Series · 2FA Verification</div>
+        <div class="banner-event">QuantumShield — Secure Access Layer</div>
+        <div class="banner-divider"></div>
     </div>
 
-    <form method="POST" action="{{ url_for('two_factor_login') }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="lf-group">
-        <label class="lf-label">One-time code</label>
-        <div class="lf-input-wrap">
-          <input class="lf-input" type="text" name="otp" placeholder="Authenticator or backup code" required>
+    <!-- 2FA Card -->
+    <div class="login-card">
+
+        <!-- Card header -->
+        <div class="login-card-header">
+            <div class="shield-icon">
+                <i class="fa-solid fa-shield-check"></i>
+            </div>
+            <div>
+                <h1>Two-Factor Auth</h1>
+                <p>Enter the code from your authenticator app</p>
+            </div>
         </div>
-      </div>
 
-      <button class="btn-authorize" type="submit">Verify</button>
-    </form>
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+            <div class="flash-box flash-{{ category }}">
+                <span class="flash-icon">
+                    {% if category == 'error' %}<i class="fa-solid fa-triangle-exclamation"></i>
+                    {% elif category == 'warning' %}<i class="fa-solid fa-circle-exclamation"></i>
+                    {% else %}<i class="fa-solid fa-circle-check"></i>{% endif %}
+                </span>
+                <span>{{ message }}</span>
+            </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
 
-    <div class="login-security-note">If you have lost your authenticator app, ask your administrator to reset your 2FA.</div>
-  </div>
-</div>
+        <!-- OTP Form -->
+        <form method="POST" action="{{ url_for('two_factor_login') }}" autocomplete="off" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="lf-group">
+                <label class="lf-label" for="otp">One-Time Code</label>
+                <div class="lf-input-wrap">
+                    <i class="fa-solid fa-hashtag lf-icon"></i>
+                    <input class="lf-input"
+                           type="text"
+                           id="otp"
+                           name="otp"
+                           inputmode="numeric"
+                           autocomplete="one-time-code"
+                           pattern="[0-9A-Za-z\-]{6,10}"
+                           maxlength="10"
+                           placeholder="000000"
+                           required
+                           autofocus>
+                </div>
+                <div class="lf-helper">
+                    <i class="fa-solid fa-circle-info"></i>
+                    Use a 6-digit TOTP code or a backup code from your sheet.
+                </div>
+            </div>
+
+            <button type="submit" class="btn-authorize" id="otpSubmitBtn">
+                <i class="fa-solid fa-unlock-keyhole" style="margin-right:0.4rem;"></i>
+                Verify Identity
+            </button>
+        </form>
+
+        <!-- Security note -->
+        <div class="login-security-note">
+            <i class="fa-solid fa-lock" style="font-size:0.7rem;"></i>
+            <span>Protected by CSRF · Rate-limited · HTTPS enforced</span>
+        </div>
+
+    </div>{# /login-card #}
+
+</div>{# /login-page-wrapper #}
+
+<script>
+(function () {
+    /* Auto-format OTP — spaces after every 3 digits for readability (display only, stripped on submit) */
+    const otpInput = document.getElementById('otp');
+    const form = otpInput ? otpInput.closest('form') : null;
+    if (otpInput) {
+        otpInput.addEventListener('input', function () {
+            // Strip non-digit/non-alpha chars and limit length
+            this.value = this.value.replace(/[^0-9A-Za-z\-]/g, '').slice(0, 10);
+        });
+    }
+    if (form) {
+        form.addEventListener('submit', function () {
+            const btn = document.getElementById('otpSubmitBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right:0.4rem;"></i>Verifying…';
+            }
+        });
+    }
+})();
+</script>
 {% endblock %}

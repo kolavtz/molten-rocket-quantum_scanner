@@ -130,9 +130,6 @@ from config import (
     MAX_LOGIN_ATTEMPTS,
     LOGIN_LOCKOUT_MINUTES,
     REQUIRE_2FA,
-    REQUIRE_2FA_ROLES,
-    ALLOW_2FA_DEV_BYPASS,
-    IS_PRODUCTION,
     SESSION_COOKIE_NAME,
     SESSION_IDLE_TIMEOUT_SECONDS,
     AUDIT_LOG_PAGE_SIZE,
@@ -181,13 +178,7 @@ dashboard_bp = Blueprint('main', __name__)
 
 mail = Mail(app)
 csrf = CSRFProtect(app)
-talisman = Talisman(
-    app,
-    content_security_policy=None,
-    frame_options=False,
-    force_https=FORCE_HTTPS,
-    strict_transport_security=FORCE_HTTPS,
-)
+talisman = Talisman(app, content_security_policy=CSP_CONFIG, force_https=FORCE_HTTPS, strict_transport_security=FORCE_HTTPS)
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
@@ -263,24 +254,6 @@ SCAN_ROLES = {"Admin", "Manager", "SingleScan", "Viewer"}
 BULK_SCAN_ROLES = {"Admin", "Manager"}
 ADMIN_PANEL_ROLES = {"Admin"}
 ALL_APP_ROLES = {"Admin", "Manager", "SingleScan", "Viewer"}
-
-
-def _normalize_role_name(role_value: typing.Any) -> str:
-    return str(role_value or "").strip().title()
-
-
-def _is_role_mfa_required(user_data: dict[str, typing.Any] | None) -> bool:
-    role = _normalize_role_name((user_data or {}).get("role"))
-    required_roles = {_normalize_role_name(r) for r in REQUIRE_2FA_ROLES}
-    return role in required_roles
-
-
-def _is_policy_2fa_required(user_data: dict[str, typing.Any] | None) -> bool:
-    return bool(REQUIRE_2FA) or _is_role_mfa_required(user_data)
-
-
-def _is_2fa_dev_bypass_active() -> bool:
-    return bool(ALLOW_2FA_DEV_BYPASS) and (bool(DEBUG) or not bool(IS_PRODUCTION))
 
 # ── Theme Configuration ───────────────────────────────────────────
 THEME_FILE = os.path.join(os.path.dirname(__file__), "theme.json")
@@ -591,25 +564,8 @@ def role_required(roles):
                         "login_url": url_for("login"),
                     }), 401
                 return redirect(url_for('login'))
-            # Ensure user is active
-            if not getattr(current_user, "is_active", True):
-                _audit("auth", "authorization_denied_inactive_account", "denied", details={"required_roles": roles, "actual_role": getattr(current_user, "role", None)})
-                if _expects_json_response():
-                    return jsonify({
-                        "status": "error",
-                        "message": "Account inactive.",
-                    }), 403
-                flash("Your account is inactive. Contact an administrator.", "error")
-                return redirect(url_for('login'))
-
-            # Normalize required roles and perform authorization check
-            try:
-                required = { _normalize_role_name(r) for r in (roles or []) }
-            except Exception:
-                required = set(roles or [])
-
-            if getattr(current_user, "role", None) not in required:
-                _audit("auth", "authorization_denied", "denied", details={"required_roles": list(required), "actual_role": current_user.role})
+            if current_user.role not in roles:
+                _audit("auth", "authorization_denied", "denied", details={"required_roles": roles, "actual_role": current_user.role})
                 if _expects_json_response():
                     return jsonify({
                         "status": "error",
@@ -821,14 +777,23 @@ def disable_login_in_testing():
 
 @app.before_request
 def enforce_https_redirect():
+    """Redirect HTTP requests to HTTPS.
+
+    Localhost/127.0.0.1 are exempt by default (dev convenience).
+    Set QSS_HTTPS_REDIRECT_LOCALHOST=true in .env to also enforce HTTPS on
+    local loopback — useful for testing the full HTTPS-only flow locally.
+    """
     if not FORCE_HTTPS:
         return None
     if app.config.get("TESTING") or request.path.startswith("/static/"):
         return None
     if _is_https_request():
         return None
-    if request.host.startswith("127.0.0.1") or request.host.startswith("localhost"):
-        return None
+    # Check if localhost redirect enforcement is enabled
+    _redirect_localhost = os.environ.get("QSS_HTTPS_REDIRECT_LOCALHOST", "false").lower() == "true"
+    if not _redirect_localhost:
+        if request.host.startswith("127.0.0.1") or request.host.startswith("localhost"):
+            return None  # dev convenience: don't redirect loopback
     secure_url = request.url.replace("http://", "https://", 1)
     return redirect(secure_url, code=301)
 
@@ -866,25 +831,24 @@ def enforce_session_idle_timeout():
 
 @app.after_request
 def add_security_headers(response):
-    request_path = str(getattr(request, "path", "") or "")
-    allow_results_iframe = request_path.startswith("/results/")
-
-    response.headers["X-Frame-Options"] = "SAMEORIGIN" if allow_results_iframe else "DENY"
+    response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     if FORCE_HTTPS:
-        response.headers["Strict-Transport-Security"] = f"max-age={HSTS_SECONDS}; includeSubDomains"
-    frame_ancestors = "'self'" if allow_results_iframe else "'none'"
+        response.headers["Strict-Transport-Security"] = f"max-age={HSTS_SECONDS}; includeSubDomains; preload"
+    # CSP: include cdnjs.cloudflare.com for Font Awesome and all CDN dependencies
     csp_policy = (
         "default-src 'self'; "
         "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; "
-        "font-src 'self' https://fonts.gstatic.com https://unpkg.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com "
+        "https://cdnjs.cloudflare.com; "
+        "font-src 'self' https://fonts.gstatic.com https://unpkg.com https://cdnjs.cloudflare.com; "
         "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; "
         "connect-src 'self' https://ipapi.co; "
         "worker-src blob:; "
-        f"frame-ancestors {frame_ancestors}"
+        "frame-ancestors 'none'; "
+        "upgrade-insecure-requests"
     )
     response.headers["Content-Security-Policy"] = csp_policy
     return response
@@ -904,34 +868,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 logger.info("QuantumShield application starting up...")
-
-# Enforce critical configuration in production to avoid insecure defaults
-try:
-    from config import IS_PRODUCTION, ENCRYPTION_KEY, DEBUG as CONFIG_DEBUG, RATELIMIT_STORAGE_URI as CONFIG_RATELIMIT_STORAGE_URI
-    if IS_PRODUCTION:
-        insecure_placeholders = {"dev-secret-change-in-production", "change-this-secret-in-production", "change-this-audit-secret-in-production", ""}
-        if not SECRET_KEY or SECRET_KEY in insecure_placeholders:
-            logger.critical("SECRET_KEY not configured securely for production (QSS_SECRET_KEY). Aborting startup.")
-            raise RuntimeError("SECRET_KEY must be set to a secure value in production (QSS_SECRET_KEY).")
-        if not ENCRYPTION_KEY:
-            logger.critical("ENCRYPTION_KEY not configured. It is required to protect at-rest secrets (2FA backup codes). Aborting startup.")
-            raise RuntimeError("ENCRYPTION_KEY must be set in production (QSS_ENCRYPTION_KEY).")
-        # Prevent running with DEBUG enabled in production
-        if bool(CONFIG_DEBUG):
-            logger.critical("DEBUG is enabled in production. Aborting startup.")
-            raise RuntimeError("DEBUG must be disabled in production.")
-        # Warn / fail when rate-limiter uses in-memory storage in multi-instance production
-        if isinstance(CONFIG_RATELIMIT_STORAGE_URI, str) and CONFIG_RATELIMIT_STORAGE_URI.startswith("memory"):
-            logger.critical("RATELIMIT_STORAGE_URI is using in-memory storage in production. Configure Redis or other backend for accurate rate-limiting across instances.")
-            raise RuntimeError("RATELIMIT_STORAGE_URI must be set to a persistent backend (e.g., redis://) in production.")
-        # Enforce secure session cookie in production regardless of prior config
-        try:
-            app.config['SESSION_COOKIE_SECURE'] = True
-        except Exception:
-            pass
-except Exception:
-    # Bubble up initialization failure so deploys fail fast when config is invalid
-    raise
 
 # In-memory store — hydrated from MySQL on cold start
 scan_store: dict = {}
@@ -1075,7 +1011,6 @@ def _persist_split_discovery_rows(
     target: str,
     discovered_services: list[dict[str, Any]],
     tls_results: list[dict[str, Any]],
-    dns_records: list[dict[str, Any]] | None,
     pqc_assessments: list[dict[str, Any]],
     location_points: list[dict[str, Any]],
     promoted_to_inventory: bool = False,
@@ -1101,7 +1036,7 @@ def _persist_split_discovery_rows(
 
     if _db_table_exists("discovery_domains"):
         seen_domains: set[str] = set()
-        domains = _collect_related_domains(host, tls_results, dns_records)
+        domains = [host] if host else []
         for tls in tls_results:
             for domain in (tls.get("san_domains") or []):
                 normalized = _host_from_target(str(domain or "")).strip().lower()
@@ -1136,13 +1071,6 @@ def _persist_split_discovery_rows(
                     "is_deleted": False,
                 },
             )
-
-    # Flush discovery_domains to catch errors early
-    if _db_table_exists("discovery_domains"):
-        try:
-            db_session.flush()
-        except Exception as e:
-            raise Exception(f"Failed to persist discovery_domains: {e}") from e
 
     if _db_table_exists("discovery_ips"):
         seen_ips: set[str] = set()
@@ -1194,13 +1122,6 @@ def _persist_split_discovery_rows(
                 },
             )
 
-    # Flush discovery_ips to catch errors early
-    if _db_table_exists("discovery_ips"):
-        try:
-            db_session.flush()
-        except Exception as e:
-            raise Exception(f"Failed to persist discovery_ips: {e}") from e
-
     if _db_table_exists("discovery_software"):
         seen_software: set[tuple[str, str, str]] = set()
         for svc in discovered_services:
@@ -1241,13 +1162,6 @@ def _persist_split_discovery_rows(
                     "is_deleted": False,
                 },
             )
-
-    # Flush discovery_software to catch errors early
-    if _db_table_exists("discovery_software"):
-        try:
-            db_session.flush()
-        except Exception as e:
-            raise Exception(f"Failed to persist discovery_software: {e}") from e
 
     if _db_table_exists("discovery_ssl"):
         def _issuer_text_from_tls_row(tls_row: dict[str, Any]) -> str | None:
@@ -1337,14 +1251,6 @@ def _persist_split_discovery_rows(
                     "is_deleted": False,
                 },
             )
-
-    # Flush discovery_ssl to catch errors early (most critical - SSL certificates)
-    if _db_table_exists("discovery_ssl"):
-        try:
-            db_session.flush()
-        except Exception as e:
-            raise Exception(f"Failed to persist discovery_ssl (SSL/TLS certificates): {e}") from e
-
 def _normalize_tls_result(raw_result: dict) -> dict:
     """Normalize TLS analyzer output into dashboard/report-friendly schema."""
     raw = dict(raw_result or {})
@@ -1375,20 +1281,16 @@ def _normalize_tls_result(raw_result: dict) -> dict:
     if not isinstance(key_bits, int):
         key_bits = int(raw.get("cipher_bits") or 0)
 
-    certificate_details = cert.get("certificate_details") if isinstance(cert.get("certificate_details"), dict) else {}
-    validity_details = certificate_details.get("validity") if isinstance(certificate_details.get("validity"), dict) else {}
-
     subject_cn = str(cert.get("subject_cn") or _cert_component(subject, "cn"))
     subject_o = str(cert.get("subject_o") or _cert_component(subject, "o"))
     subject_ou = str(cert.get("subject_ou") or _cert_component(subject, "ou"))
     issuer_cn = str(cert.get("issuer_cn") or _cert_component(issuer, "cn"))
     issuer_o = str(cert.get("issuer_o") or _cert_component(issuer, "o"))
     issuer_ou = str(cert.get("issuer_ou") or _cert_component(issuer, "ou"))
-    not_before_raw = str(cert.get("not_before") or validity_details.get("not_before") or "")
-    not_after_raw = str(cert.get("not_after") or validity_details.get("not_after") or "")
-    valid_from = _parse_cert_time(not_before_raw)
-    valid_to = _parse_cert_time(not_after_raw)
+    valid_from = _parse_cert_time(str(cert.get("not_before") or ""))
+    valid_to = _parse_cert_time(str(cert.get("not_after") or ""))
 
+    certificate_details = cert.get("certificate_details") if isinstance(cert.get("certificate_details"), dict) else {}
     spki = certificate_details.get("subject_public_key_info") if isinstance(certificate_details.get("subject_public_key_info"), dict) else {}
     public_key_fp = str(spki.get("public_key_fingerprint_sha256") or "").strip()
 
@@ -1437,8 +1339,8 @@ def _normalize_tls_result(raw_result: dict) -> dict:
         "issued_by": issued_by,
         "valid_from": valid_from,
         "valid_to": valid_to,
-        "valid_from_dt": _parse_cert_datetime(not_before_raw),
-        "valid_until_dt": _parse_cert_datetime(not_after_raw),
+        "valid_from_dt": _parse_cert_datetime(str(cert.get("not_before") or "")),
+        "valid_until_dt": _parse_cert_datetime(str(cert.get("not_after") or "")),
         "cert_days_remaining": cert_days,
         "days_remaining": cert_days,
         "cert_expired": cert_expired,
@@ -1513,86 +1415,6 @@ def _collect_dns_records(host: str) -> list[dict]:
         uniq.add(key)
         deduped.append(r)
     return deduped
-
-
-def _normalize_domain_candidate(value: Any) -> str:
-    candidate = _host_from_target(str(value or "")).strip().lower().rstrip(".")
-    if candidate.startswith("*."):
-        candidate = candidate[2:]
-    if not candidate:
-        return ""
-    try:
-        import ipaddress
-
-        ipaddress.ip_address(candidate)
-        return ""
-    except Exception:
-        pass
-    if "." not in candidate:
-        return ""
-    return candidate
-
-
-def _extract_domain_from_dns_value(record_type: str, record_value: Any) -> str:
-    value = str(record_value or "").strip()
-    rtype = str(record_type or "").strip().upper()
-    if not value:
-        return ""
-    if rtype == "MX":
-        # MX records are usually "<priority> <host>"
-        parts = value.split()
-        value = parts[-1] if parts else value
-    return _normalize_domain_candidate(value)
-
-
-def _domains_are_related(candidate: str, seed_domains: set[str]) -> bool:
-    def _apex(domain: str) -> str:
-        labels = [label for label in str(domain or "").strip().split(".") if label]
-        if len(labels) >= 2:
-            return ".".join(labels[-2:])
-        return str(domain or "").strip()
-
-    candidate_apex = _apex(candidate)
-    for seed in seed_domains:
-        if candidate == seed:
-            return True
-        if candidate.endswith(f".{seed}"):
-            return True
-        if seed.endswith(f".{candidate}"):
-            return True
-        if candidate_apex and candidate_apex == _apex(seed):
-            return True
-    return False
-
-
-def _collect_related_domains(
-    target_host: str,
-    tls_results: list[dict[str, Any]] | None,
-    dns_records: list[dict[str, Any]] | None,
-) -> list[str]:
-    seed_domains: set[str] = set()
-    normalized_target = _normalize_domain_candidate(target_host)
-    if normalized_target:
-        seed_domains.add(normalized_target)
-
-    for tls in tls_results or []:
-        for san_domain in tls.get("san_domains") or []:
-            normalized_san = _normalize_domain_candidate(san_domain)
-            if normalized_san:
-                seed_domains.add(normalized_san)
-
-    related_domains: set[str] = set(seed_domains)
-    for record in dns_records or []:
-        normalized = _extract_domain_from_dns_value(
-            str(record.get("record_type") or ""),
-            record.get("record_value"),
-        )
-        if not normalized:
-            continue
-        if not seed_domains or _domains_are_related(normalized, seed_domains):
-            related_domains.add(normalized)
-
-    return sorted(related_domains)
 
 
 def _geolocate_ip(ip_addr: str) -> dict:
@@ -1787,18 +1609,13 @@ def run_scan_pipeline(
             analyzer = TLSAnalyzer()
             tls_results = []
             for ep in endpoints:
-                result = analyzer.analyze_endpoint(ep.host, ep.port, sni_hostname=getattr(ep, "sni_hostname", None))
+                result = analyzer.analyze_endpoint(ep.host, ep.port)
                 if result.is_successful:
                     tls_results.append(_normalize_tls_result(result.to_dict()))
         else:
             # Last resort: direct TLS analysis on port 443
             analyzer = TLSAnalyzer()
-            try:
-                import ipaddress
-                direct_sni = None if ipaddress.ip_address(_host_from_target(target)) else target
-            except Exception:
-                direct_sni = target
-            tls_result = analyzer.analyze_endpoint(target, 443, sni_hostname=direct_sni)
+            tls_result = analyzer.analyze_endpoint(target, 443)
             if tls_result.is_successful:
                 tls_results = [_normalize_tls_result(tls_result.to_dict())]
             else:
@@ -1815,7 +1632,7 @@ def run_scan_pipeline(
         analyzer = TLSAnalyzer()
         tls_results = []
         for ep in tls_endpoints:
-            result = analyzer.analyze_endpoint(ep.host, ep.port, sni_hostname=getattr(ep, "sni_hostname", None))
+            result = analyzer.analyze_endpoint(ep.host, ep.port)
             if result.is_successful:
                 tls_results.append(_normalize_tls_result(result.to_dict()))
 
@@ -1933,7 +1750,7 @@ def run_scan_pipeline(
         db_scan = Scan(
             scan_id=scan_id,
             target=canonical_target,
-            status="running",
+            status="complete",
             asset_class=asset_class,
             started_at=dt,
             completed_at=datetime.now(),
@@ -2001,7 +1818,6 @@ def run_scan_pipeline(
             target=canonical_target,
             discovered_services=discovered_services,
             tls_results=tls_results,
-            dns_records=dns_records,
             pqc_assessments=pqc_dicts,
             location_points=location_points,
             promoted_to_inventory=bool(add_to_inventory),
@@ -2512,35 +2328,14 @@ def run_scan_pipeline(
         report["session_audit"] = session_audit
         # --- SESSION AUDIT END ---
 
-        # Mark scan as complete ONLY after ALL persistence succeeds
-        db_scan.status = "complete"
-        db_scan.completed_at = datetime.now()
-        
         db_session.commit()
         report["orm_persisted"] = True
-    except Exception as err:
-        """Comprehensive exception handling: track error, update scan status, and attempt graceful persistence."""
+    except SQLAlchemyError as err:
+        db_session.rollback()
         import traceback
-        error_trace = traceback.format_exc()
-        error_msg = str(err)
-        
+        print(f"Failed to ingest native DB schema: {err}")
+        traceback.print_exc()
         report["orm_persisted"] = False
-        report["error"] = error_msg
-        report["error_trace"] = error_trace
-        report["status"] = "error"
-        
-        # Attempt to mark scan as "error" state before rollback
-        try:
-            db_scan.status = "error"
-            db_scan.completed_at = datetime.now()
-            db_session.commit()
-            print(f"[ERROR] Scan {scan_id} marked as error: {error_msg}")
-        except Exception as commit_err:
-            # If even the error commit fails, rollback everything
-            db_session.rollback()
-            print(f"[ERROR] Failed to persist error state for scan {scan_id}: {commit_err}")
-            traceback.print_exc()
-
         
     # Store in memory primarily for caching/legacy access if needed
     scan_store[scan_id] = report
@@ -2565,7 +2360,7 @@ def root_index():
 
 
 @app.route("/login", methods=["GET", "POST"])
-@limiter.limit("10 per minute")
+@limiter.limit("100 per minute")
 def login():
     """Secure login page — CSRF protected, rate-limited, lockout-aware."""
     if current_user.is_authenticated:
@@ -2616,16 +2411,8 @@ def login():
                     flash("Please set a new password before continuing.", "warning")
                     return redirect(url_for("setup_password", token=token))
 
-            # Role-aware 2FA policy:
-            # - Users with enabled 2FA always pass through 2FA challenge.
-            # - Policy-required users (global or role-scoped) must complete 2FA setup/login,
-            #   except when explicit non-production dev bypass is active.
-            user_has_2fa = bool(user_data.get("two_factor_enabled"))
-            policy_requires_2fa = _is_policy_2fa_required(user_data)
-            dev_bypass = _is_2fa_dev_bypass_active()
-            must_run_2fa = user_has_2fa or (policy_requires_2fa and not dev_bypass)
-
-            if must_run_2fa:
+            # If 2FA is required by policy or already enabled for this user, defer full login
+            if REQUIRE_2FA or user_data.get("two_factor_enabled"):
                 # stash pre-2FA context and redirect to the appropriate 2FA flow
                 session["pre_2fa_user_id"] = user_data["id"]
                 session["pre_2fa_remember"] = remember
@@ -2636,15 +2423,10 @@ def login():
                     "mfa_required",
                     "info",
                     target_user_id=user_data["id"],
-                    details={
-                        "require_2fa": bool(REQUIRE_2FA),
-                        "require_2fa_by_role": _is_role_mfa_required(user_data),
-                        "two_factor_enabled": user_has_2fa,
-                        "dev_bypass_active": bool(dev_bypass),
-                    },
+                    details={"require_2fa": bool(REQUIRE_2FA), "two_factor_enabled": bool(user_data.get("two_factor_enabled"))},
                 )
 
-                if user_has_2fa:
+                if user_data.get("two_factor_enabled"):
                     return redirect(url_for("two_factor_login"))
                 else:
                     return redirect(url_for("two_factor_setup"))
@@ -2723,7 +2505,6 @@ def two_factor_setup():
 
     totp = pyotp.TOTP(secret)
     if totp.verify(str(code or "").strip(), valid_window=1):
-        logger.info("2FA TOTP verification passed for user_id=%s", pre_id)
         # Create backup codes (show once)
         backup_plain = [secrets.token_hex(4) for _ in range(10)]
         hashed_entries = []
@@ -2733,9 +2514,7 @@ def two_factor_setup():
         backup_json = json.dumps(hashed_entries)
 
         # Persist encrypted secret + backup codes
-        logger.info("Calling set_user_2fa for user_id=%s", pre_id)
         if db.set_user_2fa(pre_id, secret, backup_json):
-            logger.info("set_user_2fa succeeded for user_id=%s", pre_id)
             # complete login
             db.mark_login_success(pre_id)
             user_data = db.get_user_by_id(pre_id)
@@ -2747,17 +2526,11 @@ def two_factor_setup():
             session.clear()
             login_user(User(user_data), remember=remember)
             _audit("auth", "2fa_enabled", "success", target_user_id=pre_id)
-            logger.info("2FA setup completed successfully for user_id=%s", pre_id)
             # Show backup codes to user once
             return render_template("show_backup_codes.html", backup_codes=backup_plain)
-        else:
-            logger.error("set_user_2fa failed for user_id=%s", pre_id)
-            flash("Failed to enable 2FA. Try again or contact admin.", "error")
-            return redirect(url_for("login"))
-    else:
-        logger.warning("2FA TOTP verification failed for user_id=%s (invalid code)", pre_id)
-        flash("Invalid code. Try again.", "error")
-        return redirect(url_for("two_factor_setup"))
+
+        flash("Failed to enable 2FA. Try again or contact admin.", "error")
+        return redirect(url_for("login"))
 
 
 @app.route("/2fa/login", methods=["GET", "POST"])
@@ -6346,32 +6119,98 @@ def _check_concurrency():
 
 
 def _auto_update_on_start():
-    """Run the GitHub release-based startup update check."""
+    """Optional auto-update on startup: fetch origin/<branch> and reset if newer.
+
+    Controlled by environment variables:
+      - QSS_AUTO_UPDATE_ON_START (true|false) — enable check at startup
+      - QSS_ALLOW_AUTO_PULL (true|false) — allow performing a hard reset to remote
+      - QSS_GIT_BRANCH — branch name to compare (default: main)
+
+    Safety: requires clean working tree to perform a hard reset. If pull is performed
+    the process re-execs itself to pick up new code. No secrets are stored here.
+    """
     try:
-        if DEBUG and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+        if os.environ.get("QSS_AUTO_UPDATE_ON_START", "false").lower() != "true":
             return
-        from src.services.github_update_manager import run_startup_update_check
-        run_startup_update_check()
+        if os.environ.get("QSS_AUTO_UPDATE_PERFORMED") == "1":
+            logger.info("Auto-update already performed; skipping.")
+            return
+
+        import shutil
+        import subprocess
+
+        git = shutil.which("git")
+        if not git:
+            logger.warning("Auto-update requested but 'git' is not available on PATH.")
+            return
+
+        # Ensure we're inside a work-tree
+        p = subprocess.run([git, "rev-parse", "--is-inside-work-tree"], cwd=BASE_DIR, capture_output=True, text=True)
+        if p.returncode != 0 or "true" not in p.stdout:
+            logger.warning("Not a git work tree (or git rev-parse failed). Skipping auto-update.")
+            return
+
+        branch = os.environ.get("QSS_GIT_BRANCH", "main")
+
+        # Fetch remote branch reference
+        fetch = subprocess.run([git, "fetch", "origin", branch], cwd=BASE_DIR, capture_output=True, text=True)
+        if fetch.returncode != 0:
+            logger.warning("git fetch failed: %s", fetch.stderr.strip())
+            return
+
+        local = subprocess.run([git, "rev-parse", "HEAD"], cwd=BASE_DIR, capture_output=True, text=True)
+        remote = subprocess.run([git, "rev-parse", f"origin/{branch}"], cwd=BASE_DIR, capture_output=True, text=True)
+        if local.returncode != 0 or remote.returncode != 0:
+            logger.warning("Failed to read commit hashes; skipping auto-update.")
+            return
+
+        local_sha = local.stdout.strip()
+        remote_sha = remote.stdout.strip()
+        if not local_sha or not remote_sha:
+            logger.info("Could not determine commit SHAs; skipping auto-update.")
+            return
+
+        if local_sha == remote_sha:
+            logger.info("Local repository is up-to-date with origin/%s", branch)
+            return
+
+        logger.info("Remote origin/%s differs from local HEAD (%s -> %s)", branch, local_sha[:8], remote_sha[:8])
+
+        if os.environ.get("QSS_ALLOW_AUTO_PULL", "false").lower() != "true":
+            logger.warning("Auto-pull disabled (set QSS_ALLOW_AUTO_PULL=true to enable). Skipping update.")
+            return
+
+        # Ensure no uncommitted changes exist (avoid data loss)
+        status = subprocess.run([git, "status", "--porcelain"], cwd=BASE_DIR, capture_output=True, text=True)
+        if status.stdout.strip():
+            logger.warning("Uncommitted changes present in working tree; refusing hard reset. Clean the tree or disable auto-update.")
+            return
+
+        # Perform hard reset to remote branch
+        reset = subprocess.run([git, "reset", "--hard", f"origin/{branch}"], cwd=BASE_DIR, capture_output=True, text=True)
+        if reset.returncode != 0:
+            logger.warning("git reset failed: %s", reset.stderr.strip())
+            return
+
+        logger.info("Pulled latest code from origin/%s — restarting process to pick up changes.", branch)
+        # Prevent looping by marking performed and re-exec the process
+        os.environ["QSS_AUTO_UPDATE_PERFORMED"] = "1"
+        python = sys.executable
+        os.execv(python, [python] + sys.argv)
+
     except Exception as exc:
-        logger.warning("GitHub startup update check failed: %s", exc)
+        logger.warning("Auto-update check failed: %s", exc)
 
 
-def main() -> None:
-    # Optionally auto-update from GitHub Releases before boot.
+if __name__ == "__main__":
+    # Optionally auto-update code from the remote before boot.
+    # Controlled by QSS_AUTO_UPDATE_ON_START and QSS_ALLOW_AUTO_PULL environment variables.
     try:
         _auto_update_on_start()
     except Exception:
         pass
 
     _start_scheduler_if_enabled()
-    try:
-        from src.services.github_update_manager import start_scheduled_update_checks
-        if DEBUG and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
-            pass
-        else:
-            start_scheduled_update_checks()
-    except Exception as exc:
-        logger.warning("Failed to start GitHub scheduled update watcher: %s", exc)
     _bootstrap_runtime_state()
 
     print(f"\n{'='*60}")
@@ -6424,7 +6263,3 @@ def main() -> None:
             print("  [WARN] Waitress not installed - falling back to Flask dev server")
             print("     Install with: pip install waitress")
             app.run(host=FLASK_HOST, port=FLASK_PORT, debug=False, ssl_context="adhoc")
-
-
-if __name__ == "__main__":
-    main()
