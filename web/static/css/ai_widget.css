@@ -1,9 +1,10 @@
 /* AI Assistant Floating Widget */
 #ai-widget {
   position: fixed;
-  right: 12px;
-  top: max(74px, calc(env(safe-area-inset-top, 0px) + 66px));
-  bottom: auto;
+  left: 12px;
+  right: auto;
+  top: auto;
+  bottom: 12px;
   /* Very high z-index to keep assistant above other overlays */
   z-index: 99999999;
   font-family: inherit;
@@ -11,8 +12,10 @@
 
 .ai-toggle {
   position: fixed;
-  top: max(20px, calc(env(safe-area-inset-top, 0px) + 14px));
-  right: 12px;
+  left: 12px;
+  right: auto;
+  bottom: 12px;
+  top: auto;
   z-index: 100000000;
   min-width: 72px;
   height: 44px;
@@ -66,9 +69,10 @@
   max-width: calc(100vw - 28px);
   max-height: calc(100vh - 28px);
   position: fixed;
-  right: 14px;
-  top: max(82px, calc(env(safe-area-inset-top, 0px) + 78px));
-  bottom: auto;
+  left: 12px;
+  right: auto;
+  top: auto;
+  bottom: 68px;
   border-radius: 18px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--border-subtle) 55%, transparent);
@@ -205,11 +209,12 @@
 
 @media (max-width: 480px) {
   .ai-panel {
-    width: 92vw;
-    height: 74vh;
-    right: 4vw;
-    top: max(78px, calc(env(safe-area-inset-top, 0px) + 74px));
-    bottom: auto;
+    width: min(92vw, 420px);
+    height: 72vh;
+    left: 4vw;
+    right: auto;
+    top: auto;
+    bottom: 72px;
   }
-  .ai-toggle { width: 44px; height: 44px; }
+  .ai-toggle { width: 44px; height: 44px; left: 4vw; right: auto; bottom: 12px; top: auto; }
 }

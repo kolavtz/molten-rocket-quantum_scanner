@@ -212,12 +212,18 @@ class TLSAnalyzer:
 
         return result
 
-    def get_supported_protocols(self, host: str, port: int = 443) -> List[str]:
+    def get_supported_protocols(self, host: str, port: int = 443, server_name: Optional[str] = None) -> List[str]:
         """Probe which TLS protocol versions the server supports.
 
         Includes TLS 1.0 and 1.1 probing (handled gracefully on modern OS
         builds that disallow initiating these versions).
+
+        Args:
+            host:        Host/IP to connect to.
+            port:        TCP port.
+            server_name: Optional SNI name to use during the probe (defaults to *host*).
         """
+        sni = server_name or host
         supported: List[str] = []
 
         # TLS 1.2 and 1.3 are reliably probeable on all modern Python SSL builds
@@ -233,7 +239,7 @@ class TLSAnalyzer:
                 ctx.minimum_version = version
                 ctx.maximum_version = version
                 sock = socket.create_connection((host, port), timeout=self.timeout)
-                tls_sock = ctx.wrap_socket(sock, server_hostname=host)
+                tls_sock = ctx.wrap_socket(sock, server_hostname=sni)
                 tls_sock.close()
                 supported.append(name)
             except Exception:
@@ -253,7 +259,7 @@ class TLSAnalyzer:
                 else:
                     ctx.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_2 | ssl.OP_NO_TLSv1_3
                 sock = socket.create_connection((host, port), timeout=self.timeout)
-                tls_sock = ctx.wrap_socket(sock, server_hostname=host)
+                tls_sock = ctx.wrap_socket(sock, server_hostname=sni)
                 tls_sock.close()
                 supported.append(name)
             except Exception:
@@ -317,15 +323,24 @@ class TLSAnalyzer:
     # ------------------------------------------------------------------
 
     def _analyze_with_stdlib(
-        self, result: TLSEndpointResult, host: str, port: int
+        self, result: TLSEndpointResult, host: str, port: int,
+        server_hostname: Optional[str] = None,
     ) -> None:
-        """Populate *result* using Python's built-in ``ssl`` module."""
+        """Populate *result* using Python's built-in ``ssl`` module.
+
+        Args:
+            result:          Result object to populate in-place.
+            host:            IP address or hostname to connect to.
+            port:            TCP port.
+            server_hostname: SNI name sent during handshake (defaults to *host*).
+        """
+        sni = server_hostname or host
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
 
         sock = socket.create_connection((host, port), timeout=self.timeout)
-        tls_sock = ctx.wrap_socket(sock, server_hostname=host)
+        tls_sock = ctx.wrap_socket(sock, server_hostname=sni)
 
         # Cipher info
         cipher_info = tls_sock.cipher()  # (name, version, bits)
@@ -347,8 +362,8 @@ class TLSAnalyzer:
                 peer_cert or {}, peer_cert_der
             )
 
-        # Supported protocols
-        result.supported_protocols = self.get_supported_protocols(host, port)
+        # Supported protocols — pass SNI name for future SNI-aware probing
+        result.supported_protocols = self.get_supported_protocols(host, port, server_name=sni)
 
         tls_sock.close()
 
@@ -384,9 +399,52 @@ class TLSAnalyzer:
         # Serial
         info.serial_number = cert_dict.get("serialNumber", "")
 
-        # Validity
+        # Validity — try cert_dict first, then fall back to DER
         info.not_before = cert_dict.get("notBefore", "")
         info.not_after = cert_dict.get("notAfter", "")
+
+        # If cert_dict was empty (e.g. binary_form only), backfill from DER
+        if cert_der and (not info.not_before or not info.not_after or not info.san_domains or not info.serial_number):
+            try:
+                from cryptography import x509 as _x509
+                from cryptography.x509.oid import NameOID as _NameOID, ExtensionOID as _ExtOID
+                _cert_obj = _x509.load_der_x509_certificate(cert_der)
+                _not_before_dt = _cert_obj.not_valid_before_utc if hasattr(_cert_obj, "not_valid_before_utc") else _cert_obj.not_valid_before
+                _not_after_dt  = _cert_obj.not_valid_after_utc  if hasattr(_cert_obj, "not_valid_after_utc")  else _cert_obj.not_valid_after
+                if not info.not_before:
+                    info.not_before = _not_before_dt.strftime("%b %d %H:%M:%S %Y GMT")
+                if not info.not_after:
+                    info.not_after = _not_after_dt.strftime("%b %d %H:%M:%S %Y GMT")
+                # Backfill serial_number if missing
+                if not info.serial_number:
+                    info.serial_number = format(_cert_obj.serial_number, "X")
+                # Backfill SAN domains from DER extension
+                if not info.san_domains:
+                    try:
+                        san_ext = _cert_obj.extensions.get_extension_for_oid(_ExtOID.SUBJECT_ALTERNATIVE_NAME)
+                        info.san_domains = [
+                            name.value for name in san_ext.value
+                            if isinstance(name, _x509.DNSName)
+                        ]
+                    except Exception:
+                        pass
+                # Backfill subject/issuer CN from DER if missing
+                if not info.subject_cn:
+                    try:
+                        _attrs = _cert_obj.subject.get_attributes_for_oid(_NameOID.COMMON_NAME)
+                        if _attrs:
+                            info.subject_cn = str(_attrs[0].value)
+                    except Exception:
+                        pass
+                if not info.issuer_cn:
+                    try:
+                        _attrs = _cert_obj.issuer.get_attributes_for_oid(_NameOID.COMMON_NAME)
+                        if _attrs:
+                            info.issuer_cn = str(_attrs[0].value)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
 
         # Expiry check
         if info.not_after:
@@ -402,9 +460,11 @@ class TLSAnalyzer:
             except ValueError:
                 pass
 
-        # SAN
+        # SAN — prefer cert_dict SANs; preserve DER-backfilled SANs if cert_dict is empty
         san_entries = cert_dict.get("subjectAltName", ())
-        info.san_domains = [v for _type, v in san_entries if _type == "DNS"]
+        if san_entries:
+            info.san_domains = [v for _type, v in san_entries if _type == "DNS"]
+        # else: info.san_domains is already set from the DER backfill above (or defaults to [])
 
         # Extract public key info from DER if available
         if cert_der:

@@ -33,7 +33,8 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 99000;
+        /* Raised to sit above floating widgets (AI assistant, etc.) */
+        z-index: 100000003;
         padding: clamp(0.25rem, 1.25vw, 0.9rem);
         opacity: 0;
         visibility: hidden;
@@ -186,28 +187,36 @@
     .scan-history-table tr:hover td { background: rgba(255,255,255,0.03); }
 
     /* Inline delete confirm toast */
+    /* Delete confirmation dialog — centered overlay to avoid stacking-context clipping */
     .inv-toast {
         position: fixed;
-        bottom: 2rem;
-        right: 2rem;
-        z-index: 99999;
+        inset: 0;
+        z-index: 100000101; /* above floating AI widget and modals */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+    }
+    .inv-toast .inv-toast-dialog {
+        pointer-events: auto;
         background: var(--bg-card);
         border: 1px solid rgba(255,255,255,0.1);
         border-radius: 12px;
-        padding: 1rem 1.25rem;
+        padding: 0.9rem 1rem;
         display: flex;
         align-items: center;
-        gap: 1rem;
+        gap: 0.75rem;
         box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-        transform: translateY(120%);
+        transform: translateY(8px);
         opacity: 0;
         transition: transform 0.35s cubic-bezier(0.16,1,0.3,1), opacity 0.35s;
         min-width: 280px;
-        max-width: 380px;
+        max-width: min(540px, 92vw);
     }
-    .inv-toast.show { transform: translateY(0); opacity: 1; }
-    .inv-toast-msg { flex: 1; font-size: 0.85rem; }
-    .inv-toast-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+    .inv-toast.show { pointer-events: auto; }
+    .inv-toast.show .inv-toast-dialog { transform: translateY(0); opacity: 1; }
+    .inv-toast .inv-toast-msg { flex: 1; font-size: 0.95rem; }
+    .inv-toast .inv-toast-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
 
     /* Inline row scan status badge */
     .row-scan-status-badge {
@@ -474,15 +483,7 @@
     </div>
 </div>
 
-<!-- Delete Confirm Toast -->
-<div id="deleteToast" class="inv-toast" role="alertdialog" aria-live="assertive">
-    <i class="fa-solid fa-trash-can" style="color:var(--danger,#ff3366); font-size:1.2rem; flex-shrink:0;"></i>
-    <div class="inv-toast-msg" id="deleteToastMsg">Move this asset to Recycle Bin?</div>
-    <div class="inv-toast-actions">
-        <button id="deleteToastCancel" class="button secondary" style="padding:0.4rem 0.8rem; font-size:0.8rem;">Cancel</button>
-        <button id="deleteToastConfirm" class="button" style="padding:0.4rem 0.8rem; font-size:0.8rem; background:var(--danger,#ff3366); border-color:var(--danger,#ff3366);">Delete</button>
-    </div>
-</div>
+<!-- Delete confirm toast moved to base template to ensure it's a body-level overlay and not trapped by stacking contexts -->
 
 {% endblock %}
 
@@ -507,18 +508,29 @@
     let _pendingDeleteRow = null;
     let _toastTimer = null;
 
+    const deleteDialog = toast; /* alias for clarity */
+    function focusDeleteDialog() {
+        try {
+            const confirmBtn = document.getElementById('deleteToastConfirm');
+            if (confirmBtn) confirmBtn.focus();
+        } catch (_e) {}
+    }
+
     function showDeleteToast(assetName, form, row) {
         clearTimeout(_toastTimer);
         _pendingDeleteForm = form;
         _pendingDeleteRow = row;
-        toastMsg.textContent = `Move "${assetName}" to Recycle Bin?`;
-        toast.classList.add('show');
+        if (toastMsg) toastMsg.textContent = `Move "${assetName}" to Recycle Bin?`;
+        if (toast) toast.classList.add('show');
+        if (deleteDialog) deleteDialog.setAttribute('aria-hidden', 'false');
+        focusDeleteDialog();
         _toastTimer = setTimeout(() => hideToast(), 8000);
     }
 
     function hideToast() {
         clearTimeout(_toastTimer);
-        toast.classList.remove('show');
+        if (toast) toast.classList.remove('show');
+        if (deleteDialog) deleteDialog.setAttribute('aria-hidden', 'true');
         _pendingDeleteForm = null;
         _pendingDeleteRow = null;
     }
@@ -611,7 +623,7 @@
         const borders = { success: 'rgba(52,199,89,0.3)', error: 'rgba(255,51,102,0.3)' };
         const banner = document.createElement('div');
         banner.id = 'inv-flash-banner';
-        banner.style.cssText = `position:fixed; top:1.25rem; left:50%; transform:translateX(-50%); z-index:99998; background:${colors[type]||'rgba(255,255,255,0.1)'}; border:1px solid ${borders[type]||'rgba(255,255,255,0.2)'}; border-radius:10px; padding:0.75rem 1.5rem; color:var(--text-primary); font-size:0.85rem; font-weight:600; max-width:500px; text-align:center; box-shadow:0 8px 32px rgba(0,0,0,0.4);`;
+        banner.style.cssText = `position:fixed; top:1.25rem; left:50%; transform:translateX(-50%); z-index:9999; background:${colors[type]||'rgba(255,255,255,0.1)'}; border:1px solid ${borders[type]||'rgba(255,255,255,0.2)'}; border-radius:10px; padding:0.75rem 1.5rem; color:var(--text-primary); font-size:0.85rem; font-weight:600; max-width:500px; text-align:center; box-shadow:0 8px 32px rgba(0,0,0,0.4);`;
         banner.textContent = msg;
         document.body.appendChild(banner);
         setTimeout(() => banner.remove(), 4000);
@@ -1295,7 +1307,7 @@
                     }
                     /* Flash success */
                     const banner = document.createElement('div');
-                    banner.style.cssText='position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);z-index:99998;background:rgba(52,199,89,0.15);border:1px solid rgba(52,199,89,0.3);border-radius:10px;padding:0.75rem 1.5rem;color:var(--text-primary);font-size:0.85rem;font-weight:600;';
+                    banner.style.cssText='position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(52,199,89,0.15);border:1px solid rgba(52,199,89,0.3);border-radius:10px;padding:0.75rem 1.5rem;color:var(--text-primary);font-size:0.85rem;font-weight:600;';
                     banner.textContent = data.message || 'Asset updated.';
                     document.body.appendChild(banner);
                     setTimeout(() => banner.remove(), 3500);

@@ -178,7 +178,18 @@ dashboard_bp = Blueprint('main', __name__)
 
 mail = Mail(app)
 csrf = CSRFProtect(app)
-talisman = Talisman(app, content_security_policy=CSP_CONFIG, force_https=FORCE_HTTPS, strict_transport_security=FORCE_HTTPS)
+talisman = Talisman(
+    app,
+    content_security_policy=CSP_CONFIG,
+    force_https=FORCE_HTTPS,
+    strict_transport_security=FORCE_HTTPS,
+    strict_transport_security_max_age=HSTS_SECONDS,
+    strict_transport_security_include_subdomains=True,
+    frame_options="DENY",           # block all framing globally; /results overrides to SAMEORIGIN
+    referrer_policy="strict-origin-when-cross-origin",
+    session_cookie_secure=FORCE_HTTPS,
+    force_https_permanent=False,    # use 302 so tests don't cache permanent redirects
+)
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
@@ -831,26 +842,22 @@ def enforce_session_idle_timeout():
 
 @app.after_request
 def add_security_headers(response):
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    """Add supplemental security headers not managed by Flask-Talisman.
+
+    NOTE: Talisman runs as an `after_request` hook registered BEFORE this one,
+    so any header Talisman sets will be overridden here. We deliberately re-assert
+    X-Frame-Options: DENY and the Permissions-Policy to ensure the desired values
+    survive regardless of Talisman's default behaviour.
+    """
+    # Re-assert framing protection (Talisman may set SAMEORIGIN by default on
+    # some versions; we want DENY unless the route decorated itself otherwise).
+    if "X-Frame-Options" not in response.headers or response.headers.get("X-Frame-Options") != "SAMEORIGIN":
+        # Only force DENY if the route has not explicitly relaxed to SAMEORIGIN.
+        response.headers["X-Frame-Options"] = "DENY"
+    # Permissions-Policy — Talisman does not set this well by default
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-    if FORCE_HTTPS:
-        response.headers["Strict-Transport-Security"] = f"max-age={HSTS_SECONDS}; includeSubDomains; preload"
-    # CSP: include cdnjs.cloudflare.com for Font Awesome and all CDN dependencies
-    csp_policy = (
-        "default-src 'self'; "
-        "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com "
-        "https://cdnjs.cloudflare.com; "
-        "font-src 'self' https://fonts.gstatic.com https://unpkg.com https://cdnjs.cloudflare.com; "
-        "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; "
-        "connect-src 'self' https://ipapi.co; "
-        "worker-src blob:; "
-        "frame-ancestors 'none'; "
-        "upgrade-insecure-requests"
-    )
-    response.headers["Content-Security-Policy"] = csp_policy
+    # Ensure X-Content-Type-Options is always present
+    response.headers["X-Content-Type-Options"] = "nosniff"
     return response
 
 # Ensure results directory exists
@@ -1415,6 +1422,78 @@ def _collect_dns_records(host: str) -> list[dict]:
         uniq.add(key)
         deduped.append(r)
     return deduped
+
+
+def _collect_related_domains(
+    target: str,
+    tls_results: list[dict],
+    dns_records: list[dict],
+) -> list[str]:
+    """Aggregate related domain names from TLS SAN data and DNS records.
+
+    Included:
+    - The target itself.
+    - SANs from TLS certificate (non-wildcard; wildcard prefix stripped to base).
+    - Hostnames from CNAME, MX records that share the base domain.
+
+    Excluded:
+    - NS records (authoritative name servers are infra, not application endpoints).
+    - Domains that do not share the base domain with the target.
+
+    Returns:
+        Ordered, deduplicated list of related domain strings.
+    """
+    collected: list[str] = []
+    seen: set[str] = set()
+
+    def _add(domain: str) -> None:
+        d = domain.strip().lower().rstrip(".")
+        if d and d not in seen:
+            seen.add(d)
+            collected.append(d)
+
+    target_clean = str(target or "").strip().lower().rstrip(".")
+    target_labels = target_clean.split(".")
+    base_domain = ".".join(target_labels[-2:]) if len(target_labels) >= 2 else target_clean
+
+    def _is_same_zone(hostname: str) -> bool:
+        h = hostname.strip().lower().rstrip(".")
+        return h == base_domain or h.endswith(f".{base_domain}")
+
+    # 1. Always include the scan target itself
+    _add(target_clean)
+
+    # 2. SANs from all TLS results
+    for tls in (tls_results or []):
+        san_list = tls.get("san_domains") or []
+        cert = tls.get("certificate") or {}
+        if not san_list and cert:
+            san_list = cert.get("san_domains") or []
+        for raw_san in san_list:
+            san = str(raw_san or "").strip().lower().rstrip(".")
+            if not san:
+                continue
+            if san.startswith("*."):
+                san = san[2:]
+            if _is_same_zone(san):
+                _add(san)
+
+    # 3. DNS records: CNAME, MX only (skip NS, TXT, A/AAAA which are IPs)
+    _SKIP_TYPES = {"NS", "TXT", "SOA", "PTR", "SRV", "A", "AAAA"}
+    for rec in (dns_records or []):
+        rtype = str(rec.get("record_type") or "").upper().strip()
+        if rtype in _SKIP_TYPES:
+            continue
+        raw_value = str(rec.get("record_value") or "").strip()
+        if rtype == "MX":
+            parts = raw_value.split(None, 1)
+            hostname = parts[-1].rstrip(".")
+        else:
+            hostname = raw_value.rstrip(".")
+        if hostname and _is_same_zone(hostname):
+            _add(hostname)
+
+    return collected
 
 
 def _geolocate_ip(ip_addr: str) -> dict:
@@ -2295,6 +2374,38 @@ def run_scan_pipeline(
                 # Subdomain Discovery Sync (Sprint 1 specialized model)
                 sub_count = SubdomainService.sync_from_certificate(asset_id, int(scan_pk))
                 report["subdomain_discovery"] = {"new_subdomains": sub_count}
+
+                # Collect all related domains from TLS SANs + DNS (CNAME/MX) and
+                # upsert them into discovery_domains so dashboards can surface them.
+                if _db_table_exists("discovery_domains") and asset_id is not None:
+                    try:
+                        related_domains = _collect_related_domains(
+                            target,
+                            tls_results,
+                            dns_records,
+                        )
+                        from src.models import DiscoveryDomain
+                        for domain in related_domains:
+                            existing = (
+                                db_session.query(DiscoveryDomain)
+                                .filter(
+                                    DiscoveryDomain.domain == domain,
+                                    DiscoveryDomain.asset_id == asset_id,
+                                )
+                                .first()
+                            )
+                            if not existing:
+                                db_session.add(
+                                    DiscoveryDomain(
+                                        domain=domain,
+                                        asset_id=asset_id,
+                                        scan_id=int(scan_pk),
+                                        is_deleted=False,
+                                    )
+                                )
+                        db_session.flush()
+                    except Exception as dom_exc:
+                        logger.warning("discovery_domains upsert failed: %s", dom_exc)
 
             except Exception as label_exc:
                 report["digital_label"] = {
@@ -4558,6 +4669,10 @@ def scan():
 
 @app.route("/results/<scan_id>")
 @login_required
+@talisman(
+    frame_options="SAMEORIGIN",
+    content_security_policy={**CSP_CONFIG, "frame-ancestors": ["'self'"]},
+)
 def results(scan_id: str):
     """Display scan results (memory → disk → MySQL fallback)."""
     import re as _re

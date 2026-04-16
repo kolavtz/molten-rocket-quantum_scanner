@@ -22,6 +22,66 @@
     </div>
 </section>
 
+<section class="glass-card" style="padding:1rem; margin-top:1rem;">
+    <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:flex-start; margin-bottom:1rem;">
+        <div>
+            <h2 style="margin:0; font-size:1rem; text-transform:uppercase; letter-spacing:1px;">Scan Detail Snapshot</h2>
+            <p style="margin:0.35rem 0 0; color:var(--text-secondary); font-size:0.85rem;">A compact view of the scan metadata, matching the detailed result view used in the app.</p>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <a href="/results/{{ scan_id }}/export_pdf" class="button secondary" style="padding:0.45rem 0.8rem; text-decoration:none;">Download PDF</a>
+            <a href="/cbom/{{ scan_id }}" class="button" style="padding:0.45rem 0.8rem; text-decoration:none;">Open CBOM</a>
+            <button type="button" class="button secondary" style="padding:0.45rem 0.8rem;" onclick="window.ScanDetailModal && window.ScanDetailModal.open('{{ scan_id }}')">Open Detail Modal</button>
+        </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0.75rem;">
+        <div class="glass-card" style="padding:0.9rem;">
+            <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">Target</div>
+            <div style="margin-top:0.35rem; font-weight:800; word-break:break-word;">{{ report.target or 'Unknown' }}</div>
+        </div>
+        <div class="glass-card" style="padding:0.9rem;">
+            <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">Status</div>
+            <div style="margin-top:0.35rem; font-weight:800; color:{% if report.status == 'complete' %}var(--safe){% else %}var(--danger){% endif %};">{{ report.status|upper }}</div>
+        </div>
+        <div class="glass-card" style="padding:0.9rem;">
+            <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">Scan Type</div>
+            <div style="margin-top:0.35rem; font-weight:800;">{{ report.scan_kind or report.scan_type or 'single' }}</div>
+        </div>
+        <div class="glass-card" style="padding:0.9rem;">
+            <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">Started</div>
+            <div style="margin-top:0.35rem; font-weight:800;">{{ report.started_at or report.created_at or report.generated_at or '—' }}</div>
+        </div>
+        <div class="glass-card" style="padding:0.9rem;">
+            <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">Completed</div>
+            <div style="margin-top:0.35rem; font-weight:800;">{{ report.completed_at or report.scanned_at or report.generated_at or '—' }}</div>
+        </div>
+        <div class="glass-card" style="padding:0.9rem;">
+            <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">Duration</div>
+            <div style="margin-top:0.35rem; font-weight:800;">{{ report.duration or report.scan_duration or '—' }}</div>
+        </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:0.75rem; margin-top:0.75rem;">
+        <div class="glass-card" style="padding:0.9rem; text-align:center;">
+            <div style="font-size:1.7rem; font-weight:900; color:var(--accent); line-height:1;">{{ report.discovered_services|length if report.discovered_services else 0 }}</div>
+            <div style="font-size:0.7rem; color:var(--text-muted); margin-top:0.35rem; text-transform:uppercase; letter-spacing:0.04em;">Targets / Services</div>
+        </div>
+        <div class="glass-card" style="padding:0.9rem; text-align:center;">
+            <div style="font-size:1.7rem; font-weight:900; color:var(--pqc-safe); line-height:1;">{{ report.cert_summary.total if report.cert_summary else (report.tls_results|length if report.tls_results else 0) }}</div>
+            <div style="font-size:0.7rem; color:var(--text-muted); margin-top:0.35rem; text-transform:uppercase; letter-spacing:0.04em;">Certificates</div>
+        </div>
+        <div class="glass-card" style="padding:0.9rem; text-align:center;">
+            <div style="font-size:1.7rem; font-weight:900; color:var(--warn); line-height:1;">{{ report.cbom.components|length if report.cbom and report.cbom.components else (report.cbom_components or 0) }}</div>
+            <div style="font-size:0.7rem; color:var(--text-muted); margin-top:0.35rem; text-transform:uppercase; letter-spacing:0.04em;">CBOM Components</div>
+        </div>
+        <div class="glass-card" style="padding:0.9rem; text-align:center;">
+            <div style="font-size:1.7rem; font-weight:900; color:var(--danger); line-height:1;">{{ report.recommendations_detailed|length if report.recommendations_detailed else 0 }}</div>
+            <div style="font-size:0.7rem; color:var(--text-muted); margin-top:0.35rem; text-transform:uppercase; letter-spacing:0.04em;">Recommendations</div>
+        </div>
+    </div>
+</section>
+
 <script>window.CURRENT_SCAN_ID = "{{ scan_id }}";</script>
 
 {% if report.status == 'complete' %}
@@ -421,6 +481,259 @@
     </div>
 </section>
 
+{% set label_cards = report.labels if report.labels is defined and report.labels else [] %}
+{% if report.digital_label is defined and report.digital_label %}
+    {% set label_cards = label_cards + [report.digital_label] %}
+{% endif %}
+<section class="glass-card" id="quantum-safe-labels" style="padding:1rem; margin-top:1rem;">
+    <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:center; margin-bottom:0.9rem;">
+        <div>
+            <h2 style="margin:0; font-size:1rem; text-transform:uppercase; letter-spacing:1px;">Quantum-Safe Labels Panel</h2>
+            <p style="margin:0.35rem 0 0; color:var(--text-secondary); font-size:0.84rem;">Per-asset compliance labels derived from the scan’s persisted label data.</p>
+        </div>
+        <span class="status-badge" style="color:var(--accent);">{{ label_cards|length }} Label{{ 's' if label_cards|length != 1 else '' }}</span>
+    </div>
+
+    {% if label_cards %}
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:0.8rem;">
+        {% for label in label_cards %}
+        {% set compliance = label.compliance_score if label.compliance_score is defined and label.compliance_score is not none else 0 %}
+        {% set label_id = label.label_id if label.label_id is defined and label.label_id else (label.id if label.id is defined and label.id else '') %}
+        {% set fips_standard = label.fips_standard if label.fips_standard is defined and label.fips_standard else (label.standard if label.standard is defined and label.standard else (label.issuer_version if label.issuer_version is defined and label.issuer_version else 'FIPS 203 (ML-KEM)')) %}
+        {% set valid_until = label.valid_until if label.valid_until is defined and label.valid_until else (label.valid_to if label.valid_to is defined and label.valid_to else (label.expires_at if label.expires_at is defined and label.expires_at else '—')) %}
+        {% set asset_value = label.asset if label.asset is defined and label.asset else (label.endpoint if label.endpoint is defined and label.endpoint else (label.host if label.host is defined and label.host else report.target)) %}
+        <article class="glass-card" style="padding:0.9rem; border:1px solid var(--border-subtle);">
+            <div style="display:flex; justify-content:space-between; gap:0.5rem; flex-wrap:wrap; align-items:flex-start;">
+                <div style="font-weight:800; word-break:break-word;">{{ asset_value }}{% if label.port is defined and label.port %}:{{ label.port }}{% endif %}</div>
+                <span class="status-badge" style="color:{% if compliance|float >= 80 %}var(--safe){% else %}var(--danger){% endif %};">{% if compliance|float >= 80 %}✓ Compliant{% else %}✗ Non-Compliant{% endif %}</span>
+            </div>
+            <div style="display:grid; gap:0.45rem; margin-top:0.75rem; font-size:0.8rem;">
+                <div>Compliance: <strong>{{ compliance }}%</strong></div>
+                <div>FIPS standard: <code>{{ fips_standard }}</code></div>
+                <div>Valid Until: <code>{{ valid_until }}</code></div>
+                <div>Label ID: <code title="{{ label_id }}">{{ label_id[:8] }}{% if label_id|length > 8 %}...{% endif %}</code></div>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="color:var(--text-secondary); font-size:0.85rem;">No label records were returned for this scan.</div>
+    {% endif %}
+</section>
+
+<section class="glass-card" id="tls-endpoint-details" style="padding:1rem; margin-top:1rem;">
+    <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:center; margin-bottom:0.9rem;">
+        <div>
+            <h2 style="margin:0; font-size:1rem; text-transform:uppercase; letter-spacing:1px;">TLS Endpoint Details</h2>
+            <p style="margin:0.35rem 0 0; color:var(--text-secondary); font-size:0.84rem;">Expandable endpoint cards showing TLS version, cipher, key exchange, and certificate chain depth.</p>
+        </div>
+        <span class="status-badge" style="color:var(--safe);">{{ report.tls_results|length if report.tls_results else 0 }} Endpoint{{ 's' if (report.tls_results|length if report.tls_results else 0) != 1 else '' }}</span>
+    </div>
+
+    {% if report.tls_results %}
+    <div style="display:flex; flex-direction:column; gap:0.8rem;">
+        {% for tls in report.tls_results %}
+        {% set chain_len = tls.certificate_chain_length if tls.certificate_chain_length is defined and tls.certificate_chain_length is not none else (tls.cert_chain_length if tls.cert_chain_length is defined and tls.cert_chain_length is not none else 0) %}
+        {% set key_exchange = tls.key_exchange if tls.key_exchange is defined and tls.key_exchange else (tls.key_exchange_method if tls.key_exchange_method is defined and tls.key_exchange_method else 'Unknown') %}
+        {% set tls_version = tls.tls_version if tls.tls_version is defined and tls.tls_version else (tls.protocol_version if tls.protocol_version is defined and tls.protocol_version else 'Unknown') %}
+        {% set cipher_bits = tls.cipher_bits if tls.cipher_bits is defined and tls.cipher_bits is not none else 0 %}
+        {% set is_quantum_safe = tls.quantum_safe if tls.quantum_safe is defined and tls.quantum_safe is not none else (tls.is_quantum_safe if tls.is_quantum_safe is defined and tls.is_quantum_safe is not none else false) %}
+        <details class="glass-card" data-responsive-details open style="padding:0.95rem; border:1px solid var(--border-subtle);">
+            <summary style="cursor:pointer; list-style:none; display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:center;">
+                <div style="font-weight:800; word-break:break-word;">{{ tls.host }}:{{ tls.port }}</div>
+                <div style="display:flex; gap:0.45rem; flex-wrap:wrap; align-items:center;">
+                    <span class="status-badge">{{ tls_version }}</span>
+                    <span class="status-badge">{{ cipher_bits }} bits</span>
+                    <span class="status-badge" style="color:{% if chain_len|int == 0 %}var(--warn){% else %}var(--safe){% endif %};">Chain {{ chain_len|int }}</span>
+                    <span class="status-badge" style="color:{% if is_quantum_safe %}var(--safe){% else %}var(--warn){% endif %};">{% if is_quantum_safe %}Quantum Safe{% else %}Potentially Vulnerable{% endif %}</span>
+                </div>
+            </summary>
+
+            <div style="margin-top:0.9rem; display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:0.75rem;">
+                <div class="glass-card" style="padding:0.85rem; border:1px solid var(--border-subtle);">
+                    <div style="font-size:0.68rem; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.35rem;">Cipher Suite</div>
+                    <div style="font-size:0.82rem; line-height:1.45;"><code>{{ tls.cipher_suite or 'Unknown' }}</code></div>
+                </div>
+                <div class="glass-card" style="padding:0.85rem; border:1px solid var(--border-subtle);">
+                    <div style="font-size:0.68rem; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.35rem;">Key Exchange</div>
+                    <div style="font-size:0.82rem; line-height:1.45; color:{% if is_quantum_safe %}var(--safe){% else %}var(--warn){% endif %}; font-weight:700;">
+                        <code style="color:inherit;">{{ key_exchange }}</code>
+                        <span class="status-badge" style="margin-left:0.35rem; color:{% if is_quantum_safe %}var(--safe){% else %}var(--warn){% endif %};">{% if is_quantum_safe %}✓ Quantum Safe{% else %}⚠ Review{% endif %}</span>
+                    </div>
+                </div>
+                <div class="glass-card" style="padding:0.85rem; border:1px solid var(--border-subtle);">
+                    <div style="font-size:0.68rem; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.35rem;">Cipher Bits</div>
+                    <div style="font-size:0.9rem; font-weight:800;">{{ cipher_bits }}</div>
+                </div>
+                <div class="glass-card" style="padding:0.85rem; border:1px solid var(--border-subtle);">
+                    <div style="font-size:0.68rem; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.35rem;">Certificate Chain Length</div>
+                    <div style="font-size:0.9rem; font-weight:800; color:{% if chain_len|int == 0 %}var(--warn){% else %}var(--text-primary){% endif %};">{{ chain_len|int }}{% if chain_len|int == 0 %} <span style="font-size:0.74rem; font-weight:700; color:var(--warn);">(warning)</span>{% endif %}</div>
+                </div>
+            </div>
+        </details>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="color:var(--text-secondary); font-size:0.85rem;">No TLS endpoints were detected for this scan.</div>
+    {% endif %}
+</section>
+
+{% set recommendation_cards = report.recommendations_detailed if report.recommendations_detailed is defined and report.recommendations_detailed else [] %}
+<section class="glass-card" id="migration-recommendations" style="padding:1rem; margin-top:1rem;">
+    <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:center; margin-bottom:0.9rem;">
+        <div>
+            <h2 style="margin:0; font-size:1rem; text-transform:uppercase; letter-spacing:1px;">Migration Recommendations</h2>
+            <p style="margin:0.35rem 0 0; color:var(--text-secondary); font-size:0.84rem;">Prioritized remediation guidance based on the persisted scan findings.</p>
+        </div>
+        <span class="status-badge" style="color:var(--warn);">{{ recommendation_cards|length }} Recommendation{{ 's' if recommendation_cards|length != 1 else '' }}</span>
+    </div>
+
+    {% if recommendation_cards %}
+    <div style="display:flex; flex-direction:column; gap:0.8rem;">
+        {% for rec in recommendation_cards[:5] %}
+        {% set is_mapping = rec is mapping %}
+        {% set rec_title = rec.get('title') if is_mapping else rec %}
+        {% set rec_desc = rec.get('description') if is_mapping and rec.get('description') else rec_title %}
+        {% set priority = rec.get('priority') if is_mapping and rec.get('priority') is not none else loop.index %}
+        {% set impact = rec.get('impact') if is_mapping and rec.get('impact') else ('Critical' if priority|int in [1,5] else ('Medium' if priority|int in [2,3] else 'Low')) %}
+        {% set effort = rec.get('effort') if is_mapping and rec.get('effort') else ('High' if priority|int == 1 else ('Medium' if priority|int in [2,3] else 'Low')) %}
+        {% set timeline = rec.get('timeline') if is_mapping and rec.get('timeline') else ('Start immediately' if priority|int == 1 else ('2–4 weeks' if priority|int == 2 else ('4–8 weeks' if priority|int == 3 else ('1–3 months' if priority|int == 4 else 'Ongoing')))) %}
+        <article class="glass-card" style="padding:0.95rem; border:1px solid var(--border-subtle);">
+            <div style="display:flex; justify-content:space-between; gap:0.5rem; flex-wrap:wrap; align-items:flex-start;">
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                    <span class="status-badge" style="color:{% if priority|int in [1,5] %}var(--danger){% else %}var(--accent){% endif %};">P{{ priority|int }}</span>
+                    <strong style="font-size:0.92rem;">{{ rec_title }}</strong>
+                </div>
+                <div style="display:flex; gap:0.45rem; flex-wrap:wrap; align-items:center;">
+                    <span class="status-badge" style="color:{% if impact == 'Critical' %}var(--danger){% elif impact == 'Medium' %}var(--warn){% else %}var(--safe){% endif %};">{{ impact }}</span>
+                    <span class="status-badge">{{ effort }}</span>
+                    <span class="status-badge">{{ timeline }}</span>
+                </div>
+            </div>
+            <p style="margin:0.75rem 0 0; color:var(--text-secondary); line-height:1.55;">{{ rec_desc }}</p>
+
+            {% if priority|int == 1 %}
+            <details data-responsive-details open style="margin-top:0.9rem; border-top:1px solid var(--border-subtle); padding-top:0.9rem;">
+                <summary style="cursor:pointer; list-style:none; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Server Configuration Snippets</summary>
+                {% set nginx_snippet %}
+server {
+    listen 443 ssl http2;
+    server_name example.com;
+
+    ssl_protocols TLSv1.3;
+    ssl_ciphers TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384;
+    ssl_prefer_server_ciphers off;
+
+    # OpenSSL 3.5+ / PQC-ready upstream termination guidance
+}
+                {% endset %}
+                {% set apache_snippet %}
+<VirtualHost *:443>
+    ServerName example.com
+    SSLEngine on
+    SSLProtocol -all +TLSv1.3
+    SSLCipherSuite TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384
+
+    # OpenSSL 3.5+ / PQC-ready origin configuration guidance
+</VirtualHost>
+                {% endset %}
+                {% set haproxy_snippet %}
+frontend https_in
+    bind *:443 ssl alpn h2,http/1.1
+    ssl-default-bind-options no-sslv3 no-tls-tickets
+    ssl-default-bind-ciphers TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384
+
+    # Route to a PQC-capable backend termination layer
+                {% endset %}
+                {% set alb_snippet %}
+Listener: HTTPS :443
+Policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+
+# Terminate at a PQC-ready origin that supports OpenSSL 3.5+
+                {% endset %}
+
+                <div class="config-tabs" style="display:flex; gap:0.35rem; flex-wrap:wrap; margin-top:0.75rem; margin-bottom:0.75rem;">
+                    <button type="button" class="button secondary" style="padding:0.4rem 0.7rem; font-size:0.78rem;" data-config-tab="nginx">Nginx</button>
+                    <button type="button" class="button secondary" style="padding:0.4rem 0.7rem; font-size:0.78rem;" data-config-tab="apache">Apache</button>
+                    <button type="button" class="button secondary" style="padding:0.4rem 0.7rem; font-size:0.78rem;" data-config-tab="haproxy">HAProxy</button>
+                    <button type="button" class="button secondary" style="padding:0.4rem 0.7rem; font-size:0.78rem;" data-config-tab="alb">AWS ALB</button>
+                </div>
+
+                <div data-config-panels>
+                    <div data-config-panel="nginx" style="display:block;">
+                        <div style="display:flex; justify-content:flex-end; margin-bottom:0.35rem;">
+                            <button type="button" class="button" style="padding:0.35rem 0.7rem; font-size:0.75rem;" data-copy-snippet="nginx">Copy</button>
+                        </div>
+                        <pre style="margin:0; padding:0.9rem; background:rgba(2,6,23,0.92); border:1px solid var(--border-subtle); border-radius:10px; overflow:auto; color:var(--text-primary);"><code id="snippet-nginx" style="font-family:'JetBrains Mono', monospace; white-space:pre;">{{ nginx_snippet | trim | e }}</code></pre>
+                    </div>
+                    <div data-config-panel="apache" style="display:none;">
+                        <div style="display:flex; justify-content:flex-end; margin-bottom:0.35rem;">
+                            <button type="button" class="button" style="padding:0.35rem 0.7rem; font-size:0.75rem;" data-copy-snippet="apache">Copy</button>
+                        </div>
+                        <pre style="margin:0; padding:0.9rem; background:rgba(2,6,23,0.92); border:1px solid var(--border-subtle); border-radius:10px; overflow:auto; color:var(--text-primary);"><code id="snippet-apache" style="font-family:'JetBrains Mono', monospace; white-space:pre;">{{ apache_snippet | trim | e }}</code></pre>
+                    </div>
+                    <div data-config-panel="haproxy" style="display:none;">
+                        <div style="display:flex; justify-content:flex-end; margin-bottom:0.35rem;">
+                            <button type="button" class="button" style="padding:0.35rem 0.7rem; font-size:0.75rem;" data-copy-snippet="haproxy">Copy</button>
+                        </div>
+                        <pre style="margin:0; padding:0.9rem; background:rgba(2,6,23,0.92); border:1px solid var(--border-subtle); border-radius:10px; overflow:auto; color:var(--text-primary);"><code id="snippet-haproxy" style="font-family:'JetBrains Mono', monospace; white-space:pre;">{{ haproxy_snippet | trim | e }}</code></pre>
+                    </div>
+                    <div data-config-panel="alb" style="display:none;">
+                        <div style="display:flex; justify-content:flex-end; margin-bottom:0.35rem;">
+                            <button type="button" class="button" style="padding:0.35rem 0.7rem; font-size:0.75rem;" data-copy-snippet="alb">Copy</button>
+                        </div>
+                        <pre style="margin:0; padding:0.9rem; background:rgba(2,6,23,0.92); border:1px solid var(--border-subtle); border-radius:10px; overflow:auto; color:var(--text-primary);"><code id="snippet-alb" style="font-family:'JetBrains Mono', monospace; white-space:pre;">{{ alb_snippet | trim | e }}</code></pre>
+                    </div>
+                </div>
+            </details>
+            {% endif %}
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="color:var(--text-secondary); font-size:0.85rem;">No migration recommendations were available for this scan.</div>
+    {% endif %}
+</section>
+
+{% set findings = report.severity_breakdown if report.severity_breakdown is defined and report.severity_breakdown else {} %}
+{% set critical_findings = findings.critical|default(0)|int %}
+{% set high_findings = findings.high|default(0)|int %}
+{% set medium_findings = findings.medium|default(0)|int %}
+{% set low_findings = findings.low|default(0)|int %}
+{% set info_findings = findings.info|default(0)|int %}
+{% set total_findings = critical_findings + high_findings + medium_findings + low_findings + info_findings %}
+<section class="glass-card" id="scan-metadata-footer" style="padding:0.9rem 1rem; margin-top:1rem;">
+    <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:center;">
+        <div style="display:flex; gap:1rem; flex-wrap:wrap; align-items:center; line-height:1.5;">
+            <span><strong>Full Scan ID:</strong> <code id="fullScanId">{{ scan_id }}</code> <button type="button" class="button secondary" style="padding:0.25rem 0.55rem; font-size:0.72rem; margin-left:0.35rem;" data-copy-text="{{ scan_id }}">Copy</button></span>
+            <span><strong>Scan Start:</strong> <code>{{ report.started_at or report.created_at or report.generated_at or '—' }}</code></span>
+            <span><strong>Total Assets:</strong> {{ report.overview.total_assets if report.overview is defined else (report.discovered_services|length if report.discovered_services else 0) }}</span>
+            <span><strong>Findings:</strong> {{ total_findings }}
+                <span class="status-badge" style="color:var(--danger); margin-left:0.35rem;">{{ critical_findings }} Critical</span>
+                <span class="status-badge" style="color:var(--warn);">{{ high_findings }} High</span>
+                <span class="status-badge" style="color:#eab308;">{{ medium_findings }} Medium</span>
+                <span class="status-badge" style="color:#3b82f6;">{{ low_findings }} Low</span>
+                <span class="status-badge" style="color:#6b7280;">{{ info_findings }} Info</span>
+            </span>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <a href="#" class="button secondary" style="padding:0.45rem 0.8rem; text-decoration:none;">Export PDF</a>
+            <a href="#" class="button" style="padding:0.45rem 0.8rem; text-decoration:none;">Export JSON</a>
+        </div>
+    </div>
+</section>
+
+<section class="glass-card" style="padding:1rem; margin-top:1rem; margin-bottom: 1rem;">
+    <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:center; margin-bottom:0.75rem;">
+        <h2 style="margin:0; font-size:1rem; text-transform:uppercase; letter-spacing:1px;">Raw Result Snapshot</h2>
+        <span style="font-size:0.8rem; color:var(--text-secondary);">Server-rendered report payload for audit and troubleshooting</span>
+    </div>
+    <details open style="border:1px solid var(--border-subtle); border-radius:12px; padding:0.85rem; background:rgba(255,255,255,0.02);">
+        <summary style="cursor:pointer; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.75rem;">Toggle raw JSON</summary>
+        <pre style="margin:0; max-height:420px; overflow:auto; white-space:pre-wrap; word-break:break-word; color:var(--text-primary); background:transparent; border:none; padding:0; font-size:0.74rem; line-height:1.55;">{{ report | tojson(indent=2) }}</pre>
+    </details>
+</section>
+
 {% else %}
 <section style="margin-top: 4rem; text-align: center;">
     <div class="glass-card" style="padding: 4rem; max-width: 600px; margin: 0 auto;">
@@ -693,6 +1006,95 @@
                     ev.preventDefault();
                 }, { once: true });
             }
+        });
+    })();
+</script>
+<script>
+    (function () {
+        function setResponsiveDetails() {
+            const isMobile = window.matchMedia('(max-width: 768px)').matches;
+            document.querySelectorAll('[data-responsive-details]').forEach((node) => {
+                if (!node) return;
+                if (isMobile) {
+                    node.removeAttribute('open');
+                } else {
+                    node.setAttribute('open', 'open');
+                }
+            });
+        }
+
+        function activateTabs(root) {
+            const tabButtons = root.querySelectorAll('[data-config-tab]');
+            const panels = root.querySelectorAll('[data-config-panel]');
+            if (!tabButtons.length || !panels.length) return;
+
+            const setActive = (target) => {
+                tabButtons.forEach((btn) => {
+                    const active = btn.dataset.configTab === target;
+                    btn.classList.toggle('button', true);
+                    btn.classList.toggle('secondary', !active);
+                    btn.style.opacity = active ? '1' : '0.72';
+                });
+                panels.forEach((panel) => {
+                    panel.style.display = panel.dataset.configPanel === target ? 'block' : 'none';
+                });
+            };
+
+            tabButtons.forEach((btn, index) => {
+                btn.addEventListener('click', () => setActive(btn.dataset.configTab || 'nginx'));
+                if (index === 0) setActive(btn.dataset.configTab || 'nginx');
+            });
+        }
+
+        async function copyText(text) {
+            const value = String(text || '');
+            if (!value) return false;
+            try {
+                await navigator.clipboard.writeText(value);
+                return true;
+            } catch (_err) {
+                const ta = document.createElement('textarea');
+                ta.value = value;
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                let ok = false;
+                try { ok = document.execCommand('copy'); } catch (_e) { ok = false; }
+                ta.remove();
+                return ok;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setResponsiveDetails();
+
+            const recSection = document.getElementById('migration-recommendations');
+            if (recSection) activateTabs(recSection);
+
+            document.querySelectorAll('[data-copy-text]').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    const ok = await copyText(btn.dataset.copyText);
+                    btn.textContent = ok ? 'Copied' : 'Copy failed';
+                    window.setTimeout(() => {
+                        btn.textContent = 'Copy';
+                    }, 1200);
+                });
+            });
+
+            document.querySelectorAll('[data-copy-snippet]').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    const name = btn.dataset.copySnippet || '';
+                    const code = document.getElementById(`snippet-${name}`);
+                    const ok = await copyText(code ? code.innerText : '');
+                    btn.textContent = ok ? 'Copied' : 'Copy failed';
+                    window.setTimeout(() => {
+                        btn.textContent = 'Copy';
+                    }, 1200);
+                });
+            });
+
+            window.addEventListener('resize', () => setResponsiveDetails(), { passive: true });
         });
     })();
 </script>

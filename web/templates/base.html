@@ -481,6 +481,18 @@
         </div>
     </footer>
 
+    <!-- Global Delete Confirm Toast (body-level to avoid stacking-context containment) -->
+    <div id="deleteToast" class="inv-toast" role="alertdialog" aria-live="assertive" aria-hidden="true">
+        <div class="inv-toast-dialog" role="document">
+            <i class="fa-solid fa-trash-can" style="color:var(--danger,#ff3366); font-size:1.2rem; flex-shrink:0;"></i>
+            <div class="inv-toast-msg" id="deleteToastMsg">Move this asset to Recycle Bin?</div>
+            <div class="inv-toast-actions">
+                <button id="deleteToastCancel" class="button secondary" style="padding:0.4rem 0.8rem; font-size:0.8rem;">Cancel</button>
+                <button id="deleteToastConfirm" class="button" style="padding:0.4rem 0.8rem; font-size:0.8rem; background:var(--danger,#ff3366); border-color:var(--danger,#ff3366);">Delete</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>

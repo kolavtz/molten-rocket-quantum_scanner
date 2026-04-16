@@ -2034,7 +2034,8 @@ code.tls-value {
 /* ── Footer ── */
 .footer {
     position: relative;
-    z-index: 1;
+    /* Keep footer in background so it doesn't occlude floating modals/toasts */
+    z-index: 0;
     border-top: 1px solid var(--border-subtle);
     padding: 1.5rem;
     text-align: center;
@@ -2786,6 +2787,8 @@ code.tls-value {
     background: color-mix(in srgb, var(--bg-secondary) 80%, transparent);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+    /* Ensure footer remains visually behind floating UI by keeping z-index minimal */
+    z-index: 0;
 }
 
 .footer-container {

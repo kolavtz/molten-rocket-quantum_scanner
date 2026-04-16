@@ -557,9 +557,12 @@ RATELIMIT_DEFAULT_LIMITS = [limit.strip() for limit in RATELIMIT_DEFAULT_LIMITS_
 CSP_CONFIG = {
     'default-src': ["'self'"],
     'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com', 'https://unpkg.com'],
-    'font-src': ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'],
+    'font-src': ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com', 'https://unpkg.com'],
     'img-src': ["'self'", 'data:', 'https://*'],
-    'script-src': ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", 'https://unpkg.com'], # app.js, inline scripts and Chart.js
+    'script-src': ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", 'https://unpkg.com'],
+    'connect-src': ["'self'", 'https://ipapi.co'],
+    'worker-src': ['blob:'],
+    'frame-ancestors': ["'none'"],  # disallow framing of this app globally
 }
 
 # ---------------------------------------------------------------------------

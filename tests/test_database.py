@@ -152,7 +152,8 @@ def test_ensure_scans_id_column_no_action_when_present(mock_cursor):
 
 class TestSaveScan:
     @patch("src.database._get_connection")
-    def test_save_scan_success(self, mock_get_conn, mock_conn, mock_cursor):
+    @patch("src.database._encrypt_data", return_value=None)  # disable encryption – no key in test env
+    def test_save_scan_success(self, mock_encrypt, mock_get_conn, mock_conn, mock_cursor):
         """save_scan should INSERT the report with correct structured params."""
         mock_get_conn.return_value = mock_conn
         from src.database import save_scan
@@ -173,9 +174,9 @@ class TestSaveScan:
         assert params[5] == 3                # total_assets
         assert params[6] == 1                # quantum_safe
         assert params[7] == 2                # quantum_vulnerable
-        # params[8] is datetime, params[9] is JSON string, params[10] is is_encrypted
+        # params[8] is datetime, params[9] is JSON string (plain - encryption disabled)
         assert json.loads(params[9])["scan_id"] == "abc12345"
-        assert params[10] is False
+        assert params[10] is False           # is_encrypted should be False when _encrypt_data returns None
 
         mock_conn.commit.assert_called_once()
         mock_conn.close.assert_called_once()
@@ -207,7 +208,8 @@ class TestSaveScan:
 
 class TestSaveCbom:
     @patch("src.database._get_connection")
-    def test_save_cbom_success(self, mock_get_conn, mock_conn, mock_cursor):
+    @patch("src.database._encrypt_data", return_value=None)  # disable encryption – no key in test env
+    def test_save_cbom_success(self, mock_encrypt, mock_get_conn, mock_conn, mock_cursor):
         """save_cbom should INSERT the CBOM JSON with correct scan_id."""
         mock_get_conn.return_value = mock_conn
         from src.database import save_cbom
@@ -220,7 +222,7 @@ class TestSaveCbom:
         assert "INSERT INTO cbom_reports" in sql
         assert params[0] == "abc12345"
         assert json.loads(params[1])["bomFormat"] == "CycloneDX"
-        assert params[2] is False
+        assert params[2] is False            # is_encrypted False when _encrypt_data returns None
         mock_conn.commit.assert_called_once()
 
     @patch("src.database._get_connection")
