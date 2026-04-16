@@ -319,6 +319,8 @@
 .cbom-table th { padding:.75rem 1rem; text-align:left; color:var(--c-muted); font-weight:600;
   font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; }
 .cbom-table td { padding:.7rem 1rem; border-top:1px solid var(--c-border); vertical-align:top; color:var(--c-text); }
+.cbom-table tbody tr { cursor:pointer; }
+.cbom-table tbody tr.is-selected { background:color-mix(in srgb, var(--accent) 12%, var(--bg-card) 88%); }
 .cbom-table td.cbom-details-cell { position:relative; min-width:220px; }
 .cbom-table td.cbom-details-cell .detail-actions-inline { display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; }
 .cbom-table tbody tr:hover { background:color-mix(in srgb, var(--accent) 8%, var(--bg-card) 92%); }
@@ -326,7 +328,10 @@
 .empty-state-row td { text-align:center; color:var(--c-muted); padding:3rem; }
 
 /* Selected CBOM details */
-.cbom-selected-panel { margin-top:1.25rem; background:var(--c-surface); backdrop-filter:var(--glass); border:1px solid var(--c-border); border-radius:var(--radius); padding:1.25rem; }
+.cbom-workbench { display:grid; grid-template-columns:minmax(0, 1.35fr) minmax(360px, .95fr); gap:1rem; align-items:start; }
+.cbom-list-pane { min-width:0; }
+.cbom-detail-pane { position:sticky; top:1rem; align-self:start; min-width:0; }
+.cbom-selected-panel { background:var(--c-surface); backdrop-filter:var(--glass); border:1px solid var(--c-border); border-radius:var(--radius); padding:1.25rem; min-height:calc(100vh - 220px); }
 .cbom-detail-shell { display:flex; flex-direction:column; gap:1rem; }
 .cbom-detail-hero { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap; }
 .cbom-detail-kicker { font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; color:var(--c-muted); margin-bottom:.25rem; }
@@ -461,6 +466,9 @@
   .kpi-grid   { grid-template-columns:repeat(3,1fr); }
   .charts-row { grid-template-columns:1fr 1fr; }
   .ssl-meta-grid { grid-template-columns:repeat(2,1fr); }
+  .cbom-workbench { grid-template-columns:1fr; }
+  .cbom-detail-pane { position:static; }
+  .cbom-selected-panel { min-height:auto; }
 }
 @media(max-width:640px){
   .kpi-grid   { grid-template-columns:1fr 1fr; }
@@ -474,6 +482,7 @@
   .cbom-table { font-size:.8rem; }
   .cbom-table th, .cbom-table td { padding:.55rem .6rem; }
   .cbom-detail-grid { grid-template-columns:1fr; }
+  .cbom-selected-panel { padding:1rem; }
   .x509-wrap {
     left:.45rem;
     right:.45rem;
@@ -642,17 +651,15 @@ function renderEntries(items) {
   const tbody = document.getElementById('cbomTableBody');
   cbomCurrentRows = Array.isArray(items) ? items : [];
   cbomSelectedIndex = -1;
-  cbomExpandedIndex = -1;
   if (!items.length) {
     tbody.innerHTML = '<tr class="empty-state-row"><td colspan="8">No CBOM entries found. Run a scan to populate inventory.</td></tr>';
     const selected = document.getElementById('cbomSelectedDetails');
     if (selected) {
-      selected.textContent = 'Select a CBOM row to inspect the certificate and linked scan details.';
+      selected.textContent = 'Select a website record to inspect the certificate and linked scan details.';
     }
     return;
   }
   tbody.innerHTML = items.map((row, i) => {
-    const detailsId = `x509-${i}`;
     const cd = row.certificate_details || {};
     const x509 = row.x509_minimum || {};
     const issuedTo = x509.issued_to || {};
@@ -667,43 +674,7 @@ function renderEntries(items) {
     const resolvedCipher = row.cipher_suite || cd.cipher_suite || '—';
     const resolvedIssuer = row.ca || row.issuer_cn || issuedBy.common_name || cd.issuer || '—';
     const resolvedValidUntil = row.valid_until || validityMin.expires_on || validity.not_after || null;
-    const x509rows = [
-      ['Subject CN', issuedTo.common_name],
-      ['Subject O', issuedTo.organization],
-      ['Subject OU', issuedTo.organizational_unit],
-      ['Issuer CN', issuedBy.common_name],
-      ['Issuer O', issuedBy.organization],
-      ['Issuer OU', issuedBy.organizational_unit],
-      ['Issued On', validityMin.issued_on],
-      ['Expires On', validityMin.expires_on],
-      ['Certificate SHA-256', fpMin.certificate],
-      ['Public Key SHA-256', fpMin.public_key],
-      ['Version', cd.certificate_version],
-      ['Serial', cd.serial_number],
-      ['Signature Algorithm', cd.certificate_signature_algorithm],
-      ['Issuer', cd.issuer],
-      ['Valid From', validity.not_before],
-      ['Valid Until', validity.not_after],
-      ['Subject', cd.subject],
-      ['Key Algorithm', spki.subject_public_key_algorithm],
-      ['Key Bits', spki.subject_public_key_bits],
-      ['Key Fingerprint SHA-256', spki.public_key_fingerprint_sha256],
-      ['Cert Fingerprint SHA-256', cd.fingerprint_sha256],
-      ['Format', cd.certificate_format],
-      ['Key Usage', (cd.certificate_key_usage||[]).join(', ')],
-      ['Extended Key Usage', (cd.extended_key_usage||[]).join(', ')],
-      ['SANs', (cd.certificate_subject_alternative_name||[]).join(', ')],
-      ['Extensions', (cd.extensions||[]).join(', ')],
-      ['OCSP/CA Issuers', (cd.authority_information_access||[]).join(', ')],
-    ].filter(([,v]) => v && String(v).trim());
-
-    const x509Html = x509rows.length
-      ? `<div class="x509-panel">${x509rows.map(([k,v])=>`
-          <div class="x509-row"><span class="x509-key">${esc(k)}</span><span class="x509-val">${esc(v)}</span></div>`).join('')}
-        </div>`
-      : '<span style="color:var(--c-muted);font-size:.78rem">No X.509 details stored yet.</span>';
-
-    return `<tr>
+    return `<tr onclick="showEntryDetails(${i})" tabindex="0" role="button" aria-label="Inspect ${esc(resolvedAssetName)}">
       <td>${esc(resolvedAssetName)}</td>
       <td>${certBadgeHtml(row.cert_status)}</td>
       <td>${resolvedKeyLength ? esc(String(resolvedKeyLength) + ' bit') : '—'}</td>
@@ -713,10 +684,9 @@ function renderEntries(items) {
       <td>${fmtDate(resolvedValidUntil)}</td>
       <td class="cbom-details-cell">
         <div class="detail-actions-inline">
-          <button id="cbomDetailBtn-${i}" class="btn-ghost view-x509-btn" data-entry-index="${i}" onclick="showEntryDetails(${i})" style="cursor:pointer;color:var(--c-accent);font-size:.78rem">View Details</button>
-          <button class="btn-ghost" onclick="openScanResult('${esc(row.scan_id || '')}')" style="cursor:pointer;color:var(--c-success);font-size:.78rem">Open Scan</button>
+          <button id="cbomDetailBtn-${i}" class="btn-ghost view-x509-btn" data-entry-index="${i}" onclick="event.stopPropagation(); showEntryDetails(${i})" style="cursor:pointer;color:var(--c-accent);font-size:.78rem">View Details</button>
+          <button class="btn-ghost" onclick="event.stopPropagation(); openScanResult('${esc(row.scan_id || '')}')" style="cursor:pointer;color:var(--c-success);font-size:.78rem">Open Scan</button>
         </div>
-        <div id="${detailsId}-wrap" class="x509-wrap">${x509Html}</div>
       </td>
     </tr>`;
   }).join('');
@@ -806,46 +776,13 @@ function showEntryDetails(index, opts = {}) {
   const panel = document.getElementById('cbomSelectedDetails');
   if (!panel) return;
   panel.innerHTML = buildEntryDetailsMarkup(row);
-  toggleInlineX509Drawer(index);
+  document.querySelectorAll('#cbomTableBody tr').forEach((tr, rowIndex) => {
+    tr.classList.toggle('is-selected', rowIndex === index);
+  });
   if (opts.scroll !== false) {
     panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 }
-
-function toggleInlineX509Drawer(index) {
-  const wrappers = document.querySelectorAll('.x509-wrap');
-  wrappers.forEach((el) => {
-    el.classList.remove('expanded');
-    el.style.maxHeight = '0px';
-  });
-
-  const buttons = document.querySelectorAll('.view-x509-btn');
-  buttons.forEach((btn) => {
-    if (btn && btn.id && btn.id.startsWith('cbomDetailBtn-')) btn.textContent = 'View Details';
-  });
-
-  if (cbomExpandedIndex === index) {
-    cbomExpandedIndex = -1;
-    return;
-  }
-
-  const wrap = document.getElementById(`x509-${index}-wrap`);
-  if (!wrap) return;
-  wrap.classList.add('expanded');
-  wrap.style.maxHeight = `${Math.min(420, Math.max(170, wrap.scrollHeight + 12))}px`;
-  cbomExpandedIndex = index;
-
-  const selectedBtn = document.getElementById(`cbomDetailBtn-${index}`);
-  if (selectedBtn) selectedBtn.textContent = 'Collapse';
-}
-
-document.addEventListener('click', (event) => {
-  const inDetailsCell = event.target && event.target.closest && event.target.closest('.cbom-details-cell');
-  if (inDetailsCell) return;
-  if (cbomExpandedIndex !== -1) {
-    toggleInlineX509Drawer(cbomExpandedIndex);
-  }
-});
 
 // ── Pager ─────────────────────────────────────────────────
 function updatePager(total, page, pageSize) {

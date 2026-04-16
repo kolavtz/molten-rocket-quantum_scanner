@@ -65,6 +65,38 @@ def test_single_scan_submission_and_status_poll(app_client):
     assert "data" in status_payload
 
 
+def test_single_scan_inventory_metadata_does_not_require_risk_or_asset_class(app_client):
+    fake_report = {
+        "scan_id": "real-scan-optional-meta",
+        "target": "optional-meta.example",
+        "status": "complete",
+        "total_assets": 1,
+        "overview": {"average_compliance_score": 71},
+        "tls_results": [{"tls_version": "TLS 1.2", "key_length": 2048}],
+    }
+
+    with patch("web.routes.scans._can_scan", return_value=True), patch("web.app.run_scan_pipeline", return_value=fake_report):
+        create_resp = app_client.post(
+            "/api/scans",
+            data=json.dumps(
+                {
+                    "target": "optional-meta.example",
+                    "add_to_inventory": True,
+                    "owner": "SecOps",
+                    "notes": "auto-risk expected",
+                    "asset_class_mode": "manual",
+                    "asset_class_value": "",
+                }
+            ),
+            content_type="application/json",
+        )
+
+    assert create_resp.status_code == 202
+    payload = json.loads(create_resp.data)
+    assert payload.get("success") is True
+    assert isinstance(payload.get("data"), dict)
+
+
 def test_bulk_scan_submission_returns_tracking_scan_ids(app_client):
     fake_report = {
         "scan_id": "bulk-real-1",

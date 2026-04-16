@@ -317,6 +317,24 @@ class TestListScans:
 
         assert results == []
 
+    @patch("src.database._get_connection")
+    def test_list_scans_skips_malformed_rows(self, mock_get_conn, mock_conn, mock_cursor):
+        """list_scans should ignore malformed payload rows and keep valid reports."""
+        valid_report = {**SAMPLE_REPORT, "scan_id": "ok123456"}
+        mock_get_conn.return_value = mock_conn
+        mock_cursor.fetchall.return_value = [
+            ("", False),
+            ("not-json", False),
+            (None, False),
+            (json.dumps(valid_report), False),
+        ]
+        from src.database import list_scans
+
+        results = list_scans(limit=10)
+
+        assert len(results) == 1
+        assert results[0]["scan_id"] == "ok123456"
+
 
 # ── get_cbom ─────────────────────────────────────────────────────────
 

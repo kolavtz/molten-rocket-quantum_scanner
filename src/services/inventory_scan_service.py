@@ -23,6 +23,7 @@ from sqlalchemy import func
 
 from src.db import db_session
 from src.models import Asset, Certificate, PQCClassification, Scan
+from src.services.risk_profile_service import derive_risk_level_from_scan_report
 from src.scanner.network_discovery import sanitize_target
 
 from config import RESULTS_DIR
@@ -148,15 +149,6 @@ class InventoryScanService:
                 raw = host
         return raw
 
-    def _score_to_risk(self, score: float) -> str:
-        if score >= 80:
-            return "Low"
-        if score >= 60:
-            return "Medium"
-        if score >= 40:
-            return "High"
-        return "Critical"
-
     def _sync_asset_from_report(self, asset: Asset, report: Dict) -> None:
         """Update inventory asset metadata from completed report."""
         target = self._canonical_target(asset)
@@ -180,10 +172,10 @@ class InventoryScanService:
             except ValueError:
                 continue
 
-        overview = report.get("overview") or {}
-        score = float(overview.get("average_compliance_score") or 0)
-        if score > 0:
-            asset.risk_level = self._score_to_risk(score)
+        asset.risk_level = derive_risk_level_from_scan_report(
+            report,
+            fallback=str(getattr(asset, "risk_level", "") or "Medium"),
+        )
 
         latest_scan = (
             db_session.query(Scan)

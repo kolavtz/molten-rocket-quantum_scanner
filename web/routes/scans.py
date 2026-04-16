@@ -17,6 +17,7 @@ from src import database as db
 from src.db import db_session
 from src.models import Asset, Certificate, Scan
 from src.services.inventory_scan_service import run_scan_pipeline as run_scan_pipeline_service
+from src.services.risk_profile_service import derive_risk_level_from_scan_report
 
 scans_bp = Blueprint("scans", __name__)
 
@@ -612,6 +613,7 @@ def _upsert_inventory_asset_from_scan(
     risk_level: str | None,
     notes: str | None,
     asset_type: str | None,
+    report: dict[str, Any] | None = None,
 ) -> None:
     if not add_to_inventory:
         return
@@ -625,6 +627,9 @@ def _upsert_inventory_asset_from_scan(
         if not canonical:
             return
 
+        requested_risk = str(risk_level or "").strip() or "Medium"
+        computed_risk = derive_risk_level_from_scan_report(report, fallback=requested_risk)
+
         asset = db_session.query(Asset).filter(func.lower(Asset.name) == canonical).first()
         if not asset:
             asset = Asset(
@@ -632,7 +637,7 @@ def _upsert_inventory_asset_from_scan(
                 url=f"https://{canonical}" if not canonical.startswith(("http://", "https://")) else canonical,
                 asset_type=str(asset_type or "Web App").strip() or "Web App",
                 owner=(str(owner).strip() if owner else None),
-                risk_level=str(risk_level or "Medium").strip() or "Medium",
+                risk_level=computed_risk,
                 notes=(str(notes).strip() if notes else None),
                 is_deleted=False,
             )
@@ -642,8 +647,7 @@ def _upsert_inventory_asset_from_scan(
                 asset.is_deleted = False
             if owner:
                 asset.owner = str(owner).strip()
-            if risk_level:
-                asset.risk_level = str(risk_level).strip() or asset.risk_level
+            asset.risk_level = computed_risk or asset.risk_level
             if notes:
                 existing = str(getattr(asset, "notes", "") or "").strip()
                 incoming = str(notes).strip()
@@ -733,6 +737,7 @@ def _process_job(
                     risk_level=(str(job_options.get("risk_level") or "").strip() or None),
                     notes=(str(job_options.get("notes") or "").strip() or None),
                     asset_type=(str(job_options.get("asset_type") or "").strip() or None),
+                    report=report,
                 )
 
                 with _scan_jobs_lock:
@@ -1009,7 +1014,7 @@ def api_scan_single():
     # Inventory metadata
     add_to_inventory = bool(payload.get("add_to_inventory", False))
     inv_owner = str(payload.get("owner") or "").strip() or None
-    inv_risk = str(payload.get("risk_level") or "Medium").strip()
+    inv_risk = str(payload.get("risk_level") or "").strip() or None
     inv_notes = str(payload.get("notes") or "").strip() or None
     asset_type = str(payload.get("asset_type") or "Web App").strip()
     asset_class_mode = str(payload.get("asset_class_mode") or "auto").strip().lower()
@@ -1059,7 +1064,7 @@ def api_scan_bulk():
     autodiscovery = bool(payload.get("autodiscovery", False))
     add_to_inventory = bool(payload.get("add_to_inventory", False))
     inv_owner = str(payload.get("owner") or "").strip() or None
-    inv_risk = str(payload.get("risk_level") or "Medium").strip() or "Medium"
+    inv_risk = str(payload.get("risk_level") or "").strip() or None
     inv_notes = str(payload.get("notes") or "").strip() or None
     asset_type = str(payload.get("asset_type") or "Web App").strip() or "Web App"
     asset_class_mode = str(payload.get("asset_class_mode") or "auto").strip().lower()

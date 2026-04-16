@@ -355,8 +355,6 @@
     var addToInventoryBulk = document.getElementById('addToInventoryBulk');
     var singleOwner = document.getElementById('singleOwner');
     var bulkOwner = document.getElementById('bulkOwner');
-    var singleRisk = document.getElementById('singleRisk');
-    var bulkRisk = document.getElementById('bulkRisk');
     var singleNotes = document.getElementById('singleNotes');
     var bulkNotes = document.getElementById('bulkNotes');
     var singleAssetClassValue = document.getElementById('singleAssetClassValue');
@@ -606,7 +604,7 @@
             autodiscovery: !!(autodiscoverySingle && autodiscoverySingle.checked),
             add_to_inventory: !!(addToInventorySingle && addToInventorySingle.checked),
             owner: singleOwner ? String(singleOwner.value || '').trim() : '',
-            risk_level: singleRisk ? String(singleRisk.value || 'Medium') : 'Medium',
+            risk_level: '',
             notes: singleNotes ? String(singleNotes.value || '').trim() : '',
             asset_type: 'Web App',
             asset_class_mode: currentRadioValue('singleAssetClassMode', 'auto'),
@@ -665,7 +663,7 @@
             autodiscovery: !!(autodiscoveryBulk && autodiscoveryBulk.checked),
             add_to_inventory: !!(addToInventoryBulk && addToInventoryBulk.checked),
             owner: bulkOwner ? String(bulkOwner.value || '').trim() : '',
-            risk_level: bulkRisk ? String(bulkRisk.value || 'Medium') : 'Medium',
+            risk_level: '',
             notes: bulkNotes ? String(bulkNotes.value || '').trim() : '',
             asset_type: 'Web App',
             asset_class_mode: currentRadioValue('bulkAssetClassMode', 'auto'),

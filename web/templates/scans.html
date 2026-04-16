@@ -69,13 +69,10 @@
           <input id="singleOwner" class="scan-input" type="text" placeholder="Security Team" style="padding-left:0.8rem;" />
         </div>
         <div>
-          <label for="singleRisk">Risk Level</label>
-          <select id="singleRisk" class="scan-input" style="padding-left:0.8rem;">
-            <option value="Low">Low</option>
-            <option value="Medium" selected>Medium</option>
-            <option value="High">High</option>
-            <option value="Critical">Critical</option>
-          </select>
+          <label>Risk Level</label>
+          <div class="scan-input" style="display:flex; align-items:center; min-height:40px; padding-left:0.8rem; color:var(--text-secondary);">
+            Auto-derived from SSL/TLS telemetry
+          </div>
         </div>
       </div>
       <div style="margin-top:0.7rem;">
@@ -89,8 +86,8 @@
         <label class="radio"><input type="radio" name="singleAssetClassMode" value="auto" checked> Auto detect asset class</label>
         <label class="radio"><input type="radio" name="singleAssetClassMode" value="manual"> Manual asset class</label>
       </div>
-      <label for="singleAssetClassValue">Asset Class (manual mode)</label>
-      <input id="singleAssetClassValue" class="scan-input" type="text" placeholder="e.g., Core Banking API" style="padding-left:0.8rem;" />
+      <label for="singleAssetClassValue">Asset Class (manual mode, optional)</label>
+      <input id="singleAssetClassValue" class="scan-input" type="text" placeholder="Optional: e.g., Core Banking API" style="padding-left:0.8rem;" />
     </div>
 
     <div style="margin-top:0.8rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
@@ -143,13 +140,10 @@
           <input id="bulkOwner" class="scan-input" type="text" placeholder="Infrastructure Team" style="padding-left:0.8rem;" />
         </div>
         <div>
-          <label for="bulkRisk">Risk Level</label>
-          <select id="bulkRisk" class="scan-input" style="padding-left:0.8rem;">
-            <option value="Low">Low</option>
-            <option value="Medium" selected>Medium</option>
-            <option value="High">High</option>
-            <option value="Critical">Critical</option>
-          </select>
+          <label>Risk Level</label>
+          <div class="scan-input" style="display:flex; align-items:center; min-height:40px; padding-left:0.8rem; color:var(--text-secondary);">
+            Auto-derived from SSL/TLS telemetry
+          </div>
         </div>
       </div>
       <div style="margin-top:0.7rem;">
@@ -163,8 +157,8 @@
         <label class="radio"><input type="radio" name="bulkAssetClassMode" value="auto" checked> Auto detect asset class</label>
         <label class="radio"><input type="radio" name="bulkAssetClassMode" value="manual"> Manual asset class</label>
       </div>
-      <label for="bulkAssetClassValue">Asset Class (manual mode)</label>
-      <input id="bulkAssetClassValue" class="scan-input" type="text" placeholder="e.g., Banking Server" style="padding-left:0.8rem;" />
+      <label for="bulkAssetClassValue">Asset Class (manual mode, optional)</label>
+      <input id="bulkAssetClassValue" class="scan-input" type="text" placeholder="Optional: e.g., Banking Server" style="padding-left:0.8rem;" />
     </div>
 
     <div style="margin-top:0.9rem; display:flex; justify-content:flex-end; align-items:center; gap:0.7rem; flex-wrap:wrap;">

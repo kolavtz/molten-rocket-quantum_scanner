@@ -1572,12 +1572,38 @@ def list_scans(limit: int = 50) -> List[Dict[str, Any]]:
             (limit,),
         )
         results = []
+        skipped_rows = 0
         for row in cur.fetchall():
             data, is_encrypted = row
             if is_encrypted and isinstance(data, str):
                 data = _decrypt_data(data)
-            report = json.loads(data) if isinstance(data, str) else data
+
+            if data is None:
+                skipped_rows += 1
+                continue
+
+            if isinstance(data, str):
+                text_payload = data.strip()
+                if not text_payload:
+                    skipped_rows += 1
+                    continue
+                try:
+                    report = json.loads(text_payload)
+                except (TypeError, json.JSONDecodeError):
+                    skipped_rows += 1
+                    continue
+            else:
+                report = data
+
+            if not isinstance(report, dict):
+                skipped_rows += 1
+                continue
+
             results.append(report)
+
+        if skipped_rows:
+            logger.warning("MySQL list_scans skipped %d malformed scan payload row(s)", skipped_rows)
+
         return results
     except Exception as exc:
         logger.error("MySQL list_scans error: %s", exc)
