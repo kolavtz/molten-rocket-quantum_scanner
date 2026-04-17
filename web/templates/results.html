@@ -521,6 +521,40 @@
     {% endif %}
 </section>
 
+{% set embed_script_url = url_for('labels_embed_js', _external=True) %}
+{% set embed_badge_url = url_for('label_badge_svg', scan_id=scan_id, _external=True) %}
+{% set embed_snippet %}<script src="{{ embed_script_url }}" data-scan-id="{{ scan_id }}" data-variant="auto" data-max-width="900px" defer></script>{% endset %}
+{% set embed_img_snippet %}<img src="{{ embed_badge_url }}?variant=auto" alt="QuantumShield Label" style="max-width:900px;width:100%;height:auto;display:block;border:0;" />{% endset %}
+<section class="glass-card" id="embed-label-website" style="padding:1rem; margin-top:1rem;">
+    <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:center; margin-bottom:0.9rem;">
+        <div>
+            <h2 style="margin:0; font-size:1rem; text-transform:uppercase; letter-spacing:1px;">Embed Label on Third-Party Website</h2>
+            <p style="margin:0.35rem 0 0; color:var(--text-secondary); font-size:0.84rem;">Copy-paste this snippet into any external website. It automatically points to your current QuantumShield domain.</p>
+        </div>
+        <button type="button" class="button" style="padding:0.45rem 0.75rem;" data-copy-text="{{ embed_snippet|trim }}">Copy Script Snippet</button>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:0.8rem; align-items:start;">
+        <article class="glass-card" style="padding:0.85rem; border:1px solid var(--border-subtle);">
+            <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); margin-bottom:0.45rem;">Recommended (Auto renderer)</div>
+            <pre style="margin:0; padding:0.8rem; background:rgba(2,6,23,0.9); border:1px solid var(--border-subtle); border-radius:10px; overflow:auto; white-space:pre-wrap; word-break:break-word;"><code>{{ embed_snippet|trim|e }}</code></pre>
+        </article>
+
+        <article class="glass-card" style="padding:0.85rem; border:1px solid var(--border-subtle);">
+            <div style="display:flex; justify-content:space-between; gap:0.5rem; align-items:center; margin-bottom:0.45rem;">
+                <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">Direct image fallback</div>
+                <button type="button" class="button secondary" style="padding:0.28rem 0.55rem; font-size:0.72rem;" data-copy-text="{{ embed_img_snippet|trim }}">Copy IMG</button>
+            </div>
+            <pre style="margin:0; padding:0.8rem; background:rgba(2,6,23,0.9); border:1px solid var(--border-subtle); border-radius:10px; overflow:auto; white-space:pre-wrap; word-break:break-word;"><code>{{ embed_img_snippet|trim|e }}</code></pre>
+        </article>
+    </div>
+
+    <div class="glass-card" style="margin-top:0.8rem; padding:0.85rem; border:1px solid var(--border-subtle);">
+        <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); margin-bottom:0.45rem;">Live badge preview</div>
+        <img src="{{ embed_badge_url }}?variant=auto" alt="QuantumShield label preview" style="max-width:900px; width:100%; height:auto; display:block; border-radius:10px; border:1px solid var(--border-subtle);" />
+    </div>
+</section>
+
 <section class="glass-card" id="tls-endpoint-details" style="padding:1rem; margin-top:1rem;">
     <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:center; margin-bottom:0.9rem;">
         <div>

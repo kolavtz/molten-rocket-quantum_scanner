@@ -29,6 +29,7 @@ import logging
 import os
 import secrets
 import hashlib
+import hmac
 import sys
 import pymysql.cursors
 import uuid
@@ -46,6 +47,8 @@ from config import (
     MYSQL_DATABASE,
     ENCRYPTION_KEY,
     AUDIT_HASH_SECRET,
+    AUDIT_BLOCKCHAIN_SECRET,
+    AUDIT_BLOCKCHAIN_DIFFICULTY,
 )  # type: ignore
 
 logger = logging.getLogger(__name__)
@@ -84,6 +87,42 @@ def _canonical_json(data: Dict[str, Any]) -> str:
 def _compute_audit_hash(payload: Dict[str, Any], prev_hash: str) -> str:
     digest_input = f"{prev_hash}|{_canonical_json(payload)}|{AUDIT_HASH_SECRET}"
     return hashlib.sha256(digest_input.encode("utf-8")).hexdigest()
+
+
+def _compute_block_hash(
+    block_index: int,
+    previous_block_hash: str,
+    payload_hash: str,
+    created_at_iso: str,
+    nonce: int,
+) -> str:
+    digest_input = f"{block_index}|{previous_block_hash}|{payload_hash}|{created_at_iso}|{nonce}"
+    return hashlib.sha256(digest_input.encode("utf-8")).hexdigest()
+
+
+def _mine_block(
+    block_index: int,
+    previous_block_hash: str,
+    payload_hash: str,
+    created_at_iso: str,
+    difficulty: int,
+) -> Tuple[int, str]:
+    target_prefix = "0" * max(0, int(difficulty or 0))
+    if not target_prefix:
+        return 0, _compute_block_hash(block_index, previous_block_hash, payload_hash, created_at_iso, 0)
+
+    nonce = 0
+    while True:
+        block_hash = _compute_block_hash(block_index, previous_block_hash, payload_hash, created_at_iso, nonce)
+        if block_hash.startswith(target_prefix):
+            return nonce, block_hash
+        nonce += 1
+
+
+def _compute_block_signature(block_hash: str, block_index: int, audit_log_id: int, difficulty: int) -> str:
+    message = f"{block_hash}|{block_index}|{audit_log_id}|{difficulty}"
+    secret = (AUDIT_BLOCKCHAIN_SECRET or AUDIT_HASH_SECRET or "").encode("utf-8")
+    return hmac.new(secret, message.encode("utf-8"), hashlib.sha256).hexdigest()
 
 # ---------------------------------------------------------------------------
 # Encryption Helpers
@@ -788,6 +827,28 @@ def init_db() -> bool:
             logger.warning("Table 'audit_logs' setup warning: %s", e)
 
         try:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS audit_blocks (
+                    block_index         BIGINT PRIMARY KEY,
+                    audit_log_id        BIGINT NOT NULL UNIQUE,
+                    previous_block_hash CHAR(64) NOT NULL,
+                    payload_hash        CHAR(64) NOT NULL,
+                    nonce               BIGINT NOT NULL DEFAULT 0,
+                    difficulty          INT NOT NULL DEFAULT 0,
+                    block_hash          CHAR(64) NOT NULL UNIQUE,
+                    block_signature     CHAR(64) NOT NULL,
+                    created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (audit_log_id) REFERENCES audit_logs(id)
+                        ON DELETE RESTRICT,
+                    INDEX idx_audit_blocks_created_at (created_at)
+                ) ENGINE=InnoDB
+                """
+            )
+        except Exception as e:
+            logger.warning("Table 'audit_blocks' setup warning: %s", e)
+
+        try:
             cur.execute(f"""
                 CREATE TABLE IF NOT EXISTS report_schedules (
                     schedule_id     VARCHAR(36) PRIMARY KEY,
@@ -1280,6 +1341,28 @@ def init_db() -> bool:
                 FOR EACH ROW
                 SIGNAL SQLSTATE '45000'
                 SET MESSAGE_TEXT = 'audit_log_chain cannot be deleted';
+                """,
+            )
+            _create_trigger_if_missing(
+                cur,
+                "audit_blocks_no_update",
+                """
+                CREATE TRIGGER audit_blocks_no_update
+                BEFORE UPDATE ON audit_blocks
+                FOR EACH ROW
+                SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = 'audit_blocks is append-only';
+                """,
+            )
+            _create_trigger_if_missing(
+                cur,
+                "audit_blocks_no_delete",
+                """
+                CREATE TRIGGER audit_blocks_no_delete
+                BEFORE DELETE ON audit_blocks
+                FOR EACH ROW
+                SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = 'audit_blocks cannot be deleted';
                 """,
             )
             conn.commit()
@@ -2185,7 +2268,12 @@ def create_invited_user(
         conn.close()
 
 
-def update_user_profile(user_id: str, role: Optional[str] = None, is_active: Optional[bool] = None) -> bool:
+def update_user_profile(
+    user_id: str,
+    role: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    email: Optional[str] = None,
+) -> bool:
     conn = _get_connection()
     if conn is None:
         return False
@@ -2197,11 +2285,32 @@ def update_user_profile(user_id: str, role: Optional[str] = None, is_active: Opt
     if is_active is not None:
         updates.append("is_active = %s")
         params.append(bool(is_active))
+    normalized_email = None
+    if email is not None:
+        normalized_email = str(email or "").strip().lower()
+        updates.append("email = %s")
+        params.append(normalized_email)
     if not updates:
         conn.close()
         return True
     params.append(str(user_id))
     try:
+        if normalized_email is not None:
+            dup_cur = conn.cursor(pymysql.cursors.DictCursor)
+            dup_cur.execute(
+                """
+                SELECT id
+                FROM users
+                WHERE LOWER(email) = LOWER(%s)
+                  AND id <> %s
+                LIMIT 1
+                """,
+                (normalized_email, str(user_id)),
+            )
+            if dup_cur.fetchone():
+                logger.warning("MySQL update_user_profile duplicate email blocked for user_id=%s", str(user_id))
+                return False
+
         cur = conn.cursor()
         cur.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = %s", tuple(params))
         conn.commit()
@@ -2670,7 +2779,7 @@ def append_audit_log(
     request_path: Optional[str] = None,
     details: Optional[Dict[str, Any]] = None,
 ) -> bool:
-    """Append a tamper-evident audit event to the audit chain."""
+    """Append a tamper-evident audit event to the hash chain + blockchain ledger."""
     conn = _get_connection()
     if conn is None:
         return False
@@ -2729,6 +2838,56 @@ def append_audit_log(
             ),
         )
         new_entry_id = cur.lastrowid
+
+        # Blockchain-style immutable block record for this audit entry
+        block_cur = conn.cursor(pymysql.cursors.DictCursor)
+        block_cur.execute(
+            """
+            SELECT block_index, block_hash
+            FROM audit_blocks
+            ORDER BY block_index DESC
+            LIMIT 1
+            FOR UPDATE
+            """
+        )
+        last_block = block_cur.fetchone() or {}
+        previous_block_hash = str(last_block.get("block_hash") or ("0" * 64))
+        block_index = int(last_block.get("block_index") or 0) + 1
+        block_created_iso = created_at.isoformat(timespec="seconds")
+        difficulty = int(AUDIT_BLOCKCHAIN_DIFFICULTY or 0)
+        nonce, block_hash = _mine_block(
+            block_index=block_index,
+            previous_block_hash=previous_block_hash,
+            payload_hash=entry_hash,
+            created_at_iso=block_created_iso,
+            difficulty=difficulty,
+        )
+        block_signature = _compute_block_signature(
+            block_hash=block_hash,
+            block_index=block_index,
+            audit_log_id=int(new_entry_id),
+            difficulty=difficulty,
+        )
+        cur.execute(
+            """
+            INSERT INTO audit_blocks
+                (block_index, audit_log_id, previous_block_hash, payload_hash,
+                 nonce, difficulty, block_hash, block_signature, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                block_index,
+                int(new_entry_id),
+                previous_block_hash,
+                entry_hash,
+                int(nonce),
+                difficulty,
+                block_hash,
+                block_signature,
+                created_at,
+            ),
+        )
+
         cur.execute(
             "UPDATE audit_log_chain SET last_entry_id = %s, last_hash = %s WHERE id = 1",
             (new_entry_id, entry_hash),
@@ -2748,18 +2907,37 @@ def list_audit_logs(limit: int = 100) -> List[Dict[str, Any]]:
         return []
     try:
         cur = conn.cursor(pymysql.cursors.DictCursor)
-        cur.execute(
-            """
-            SELECT id, actor_user_id, actor_username, event_category, event_type,
-                   target_user_id, target_scan_id, ip_address, user_agent,
-                   request_method, request_path, status, details_json,
-                   previous_hash, entry_hash, created_at
-            FROM audit_logs
-            ORDER BY id DESC
-            LIMIT %s
-            """,
-            (limit,),
-        )
+        try:
+            cur.execute(
+                """
+                SELECT a.id, a.actor_user_id, a.actor_username, a.event_category, a.event_type,
+                       a.target_user_id, a.target_scan_id, a.ip_address, a.user_agent,
+                       a.request_method, a.request_path, a.status, a.details_json,
+                       a.previous_hash, a.entry_hash, a.created_at,
+                       b.block_index, b.previous_block_hash, b.payload_hash,
+                       b.nonce, b.difficulty, b.block_hash, b.block_signature,
+                       b.created_at AS block_created_at
+                FROM audit_logs a
+                LEFT JOIN audit_blocks b ON b.audit_log_id = a.id
+                ORDER BY a.id DESC
+                LIMIT %s
+                """,
+                (limit,),
+            )
+        except Exception:
+            # Backward-compatible fallback for legacy DBs without audit_blocks.
+            cur.execute(
+                """
+                SELECT id, actor_user_id, actor_username, event_category, event_type,
+                       target_user_id, target_scan_id, ip_address, user_agent,
+                       request_method, request_path, status, details_json,
+                       previous_hash, entry_hash, created_at
+                FROM audit_logs
+                ORDER BY id DESC
+                LIMIT %s
+                """,
+                (limit,),
+            )
         rows = cur.fetchall() or []
         for row in rows:
             if isinstance(row.get("details_json"), str):
@@ -2780,21 +2958,44 @@ def verify_audit_log_chain(limit: int = 500) -> Tuple[bool, List[str]]:
         return False, ["Database unavailable"]
     try:
         cur = conn.cursor(pymysql.cursors.DictCursor)
-        cur.execute(
-            """
-            SELECT id, actor_user_id, actor_username, event_category, event_type,
-                   target_user_id, target_scan_id, ip_address, user_agent,
-                   request_method, request_path, status, details_json,
-                   previous_hash, entry_hash, created_at
-            FROM audit_logs
-            ORDER BY id ASC
-            LIMIT %s
-            """,
-            (limit,),
-        )
+        has_blockchain_rows = True
+        try:
+            cur.execute(
+                """
+                SELECT a.id, a.actor_user_id, a.actor_username, a.event_category, a.event_type,
+                       a.target_user_id, a.target_scan_id, a.ip_address, a.user_agent,
+                       a.request_method, a.request_path, a.status, a.details_json,
+                       a.previous_hash, a.entry_hash, a.created_at,
+                       b.block_index, b.previous_block_hash, b.payload_hash,
+                       b.nonce, b.difficulty, b.block_hash, b.block_signature,
+                       b.created_at AS block_created_at
+                FROM audit_logs a
+                LEFT JOIN audit_blocks b ON b.audit_log_id = a.id
+                ORDER BY a.id ASC
+                LIMIT %s
+                """,
+                (limit,),
+            )
+        except Exception:
+            has_blockchain_rows = False
+            cur.execute(
+                """
+                SELECT id, actor_user_id, actor_username, event_category, event_type,
+                       target_user_id, target_scan_id, ip_address, user_agent,
+                       request_method, request_path, status, details_json,
+                       previous_hash, entry_hash, created_at
+                FROM audit_logs
+                ORDER BY id ASC
+                LIMIT %s
+                """,
+                (limit,),
+            )
         issues: List[str] = []
         prev_hash = "0" * 64
-        for row in cur.fetchall() or []:
+        prev_block_hash = "0" * 64
+        expected_block_index = 1
+        rows = cur.fetchall() or []
+        for row in rows:
             details = {}
             raw_details = row.get("details_json")
             if isinstance(raw_details, str):
@@ -2823,6 +3024,57 @@ def verify_audit_log_chain(limit: int = 500) -> Tuple[bool, List[str]]:
             if row.get("entry_hash") != expected_hash:
                 issues.append(f"Hash mismatch at audit log {row.get('id')}")
             prev_hash = row.get("entry_hash") or prev_hash
+
+            if has_blockchain_rows:
+                if row.get("block_index") is None:
+                    issues.append(f"Blockchain block missing for audit log {row.get('id')}")
+                    continue
+
+                block_index = int(row.get("block_index") or 0)
+                if block_index != expected_block_index:
+                    issues.append(f"Blockchain index mismatch at audit log {row.get('id')} (expected {expected_block_index}, got {block_index})")
+
+                if row.get("previous_block_hash") != prev_block_hash:
+                    issues.append(f"Blockchain previous hash mismatch at audit log {row.get('id')}")
+
+                payload_hash = str(row.get("payload_hash") or row.get("entry_hash") or "")
+                if payload_hash != str(row.get("entry_hash") or ""):
+                    issues.append(f"Blockchain payload hash mismatch at audit log {row.get('id')}")
+
+                block_created_at = row.get("block_created_at") or row.get("created_at")
+                block_created_iso = (
+                    block_created_at.replace(microsecond=0).isoformat(timespec="seconds")
+                    if block_created_at and hasattr(block_created_at, "replace")
+                    else str(block_created_at or "")
+                )
+                block_nonce = int(row.get("nonce") or 0)
+                block_difficulty = int(row.get("difficulty") or 0)
+                expected_block_hash = _compute_block_hash(
+                    block_index=block_index,
+                    previous_block_hash=str(row.get("previous_block_hash") or "0" * 64),
+                    payload_hash=payload_hash,
+                    created_at_iso=block_created_iso,
+                    nonce=block_nonce,
+                )
+                actual_block_hash = str(row.get("block_hash") or "")
+                if actual_block_hash != expected_block_hash:
+                    issues.append(f"Blockchain hash mismatch at audit log {row.get('id')}")
+
+                if block_difficulty > 0 and not actual_block_hash.startswith("0" * block_difficulty):
+                    issues.append(f"Blockchain proof-of-work mismatch at audit log {row.get('id')}")
+
+                expected_block_sig = _compute_block_signature(
+                    block_hash=actual_block_hash,
+                    block_index=block_index,
+                    audit_log_id=int(row.get("id") or 0),
+                    difficulty=block_difficulty,
+                )
+                actual_block_sig = str(row.get("block_signature") or "")
+                if not hmac.compare_digest(actual_block_sig, expected_block_sig):
+                    issues.append(f"Blockchain signature mismatch at audit log {row.get('id')}")
+
+                prev_block_hash = actual_block_hash or prev_block_hash
+                expected_block_index += 1
         return len(issues) == 0, issues
     except Exception as exc:
         logger.error("verify_audit_log_chain failed: %s", exc)

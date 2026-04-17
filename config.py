@@ -526,6 +526,12 @@ MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER", os.environ.get("SMTP
 # ---------------------------------------------------------------------------
 AUDIT_HASH_SECRET = os.environ.get("QSS_AUDIT_HASH_SECRET", SECRET_KEY)
 AUDIT_LOG_PAGE_SIZE = int(os.environ.get("QSS_AUDIT_LOG_PAGE_SIZE", "100"))
+AUDIT_BLOCKCHAIN_SECRET = os.environ.get("QSS_AUDIT_BLOCKCHAIN_SECRET", AUDIT_HASH_SECRET)
+try:
+    _audit_chain_difficulty = int(os.environ.get("QSS_AUDIT_BLOCKCHAIN_DIFFICULTY", "2"))
+except Exception:
+    _audit_chain_difficulty = 2
+AUDIT_BLOCKCHAIN_DIFFICULTY = max(0, min(6, _audit_chain_difficulty))
 
 # ---------------------------------------------------------------------------
 # Bootstrap / Production Placeholders

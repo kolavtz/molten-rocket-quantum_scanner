@@ -683,6 +683,44 @@ def _build_setup_link(token: str) -> str:
     return url_for("setup_password", token=token, _external=True, _scheme=scheme)
 
 
+def _smtp_resolution_error(exc: Exception) -> bool:
+    """Detect DNS/host resolution failures from SMTP send attempts."""
+    if isinstance(exc, socket.gaierror):
+        return True
+    text = str(exc or "").lower()
+    return "getaddrinfo failed" in text or "errno 11001" in text or "name or service not known" in text
+
+
+def _smtp_preflight_check() -> tuple[bool, str]:
+    """Validate SMTP host resolves before attempting to send email."""
+    host = str(app.config.get("MAIL_SERVER") or "").strip()
+    port_raw = app.config.get("MAIL_PORT")
+    try:
+        port = int(port_raw) if port_raw is not None else 0
+    except Exception:
+        port = 0
+
+    if not host:
+        return False, "MAIL_SERVER is empty. Set a valid SMTP host in .env/config."
+
+    try:
+        socket.getaddrinfo(host, port if port > 0 else None)
+    except socket.gaierror as exc:
+        return False, f"MAIL_SERVER '{host}' could not be resolved ({exc})."
+    except Exception:
+        # Non-DNS errors should be handled by actual SMTP send.
+        return True, ""
+    return True, ""
+
+
+def _smtp_failure_message(exc: Exception) -> str:
+    """Build an actionable SMTP failure description for UI/API responses."""
+    host = str(app.config.get("MAIL_SERVER") or "").strip() or "<unset>"
+    if _smtp_resolution_error(exc):
+        return f"SMTP DNS/host resolution failed for MAIL_SERVER '{host}'. Verify SMTP host/network DNS and retry."
+    return f"SMTP failed: {str(exc)}"
+
+
 def _get_request_ip() -> str:
     forwarded_for = request.headers.get("X-Forwarded-For", "")
     if forwarded_for:
@@ -2904,6 +2942,9 @@ def admin_users():
         setup_url = _build_setup_link(token)
 
         try:
+            ok, reason = _smtp_preflight_check()
+            if not ok:
+                raise RuntimeError(reason)
             msg = Message("Welcome to QuantumShield - Setup Your Password", recipients=[email])
             msg.body = (
                 "Hello,\n\n"
@@ -2919,9 +2960,10 @@ def admin_users():
             _audit("admin", "create_user", "success", target_user_id=invited_user_id, details={"email": email, "username": username, "employee_id": employee_id, "role": role, "email_sent": True})
             flash(f"User {username} invited successfully. Setup email sent.", "success")
         except Exception as exc:
-            logger.error("Failed to send setup email to %s: %s", email, exc)
-            _audit("admin", "create_user", "partial", target_user_id=invited_user_id, details={"email": email, "username": username, "role": role, "email_sent": False, "error": str(exc)})
-            flash(f"User created, but SMTP failed to send setup email. Temporary setup link: {setup_url}", "warning")
+            diag = _smtp_failure_message(exc)
+            logger.error("Failed to send setup email to %s: %s", email, diag)
+            _audit("admin", "create_user", "partial", target_user_id=invited_user_id, details={"email": email, "username": username, "role": role, "email_sent": False, "error": str(exc), "smtp_diagnostic": diag})
+            flash(f"User created, but setup email could not be delivered. {diag} Temporary setup link: {setup_url}", "warning")
 
         return redirect(url_for("admin_users"))
 
@@ -3054,6 +3096,9 @@ def admin_reset_user_password(user_id: str):
 
     setup_url = _build_setup_link(token)
     try:
+        ok, reason = _smtp_preflight_check()
+        if not ok:
+            raise RuntimeError(reason)
         msg = Message("QuantumShield Password Reset", recipients=[user["email"]])
         msg.body = (
             "Hello,\n\n"
@@ -3073,14 +3118,16 @@ def admin_reset_user_password(user_id: str):
             }), 200
         flash("Password reset email sent.", "success")
     except Exception as exc:
-        logger.error("Password reset email failed for %s: %s", user["email"], exc)
-        _audit("admin", "reset_password", "partial", target_user_id=user_id, details={"email": user["email"], "email_sent": False, "error": str(exc)})
+        diag = _smtp_failure_message(exc)
+        logger.error("Password reset email failed for %s: %s", user["email"], diag)
+        _audit("admin", "reset_password", "partial", target_user_id=user_id, details={"email": user["email"], "email_sent": False, "error": str(exc), "smtp_diagnostic": diag})
         if wants_json:
             return jsonify({
-                "status": "error",
-                "message": f"SMTP failed: {str(exc)}"
-            }), 500
-        flash(f"SMTP failed. Temporary setup link: {setup_url}", "warning")
+                "status": "partial",
+                "message": f"{diag}",
+                "setup_url": setup_url,
+            }), 200
+        flash(f"Email not delivered. {diag} Temporary setup link: {setup_url}", "warning")
     return redirect(url_for("admin_users"))
 
 
@@ -3122,23 +3169,48 @@ def admin_update_user(user_id: str):
         data = request.get_json() or {}
         role = db.normalize_role(data.get("role") or "Viewer")
         is_active = data.get("is_active", True)
+        email = str(data.get("email") or "").strip().lower()
     else:
         role = db.normalize_role(request.form.get("role") or "Viewer")
         is_active = request.form.get("is_active") == "on"
+        email = str(request.form.get("email") or "").strip().lower()
+
+    if not email:
+        _audit("admin", "update_user", "failed", target_user_id=user_id, details={"reason": "missing_email", "role": role, "is_active": bool(is_active)})
+        if wants_json:
+            return jsonify({"status": "error", "message": "Email is required."}), 400
+        flash("Email is required.", "error")
+        return redirect(url_for("admin_users"))
+
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        _audit("admin", "update_user", "failed", target_user_id=user_id, details={"reason": "invalid_email_format", "role": role, "is_active": bool(is_active), "email": email})
+        if wants_json:
+            return jsonify({"status": "error", "message": "Invalid email format."}), 400
+        flash("Invalid email format.", "error")
+        return redirect(url_for("admin_users"))
+
+    existing = db.get_user_by_email(email)
+    if existing and str(existing.get("id") or "") != str(user_id):
+        _audit("admin", "update_user", "failed", target_user_id=user_id, details={"reason": "duplicate_email", "role": role, "is_active": bool(is_active), "email": email})
+        if wants_json:
+            return jsonify({"status": "error", "message": "Email is already used by another user."}), 409
+        flash("Email is already used by another user.", "error")
+        return redirect(url_for("admin_users"))
     
-    if db.update_user_profile(user_id, role=role, is_active=is_active):
-        _audit("admin", "update_user", "success", target_user_id=user_id, details={"role": role, "is_active": is_active})
+    if db.update_user_profile(user_id, role=role, is_active=is_active, email=email):
+        _audit("admin", "update_user", "success", target_user_id=user_id, details={"role": role, "is_active": is_active, "email": email})
         if wants_json:
             return jsonify({
                 "status": "success",
                 "message": "User profile updated.",
                 "user_id": user_id,
                 "role": role,
-                "is_active": is_active
+                "is_active": is_active,
+                "email": email,
             }), 200
         flash("User profile updated.", "success")
     else:
-        _audit("admin", "update_user", "failed", target_user_id=user_id, details={"role": role, "is_active": is_active})
+        _audit("admin", "update_user", "failed", target_user_id=user_id, details={"role": role, "is_active": is_active, "email": email})
         if wants_json:
             return jsonify({"status": "error", "message": "Failed to update user profile."}), 500
         flash("Failed to update user profile.", "error")
@@ -4960,6 +5032,161 @@ def results(scan_id: str):
             pass
 
     return render_template("results.html", report=report, scan_id=scan_id)
+
+
+def _load_report_for_scan(scan_id: str) -> dict[str, Any] | None:
+    """Resolve a scan report from memory, disk, or database."""
+    if not re.match(r'^[a-f0-9A-F\-]+$', str(scan_id or '')):
+        return None
+
+    report = scan_store.get(scan_id)
+    if report:
+        return typing.cast(dict[str, Any], report)
+
+    report_path = os.path.join(RESULTS_DIR, f"{scan_id}_report.json")
+    if os.path.exists(report_path):
+        try:
+            with open(report_path, "r", encoding="utf-8") as fh:
+                report = json.load(fh)
+            if isinstance(report, dict):
+                scan_store[scan_id] = report
+                return typing.cast(dict[str, Any], report)
+        except Exception:
+            return None
+
+    try:
+        report = db.get_scan(scan_id)
+        if isinstance(report, dict):
+            scan_store[scan_id] = report
+            return typing.cast(dict[str, Any], report)
+    except Exception:
+        return None
+    return None
+
+
+def _label_variant_for_report(report: dict[str, Any] | None) -> str:
+    """Classify label variant based on persisted scan posture."""
+    payload = report if isinstance(report, dict) else {}
+    overview = payload.get("overview") if isinstance(payload.get("overview"), dict) else {}
+    q_vuln = int(overview.get("quantum_vulnerable") or payload.get("quantum_vuln") or 0)
+    score = float(overview.get("average_compliance_score") or overview.get("compliance_score") or 0)
+    if q_vuln > 0:
+        return "vulnerable"
+    if score >= 80:
+        return "proof"
+    return "hybrid"
+
+
+@app.route('/labels/badge/<scan_id>.svg', methods=['GET'])
+def label_badge_svg(scan_id: str):
+    """Public embeddable SVG badge for a scan result.
+
+    Query params:
+      - variant: auto|proof|hybrid|vulnerable (default: auto)
+    """
+    report = _load_report_for_scan(scan_id)
+    if not report:
+        return Response("Scan not found", status=404, mimetype='text/plain')
+
+    variant = str(request.args.get("variant") or "auto").strip().lower()
+    if variant not in {"auto", "proof", "hybrid", "vulnerable"}:
+        variant = "auto"
+    if variant == "auto":
+        variant = _label_variant_for_report(report)
+
+    palette = {
+        "proof": {
+            "bg": "#166534",
+            "border": "#00f5a0",
+            "icon_bg": "#00d084",
+            "icon_fg": "#ffffff",
+            "title": "QUANTUM PROOF",
+            "dot": "#00f5a0",
+            "sub": "Scanned by QuantumShield by ParaCipher",
+            "symbol": "✓",
+        },
+        "hybrid": {
+            "bg": "#1e2a78",
+            "border": "#5da3ff",
+            "icon_bg": "#4f86ff",
+            "icon_fg": "#ffffff",
+            "title": "QUANTUM HYBRID ALGORITHM USED",
+            "dot": "#5da3ff",
+            "sub": "Scanned by QuantumShield by ParaCipher",
+            "symbol": "⚛",
+        },
+        "vulnerable": {
+            "bg": "#7f1019",
+            "border": "#ff4d4f",
+            "icon_bg": "#ff4d4f",
+            "icon_fg": "#ffffff",
+            "title": "QUANTUM VULNERABLE SITE",
+            "dot": "#ff4d4f",
+            "sub": "Scanned by QuantumShield by ParaCipher",
+            "symbol": "⚠",
+        },
+    }[variant]
+
+    svg = f"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"900\" height=\"220\" viewBox=\"0 0 900 220\" role=\"img\" aria-label=\"{palette['title']}\">
+  <rect x=\"1\" y=\"1\" width=\"898\" height=\"218\" fill=\"{palette['bg']}\" stroke=\"{palette['border']}\" stroke-width=\"2\" />
+  <circle cx=\"64\" cy=\"110\" r=\"44\" fill=\"{palette['icon_bg']}\" stroke=\"#ffffff\" stroke-width=\"2\" />
+  <text x=\"64\" y=\"124\" text-anchor=\"middle\" font-size=\"48\" font-family=\"Inter, Arial, sans-serif\" fill=\"{palette['icon_fg']}\" font-weight=\"700\">{palette['symbol']}</text>
+  <text x=\"140\" y=\"92\" font-family=\"Inter, Arial, sans-serif\" font-size=\"50\" fill=\"#ffffff\" font-weight=\"800\">{palette['title']}</text>
+  <text x=\"140\" y=\"132\" font-family=\"Inter, Arial, sans-serif\" font-size=\"26\" fill=\"#d1d5db\" font-weight=\"500\">{palette['sub']}</text>
+  <text x=\"845\" y=\"205\" text-anchor=\"end\" font-family=\"Inter, Arial, sans-serif\" font-size=\"32\" fill=\"{palette['dot']}\" font-weight=\"700\">QuantumShield™</text>
+  <g fill=\"{palette['dot']}\"> 
+    <circle cx=\"816\" cy=\"28\" r=\"3\"/><circle cx=\"832\" cy=\"28\" r=\"3\"/><circle cx=\"848\" cy=\"28\" r=\"3\"/><circle cx=\"864\" cy=\"28\" r=\"3\"/>
+    <circle cx=\"816\" cy=\"42\" r=\"3\"/><circle cx=\"832\" cy=\"42\" r=\"3\"/><circle cx=\"848\" cy=\"42\" r=\"3\"/><circle cx=\"864\" cy=\"42\" r=\"3\"/>
+    <circle cx=\"816\" cy=\"56\" r=\"3\"/><circle cx=\"832\" cy=\"56\" r=\"3\"/><circle cx=\"848\" cy=\"56\" r=\"3\"/><circle cx=\"864\" cy=\"56\" r=\"3\"/>
+  </g>
+</svg>"""
+    return Response(svg, mimetype='image/svg+xml')
+
+
+@app.route('/labels/embed.js', methods=['GET'])
+def labels_embed_js():
+    """Public script for third-party embedding of QuantumShield labels."""
+    js = """
+(function(){
+  function currentScript(){
+    if(document.currentScript) return document.currentScript;
+    var scripts = document.getElementsByTagName('script');
+    return scripts[scripts.length - 1];
+  }
+  var script = currentScript();
+  if(!script) return;
+
+  var scanId = script.getAttribute('data-scan-id') || script.getAttribute('data-scan') || '';
+  if(!scanId){
+    console.error('[QuantumShield] Missing data-scan-id for embedded label.');
+    return;
+  }
+  var variant = script.getAttribute('data-variant') || 'auto';
+  var width = parseInt(script.getAttribute('data-width') || '900', 10);
+  var maxWidth = script.getAttribute('data-max-width') || '100%';
+  var base = script.getAttribute('data-domain') || script.src.split('/labels/embed.js')[0];
+
+  var img = document.createElement('img');
+  img.src = base + '/labels/badge/' + encodeURIComponent(scanId) + '.svg?variant=' + encodeURIComponent(variant);
+  img.alt = 'QuantumShield label for scan ' + scanId;
+  img.width = width > 0 ? width : 900;
+  img.style.width = '100%';
+  img.style.maxWidth = maxWidth;
+  img.style.height = 'auto';
+  img.style.display = 'block';
+  img.style.border = '0';
+
+  var targetId = script.getAttribute('data-target');
+  var mount = targetId ? document.getElementById(targetId) : null;
+  if(!mount){
+    mount = document.createElement('div');
+    script.parentNode.insertBefore(mount, script.nextSibling);
+  }
+  mount.appendChild(img);
+})();
+"""
+    return Response(js, mimetype='application/javascript')
 
 
 @app.route('/results/<scan_id>/export_pdf')

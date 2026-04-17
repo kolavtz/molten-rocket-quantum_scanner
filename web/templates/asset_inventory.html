@@ -863,16 +863,21 @@
             });
             const result = await response.json();
 
-            if (response.ok && (result.status === 'started' || result.status === 'in_progress')) {
+            const statusRaw = String(result?.status || result?.data?.status || '').toLowerCase();
+            const isStarted = statusRaw === 'started' || statusRaw === 'in_progress';
+            const isComplete = statusRaw === 'complete';
+            const message = result?.message || result?.data?.message || result?.error?.message || 'unknown error';
+
+            if (response.ok && isStarted) {
                 statusEl.textContent = 'Scan all inventory has been queued and is running in the background.';
                 statusEl.style.color = 'var(--pqc-safe)';
                 _refreshInventoryKpis();
-            } else if (response.ok && result.status === 'complete') {
+            } else if (response.ok && isComplete) {
                 statusEl.textContent = 'Scan all inventory completed successfully.';
                 statusEl.style.color = 'var(--pqc-safe)';
                 _refreshInventoryKpis();
             } else {
-                statusEl.textContent = 'Scan all inventory failed to start: ' + (result.message || 'unknown error');
+                statusEl.textContent = 'Scan all inventory failed to start: ' + message;
                 statusEl.style.color = 'var(--danger)';
             }
         } catch (err) {
@@ -919,18 +924,31 @@
             });
 
             const result = await response.json();
-            if (response.ok && result.success) {
-                if (result.data && result.data.workflow) {
-                    renderWorkflow(result.data.workflow);
+            const statusRaw = String(result?.status || result?.data?.status || '').toLowerCase();
+            const isSuccess = response.ok && (
+                result?.success === true ||
+                statusRaw === 'success' ||
+                (result?.error == null && result?.data != null)
+            );
+
+            if (isSuccess) {
+                const workflow = result?.data?.workflow || result?.workflow || null;
+                if (workflow) {
+                    renderWorkflow(workflow);
                 }
                 feedback.style.color = 'var(--pqc-safe)';
-                feedback.textContent = result.message || 'Scan completed. Refreshing inventory…';
+                feedback.textContent = result?.message || result?.data?.message || 'Scan completed. Refreshing inventory…';
                 _updateInventoryCount(result.data?.created ? 1 : 0);
                 _refreshInventoryKpis();
                 setTimeout(() => location.reload(), 3000);
             } else {
                 feedback.style.color = 'var(--danger, #ff3366)';
-                feedback.textContent = 'Error: ' + (result.message || result.error?.message || 'Workflow failed');
+                feedback.textContent = 'Error: ' + (
+                    result?.message ||
+                    result?.error?.message ||
+                    result?.data?.message ||
+                    'Workflow failed'
+                );
             }
         } catch (err) {
             feedback.style.color = 'var(--danger, #ff3366)';

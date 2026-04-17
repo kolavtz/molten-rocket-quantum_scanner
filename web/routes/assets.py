@@ -970,6 +970,7 @@ def create_or_scan_asset_api(payload: dict[str, Any]) -> tuple[dict[str, Any], i
 
     if not _validate_target(target):
         return {
+            "status": "error",
             "success": False,
             "error": {"status": 400, "message": "Provide a valid target URL, hostname, or IP address."},
         }, 400
@@ -1024,6 +1025,7 @@ def create_or_scan_asset_api(payload: dict[str, Any]) -> tuple[dict[str, Any], i
             message = f"Asset saved for {target}, but the scan did not complete."
 
         return {
+            "status": "success",
             "success": True,
             "message": message,
             "data": detail,
@@ -1033,6 +1035,7 @@ def create_or_scan_asset_api(payload: dict[str, Any]) -> tuple[dict[str, Any], i
         db_session.rollback()
         logger.exception("Asset create/scan failed")
         return {
+            "status": "error",
             "success": False,
             "error": {"status": 500, "message": str(exc)},
         }, 500

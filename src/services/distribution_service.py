@@ -29,6 +29,16 @@ class DistributionService:
     """Service for distribution and aggregation calculations."""
 
     @staticmethod
+    def _default_risk_distribution() -> Dict[str, Dict[str, Any]]:
+        """Return canonical zeroed risk buckets expected by dashboard templates."""
+        return {
+            'Critical': {'count': 0, 'pct': 0.0},
+            'High': {'count': 0, 'pct': 0.0},
+            'Medium': {'count': 0, 'pct': 0.0},
+            'Low': {'count': 0, 'pct': 0.0},
+        }
+
+    @staticmethod
     def get_asset_type_distribution() -> Dict[str, Dict[str, Any]]:
         """
         Get asset type distribution (Math Section 2.2).
@@ -83,7 +93,7 @@ class DistributionService:
         ).count()
         
         if total_assets == 0:
-            return {}
+            return DistributionService._default_risk_distribution()
         
         risk_counts = db_session.query(
             Asset.risk_level,
@@ -101,10 +111,10 @@ class DistributionService:
                 'pct': round(pct, 2)
             }
         
-        # Ensure all keys exist
-        for label in ['Critical', 'High', 'Medium', 'Low']:
+        # Ensure all keys exist with a stable contract for templates/charts.
+        for label, defaults in DistributionService._default_risk_distribution().items():
             if label not in distribution:
-                distribution[label] = {'count': 0, 'pct': 0.0}
+                distribution[label] = defaults
 
         return distribution
 
