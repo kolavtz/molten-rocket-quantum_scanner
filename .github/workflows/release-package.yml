@@ -1,0 +1,121 @@
+name: Release Package
+run-name: Package release (${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.release_tag || github.ref_name }})
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing Git tag to package as a release'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-package-${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.release_tag || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.release_tag }}
+  PACKAGE_BASENAME: quantumshield-release
+
+jobs:
+  package:
+    name: Build release bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Build release bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUNDLE_NAME="${PACKAGE_BASENAME}-${RELEASE_TAG}"
+          STAGING_DIR="_release_bundle"
+          ZIP_FILE="${BUNDLE_NAME}.zip"
+
+          python - <<'PY'
+          import os
+          import pathlib
+          import shutil
+          import subprocess
+          import zipfile
+
+          repo = pathlib.Path.cwd()
+          staging = repo / "_release_bundle"
+          if staging.exists():
+              shutil.rmtree(staging)
+          staging.mkdir(parents=True, exist_ok=True)
+
+          include_dirs = ("web/", "src/", "middleware/", "migrations/")
+          include_files = {"config.py", "Procfile", "requirements.txt"}
+          exclude_prefixes = (
+              ".github/",
+              ".agents/",
+              "tests/",
+              "docs/",
+              "design-system/",
+              "old_schemas_mysql/",
+              "tmp/",
+              ".venv/",
+              "venv/",
+              "__pycache__/",
+              ".pytest_cache/",
+          )
+          exclude_suffixes = (".pyc", ".pyo", ".log", ".sqlite3", ".sqlite", ".db", ".tmp", ".bak")
+
+          tracked = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+          selected = []
+          for rel in tracked:
+              rel_posix = rel.replace("\\", "/")
+              if rel_posix.startswith(exclude_prefixes):
+                  continue
+              if rel_posix.endswith(exclude_suffixes):
+                  continue
+              if rel_posix in include_files or any(rel_posix.startswith(prefix) for prefix in include_dirs):
+                  selected.append(rel_posix)
+
+          if not selected:
+              raise SystemExit("No release files selected for packaging.")
+
+          manifest = staging / "manifest.txt"
+          manifest.write_text("\n".join(sorted(selected)) + "\n", encoding="utf-8")
+
+          for rel in selected:
+              src = repo / rel
+              dst = staging / rel
+              dst.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(src, dst)
+
+          zip_path = repo / os.environ["ZIP_FILE"]
+          with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+              for path in sorted(staging.rglob("*")):
+                  if path.is_file():
+                      zf.write(path, path.relative_to(staging).as_posix())
+
+          print(zip_path)
+          PY
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_BASENAME }}-${{ env.RELEASE_TAG }}
+          path: ${{ env.PACKAGE_BASENAME }}-${{ env.RELEASE_TAG }}.zip
+
+      - name: Publish GitHub Release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          generate_release_notes: true
+          files: ${{ env.PACKAGE_BASENAME }}-${{ env.RELEASE_TAG }}.zip

@@ -6736,12 +6736,14 @@ def _check_concurrency():
 
 
 def _auto_update_on_start():
-    """Optional auto-update on startup: fetch origin/<branch> and reset if newer.
+        """Optional auto-update on startup: check branch heads or release tags.
 
     Controlled by environment variables:
       - QSS_AUTO_UPDATE_ON_START (true|false) — enable check at startup
       - QSS_ALLOW_AUTO_PULL (true|false) — allow performing a hard reset to remote
       - QSS_GIT_BRANCH — branch name to compare (default: main)
+            - QSS_AUTO_UPDATE_SOURCE — 'branch' (default) or 'release' to follow Git tags
+            - QSS_RELEASE_TAG_PREFIX — optional tag prefix when tracking releases (default: v)
 
     Safety: requires clean working tree to perform a hard reset. If pull is performed
     the process re-execs itself to pick up new code. No secrets are stored here.
@@ -6752,6 +6754,10 @@ def _auto_update_on_start():
         if os.environ.get("QSS_AUTO_UPDATE_PERFORMED") == "1":
             logger.info("Auto-update already performed; skipping.")
             return
+
+        update_source = os.environ.get("QSS_AUTO_UPDATE_SOURCE", "branch").strip().lower()
+        if update_source not in {"branch", "release", "releases", "tag", "tags"}:
+            update_source = "branch"
 
         import shutil
         import subprocess
@@ -6767,49 +6773,100 @@ def _auto_update_on_start():
             logger.warning("Not a git work tree (or git rev-parse failed). Skipping auto-update.")
             return
 
-        branch = os.environ.get("QSS_GIT_BRANCH", "main")
+        if update_source in {"release", "releases", "tag", "tags"}:
+            tag_prefix = os.environ.get("QSS_RELEASE_TAG_PREFIX", "v").strip()
+            fetch = subprocess.run([git, "fetch", "--tags", "--prune", "origin"], cwd=BASE_DIR, capture_output=True, text=True)
+            if fetch.returncode != 0:
+                logger.warning("git fetch --tags failed: %s", fetch.stderr.strip())
+                return
 
-        # Fetch remote branch reference
-        fetch = subprocess.run([git, "fetch", "origin", branch], cwd=BASE_DIR, capture_output=True, text=True)
-        if fetch.returncode != 0:
-            logger.warning("git fetch failed: %s", fetch.stderr.strip())
-            return
+            tag_pattern = f"{tag_prefix}*" if tag_prefix else "*"
+            latest = subprocess.run(
+                [git, "tag", "--list", tag_pattern, "--sort=-version:refname"],
+                cwd=BASE_DIR,
+                capture_output=True,
+                text=True,
+            )
+            if latest.returncode != 0:
+                logger.warning("Failed to list release tags: %s", latest.stderr.strip())
+                return
 
-        local = subprocess.run([git, "rev-parse", "HEAD"], cwd=BASE_DIR, capture_output=True, text=True)
-        remote = subprocess.run([git, "rev-parse", f"origin/{branch}"], cwd=BASE_DIR, capture_output=True, text=True)
-        if local.returncode != 0 or remote.returncode != 0:
-            logger.warning("Failed to read commit hashes; skipping auto-update.")
-            return
+            latest_tag = next((line.strip() for line in latest.stdout.splitlines() if line.strip()), "")
+            if not latest_tag:
+                logger.info("No release tags found; skipping release update check.")
+                return
 
-        local_sha = local.stdout.strip()
-        remote_sha = remote.stdout.strip()
-        if not local_sha or not remote_sha:
-            logger.info("Could not determine commit SHAs; skipping auto-update.")
-            return
+            current = subprocess.run(
+                [git, "describe", "--tags", "--exact-match"],
+                cwd=BASE_DIR,
+                capture_output=True,
+                text=True,
+            )
+            current_tag = current.stdout.strip() if current.returncode == 0 else ""
 
-        if local_sha == remote_sha:
-            logger.info("Local repository is up-to-date with origin/%s", branch)
-            return
+            if current_tag == latest_tag:
+                logger.info("Local repository is already on latest release tag %s", latest_tag)
+                return
 
-        logger.info("Remote origin/%s differs from local HEAD (%s -> %s)", branch, local_sha[:8], remote_sha[:8])
+            logger.info("Latest release tag differs from local tag (%s -> %s)", current_tag or "<none>", latest_tag)
 
-        if os.environ.get("QSS_ALLOW_AUTO_PULL", "false").lower() != "true":
-            logger.warning("Auto-pull disabled (set QSS_ALLOW_AUTO_PULL=true to enable). Skipping update.")
-            return
+            if os.environ.get("QSS_ALLOW_AUTO_PULL", "false").lower() != "true":
+                logger.warning("Auto-pull disabled (set QSS_ALLOW_AUTO_PULL=true to enable). Skipping update.")
+                return
 
-        # Ensure no uncommitted changes exist (avoid data loss)
-        status = subprocess.run([git, "status", "--porcelain"], cwd=BASE_DIR, capture_output=True, text=True)
-        if status.stdout.strip():
-            logger.warning("Uncommitted changes present in working tree; refusing hard reset. Clean the tree or disable auto-update.")
-            return
+            status = subprocess.run([git, "status", "--porcelain"], cwd=BASE_DIR, capture_output=True, text=True)
+            if status.stdout.strip():
+                logger.warning("Uncommitted changes present in working tree; refusing tag checkout. Clean the tree or disable auto-update.")
+                return
 
-        # Perform hard reset to remote branch
-        reset = subprocess.run([git, "reset", "--hard", f"origin/{branch}"], cwd=BASE_DIR, capture_output=True, text=True)
-        if reset.returncode != 0:
-            logger.warning("git reset failed: %s", reset.stderr.strip())
-            return
+            checkout = subprocess.run([git, "checkout", "-f", latest_tag], cwd=BASE_DIR, capture_output=True, text=True)
+            if checkout.returncode != 0:
+                logger.warning("git checkout failed: %s", checkout.stderr.strip())
+                return
 
-        logger.info("Pulled latest code from origin/%s — restarting process to pick up changes.", branch)
+            logger.info("Pulled latest release tag %s — restarting process to pick up changes.", latest_tag)
+        else:
+            branch = os.environ.get("QSS_GIT_BRANCH", "main")
+
+            fetch = subprocess.run([git, "fetch", "origin", branch], cwd=BASE_DIR, capture_output=True, text=True)
+            if fetch.returncode != 0:
+                logger.warning("git fetch failed: %s", fetch.stderr.strip())
+                return
+
+            local = subprocess.run([git, "rev-parse", "HEAD"], cwd=BASE_DIR, capture_output=True, text=True)
+            remote = subprocess.run([git, "rev-parse", f"origin/{branch}"], cwd=BASE_DIR, capture_output=True, text=True)
+            if local.returncode != 0 or remote.returncode != 0:
+                logger.warning("Failed to read commit hashes; skipping auto-update.")
+                return
+
+            local_sha = local.stdout.strip()
+            remote_sha = remote.stdout.strip()
+            if not local_sha or not remote_sha:
+                logger.info("Could not determine commit SHAs; skipping auto-update.")
+                return
+
+            if local_sha == remote_sha:
+                logger.info("Local repository is up-to-date with origin/%s", branch)
+                return
+
+            logger.info("Remote origin/%s differs from local HEAD (%s -> %s)", branch, local_sha[:8], remote_sha[:8])
+
+            if os.environ.get("QSS_ALLOW_AUTO_PULL", "false").lower() != "true":
+                logger.warning("Auto-pull disabled (set QSS_ALLOW_AUTO_PULL=true to enable). Skipping update.")
+                return
+
+            status = subprocess.run([git, "status", "--porcelain"], cwd=BASE_DIR, capture_output=True, text=True)
+            if status.stdout.strip():
+                logger.warning("Uncommitted changes present in working tree; refusing hard reset. Clean the tree or disable auto-update.")
+                return
+
+            reset = subprocess.run([git, "reset", "--hard", f"origin/{branch}"], cwd=BASE_DIR, capture_output=True, text=True)
+            if reset.returncode != 0:
+                logger.warning("git reset failed: %s", reset.stderr.strip())
+                return
+
+            logger.info("Pulled latest code from origin/%s — restarting process to pick up changes.", branch)
+
         # Prevent looping by marking performed and re-exec the process
         os.environ["QSS_AUTO_UPDATE_PERFORMED"] = "1"
         python = sys.executable

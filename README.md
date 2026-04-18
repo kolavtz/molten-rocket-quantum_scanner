@@ -176,47 +176,36 @@ Helper scripts included:
 
 ## CI/CD and Auto-update
 
-This repository includes a GitHub Actions workflow to run tests and deploy to a production server when a GitHub Release is published (or when manually dispatched).
-The deploy job is bound to the GitHub Environment named `production`, so you can add environment-specific protection rules and secrets in GitHub without changing the workflow file.
+This repository includes a GitHub Actions workflow to run tests and package a production-ready release when a GitHub Release is published (or when manually dispatched).
+The release job attaches a source bundle ZIP to the GitHub Release instead of deploying to a server.
 
-Configuration (set these as GitHub repository secrets):
+No production SSH secrets are needed for the packaging workflow itself — GitHub Actions uses the built-in token to create the release asset.
 
-- `PRODUCTION_HOST` — production server SSH host (e.g. `prod.example.com`)
-- `PRODUCTION_SSH_USER` — SSH user (e.g. `deploy`)
-- `PRODUCTION_SSH_KEY` — private SSH key used by Actions to connect (keep secret)
-- `PRODUCTION_SSH_PORT` — optional SSH port (default `22`)
-- `PRODUCTION_DEPLOY_PATH` — absolute path on the server where the repo is checked out
-- `PRODUCTION_REPO_URL` — optional remote URL to use on the production server (recommended: SSH URL such as `git@github.com:owner/repo.git`)
+The workflow file is `.github/workflows/release-package.yml` and will:
 
-GitHub Environment setup:
+1. Check out the release tag/ref
+2. Copy only runtime files needed to run the app (`web/`, `src/`, `middleware/`, `migrations/`, `config.py`, `Procfile`, `requirements.txt`)
+3. Exclude tests, docs, GitHub workflow files, temp files, and other development-only content
+4. Publish a ZIP bundle to the GitHub Release and upload the same bundle as a workflow artifact
 
-- Create or reuse an environment named `production`
-- Store the secrets above in that environment so deploy approvals and secret scope stay isolated from non-production workflows
-- Optionally add a `PRODUCTION_URL` environment variable if you want the Actions UI to show the live app URL
-
-The workflow file is `.github/workflows/ci-cd-deploy.yml` and will:
-
-1. Run tests (pytest)
-2. If tests pass, SSH into the production server, deploy the selected release ref (tag/branch/SHA) into a persistent git checkout at `PRODUCTION_DEPLOY_PATH`, install requirements, and attempt to restart `quantumshield.service` (or use Docker Compose if present).
-
-Note: The deployment commands are intentionally conservative — replace `quantumshield.service` with your systemd service name or adjust the restart commands to match your environment.
-
-Temporary deploy model
-
-- The server keeps a persistent git checkout at `PRODUCTION_DEPLOY_PATH`.
-- This enables startup auto-update checks in the app (`QSS_AUTO_UPDATE_ON_START`) because the runtime directory is a valid git work tree.
+To package a new release manually, run the workflow from the Actions tab and provide the release tag you want to publish.
 
 Auto-update on start
 
-If you want the running app process itself to check the remote for updates when the process starts, enable the following environment variables on the server (in the app's runtime environment):
+If you want the running app process itself to check for updates when the process starts, enable the following environment variables on the server (in the app's runtime environment):
 
 - `QSS_AUTO_UPDATE_ON_START=true` — enable startup update check
-- `QSS_ALLOW_AUTO_PULL=true` — allow the process to perform a hard reset to `origin/<branch>` (dangerous if local changes exist)
-- `QSS_GIT_BRANCH=main` — branch to compare/checkout
+- `QSS_AUTO_UPDATE_SOURCE=release` — follow the newest Git tag/release instead of branch HEAD
+- `QSS_ALLOW_AUTO_PULL=true` — allow the process to perform a hard reset or tag checkout (dangerous if local changes exist)
+- `QSS_GIT_BRANCH=main` — branch to compare/checkout when `QSS_AUTO_UPDATE_SOURCE=branch`
+- `QSS_RELEASE_TAG_PREFIX=v` — optional tag prefix when following releases (defaults to `v`)
 
-Important: for auto-update to work reliably in private repositories, configure server-side git credentials (typically SSH deploy key + `PRODUCTION_REPO_URL` as SSH URL).
+Important: for auto-update to work reliably in private repositories, configure server-side git credentials (typically SSH deploy key and a git remote URL the app can fetch from).
 
-Behavior: if enabled and the local HEAD differs from `origin/<branch]`, the process will (when `QSS_ALLOW_AUTO_PULL=true` and working tree is clean) reset to the remote and re-exec the Python process so the new code is used.
+Behavior:
+
+- In `branch` mode, if the local HEAD differs from `origin/<branch>`, the process will (when `QSS_ALLOW_AUTO_PULL=true` and the working tree is clean) reset to the remote and re-exec the Python process.
+- In `release` mode, if the latest release tag differs from the current checked-out tag, the process will fetch tags, checkout the newest tag, and re-exec the Python process so the new code is used.
 
 Security and safety
 
