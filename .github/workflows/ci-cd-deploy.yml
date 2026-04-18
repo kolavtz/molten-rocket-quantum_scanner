@@ -1,24 +1,31 @@
 name: CI/CD — Production Deploy
-run-name: Production Deploy (${{ github.event.release.tag_name }})
+run-name: Production Deploy (${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.deploy_ref || github.ref_name }})
 
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      deploy_ref:
+        description: 'Tag, branch, or commit SHA to deploy to production'
+        required: true
+        default: 'main'
 
 permissions:
   contents: read
 
 concurrency:
-  group: production-deploy
+  group: production-deploy-${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.deploy_ref || github.run_id }}
   cancel-in-progress: false
 
 env:
-  DEPLOY_REF: ${{ github.event.release.tag_name }}
+  DEPLOY_REF: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.deploy_ref }}
 
 jobs:
   test:
     name: Run tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
         with:
@@ -42,6 +49,7 @@ jobs:
     name: Deploy to production
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment:
       name: production
     steps:
@@ -91,8 +99,17 @@ jobs:
             git fetch --tags --prune origin
 
             echo "Deploying ref: $DEPLOY_REF"
-            git checkout "$DEPLOY_REF"
-            git reset --hard "origin/$DEPLOY_REF" || true
+            git checkout -f "$DEPLOY_REF"
+
+            if git show-ref --verify --quiet "refs/remotes/origin/$DEPLOY_REF"; then
+              git reset --hard "origin/$DEPLOY_REF"
+            elif git rev-parse -q --verify "refs/tags/$DEPLOY_REF" >/dev/null 2>&1; then
+              git checkout -f "refs/tags/$DEPLOY_REF"
+            else
+              # Commit SHA or detached ref; keep checked-out state.
+              echo "Using detached ref $DEPLOY_REF"
+            fi
+
             git clean -fd
 
             # Strip tokenized remote URL after deploy to avoid persisting ephemeral token in .git/config.
