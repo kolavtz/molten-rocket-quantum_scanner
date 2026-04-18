@@ -1,15 +1,9 @@
 name: CI/CD — Production Deploy
-run-name: Production Deploy (${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.ref || github.ref_name }})
+run-name: Production Deploy (${{ github.event.release.tag_name }})
 
 on:
   release:
     types: [published]
-  workflow_dispatch:
-    inputs:
-      ref:
-        description: 'Tag, branch, or SHA to deploy to production (leave empty to use main)'
-        required: false
-        default: ''
 
 permissions:
   contents: read
@@ -19,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DEPLOY_REF: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.ref || 'main' }}
+  DEPLOY_REF: ${{ github.event.release.tag_name }}
 
 jobs:
   test:
@@ -48,7 +42,6 @@ jobs:
     name: Deploy to production
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'release'
     environment:
       name: production
     steps:

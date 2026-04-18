@@ -30,3 +30,6 @@ results/
 scripts/reset_admin_creds.py
 scan_results/22dcbba6_cbom.json
 scan_results/*.json
+
+# Local copied skill source (not a real submodule in this repo)
+.agents/skills/ui-ux-pro-max-skill/
