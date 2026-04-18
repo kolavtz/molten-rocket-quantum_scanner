@@ -347,7 +347,11 @@ def list_vulnerabilities():
         if sort_col not in _SORT_WHITELIST:
             sort_col = "cvss"
 
-        query = db_session.query(VulnerabilityCache)
+        query = (
+            db_session.query(VulnerabilityCache, Asset.target.label("asset_target"))
+            .join(Asset, VulnerabilityCache.asset_id == Asset.id)
+            .filter(Asset.is_deleted == False)
+        )
 
         if severity_filter and severity_filter in _SEVERITY_WHITELIST:
             query = query.filter(VulnerabilityCache.severity == severity_filter)
@@ -368,15 +372,8 @@ def list_vulnerabilities():
         total = query.count()
         items_q = query.offset((page - 1) * page_size).limit(page_size).all()
 
-        # Build asset name lookup
-        asset_ids = list({item.asset_id for item in items_q})
-        assets = {}
-        if asset_ids:
-            for a in db_session.query(Asset.id, Asset.target).filter(Asset.id.in_(asset_ids)).all():
-                assets[a.id] = a.target
-
         items = []
-        for row in items_q:
+        for row, asset_target in items_q:
             items.append({
                 "id": row.id,
                 "cve_id": row.cve_id,
@@ -388,7 +385,7 @@ def list_vulnerabilities():
                 "source": row.source,
                 "fetched_at": row.fetched_at.isoformat() if row.fetched_at else None,
                 "asset_id": row.asset_id,
-                "asset_target": assets.get(row.asset_id, "Unknown"),
+                "asset_target": asset_target or "Unknown",
             })
 
         total_pages = max(1, (total + page_size - 1) // page_size)
@@ -546,10 +543,16 @@ def vulnerability_stats():
     All values from vulnerability_cache (real DB data only).
     """
     try:
-        rows = db_session.query(
-            VulnerabilityCache.severity,
-            func.count(VulnerabilityCache.id).label("cnt"),
-        ).group_by(VulnerabilityCache.severity).all()
+        rows = (
+            db_session.query(
+                VulnerabilityCache.severity,
+                func.count(VulnerabilityCache.id).label("cnt"),
+            )
+            .join(Asset, VulnerabilityCache.asset_id == Asset.id)
+            .filter(Asset.is_deleted == False)
+            .group_by(VulnerabilityCache.severity)
+            .all()
+        )
 
         counts: dict[str, int] = {s: 0 for s in ("critical", "high", "medium", "low", "unknown")}
         for row in rows:
@@ -562,9 +565,12 @@ def vulnerability_stats():
             "data": {
                 "total": total,
                 "by_severity": counts,
-                "last_updated": db_session.query(
-                    func.max(VulnerabilityCache.fetched_at)
-                ).scalar(),
+                "last_updated": (
+                    db_session.query(func.max(VulnerabilityCache.fetched_at))
+                    .join(Asset, VulnerabilityCache.asset_id == Asset.id)
+                    .filter(Asset.is_deleted == False)
+                    .scalar()
+                ),
             },
         }), 200
 
@@ -678,8 +684,10 @@ def aggregated_vulnerabilities():
         query = db_session.query(
             VulnerabilityCache,
             Asset.target.label("asset_target"),
-        ).outerjoin(
+        ).join(
             Asset, VulnerabilityCache.asset_id == Asset.id
+        ).filter(
+            Asset.is_deleted == False
         )
         
         # Apply filters
@@ -818,8 +826,10 @@ def top_software_vulnerabilities():
         rows = db_session.query(
             VulnerabilityCache,
             Asset.target.label("asset_target"),
-        ).outerjoin(
+        ).join(
             Asset, VulnerabilityCache.asset_id == Asset.id
+        ).filter(
+            Asset.is_deleted == False
         ).all()
         
         # Group by software

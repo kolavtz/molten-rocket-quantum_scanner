@@ -104,7 +104,7 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
             return [], 0
 
         like = f"%{params['search']}%" if params.get("search") else None
-        where_parts = ["COALESCE(d.is_deleted, 0) = 0"]
+        where_parts = ["COALESCE(d.is_deleted, 0) = 0", "a.id IS NOT NULL"]
         where_parts.append("COALESCE(d.subdomain, '') NOT LIKE '*.%'")
         sql_params: dict[str, Any] = {
             "limit": params["page_size"],
@@ -222,7 +222,10 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
         return [], 0
 
     like = f"%{params['search']}%" if params.get("search") else None
-    where_parts = ["COALESCE(d.is_deleted, 0) = 0"]
+    where_parts = [
+        "COALESCE(d.is_deleted, 0) = 0",
+        "(d.asset_id IS NULL OR a.id IS NOT NULL)",
+    ]
     if tab == "ips":
         where_parts.append("COALESCE(TRIM(d.ip_address), '') <> ''")
         where_parts.append(
@@ -349,7 +352,10 @@ def _ssl_discovery_query(params: dict[str, Any]) -> tuple[list[dict[str, Any]], 
     # Legacy fallback for mixed-schema environments
     if _table_exists("discovery_ssl"):
         like = f"%{params['search']}%" if params.get("search") else None
-        where_parts = ["COALESCE(d.is_deleted, 0) = 0"]
+        where_parts = [
+            "COALESCE(d.is_deleted, 0) = 0",
+            "(d.asset_id IS NULL OR a.id IS NOT NULL)",
+        ]
         sql_params: dict[str, Any] = {
             "limit": params["page_size"],
             "offset": (params["page"] - 1) * params["page_size"],
@@ -419,14 +425,24 @@ def _ssl_discovery_query(params: dict[str, Any]) -> tuple[list[dict[str, Any]], 
 
 def _discovery_kpis() -> dict[str, int]:
     table_counts = {}
-    for table_name, key in (
-        ("discovery_domains", "domains"),
-        ("discovery_ips", "ips"),
-        ("discovery_software", "software"),
-        ("discovery_ssl", "ssl"),
+    for table_name, key, fk_column in (
+        ("discovery_domains", "domains", "asset_id"),
+        ("discovery_ips", "ips", "asset_id"),
+        ("discovery_software", "software", "asset_id"),
+        ("discovery_ssl", "ssl", "asset_id"),
     ):
         if _table_exists(table_name):
-            count_sql = text(f"SELECT COUNT(*) FROM {table_name} WHERE COALESCE(is_deleted, 0) = 0")
+            count_sql = text(
+                f"""
+                SELECT COUNT(*)
+                FROM {table_name} d
+                LEFT JOIN assets a
+                    ON a.id = d.{fk_column}
+                   AND COALESCE(a.is_deleted, 0) = 0
+                WHERE COALESCE(d.is_deleted, 0) = 0
+                  AND (d.{fk_column} IS NULL OR a.id IS NOT NULL)
+                """
+            )
             table_counts[key] = int(db_session.execute(count_sql).scalar() or 0)
         else:
             table_counts[key] = 0

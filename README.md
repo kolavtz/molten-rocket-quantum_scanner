@@ -176,7 +176,7 @@ Helper scripts included:
 
 ## CI/CD and Auto-update
 
-This repository includes a GitHub Actions workflow to run tests and deploy to a production server when changes land on `main`.
+This repository includes a GitHub Actions workflow to run tests and deploy to a production server when a GitHub Release is published (or when manually dispatched).
 The deploy job is bound to the GitHub Environment named `production`, so you can add environment-specific protection rules and secrets in GitHub without changing the workflow file.
 
 Configuration (set these as GitHub repository secrets):
@@ -186,7 +186,7 @@ Configuration (set these as GitHub repository secrets):
 - `PRODUCTION_SSH_KEY` — private SSH key used by Actions to connect (keep secret)
 - `PRODUCTION_SSH_PORT` — optional SSH port (default `22`)
 - `PRODUCTION_DEPLOY_PATH` — absolute path on the server where the repo is checked out
-- `PRODUCTION_BRANCH` — branch to deploy (default `main`)
+- `PRODUCTION_REPO_URL` — optional remote URL to use on the production server (recommended: SSH URL such as `git@github.com:owner/repo.git`)
 
 GitHub Environment setup:
 
@@ -197,15 +197,14 @@ GitHub Environment setup:
 The workflow file is `.github/workflows/ci-cd-deploy.yml` and will:
 
 1. Run tests (pytest)
-2. If tests pass, SSH into the production server, perform a temporary `git clone` of the requested ref, copy only the runtime files the app needs into `PRODUCTION_DEPLOY_PATH`, install requirements from that copied tree, and attempt to restart `quantumshield.service` (or use Docker Compose if present).
+2. If tests pass, SSH into the production server, deploy the selected release ref (tag/branch/SHA) into a persistent git checkout at `PRODUCTION_DEPLOY_PATH`, install requirements, and attempt to restart `quantumshield.service` (or use Docker Compose if present).
 
 Note: The deployment commands are intentionally conservative — replace `quantumshield.service` with your systemd service name or adjust the restart commands to match your environment.
 
 Temporary deploy model
 
-- The server does not keep a persistent git checkout for production updates.
-- Each deployment clones the latest branch into a temporary directory, then copies only the required app files into the live deployment path.
-- This is a short-term bridge until the full CI/CD pipeline is implemented later.
+- The server keeps a persistent git checkout at `PRODUCTION_DEPLOY_PATH`.
+- This enables startup auto-update checks in the app (`QSS_AUTO_UPDATE_ON_START`) because the runtime directory is a valid git work tree.
 
 Auto-update on start
 
@@ -214,6 +213,8 @@ If you want the running app process itself to check the remote for updates when 
 - `QSS_AUTO_UPDATE_ON_START=true` — enable startup update check
 - `QSS_ALLOW_AUTO_PULL=true` — allow the process to perform a hard reset to `origin/<branch>` (dangerous if local changes exist)
 - `QSS_GIT_BRANCH=main` — branch to compare/checkout
+
+Important: for auto-update to work reliably in private repositories, configure server-side git credentials (typically SSH deploy key + `PRODUCTION_REPO_URL` as SSH URL).
 
 Behavior: if enabled and the local HEAD differs from `origin/<branch]`, the process will (when `QSS_ALLOW_AUTO_PULL=true` and working tree is clean) reset to the remote and re-exec the Python process so the new code is used.
 

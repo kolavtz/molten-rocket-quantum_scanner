@@ -1625,7 +1625,7 @@ def get_scan(scan_id: str) -> Optional[Dict[str, Any]]:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT report_json, is_encrypted FROM scans WHERE scan_id = %s", (scan_id,)
+            "SELECT report_json, is_encrypted FROM scans WHERE scan_id = %s AND COALESCE(is_deleted, 0) = 0", (scan_id,)
         )
         row = cur.fetchone()
         if row:
@@ -1651,7 +1651,7 @@ def list_scans(limit: int = 50) -> List[Dict[str, Any]]:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT report_json, is_encrypted FROM scans ORDER BY scanned_at DESC LIMIT %s",
+            "SELECT report_json, is_encrypted FROM scans WHERE COALESCE(is_deleted, 0) = 0 ORDER BY scanned_at DESC LIMIT %s",
             (limit,),
         )
         results = []

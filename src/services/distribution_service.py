@@ -16,12 +16,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict
 
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, or_
 
 from config import CERT_EXPIRY_BUCKETS, EXPIRING_CERT_THRESHOLD_DAYS
 from src.db import db_session
 from src.models import (
-    Asset, CertExpiryBucket, Certificate
+    Asset, CertExpiryBucket, Certificate, DiscoverySSL
 )
 
 
@@ -217,9 +217,27 @@ class DistributionService:
         today = datetime.utcnow()
         
         # Non-deleted certificates
-        certs = db_session.query(Certificate).filter(
-            Certificate.is_deleted == False
-        ).all()
+        certs = (
+            db_session.query(Certificate)
+            .join(Asset, Certificate.asset_id == Asset.id)
+            .filter(
+                Certificate.is_deleted == False,
+                Asset.is_deleted == False,
+            )
+            .all()
+        )
+
+        if not certs:
+            certs = (
+                db_session.query(DiscoverySSL)
+                .outerjoin(Asset, DiscoverySSL.asset_id == Asset.id)
+                .filter(
+                    DiscoverySSL.is_deleted == False,
+                    or_(DiscoverySSL.asset_id == None, Asset.is_deleted == False),
+                    DiscoverySSL.valid_until != None,
+                )
+                .all()
+            )
         
         buckets = {
             'count_0_to_30_days': 0,
@@ -309,9 +327,16 @@ class DistributionService:
                 ...
             }
         """
-        total_certs = db_session.query(Certificate).filter(
-            Certificate.is_deleted == False
-        ).count()
+        total_certs = (
+            db_session.query(func.count(Certificate.id))
+            .join(Asset, Certificate.asset_id == Asset.id)
+            .filter(
+                Certificate.is_deleted == False,
+                Asset.is_deleted == False,
+            )
+            .scalar()
+            or 0
+        )
         
         if total_certs == 0:
             return {}
@@ -319,8 +344,11 @@ class DistributionService:
         cipher_counts = db_session.query(
             Certificate.cipher_suite,
             func.count(Certificate.id).label('count')
+        ).join(
+            Asset, Certificate.asset_id == Asset.id
         ).filter(
-            Certificate.is_deleted == False
+            Certificate.is_deleted == False,
+            Asset.is_deleted == False,
         ).group_by(Certificate.cipher_suite).order_by(
             func.count(Certificate.id).desc()
         ).all()
@@ -348,9 +376,16 @@ class DistributionService:
                 ...
             }
         """
-        total_certs = db_session.query(Certificate).filter(
-            Certificate.is_deleted == False
-        ).count()
+        total_certs = (
+            db_session.query(func.count(Certificate.id))
+            .join(Asset, Certificate.asset_id == Asset.id)
+            .filter(
+                Certificate.is_deleted == False,
+                Asset.is_deleted == False,
+            )
+            .scalar()
+            or 0
+        )
         
         if total_certs == 0:
             return {}
@@ -358,8 +393,11 @@ class DistributionService:
         ca_counts = db_session.query(
             Certificate.ca_name,
             func.count(Certificate.id).label('count')
+        ).join(
+            Asset, Certificate.asset_id == Asset.id
         ).filter(
-            Certificate.is_deleted == False
+            Certificate.is_deleted == False,
+            Asset.is_deleted == False,
         ).group_by(Certificate.ca_name).order_by(
             func.count(Certificate.id).desc()
         ).limit(10).all()
@@ -388,9 +426,16 @@ class DistributionService:
                 ...
             }
         """
-        total_certs = db_session.query(Certificate).filter(
-            Certificate.is_deleted == False
-        ).count()
+        total_certs = (
+            db_session.query(func.count(Certificate.id))
+            .join(Asset, Certificate.asset_id == Asset.id)
+            .filter(
+                Certificate.is_deleted == False,
+                Asset.is_deleted == False,
+            )
+            .scalar()
+            or 0
+        )
         
         if total_certs == 0:
             return {}
@@ -398,8 +443,11 @@ class DistributionService:
         version_counts = db_session.query(
             Certificate.tls_version,
             func.count(Certificate.id).label('count')
+        ).join(
+            Asset, Certificate.asset_id == Asset.id
         ).filter(
-            Certificate.is_deleted == False
+            Certificate.is_deleted == False,
+            Asset.is_deleted == False,
         ).group_by(Certificate.tls_version).order_by(
             func.count(Certificate.id).desc()
         ).all()
@@ -427,9 +475,16 @@ class DistributionService:
                 '256': {'count': 10, 'pct': 11.1},
             }
         """
-        total_certs = db_session.query(Certificate).filter(
-            Certificate.is_deleted == False
-        ).count()
+        total_certs = (
+            db_session.query(func.count(Certificate.id))
+            .join(Asset, Certificate.asset_id == Asset.id)
+            .filter(
+                Certificate.is_deleted == False,
+                Asset.is_deleted == False,
+            )
+            .scalar()
+            or 0
+        )
         
         if total_certs == 0:
             return {}
@@ -437,8 +492,11 @@ class DistributionService:
         key_counts = db_session.query(
             Certificate.key_length,
             func.count(Certificate.id).label('count')
+        ).join(
+            Asset, Certificate.asset_id == Asset.id
         ).filter(
-            Certificate.is_deleted == False
+            Certificate.is_deleted == False,
+            Asset.is_deleted == False,
         ).group_by(Certificate.key_length).order_by(
             func.count(Certificate.id).desc()
         ).all()

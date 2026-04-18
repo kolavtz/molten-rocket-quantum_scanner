@@ -328,8 +328,8 @@
             const search = document.getElementById('pqcSearch')?.value || '';
             const status = (document.getElementById('pqcStatusFilter')?.value || '').toLowerCase();
             const [metricsResp, assetsResp] = await Promise.all([
-                fetch('/api/pqc-posture/metrics?search=' + encodeURIComponent(search) + '&status=' + encodeURIComponent(status), { headers: { Accept: 'application/json' }, credentials: 'same-origin' }),
-                fetch('/api/pqc-posture/assets?page=' + pqcPage + '&page_size=25&search=' + encodeURIComponent(search) + '&status=' + encodeURIComponent(status), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+                fetch('/api/pqc-posture/metrics?search=' + encodeURIComponent(search) + '&status=' + encodeURIComponent(status), { headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store' }),
+                fetch('/api/pqc-posture/assets?page=' + pqcPage + '&page_size=25&search=' + encodeURIComponent(search) + '&status=' + encodeURIComponent(status), { headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store' })
             ]);
             const metricsResult = await metricsResp.json();
             const assetsResult = await assetsResp.json();

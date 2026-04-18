@@ -9,7 +9,7 @@ from typing import Dict, List, Any, Optional
 import json
 
 import logging
-from sqlalchemy import text, func, desc, and_
+from sqlalchemy import text, func, desc, and_, or_
 
 from src.models import (
     Asset, Scan, Certificate, CBOMEntry, PQCClassification,
@@ -418,12 +418,15 @@ class AssetService:
         detected_at_expr = self._discovery_detected_at_expr(DiscoveryDomain)
         new_domains = (
             db_session.query(DiscoveryDomain, detected_at_expr.label("detected_at"))
+            .outerjoin(Asset, DiscoveryDomain.asset_id == Asset.id)
             .outerjoin(Scan, DiscoveryDomain.scan_id == Scan.id)
             .filter(
                 and_(
                     DiscoveryDomain.is_deleted == False,
                     DiscoveryDomain.promoted_to_inventory == False,
                     detected_at_expr >= threshold,
+                    or_(DiscoveryDomain.asset_id.is_(None), Asset.is_deleted == False),
+                    or_(DiscoveryDomain.scan_id.is_(None), Scan.is_deleted == False),
                 )
             )
             .all()
@@ -451,11 +454,25 @@ class AssetService:
 
     def get_top_vulnerable_software(self, limit: int = 5) -> List[Dict[str, Any]]:
         """Get top vulnerable software from discovery or CBOM."""
-        # Query DiscoverySoftware for products with many occurrences or specific categories
-        software = db_session.query(
-            DiscoverySoftware.product,
-            func.count(DiscoverySoftware.id).label('count')
-        ).group_by(DiscoverySoftware.product).order_by(desc('count')).limit(limit).all()
+        # Query discovery software tied to active inventory/scans only.
+        software = (
+            db_session.query(
+                DiscoverySoftware.product,
+                func.count(DiscoverySoftware.id).label('count')
+            )
+            .outerjoin(Asset, DiscoverySoftware.asset_id == Asset.id)
+            .outerjoin(Scan, DiscoverySoftware.scan_id == Scan.id)
+            .filter(
+                DiscoverySoftware.is_deleted == False,
+                or_(DiscoverySoftware.asset_id.is_(None), Asset.is_deleted == False),
+                or_(DiscoverySoftware.scan_id.is_(None), Scan.is_deleted == False),
+                func.trim(func.coalesce(DiscoverySoftware.product, "")) != "",
+            )
+            .group_by(DiscoverySoftware.product)
+            .order_by(desc('count'))
+            .limit(limit)
+            .all()
+        )
         
         return [{"product": s[0], "count": s[1]} for s in software]
 
@@ -607,14 +624,14 @@ class AssetService:
         Consolidates ALL telemetry for a single asset into a unified DTO.
         """
         try:
-            asset = db_session.query(Asset).filter(Asset.id == asset_id).first()
+            asset = db_session.query(Asset).filter(Asset.id == asset_id, Asset.is_deleted == False).first()
             if not asset: return {"success": False, "message": "Asset not found"}
 
             # Get Discovery Info from split tables
-            discovery_domains = db_session.query(DiscoveryDomain).filter(DiscoveryDomain.asset_id == asset_id).all()
-            discovery_ssl = db_session.query(DiscoverySSL).filter(DiscoverySSL.asset_id == asset_id).all()
-            discovery_ips = db_session.query(DiscoveryIP).filter(DiscoveryIP.asset_id == asset_id).all()
-            discovery_software = db_session.query(DiscoverySoftware).filter(DiscoverySoftware.asset_id == asset_id).all()
+            discovery_domains = db_session.query(DiscoveryDomain).filter(DiscoveryDomain.asset_id == asset_id, DiscoveryDomain.is_deleted == False).all()
+            discovery_ssl = db_session.query(DiscoverySSL).filter(DiscoverySSL.asset_id == asset_id, DiscoverySSL.is_deleted == False).all()
+            discovery_ips = db_session.query(DiscoveryIP).filter(DiscoveryIP.asset_id == asset_id, DiscoveryIP.is_deleted == False).all()
+            discovery_software = db_session.query(DiscoverySoftware).filter(DiscoverySoftware.asset_id == asset_id, DiscoverySoftware.is_deleted == False).all()
 
             discovery_events = []
             for d in discovery_domains:
@@ -630,12 +647,12 @@ class AssetService:
                 detected_at = self._discovery_detected_at_value(d)
                 discovery_events.append({"date": detected_at.isoformat() if detected_at else None, "type": "Software", "status": d.status})
             
-            latest_scan = db_session.query(Scan).filter(Scan.asset_id == asset_id, Scan.status == "complete").order_by(Scan.completed_at.desc()).first()
+            latest_scan = db_session.query(Scan).filter(Scan.asset_id == asset_id, Scan.status == "complete", Scan.is_deleted == False).order_by(Scan.completed_at.desc()).first()
             geo_info = self.ip_locator.get_location(asset.ipv4 or asset.target)
 
-            cert = db_session.query(Certificate).filter(Certificate.asset_id == asset_id).first()
-            cbom = db_session.query(CBOMEntry).filter(CBOMEntry.asset_id == asset_id).all()
-            pqc_flaws = db_session.query(PQCClassification).filter(PQCClassification.asset_id == asset_id).all()
+            cert = db_session.query(Certificate).filter(Certificate.asset_id == asset_id, Certificate.is_deleted == False).first()
+            cbom = db_session.query(CBOMEntry).filter(CBOMEntry.asset_id == asset_id, CBOMEntry.is_deleted == False).all()
+            pqc_flaws = db_session.query(PQCClassification).filter(PQCClassification.asset_id == asset_id, PQCClassification.is_deleted == False).all()
 
             total_algos = len(cbom)
             safe_algos = sum(1 for e in cbom if getattr(e, "quantum_safe", False))

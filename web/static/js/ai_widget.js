@@ -9,10 +9,17 @@
 
   async function fetchJsonOrText(path){
     try{
-      const r = await fetch(path);
+      const r = await fetch(path, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { 'Accept': 'application/json' }
+      });
+      if(!r.ok){
+        return { __context_error: true, status: r.status, path };
+      }
       return await qsParseJsonResponse(r);
     }catch(e){
-      try{ const r2 = await fetch(path); return { error: 'fetch failed' }; }catch(_) { return null; }
+      return { __context_error: true, status: 0, path, error: String(e && e.message ? e.message : e) };
     }
   }
 
@@ -84,8 +91,8 @@
         } else if(act.type === 'api' && act.path){
           const j = await fetchJsonOrText(act.path);
           const label = act.label || 'API_CONTEXT';
-          if(!j){
-            parts.push(`${label}: unavailable`);
+          if(!j || j.__context_error){
+            parts.push(`${label}: unavailable (data retrieval gap; do not treat as a security incident)`);
           } else {
             parts.push(`${label}: ${truncate(JSON.stringify(j), 2200)}`);
           }
@@ -205,6 +212,14 @@
       try{
         // Prepare history and include any pre-attached auto-fetched data (from open)
         let history = [];
+        const contextPolicy = [
+          'Context policy:',
+          '- Analyze active data only; soft-deleted records are excluded from current posture.',
+          '- Treat API/context fetch failures (including 404) as telemetry gaps, not direct security incidents.',
+          '- If data is missing, state insufficient evidence instead of inferring risk.'
+        ].join('\n');
+        history.push({role:'system', content: contextPolicy});
+
         if(AGENT_MODE && window.__ai_last_attached_data){
           history.push({role:'system', content: 'Attached Data:\n' + window.__ai_last_attached_data});
           // consume it so it is not reused unintentionally

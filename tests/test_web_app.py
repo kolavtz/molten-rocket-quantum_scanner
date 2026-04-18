@@ -846,6 +846,126 @@ class TestScanPipelinePersistence:
         assert isinstance(latest_cert.get('certificate_details'), dict)
         assert latest_cert['certificate_details'].get('certificate_signature_algorithm') == 'sha256WithRSAEncryption'
 
+    def test_run_scan_pipeline_refreshes_existing_asset_for_same_hostname(self, client):
+        host = f"refresh-{uuid4().hex[:8]}.example"
+        legacy_target = f"https://{host}/legacy-path"
+
+        existing_asset = Asset(
+            target=legacy_target,
+            url=legacy_target,
+            asset_type='Web App',
+            owner='stale-owner',
+            risk_level='Critical',
+            is_deleted=False,
+        )
+        db_session.add(existing_asset)
+        db_session.commit()
+
+        fake_service = SimpleNamespace(
+            host='203.0.113.20',
+            port=443,
+            service='https',
+            is_tls=True,
+            banner='nginx/1.25.5',
+        )
+        fake_tls_result = {
+            'host': '203.0.113.20',
+            'port': 443,
+            'protocol_version': 'TLS 1.3',
+            'cipher_suite': 'TLS_AES_256_GCM_SHA384',
+            'certificate': {
+                'subject': {'commonName': host},
+                'issuer': {'commonName': 'Test Root CA'},
+                'subject_cn': host,
+                'issuer_cn': 'Test Root CA',
+                'serial_number': f'{uuid4().hex[:16]}',
+                'not_before': 'Mar 01 00:00:00 2026 GMT',
+                'not_after': 'Mar 01 00:00:00 2027 GMT',
+                'signature_algorithm': 'sha256WithRSAEncryption',
+                'public_key_type': 'RSA',
+                'public_key_bits': 2048,
+                'san_domains': [host],
+                'is_expired': False,
+                'days_until_expiry': 365,
+                'fingerprint_sha256': (uuid4().hex + uuid4().hex).upper(),
+            },
+        }
+
+        with patch('web.app.NetworkScanner') as scanner_cls, \
+             patch('web.app.TLSAnalyzer') as analyzer_cls, \
+             patch('web.app.PQCDetector') as detector_cls, \
+             patch('web.app.CBOMBuilder') as builder_cls, \
+             patch('web.app.QuantumSafeChecker') as checker_cls, \
+             patch('web.app.CertificateIssuer') as issuer_cls, \
+             patch('web.app.RecommendationEngine') as rec_engine_cls, \
+             patch('web.app.ReportGenerator') as reporter_cls, \
+             patch('web.app.CycloneDXGenerator') as cdx_cls, \
+             patch('web.app._collect_dns_records', return_value=[]), \
+             patch('web.app._geolocate_ip', return_value=None):
+
+            scanner = scanner_cls.return_value
+            scanner.discover_services.return_value = [fake_service]
+            scanner.discover_targets.return_value = []
+
+            analyzer = analyzer_cls.return_value
+            analyzer.analyze_endpoint.return_value = SimpleNamespace(is_successful=True, to_dict=lambda: fake_tls_result)
+
+            detector = detector_cls.return_value
+            detector.assess_endpoint.return_value = SimpleNamespace(
+                to_dict=lambda: {
+                    'algorithm': 'ML-KEM-768',
+                    'category': 'key_exchange',
+                    'status': 'safe',
+                    'nist_status': 'approved',
+                    'score': 95.0,
+                    'overall_status': 'quantum_safe',
+                    'is_quantum_safe': True,
+                    'risk_level': 'LOW',
+                }
+            )
+
+            builder = builder_cls.return_value
+            builder.build.return_value = SimpleNamespace(to_dict=lambda: {'components': [{'name': 'TLS_AES_256_GCM_SHA384', 'type': 'algorithm'}]})
+
+            checker = checker_cls.return_value
+            checker.validate.return_value = SimpleNamespace(to_dict=lambda: {'label': 'Safe', 'findings': []})
+
+            issuer = issuer_cls.return_value
+            issuer.issue_labels.return_value = [SimpleNamespace(to_dict=lambda: {'label': 'safe'})]
+
+            rec_engine = rec_engine_cls.return_value
+            rec_engine.get_recommendations.return_value = []
+
+            reporter = reporter_cls.return_value
+            reporter.generate_summary.return_value = {
+                'timestamp': '2026-03-23T00:00:00+00:00',
+                'overview': {
+                    'average_compliance_score': 95,
+                    'total_assets': 1,
+                    'quantum_safe': 1,
+                    'quantum_vulnerable': 0,
+                },
+            }
+
+            report = web_app_module.run_scan_pipeline(host, scan_kind='manual_single', scanned_by='scanner-user')
+
+        assert report['status'] == 'complete'
+        assert report['orm_persisted'] is True
+
+        refreshed_asset = db_session.query(Asset).filter(Asset.id == existing_asset.id).first()
+        assert refreshed_asset is not None
+        assert refreshed_asset.target == host
+        assert refreshed_asset.url == f'https://{host}'
+        assert refreshed_asset.owner == 'scanner-user'
+        assert refreshed_asset.last_scan_id is not None
+        assert refreshed_asset.risk_level in {'Low', 'Medium', 'High', 'Critical'}
+
+        matching_rows = [
+            row for row in db_session.query(Asset).filter(Asset.is_deleted == False).all()
+            if str(getattr(row, 'target', '') or '').strip().lower() in {host, legacy_target}
+        ]
+        assert len(matching_rows) == 1
+
     def test_collect_related_domains_filters_unrelated_dns(self):
         target = "portal.example.com"
         tls_results = [{"san_domains": ["www.example.com", "*.api.example.com"]}]

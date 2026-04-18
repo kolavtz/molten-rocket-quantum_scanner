@@ -1856,8 +1856,9 @@ def run_scan_pipeline(
     from src.db import db_session
     from src.models import Scan, Asset, Certificate, PQCClassification, CBOMSummary, CBOMEntry, \
         DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware
-    from sqlalchemy import func
+    from sqlalchemy import func, or_
     from sqlalchemy.exc import SQLAlchemyError
+    from src.services.risk_profile_service import derive_risk_level_from_scan_report
     report["orm_persisted"] = False
     try:
         dt = datetime.strptime(report.get("timestamp", datetime.now(timezone.utc).isoformat()), "%Y-%m-%dT%H:%M:%S.%f%z") if "." in report.get("timestamp", "") else datetime.now()
@@ -1888,13 +1889,26 @@ def run_scan_pipeline(
         
         # Resolve Asset for relational sync across discovery/certificates/PQC/CBOM.
         asset_id = None
-        inventory_asset = (
+        raw_target_lower = str(target or "").strip().lower()
+        inventory_candidates = (
             db_session.query(Asset)
-            .filter(func.lower(Asset.name) == canonical_target)
-            .first()
+            .filter(
+                or_(
+                    func.lower(func.coalesce(Asset.target, "")) == canonical_target,
+                    func.lower(func.coalesce(Asset.target, "")) == raw_target_lower,
+                    func.lower(func.coalesce(Asset.url, "")).like(f"%{canonical_target}%"),
+                )
+            )
+            .order_by(Asset.is_deleted.asc(), Asset.updated_at.desc(), Asset.id.desc())
+            .all()
         )
+        inventory_asset = next((a for a in inventory_candidates if not bool(getattr(a, "is_deleted", False))), None)
+        if inventory_asset is None and inventory_candidates:
+            inventory_asset = inventory_candidates[0]
         if inventory_asset and getattr(inventory_asset, "is_deleted", False):
             inventory_asset.is_deleted = False
+            inventory_asset.deleted_at = None
+            inventory_asset.deleted_by_user_id = None
         if not inventory_asset:
             score_risk = "Critical"
             if overall_score >= 80:
@@ -1914,13 +1928,25 @@ def run_scan_pipeline(
             )
             db_session.add(inventory_asset)
             db_session.flush()
+
+        # Refresh existing inventory metadata on every scan so stale values are replaced.
+        refreshed_risk = derive_risk_level_from_scan_report(
+            report,
+            fallback=str(getattr(inventory_asset, "risk_level", "") or "Medium"),
+        )
+        if canonical_target:
+            inventory_asset.target = canonical_target
+            inventory_asset.asset_key = canonical_target
+            inventory_asset.url = f"https://{canonical_target}"
+        if asset_class:
+            inventory_asset.asset_type = str(asset_class)
+        if scanned_by:
+            inventory_asset.owner = str(scanned_by)
+        inventory_asset.risk_level = refreshed_risk
+
         asset_id = int(getattr(inventory_asset, "id", 0) or 0)
         inventory_asset.last_scan_id = int(getattr(db_scan, "id", 0) or 0)
-        if not str(getattr(inventory_asset, "url", "") or "") and canonical_target:
-            inventory_asset.url = f"https://{canonical_target}"
-        if not str(getattr(inventory_asset, "owner", "") or "").strip() and scanned_by:
-            inventory_asset.owner = str(scanned_by)
-        
+
         if inventory_asset is not None:
             for svc in discovered_services:
                 host = str(svc.get("host") or "").strip()
@@ -5077,6 +5103,84 @@ def _label_variant_for_report(report: dict[str, Any] | None) -> str:
     return "hybrid"
 
 
+def _build_public_embed_payload(scan_id: str, report: dict[str, Any] | None) -> dict[str, Any]:
+    """Build a safe, text-first embed payload from persisted scan telemetry."""
+    payload = report if isinstance(report, dict) else {}
+    overview = payload.get("overview") if isinstance(payload.get("overview"), dict) else {}
+    tls_rows = payload.get("tls_results") if isinstance(payload.get("tls_results"), list) else []
+    recs = payload.get("recommendations_detailed") if isinstance(payload.get("recommendations_detailed"), list) else []
+
+    def _to_float(value: Any, default: float = 0.0) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _to_int(value: Any, default: int = 0) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    target = str(payload.get("target") or "").strip()
+    scanned_at = (
+        str(payload.get("generated_at") or payload.get("scanned_at") or payload.get("completed_at") or "").strip()
+    )
+    compliance_score = _to_float(
+        overview.get("average_compliance_score")
+        if isinstance(overview, dict)
+        else payload.get("compliance_score"),
+        0.0,
+    )
+    quantum_vulnerable = _to_int(
+        overview.get("quantum_vulnerable") if isinstance(overview, dict) else payload.get("quantum_vuln"),
+        0,
+    )
+
+    tls_versions: list[str] = []
+    key_exchanges: list[str] = []
+    for row in tls_rows:
+        if not isinstance(row, dict):
+            continue
+        version = str(row.get("tls_version") or row.get("protocol_version") or "").strip()
+        key_exchange = str(row.get("key_exchange") or row.get("key_exchange_method") or "").strip()
+        if version and version not in tls_versions:
+            tls_versions.append(version)
+        if key_exchange and key_exchange not in key_exchanges:
+            key_exchanges.append(key_exchange)
+
+    recommendation_titles: list[str] = []
+    for rec in recs:
+        if isinstance(rec, dict):
+            title = str(rec.get("title") or rec.get("name") or "").strip()
+        else:
+            title = str(rec or "").strip()
+        if title and title not in recommendation_titles:
+            recommendation_titles.append(title)
+        if len(recommendation_titles) >= 3:
+            break
+
+    variant = _label_variant_for_report(payload)
+    status_label = {
+        "proof": "QUANTUM PROOF",
+        "hybrid": "QUANTUM HYBRID",
+        "vulnerable": "QUANTUM VULNERABLE",
+    }.get(variant, "QUANTUM STATUS")
+
+    return {
+        "scan_id": str(scan_id),
+        "target": target,
+        "status": status_label,
+        "variant": variant,
+        "compliance_score": round(compliance_score, 2),
+        "quantum_vulnerable": quantum_vulnerable,
+        "tls_versions": tls_versions,
+        "key_exchanges": key_exchanges,
+        "recommendations": recommendation_titles,
+        "scanned_at": scanned_at,
+    }
+
+
 @app.route('/labels/badge/<scan_id>.svg', methods=['GET'])
 def label_badge_svg(scan_id: str):
     """Public embeddable SVG badge for a scan result.
@@ -5146,7 +5250,7 @@ def label_badge_svg(scan_id: str):
 
 @app.route('/labels/embed.js', methods=['GET'])
 def labels_embed_js():
-    """Public script for third-party embedding of QuantumShield labels."""
+    """Public script for third-party embedding of QuantumShield text labels."""
     js = """
 (function(){
   function currentScript(){
@@ -5163,19 +5267,135 @@ def labels_embed_js():
     return;
   }
   var variant = script.getAttribute('data-variant') || 'auto';
-  var width = parseInt(script.getAttribute('data-width') || '900', 10);
+    var width = parseInt(script.getAttribute('data-width') || '920', 10);
   var maxWidth = script.getAttribute('data-max-width') || '100%';
+    var theme = (script.getAttribute('data-theme') || 'dark').toLowerCase();
   var base = script.getAttribute('data-domain') || script.src.split('/labels/embed.js')[0];
+    var dataUrl = base + '/labels/embed-data/' + encodeURIComponent(scanId) + '.json?variant=' + encodeURIComponent(variant);
 
-  var img = document.createElement('img');
-  img.src = base + '/labels/badge/' + encodeURIComponent(scanId) + '.svg?variant=' + encodeURIComponent(variant);
-  img.alt = 'QuantumShield label for scan ' + scanId;
-  img.width = width > 0 ? width : 900;
-  img.style.width = '100%';
-  img.style.maxWidth = maxWidth;
-  img.style.height = 'auto';
-  img.style.display = 'block';
-  img.style.border = '0';
+    function paletteFor(v){
+        if(v === 'proof'){
+            return {bg:'#123f2c', border:'#2ed39a', accent:'#2ed39a', title:'#f8fffb', text:'#d6f6ea'};
+        }
+        if(v === 'hybrid'){
+            return {bg:'#152347', border:'#67a3ff', accent:'#67a3ff', title:'#f5f9ff', text:'#d8e7ff'};
+        }
+        if(v === 'vulnerable'){
+            return {bg:'#4a1a1f', border:'#ff6b6b', accent:'#ff6b6b', title:'#fff5f5', text:'#ffd9d9'};
+        }
+        return theme === 'light'
+            ? {bg:'#f8fafc', border:'#334155', accent:'#0ea5e9', title:'#0f172a', text:'#334155'}
+            : {bg:'#0b1220', border:'#334155', accent:'#38bdf8', title:'#f1f5f9', text:'#cbd5e1'};
+    }
+
+    function makeChip(label, value, palette){
+        var chip = document.createElement('span');
+        chip.style.display = 'inline-flex';
+        chip.style.alignItems = 'center';
+        chip.style.gap = '6px';
+        chip.style.border = '1px solid ' + palette.border;
+        chip.style.borderRadius = '999px';
+        chip.style.padding = '4px 10px';
+        chip.style.fontSize = '12px';
+        chip.style.lineHeight = '1.2';
+        chip.style.color = palette.text;
+        chip.style.background = 'rgba(255,255,255,0.03)';
+        chip.textContent = label + ': ' + value;
+        return chip;
+    }
+
+    function renderFallback(mount, message){
+        mount.textContent = message;
+        mount.style.fontFamily = 'Inter, Segoe UI, Arial, sans-serif';
+        mount.style.border = '1px solid #475569';
+        mount.style.borderRadius = '12px';
+        mount.style.padding = '12px 14px';
+        mount.style.maxWidth = maxWidth;
+        mount.style.width = '100%';
+        mount.style.background = '#0b1220';
+        mount.style.color = '#dbeafe';
+    }
+
+    function renderCard(mount, data){
+        var v = String(data.variant || variant || 'auto').toLowerCase();
+        var palette = paletteFor(v);
+        var recs = Array.isArray(data.recommendations) ? data.recommendations : [];
+        var tlsVersions = Array.isArray(data.tls_versions) ? data.tls_versions : [];
+        var keyExchanges = Array.isArray(data.key_exchanges) ? data.key_exchanges : [];
+
+        mount.innerHTML = '';
+        mount.style.maxWidth = maxWidth;
+        mount.style.width = '100%';
+
+        var card = document.createElement('section');
+        card.style.fontFamily = 'Inter, Segoe UI, Arial, sans-serif';
+        card.style.border = '1px solid ' + palette.border;
+        card.style.borderRadius = '14px';
+        card.style.padding = '14px';
+        card.style.background = palette.bg;
+        card.style.color = palette.text;
+        card.style.boxSizing = 'border-box';
+        card.style.width = (width > 0 ? width + 'px' : '100%');
+        card.style.maxWidth = '100%';
+
+        var h = document.createElement('div');
+        h.style.display = 'flex';
+        h.style.justifyContent = 'space-between';
+        h.style.alignItems = 'center';
+        h.style.gap = '10px';
+
+        var title = document.createElement('strong');
+        title.style.fontSize = '18px';
+        title.style.letterSpacing = '0.02em';
+        title.style.color = palette.title;
+        title.textContent = String(data.status || 'QUANTUM STATUS');
+
+        var brand = document.createElement('span');
+        brand.style.fontSize = '12px';
+        brand.style.color = palette.accent;
+        brand.textContent = 'QuantumShield™';
+
+        h.appendChild(title);
+        h.appendChild(brand);
+        card.appendChild(h);
+
+        var sub = document.createElement('div');
+        sub.style.marginTop = '6px';
+        sub.style.fontSize = '13px';
+        sub.style.lineHeight = '1.45';
+        sub.textContent = 'Target: ' + (data.target || 'Unknown') + ' · Scan: ' + (data.scan_id || scanId);
+        card.appendChild(sub);
+
+        var chipRow = document.createElement('div');
+        chipRow.style.display = 'flex';
+        chipRow.style.flexWrap = 'wrap';
+        chipRow.style.gap = '8px';
+        chipRow.style.marginTop = '10px';
+
+        chipRow.appendChild(makeChip('Compliance', String(data.compliance_score != null ? data.compliance_score : 0) + '%', palette));
+        chipRow.appendChild(makeChip('TLS', tlsVersions.length ? tlsVersions.join(', ') : 'Unknown', palette));
+        chipRow.appendChild(makeChip('Key Exchange', keyExchanges.length ? keyExchanges.join(', ') : 'Unknown', palette));
+        card.appendChild(chipRow);
+
+        var footer = document.createElement('div');
+        footer.style.marginTop = '10px';
+        footer.style.fontSize = '12px';
+        footer.style.lineHeight = '1.45';
+        var recText = recs.length ? recs.slice(0, 2).join(' | ') : 'No remediation notes in current scan.';
+        footer.textContent = 'Recommendations: ' + recText;
+        card.appendChild(footer);
+
+        if(data.scanned_at){
+            var ts = document.createElement('div');
+            ts.style.marginTop = '6px';
+            ts.style.fontSize = '11px';
+            ts.style.opacity = '0.9';
+            ts.textContent = 'Scanned at: ' + data.scanned_at;
+            card.appendChild(ts);
+        }
+
+        mount.appendChild(card);
+    }
 
   var targetId = script.getAttribute('data-target');
   var mount = targetId ? document.getElementById(targetId) : null;
@@ -5183,10 +5403,52 @@ def labels_embed_js():
     mount = document.createElement('div');
     script.parentNode.insertBefore(mount, script.nextSibling);
   }
-  mount.appendChild(img);
+
+    fetch(dataUrl, { credentials: 'omit', cache: 'no-store' })
+        .then(function(resp){
+            if(!resp.ok) throw new Error('embed data http ' + resp.status);
+            return resp.json();
+        })
+        .then(function(payload){
+            if(!payload || payload.status !== 'success' || !payload.data){
+                throw new Error('invalid payload');
+            }
+            renderCard(mount, payload.data);
+        })
+        .catch(function(err){
+            console.error('[QuantumShield] text embed render failed:', err);
+            renderFallback(mount, 'QuantumShield label unavailable for scan ' + scanId + '.');
+        });
 })();
 """
     return Response(js, mimetype='application/javascript')
+
+
+@app.route('/labels/embed-data/<scan_id>.json', methods=['GET'])
+def labels_embed_data(scan_id: str):
+    """Public JSON payload for third-party text embed labels."""
+    report = _load_report_for_scan(scan_id)
+    if not report:
+        response = jsonify({"status": "error", "message": "Scan not found"})
+        response.status_code = 404
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    requested_variant = str(request.args.get("variant") or "auto").strip().lower()
+    payload = _build_public_embed_payload(scan_id, report)
+    if requested_variant in {"proof", "hybrid", "vulnerable"}:
+        payload["variant"] = requested_variant
+        payload["status"] = {
+            "proof": "QUANTUM PROOF",
+            "hybrid": "QUANTUM HYBRID",
+            "vulnerable": "QUANTUM VULNERABLE",
+        }.get(requested_variant, payload.get("status"))
+
+    response = jsonify({"status": "success", "data": payload})
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.route('/results/<scan_id>/export_pdf')
@@ -5267,9 +5529,22 @@ def api_ai_chat():
     history = payload.get('history') or []
     model = str(payload.get('model') or 'liquid/lfm2.5-1.2b')
     # Prefer system prompt provided in request, otherwise allow override from environment
-    system_prompt = payload.get('system_prompt') or os.environ.get('QSS_AI_SYSTEM_PROMPT') or (
+    base_system_prompt = payload.get('system_prompt') or os.environ.get('QSS_AI_SYSTEM_PROMPT') or (
         "You are the QuantumShield assistant. Provide concise, factual, and actionable security guidance based on any scan data supplied."
     )
+
+    # Non-negotiable assistant guardrails for data truthfulness and soft-delete awareness.
+    # These are appended even when callers provide an explicit system prompt.
+    hard_guardrails = (
+        "\n\n"
+        "QuantumShield data truth policy (mandatory):\n"
+        "1) Use only attached/internal context data. Never invent assets, metrics, endpoint states, or vulnerabilities.\n"
+        "2) Treat soft-deleted records as excluded from active posture. Active records are those not marked deleted (e.g., is_deleted=false and/or deleted_at is null where applicable).\n"
+        "3) If an endpoint/context fetch is unavailable or returns errors (including 404), classify it as a data retrieval gap, not a security incident by itself.\n"
+        "4) If evidence is incomplete, explicitly say 'insufficient data' and request the exact missing data needed.\n"
+        "5) Prefer persisted realtime telemetry semantics over stale assumptions; cite the provided values directly when possible."
+    )
+    system_prompt = f"{str(base_system_prompt).strip()}{hard_guardrails}"
 
     # Build message list in OpenAI chat format
     messages = []

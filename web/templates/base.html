@@ -204,6 +204,66 @@
             text-transform: uppercase;
             font-weight: 700;
         }
+
+        /* Global delete confirmation toast (shared across pages) */
+        .inv-toast {
+            position: fixed;
+            inset: 0;
+            z-index: 100000101;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.22s ease, visibility 0.22s ease;
+        }
+
+        .inv-toast .inv-toast-dialog {
+            pointer-events: auto;
+            background: var(--bg-card, #0b1220);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            padding: 0.9rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            width: min(540px, 92vw);
+            box-shadow: 0 14px 42px rgba(0, 0, 0, 0.55);
+            transform: translateY(10px);
+            opacity: 0;
+            transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+        }
+
+        .inv-toast .inv-toast-msg {
+            flex: 1;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+        }
+
+        .inv-toast .inv-toast-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .inv-toast.show {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .inv-toast.show .inv-toast-dialog {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .inv-toast[aria-hidden="true"] {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body class="{% if current_user.is_authenticated %}dashboard-auth{% endif %}">
