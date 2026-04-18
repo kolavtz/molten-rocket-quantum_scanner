@@ -36,3 +36,6 @@ scan_results/*.json
 
 # Local agent bundle (not a real submodule in this repo)
 agency-agents/
+
+# Local temp skill source snapshots (not submodules)
+tmp/ui-ux-pro-max-skill-src-*/
