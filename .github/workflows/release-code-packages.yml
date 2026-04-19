@@ -80,7 +80,7 @@ jobs:
           git tag -a "$TAG" -m "release $TAG" || echo "tag already exists"
           git push origin "refs/tags/$TAG" || echo "push tag failed"
 
-      - name: Build release package (exclude dev/test/editor files)
+      - name: Build release package (exclude dev/test/editor files — create tar.gz + zip)
         id: build_package
         shell: bash
         run: |
@@ -90,15 +90,19 @@ jobs:
           git ls-files > all_files.txt
           echo "Excluding development/test/CI/editor files..."
           # Exclude patterns - update these as needed. These match the user's request to omit tests, IDE, .agents and instruction files.
-          grep -E -v '(^tests/|^test_|(^|/)\.vscode/|(^|/)\.agents?/|(^|/)\.instruction(s)?/|^\.github/|^\.git/|^\.venv/|^venv/|(^|/)\.env($|/)|^docs/|^examples/|docker-compose|Dockerfile.dev|^__pycache__/|\.pyc$|(^|/)\.pytest_cache/|(^|/)\.idea/|^tmp/)' all_files.txt > include_files.txt || true
+          grep -E -v '(^tests/|^test_|(^|/)\\.vscode/|(^|/)\\.agents?/|(^|/)\\.instruction(s)?/|^\\.github/|^\\.git/|^\\.venv/|^venv/|(^|/)\\.env($|/)|^docs/|^examples/|docker-compose|Dockerfile.dev|^__pycache__/|\\.pyc$|(^|/)\\.pytest_cache/|(^|/)\\.idea/|^tmp/)' all_files.txt > include_files.txt || true
           if [ ! -s include_files.txt ]; then
             echo "No files to include after filtering — aborting"
             exit 1
           fi
-          PACKAGE_NAME="app-${TAG}.tar.gz"
-          tar -czf "artifacts/${PACKAGE_NAME}" -T include_files.txt
-          echo "Created artifacts/${PACKAGE_NAME}"
-          echo "package_path=artifacts/${PACKAGE_NAME}" >> $GITHUB_OUTPUT
+          PACKAGE_TAR="app-${TAG}.tar.gz"
+          PACKAGE_ZIP="app-${TAG}.zip"
+          tar -czf "artifacts/${PACKAGE_TAR}" -T include_files.txt
+              # create zip using a small helper script (avoids heredoc quoting issues)
+              python scripts/build_release_package.py "artifacts/${PACKAGE_ZIP}" include_files.txt
+          echo "Created artifacts/${PACKAGE_TAR} and artifacts/${PACKAGE_ZIP}"
+          echo "package_path_tar=artifacts/${PACKAGE_TAR}" >> $GITHUB_OUTPUT
+          echo "package_path_zip=artifacts/${PACKAGE_ZIP}" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         id: create_release
@@ -112,13 +116,23 @@ jobs:
           draft: false
           prerelease: ${{ env.PRERELEASE }}
 
-      - name: Upload release asset
+      - name: Upload release asset (zip)
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.build_package.outputs.package_path }}
+          asset_path: ${{ steps.build_package.outputs.package_path_zip }}
+          asset_name: app-${{ env.TAG }}.zip
+          asset_content_type: application/zip
+
+      - name: Upload release asset (tar.gz)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.build_package.outputs.package_path_tar }}
           asset_name: app-${{ env.TAG }}.tar.gz
           asset_content_type: application/gzip
 
