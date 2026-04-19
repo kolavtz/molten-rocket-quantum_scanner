@@ -8,6 +8,25 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: quantumshield
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        ports:
+          - 3306:3306
+    env:
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: "3306"
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DATABASE: quantumshield
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -26,6 +45,14 @@ jobs:
           pip install -r requirements.ci.txt
           pip install "PyMySQL>=1.1.1"
           pip install bandit pip-audit locust
+
+      - name: Wait for MySQL
+        run: |
+          for i in {1..30}; do
+            mysqladmin ping -h 127.0.0.1 -uroot -proot && break
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 1
+          done
 
       - name: Security scan - bandit
         run: bandit -r web src -x tests,tmp
