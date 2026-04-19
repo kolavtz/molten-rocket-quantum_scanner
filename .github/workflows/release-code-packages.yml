@@ -1,0 +1,126 @@
+name: Release code packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to attach to the release (e.g., v1.2.0). If empty, uses the current ref name or commit SHA.'
+        required: false
+      release_name:
+        description: 'Optional release name (defaults to tag)'
+        required: false
+      prerelease:
+        description: 'Create as prerelease (true/false)'
+        required: false
+        default: 'false'
+      create_tag:
+        description: 'If true and tag provided, create and push the tag from the current commit.'
+        required: false
+        default: 'false'
+      release_notes:
+        description: 'Optional short release notes/body'
+        required: false
+  push:
+    tags:
+      - 'v*'
+      - 'release-*'
+
+jobs:
+  package-and-release:
+    name: Package and publish release asset
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Determine tag and release name
+        id: vars
+        shell: bash
+        env:
+          TAG_INPUT: ${{ github.event.inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+          RELEASE_NAME_INPUT: ${{ github.event.inputs.release_name }}
+          PRERELEASE_INPUT: ${{ github.event.inputs.prerelease }}
+          CREATE_TAG_INPUT: ${{ github.event.inputs.create_tag }}
+          RELEASE_NOTES_INPUT: ${{ github.event.inputs.release_notes }}
+        run: |
+          set -euo pipefail
+          INPUT_TAG="${TAG_INPUT:-}"
+          REF_NAME="${REF_NAME:-}"
+          # If user provided a tag use it, else if this run was triggered by a pushed tag use that tag name
+          if [ -n "$INPUT_TAG" ] && [ "$INPUT_TAG" != 'null' ]; then
+            TAG="$INPUT_TAG"
+          elif [ -n "$GITHUB_REF" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="$REF_NAME"
+          else
+            TAG="$(git rev-parse --short=8 HEAD)"
+          fi
+          RELEASE_NAME="${RELEASE_NAME_INPUT:-$TAG}"
+          PRERELEASE="${PRERELEASE_INPUT:-false}"
+          CREATE_TAG="${CREATE_TAG_INPUT:-false}"
+          RELEASE_NOTES="${RELEASE_NOTES_INPUT:-}"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
+          echo "PRERELEASE=$PRERELEASE" >> $GITHUB_ENV
+          echo "CREATE_TAG=$CREATE_TAG" >> $GITHUB_ENV
+          echo "RELEASE_NOTES=$RELEASE_NOTES" >> $GITHUB_ENV
+          echo "Determined TAG=$TAG RELEASE_NAME=$RELEASE_NAME"
+
+      - name: Optionally create and push tag
+        if: env.CREATE_TAG == 'true' && env.TAG != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Creating and pushing tag $TAG"
+          git tag -a "$TAG" -m "release $TAG" || echo "tag already exists"
+          git push origin "refs/tags/$TAG" || echo "push tag failed"
+
+      - name: Build release package (exclude dev/test/editor files)
+        id: build_package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          echo "Listing tracked files..."
+          git ls-files > all_files.txt
+          echo "Excluding development/test/CI/editor files..."
+          # Exclude patterns - update these as needed. These match the user's request to omit tests, IDE, .agents and instruction files.
+          grep -E -v '(^tests/|^test_|(^|/)\.vscode/|(^|/)\.agents?/|(^|/)\.instruction(s)?/|^\.github/|^\.git/|^\.venv/|^venv/|(^|/)\.env($|/)|^docs/|^examples/|docker-compose|Dockerfile.dev|^__pycache__/|\.pyc$|(^|/)\.pytest_cache/|(^|/)\.idea/|^tmp/)' all_files.txt > include_files.txt || true
+          if [ ! -s include_files.txt ]; then
+            echo "No files to include after filtering — aborting"
+            exit 1
+          fi
+          PACKAGE_NAME="app-${TAG}.tar.gz"
+          tar -czf "artifacts/${PACKAGE_NAME}" -T include_files.txt
+          echo "Created artifacts/${PACKAGE_NAME}"
+          echo "package_path=artifacts/${PACKAGE_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.TAG }}
+          release_name: ${{ env.RELEASE_NAME }}
+          body: ${{ env.RELEASE_NOTES }}
+          draft: false
+          prerelease: ${{ env.PRERELEASE }}
+
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.build_package.outputs.package_path }}
+          asset_name: app-${{ env.TAG }}.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Show artifacts
+        run: ls -lah artifacts || true

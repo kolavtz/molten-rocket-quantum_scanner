@@ -6736,17 +6736,17 @@ def _check_concurrency():
 
 
 def _auto_update_on_start():
-        """Optional auto-update on startup: check branch heads or release tags.
+    """Optional auto-update on startup: check branch heads or release tags.
 
     Controlled by environment variables:
       - QSS_AUTO_UPDATE_ON_START (true|false) — enable check at startup
-      - QSS_ALLOW_AUTO_PULL (true|false) — allow performing a hard reset to remote
+      - QSS_ALLOW_AUTO_PULL (true|false) — allow performing a hard reset or tag checkout
       - QSS_GIT_BRANCH — branch name to compare (default: main)
-            - QSS_AUTO_UPDATE_SOURCE — 'branch' (default) or 'release' to follow Git tags
-            - QSS_RELEASE_TAG_PREFIX — optional tag prefix when tracking releases (default: v)
+      - QSS_AUTO_UPDATE_SOURCE — 'branch' (default) or 'release' to follow Git tags
+      - QSS_RELEASE_TAG_PREFIX — optional tag prefix when tracking releases (default: v)
 
-    Safety: requires clean working tree to perform a hard reset. If pull is performed
-    the process re-execs itself to pick up new code. No secrets are stored here.
+    Safety: requires a clean working tree. If an update is performed the process
+    re-execs itself to pick up new code. No secrets are stored here.
     """
     try:
         if os.environ.get("QSS_AUTO_UPDATE_ON_START", "false").lower() != "true":
@@ -6767,7 +6767,6 @@ def _auto_update_on_start():
             logger.warning("Auto-update requested but 'git' is not available on PATH.")
             return
 
-        # Ensure we're inside a work-tree
         p = subprocess.run([git, "rev-parse", "--is-inside-work-tree"], cwd=BASE_DIR, capture_output=True, text=True)
         if p.returncode != 0 or "true" not in p.stdout:
             logger.warning("Not a git work tree (or git rev-parse failed). Skipping auto-update.")
@@ -6867,7 +6866,6 @@ def _auto_update_on_start():
 
             logger.info("Pulled latest code from origin/%s — restarting process to pick up changes.", branch)
 
-        # Prevent looping by marking performed and re-exec the process
         os.environ["QSS_AUTO_UPDATE_PERFORMED"] = "1"
         python = sys.executable
         os.execv(python, [python] + sys.argv)
