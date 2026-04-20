@@ -62,6 +62,8 @@ jobs:
           include_files = {"config.py", "Procfile", "requirements.txt"}
           exclude_prefixes = (
               ".github/",
+              ".vscode/",
+              "scan_results/",
               ".agents/",
               "tests/",
               "docs/",
