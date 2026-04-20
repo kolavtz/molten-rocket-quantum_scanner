@@ -37,6 +37,7 @@ import urllib.request
 import urllib.parse
 from datetime import datetime, timezone
 from typing import Any
+from sqlalchemy.exc import IntegrityError
 
 from flask import (
     Flask,
@@ -1863,7 +1864,7 @@ def run_scan_pipeline(
     from src.models import Scan, Asset, Certificate, PQCClassification, CBOMSummary, CBOMEntry, \
         DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware
     from sqlalchemy import func, or_
-    from sqlalchemy.exc import SQLAlchemyError
+    from sqlalchemy.exc import SQLAlchemyError, IntegrityError
     from src.services.risk_profile_service import derive_risk_level_from_scan_report
     report["orm_persisted"] = False
     try:
@@ -6399,23 +6400,28 @@ def _start_http_redirect_server(http_port: int, https_port: int, https_host: str
 def recycle_bin():
     """Isolated dashboard for soft-deleted assets and scans.
 
-    GET: Display soft-deleted items (Admin-only).
-    POST actions (Admin-only):
-      - restore_assets: Restore deleted assets
-      - restore_scans: Restore deleted scans
-      - delete_assets: Permanently purge deleted assets (hard delete, Admin-only)
-      - delete_scans: Permanently purge deleted scans (hard delete, Admin-only)
+        GET: Display soft-deleted items (Admin + Manager).
+        POST actions:
+            - restore_assets: Restore deleted assets (Admin + Manager)
+            - restore_scans: Restore deleted scans (Admin + Manager)
+            - delete_assets: Permanently purge deleted assets (hard delete, Admin-only)
+            - delete_scans: Permanently purge deleted scans (hard delete, Admin-only)
     """
     from src.db import db_session
     from src.models import Asset, Scan, Certificate, PQCClassification, CBOMEntry, ComplianceScore, CBOMSummary, CyberRating, \
         DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, Subdomain
     
-    # Check admin/manager permission for destructive actions
+    # Role model:
+    # - Admin + Manager can view recycle bin and restore soft-deleted records.
+    # - Only Admin can hard-delete (destroy permanently).
+    ALLOWED_RECYCLE_BIN_VIEW_ROLES = {"Admin", "Manager"}
     ALLOWED_RESTORE_ROLES = {"Admin", "Manager"}
     ALLOWED_HARD_DELETE_ROLES = {"Admin"}
-    
-    is_admin = current_user.role in ALLOWED_HARD_DELETE_ROLES if hasattr(current_user, 'role') else False
-    is_manager = current_user.role in ALLOWED_RESTORE_ROLES if hasattr(current_user, 'role') else False
+
+    role = str(getattr(current_user, "role", "") or "").strip()
+    is_admin = role in ALLOWED_HARD_DELETE_ROLES
+    is_manager = role in ALLOWED_RESTORE_ROLES
+    can_view_recycle_bin = role in ALLOWED_RECYCLE_BIN_VIEW_ROLES
     wants_json = request.is_json or (request.accept_mimetypes.best == "application/json")
 
     def _payload() -> dict:
@@ -6445,11 +6451,48 @@ def recycle_bin():
             **extra,
         }), code
 
-    if not is_admin:
-        _audit("recycle_bin", "view", "denied", details={"required_role": "Admin", "actual_role": getattr(current_user, 'role', None)})
+    def _format_delete_exception(exc: Exception) -> str:
+        msg = str(exc)[:240]
+        if isinstance(exc, IntegrityError):
+            return f"Integrity constraint blocked delete: {msg}"
+        return msg or "Unknown deletion error"
+
+    def _purge_children_for_scan(scan_id: int) -> dict[str, int]:
+        counts = {
+            "discovery_domains": db_session.query(DiscoveryDomain).filter(DiscoveryDomain.scan_id == scan_id).delete(synchronize_session=False),
+            "discovery_ssl": db_session.query(DiscoverySSL).filter(DiscoverySSL.scan_id == scan_id).delete(synchronize_session=False),
+            "discovery_ips": db_session.query(DiscoveryIP).filter(DiscoveryIP.scan_id == scan_id).delete(synchronize_session=False),
+            "discovery_software": db_session.query(DiscoverySoftware).filter(DiscoverySoftware.scan_id == scan_id).delete(synchronize_session=False),
+            "certificates": db_session.query(Certificate).filter(Certificate.scan_id == scan_id).delete(synchronize_session=False),
+            "pqc_classification": db_session.query(PQCClassification).filter(PQCClassification.scan_id == scan_id).delete(synchronize_session=False),
+            "cbom_entries": db_session.query(CBOMEntry).filter(CBOMEntry.scan_id == scan_id).delete(synchronize_session=False),
+            "compliance_scores": db_session.query(ComplianceScore).filter(ComplianceScore.scan_id == scan_id).delete(synchronize_session=False),
+            "cyber_rating": db_session.query(CyberRating).filter(CyberRating.scan_id == scan_id).delete(synchronize_session=False),
+            "cbom_summary": db_session.query(CBOMSummary).filter(CBOMSummary.scan_id == scan_id).delete(synchronize_session=False),
+        }
+        return counts
+
+    def _purge_children_for_asset(asset_id: int) -> dict[str, int]:
+        counts = {
+            "discovery_domains": db_session.query(DiscoveryDomain).filter(DiscoveryDomain.asset_id == asset_id).delete(synchronize_session=False),
+            "discovery_ssl": db_session.query(DiscoverySSL).filter(DiscoverySSL.asset_id == asset_id).delete(synchronize_session=False),
+            "discovery_ips": db_session.query(DiscoveryIP).filter(DiscoveryIP.asset_id == asset_id).delete(synchronize_session=False),
+            "discovery_software": db_session.query(DiscoverySoftware).filter(DiscoverySoftware.asset_id == asset_id).delete(synchronize_session=False),
+            "certificates": db_session.query(Certificate).filter(Certificate.asset_id == asset_id).delete(synchronize_session=False),
+            "pqc_classification": db_session.query(PQCClassification).filter(PQCClassification.asset_id == asset_id).delete(synchronize_session=False),
+            "cbom_entries": db_session.query(CBOMEntry).filter(CBOMEntry.asset_id == asset_id).delete(synchronize_session=False),
+            "compliance_scores": db_session.query(ComplianceScore).filter(ComplianceScore.asset_id == asset_id).delete(synchronize_session=False),
+            "cyber_rating": db_session.query(CyberRating).filter(CyberRating.asset_id == asset_id).delete(synchronize_session=False),
+            "subdomains": db_session.query(Subdomain).filter(Subdomain.parent_asset_id == asset_id).delete(synchronize_session=False),
+            "cbom_summary": db_session.query(CBOMSummary).filter(CBOMSummary.asset_id == asset_id).delete(synchronize_session=False),
+        }
+        return counts
+
+    if not can_view_recycle_bin:
+        _audit("recycle_bin", "view", "denied", details={"required_role": "Admin or Manager", "actual_role": role or None})
         if wants_json:
-            return _json("Recycle Bin is restricted to Admin users.", 403)
-        flash("Recycle Bin is restricted to Admin users.", "error")
+            return _json("Recycle Bin is restricted to Admin and Manager users.", 403)
+        flash("Recycle Bin is restricted to Admin and Manager users.", "error")
         return redirect(url_for("quantumshield_dashboard.dashboard_home"))
     
     if request.method == "POST":
@@ -6594,33 +6637,28 @@ def recycle_bin():
                     failed_asset_ids: list[int] = []
                     delete_errors: list[dict[str, str | int]] = []
                     for asset in assets_to_delete:
+                        asset_id = int(getattr(asset, "id", 0) or 0)
                         try:
-                            # Explicitly purge scan-linked rows that are not FK-constrained by asset_id.
-                            asset_target = str(getattr(asset, "name", "") or "").strip().lower()
-                            if asset_target:
-                                related_scans = db_session.query(Scan).filter(Scan.target.ilike(asset_target), Scan.is_deleted == True).all()
-                                for scan in related_scans:
-                                    db_session.query(DiscoveryDomain).filter(DiscoveryDomain.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(DiscoverySSL).filter(DiscoverySSL.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(DiscoveryIP).filter(DiscoveryIP.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(DiscoverySoftware).filter(DiscoverySoftware.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(Certificate).filter(Certificate.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(PQCClassification).filter(PQCClassification.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(CBOMEntry).filter(CBOMEntry.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(ComplianceScore).filter(ComplianceScore.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(CyberRating).filter(CyberRating.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(CBOMSummary).filter(CBOMSummary.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.delete(scan)
+                            with db_session.begin_nested():
+                                # Explicitly purge scan-linked rows first, then asset-linked rows.
+                                asset_target = str(getattr(asset, "name", "") or "").strip().lower()
+                                if asset_target:
+                                    related_scans = db_session.query(Scan).filter(Scan.target.ilike(asset_target), Scan.is_deleted == True).all()
+                                    for scan in related_scans:
+                                        _purge_children_for_scan(int(getattr(scan, "id", 0) or 0))
+                                        db_session.delete(scan)
 
-                            # Hard delete the asset (ORM cascade will handle related entities via ON DELETE CASCADE)
-                            db_session.delete(asset)
+                                _purge_children_for_asset(asset_id)
+
+                                # Hard delete the asset after explicit child purges.
+                                db_session.delete(asset)
+                                db_session.flush()
                             deleted_count += 1
-                            deleted_asset_ids.append(int(getattr(asset, "id", 0) or 0))
+                            deleted_asset_ids.append(asset_id)
                         except Exception as e:
-                            asset_id = int(getattr(asset, "id", 0) or 0)
                             failed_asset_ids.append(asset_id)
-                            delete_errors.append({"id": asset_id, "error": str(e)[:240]})
-                            logger.warning(f"Failed to hard-delete asset {asset.id}: {e}")
+                            delete_errors.append({"id": asset_id, "error": _format_delete_exception(e)})
+                            logger.warning(f"Failed to hard-delete asset {asset_id}: {e}")
                     
                     db_session.commit()
                     status_label = "success" if deleted_count > 0 and not delete_errors else ("partial" if deleted_count > 0 else "failed")
@@ -6641,6 +6679,8 @@ def recycle_bin():
                         f"Requested {len(requested_asset_ids)} asset(s): deleted {deleted_count}, "
                         f"failed {len(failed_asset_ids)}, unmatched {len(unmatched_asset_ids)}."
                     )
+                    if failed_asset_ids:
+                        message += " Check errors[] for failure reasons."
 
                     if wants_json:
                         code = 500 if deleted_count == 0 and len(requested_asset_ids) > 0 else 200
@@ -6682,16 +6722,19 @@ def recycle_bin():
                     failed_scan_ids: list[int] = []
                     delete_errors: list[dict[str, str | int]] = []
                     for scan in scans_to_delete:
+                        scan_id = int(getattr(scan, "id", 0) or 0)
                         try:
-                            # Hard delete the scan (ORM cascade will handle related entities)
-                            db_session.delete(scan)
+                            with db_session.begin_nested():
+                                _purge_children_for_scan(scan_id)
+                                # Hard delete the scan after explicit child purge.
+                                db_session.delete(scan)
+                                db_session.flush()
                             deleted_count += 1
-                            deleted_scan_ids.append(int(getattr(scan, "id", 0) or 0))
+                            deleted_scan_ids.append(scan_id)
                         except Exception as e:
-                            scan_id = int(getattr(scan, "id", 0) or 0)
                             failed_scan_ids.append(scan_id)
-                            delete_errors.append({"id": scan_id, "error": str(e)[:240]})
-                            logger.warning(f"Failed to hard-delete scan {scan.id}: {e}")
+                            delete_errors.append({"id": scan_id, "error": _format_delete_exception(e)})
+                            logger.warning(f"Failed to hard-delete scan {scan_id}: {e}")
                     
                     db_session.commit()
                     status_label = "success" if deleted_count > 0 and not delete_errors else ("partial" if deleted_count > 0 else "failed")
@@ -6712,6 +6755,8 @@ def recycle_bin():
                         f"Requested {len(requested_scan_ids)} scan(s): deleted {deleted_count}, "
                         f"failed {len(failed_scan_ids)}, unmatched {len(unmatched_scan_ids)}."
                     )
+                    if failed_scan_ids:
+                        message += " Check errors[] for failure reasons."
                     if wants_json:
                         code = 500 if deleted_count == 0 and len(requested_scan_ids) > 0 else 200
                         return _json(

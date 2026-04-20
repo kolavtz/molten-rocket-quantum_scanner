@@ -14,7 +14,7 @@ from web.app import app
 import web.app as web_app_module
 from web.routes.assets import build_asset_detail_api_response, build_assets_page_context, build_comprehensive_asset_dto
 from src.db import db_session
-from src.models import Asset, Certificate, Scan, User
+from src.models import Asset, Certificate, Scan, User, PQCClassification
 from sqlalchemy import text
 
 
@@ -1201,6 +1201,60 @@ class TestAssetDeletionRoutes:
 
 
 class TestNonInventoryApiMutations:
+    def test_recycle_bin_page_allows_manager_view(self, client, mock_manager):
+        resp = client.get('/recycle-bin')
+        assert resp.status_code == 200
+        assert b'RECYCLE BIN' in resp.data
+
+    def test_recycle_bin_restore_assets_json_allows_manager(self, client, mock_manager):
+        target = _new_target('recycle-json-restore-manager')
+        asset = Asset(
+            target=target,
+            asset_type='Web App',
+            is_deleted=True,
+            deleted_at=datetime.now(timezone.utc),
+        )
+        db_session.add(asset)
+        db_session.commit()
+
+        resp = client.post(
+            '/recycle-bin',
+            data=json.dumps({'action': 'restore_assets', 'asset_ids': [asset.id]}),
+            content_type='application/json',
+            headers={'Accept': 'application/json'},
+        )
+
+        assert resp.status_code == 200
+        payload = json.loads(resp.data)
+        assert payload.get('status') == 'success'
+        reloaded = db_session.query(Asset).filter(Asset.id == asset.id).first()
+        assert reloaded is not None
+        assert reloaded.is_deleted is False
+
+    def test_recycle_bin_delete_assets_json_denies_manager(self, client, mock_manager):
+        target = _new_target('recycle-json-delete-manager-denied')
+        asset = Asset(
+            target=target,
+            asset_type='Web App',
+            is_deleted=True,
+            deleted_at=datetime.now(timezone.utc),
+        )
+        db_session.add(asset)
+        db_session.commit()
+
+        resp = client.post(
+            '/recycle-bin',
+            data=json.dumps({'action': 'delete_assets', 'asset_ids': [asset.id]}),
+            content_type='application/json',
+            headers={'Accept': 'application/json'},
+        )
+
+        assert resp.status_code == 403
+        payload = json.loads(resp.data)
+        assert payload.get('status') == 'error'
+        assert 'Only Admins can permanently delete items.' in (payload.get('message') or '')
+        assert db_session.query(Asset).filter(Asset.id == asset.id).first() is not None
+
     def test_dashboard_add_asset_api(self, client, mock_admin):
         target = _new_target('discovery-api-add')
         resp = client.post(
@@ -1335,6 +1389,77 @@ class TestNonInventoryApiMutations:
 
         assert resp.status_code == 302
         assert db_session.query(Asset).filter(Asset.id == asset.id).first() is None
+
+    def test_recycle_bin_delete_assets_json_purges_scan_certificate_and_pqc(self, client, mock_admin):
+        target = _new_target('recycle-json-delete-cascade')
+        asset = Asset(
+            target=target,
+            asset_type='Web App',
+            is_deleted=True,
+            deleted_at=datetime.now(timezone.utc),
+        )
+        db_session.add(asset)
+        db_session.flush()
+
+        scan = Scan(
+            scan_id=f"scan-{uuid4().hex[:12]}",
+            target=target,
+            status='complete',
+            report_json='{}',
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+            is_deleted=True,
+            deleted_at=datetime.now(timezone.utc),
+        )
+        db_session.add(scan)
+        db_session.flush()
+
+        cert = Certificate(
+            asset_id=int(asset.id),
+            scan_id=int(scan.id),
+            endpoint=f"{target}:443",
+            subject_cn=target,
+            issuer_cn='Test Root CA',
+            serial=f"serial-{uuid4().hex[:8]}",
+            is_deleted=True,
+            deleted_at=datetime.now(timezone.utc),
+        )
+        db_session.add(cert)
+        db_session.flush()
+
+        pqc = PQCClassification(
+            certificate_id=int(cert.id),
+            asset_id=int(asset.id),
+            scan_id=int(scan.id),
+            algorithm_name='RSA',
+            quantum_safe_status='unsafe',
+            pqc_score=10.0,
+            is_deleted=True,
+            deleted_at=datetime.now(timezone.utc),
+        )
+        db_session.add(pqc)
+        db_session.commit()
+
+        asset_id = int(asset.id)
+        scan_id = int(scan.id)
+        cert_id = int(cert.id)
+        pqc_id = int(pqc.id)
+
+        resp = client.post(
+            '/recycle-bin',
+            data=json.dumps({'action': 'delete_assets', 'asset_ids': [asset_id]}),
+            content_type='application/json',
+            headers={'Accept': 'application/json'},
+        )
+
+        assert resp.status_code == 200
+        payload = json.loads(resp.data)
+        assert payload.get('status') == 'success'
+        assert payload.get('deleted_count') == 1
+        assert db_session.query(Asset).filter(Asset.id == asset_id).first() is None
+        assert db_session.query(Scan).filter(Scan.id == scan_id).first() is None
+        assert db_session.query(Certificate).filter(Certificate.id == cert_id).first() is None
+        assert db_session.query(PQCClassification).filter(PQCClassification.id == pqc_id).first() is None
 
     def test_recycle_bin_delete_scans_form(self, client, mock_admin):
         target = _new_target('recycle-form-delete-scans')
