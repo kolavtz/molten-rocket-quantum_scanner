@@ -89,6 +89,10 @@ from src import database as db
 from src.db import db_session
 from web.pdf_export import generate_report_pdf
 
+
+def _normalize_role(role: Any) -> str:
+    return db.normalize_role(str(role or ""))
+
 # ── Flask App ────────────────────────────────────────────────────────
 
 app = Flask(
@@ -575,8 +579,10 @@ def role_required(roles):
                         "login_url": url_for("login"),
                     }), 401
                 return redirect(url_for('login'))
-            if current_user.role not in roles:
-                _audit("auth", "authorization_denied", "denied", details={"required_roles": roles, "actual_role": current_user.role})
+            user_role = _normalize_role(getattr(current_user, "role", ""))
+            allowed_roles = {_normalize_role(r) for r in roles}
+            if user_role not in allowed_roles:
+                _audit("auth", "authorization_denied", "denied", details={"required_roles": roles, "actual_role": user_role})
                 if _expects_json_response():
                     return jsonify({
                         "status": "error",
@@ -3426,8 +3432,8 @@ if "quantumshield_dashboard.inventory_scan_status" in app.view_functions:
 @role_required(list(SCAN_ROLES))
 def scan_center():
     """Legacy scan center route preserved for compatibility tests/links."""
-    user_role = str(getattr(current_user, "role", "") or "").strip().title()
-    can_bulk_scan = user_role in {r.strip().title() for r in BULK_SCAN_ROLES}
+    user_role = _normalize_role(getattr(current_user, "role", ""))
+    can_bulk_scan = user_role in {r for r in BULK_SCAN_ROLES}
     return render_template(
         "scans.html",
         can_single_scan=True,
@@ -4563,11 +4569,14 @@ def vulnerabilities_page():
     return render_template("vulnerabilities.html")
 
 
-@app.route("/scan", methods=["POST"])
+@app.route("/scan", methods=["GET", "POST"])
 @limiter.limit("20 per hour")
 @role_required(list(SCAN_ROLES))
 def scan():
     """Run a scan on one or multiple targets (text input + CSV upload)."""
+    if request.method == "GET":
+        return redirect(url_for("scans.scans_page"))
+
     import re
     import csv
     import io
@@ -4651,8 +4660,9 @@ def scan():
         
     # Enforce advanced RBAC
     is_bulk = (csv_file and csv_file.filename) or len(targets) > 1
-    if is_bulk and current_user.role not in BULK_SCAN_ROLES:
-        _audit("scan", "bulk_scan_denied", "denied", details={"role": current_user.role, "target_count": len(targets)})
+    user_role = _normalize_role(getattr(current_user, "role", ""))
+    if is_bulk and user_role not in BULK_SCAN_ROLES:
+        _audit("scan", "bulk_scan_denied", "denied", details={"role": user_role, "target_count": len(targets)})
         flash("Your role allows single-target scans only.", "error")
         return redirect(url_for("quantumshield_dashboard.dashboard_home"))
 
@@ -6571,12 +6581,18 @@ def recycle_bin():
                 # Admin-only: permanently purge soft-deleted assets
                 asset_ids = _payload_ids(payload, "asset_ids")
                 if asset_ids:
+                    requested_asset_ids = sorted({int(v) for v in asset_ids})
                     assets_to_delete = db_session.query(Asset).filter(
                         Asset.id.in_(asset_ids), 
                         Asset.is_deleted == True
                     ).all()
+                    matched_asset_ids = sorted({int(getattr(a, "id", 0) or 0) for a in assets_to_delete})
+                    unmatched_asset_ids = sorted(set(requested_asset_ids) - set(matched_asset_ids))
                     
                     deleted_count = 0
+                    deleted_asset_ids: list[int] = []
+                    failed_asset_ids: list[int] = []
+                    delete_errors: list[dict[str, str | int]] = []
                     for asset in assets_to_delete:
                         try:
                             # Explicitly purge scan-linked rows that are not FK-constrained by asset_id.
@@ -6599,48 +6615,124 @@ def recycle_bin():
                             # Hard delete the asset (ORM cascade will handle related entities via ON DELETE CASCADE)
                             db_session.delete(asset)
                             deleted_count += 1
+                            deleted_asset_ids.append(int(getattr(asset, "id", 0) or 0))
                         except Exception as e:
+                            asset_id = int(getattr(asset, "id", 0) or 0)
+                            failed_asset_ids.append(asset_id)
+                            delete_errors.append({"id": asset_id, "error": str(e)[:240]})
                             logger.warning(f"Failed to hard-delete asset {asset.id}: {e}")
                     
                     db_session.commit()
-                    _audit("recycle_bin", "delete_assets", "success", details={"count": deleted_count})
+                    status_label = "success" if deleted_count > 0 and not delete_errors else ("partial" if deleted_count > 0 else "failed")
+                    details_payload = {
+                        "requested_count": len(requested_asset_ids),
+                        "matched_count": len(matched_asset_ids),
+                        "deleted_count": deleted_count,
+                        "failed_count": len(failed_asset_ids),
+                        "unmatched_count": len(unmatched_asset_ids),
+                    }
+                    if failed_asset_ids:
+                        details_payload["failed_asset_ids"] = failed_asset_ids
+                    if unmatched_asset_ids:
+                        details_payload["unmatched_asset_ids"] = unmatched_asset_ids
+                    _audit("recycle_bin", "delete_assets", status_label, details=details_payload)
+
+                    message = (
+                        f"Requested {len(requested_asset_ids)} asset(s): deleted {deleted_count}, "
+                        f"failed {len(failed_asset_ids)}, unmatched {len(unmatched_asset_ids)}."
+                    )
+
                     if wants_json:
+                        code = 500 if deleted_count == 0 and len(requested_asset_ids) > 0 else 200
                         return _json(
-                            f"Permanently deleted {deleted_count} asset(s) and related records.",
-                            200,
+                            message,
+                            code,
+                            requested_count=len(requested_asset_ids),
+                            matched_count=len(matched_asset_ids),
                             deleted_count=deleted_count,
-                            deleted_asset_ids=[int(getattr(a, "id", 0) or 0) for a in assets_to_delete],
+                            deleted_asset_ids=deleted_asset_ids,
+                            failed_count=len(failed_asset_ids),
+                            failed_asset_ids=failed_asset_ids,
+                            unmatched_count=len(unmatched_asset_ids),
+                            unmatched_asset_ids=unmatched_asset_ids,
+                            errors=delete_errors,
                         )
-                    flash(f"Permanently deleted {deleted_count} asset(s) and related records.", "warning")
+
+                    flash_category = "success" if deleted_count > 0 and not (failed_asset_ids or unmatched_asset_ids) else ("warning" if deleted_count > 0 else "danger")
+                    flash(message, flash_category)
+                else:
+                    if wants_json:
+                        return _json("No asset IDs were provided for permanent deletion.", 400)
+                    flash("No asset IDs were provided for permanent deletion.", "warning")
             
             elif action == "delete_scans":
                 # Admin-only: permanently purge soft-deleted scans
                 scan_ids = _payload_ids(payload, "scan_ids")
                 if scan_ids:
+                    requested_scan_ids = sorted({int(v) for v in scan_ids})
                     scans_to_delete = db_session.query(Scan).filter(
                         Scan.id.in_(scan_ids), 
                         Scan.is_deleted == True
                     ).all()
+                    matched_scan_ids = sorted({int(getattr(s, "id", 0) or 0) for s in scans_to_delete})
+                    unmatched_scan_ids = sorted(set(requested_scan_ids) - set(matched_scan_ids))
                     
                     deleted_count = 0
+                    deleted_scan_ids: list[int] = []
+                    failed_scan_ids: list[int] = []
+                    delete_errors: list[dict[str, str | int]] = []
                     for scan in scans_to_delete:
                         try:
                             # Hard delete the scan (ORM cascade will handle related entities)
                             db_session.delete(scan)
                             deleted_count += 1
+                            deleted_scan_ids.append(int(getattr(scan, "id", 0) or 0))
                         except Exception as e:
+                            scan_id = int(getattr(scan, "id", 0) or 0)
+                            failed_scan_ids.append(scan_id)
+                            delete_errors.append({"id": scan_id, "error": str(e)[:240]})
                             logger.warning(f"Failed to hard-delete scan {scan.id}: {e}")
                     
                     db_session.commit()
-                    _audit("recycle_bin", "delete_scans", "success", details={"count": deleted_count})
+                    status_label = "success" if deleted_count > 0 and not delete_errors else ("partial" if deleted_count > 0 else "failed")
+                    details_payload = {
+                        "requested_count": len(requested_scan_ids),
+                        "matched_count": len(matched_scan_ids),
+                        "deleted_count": deleted_count,
+                        "failed_count": len(failed_scan_ids),
+                        "unmatched_count": len(unmatched_scan_ids),
+                    }
+                    if failed_scan_ids:
+                        details_payload["failed_scan_ids"] = failed_scan_ids
+                    if unmatched_scan_ids:
+                        details_payload["unmatched_scan_ids"] = unmatched_scan_ids
+                    _audit("recycle_bin", "delete_scans", status_label, details=details_payload)
+
+                    message = (
+                        f"Requested {len(requested_scan_ids)} scan(s): deleted {deleted_count}, "
+                        f"failed {len(failed_scan_ids)}, unmatched {len(unmatched_scan_ids)}."
+                    )
                     if wants_json:
+                        code = 500 if deleted_count == 0 and len(requested_scan_ids) > 0 else 200
                         return _json(
-                            f"Permanently deleted {deleted_count} scan(s) and related records.",
-                            200,
+                            message,
+                            code,
+                            requested_count=len(requested_scan_ids),
+                            matched_count=len(matched_scan_ids),
                             deleted_count=deleted_count,
-                            deleted_scan_ids=[int(getattr(s, "id", 0) or 0) for s in scans_to_delete],
+                            deleted_scan_ids=deleted_scan_ids,
+                            failed_count=len(failed_scan_ids),
+                            failed_scan_ids=failed_scan_ids,
+                            unmatched_count=len(unmatched_scan_ids),
+                            unmatched_scan_ids=unmatched_scan_ids,
+                            errors=delete_errors,
                         )
-                    flash(f"Permanently deleted {deleted_count} scan(s) and related records.", "warning")
+                    flash_category = "success" if deleted_count > 0 and not (failed_scan_ids or unmatched_scan_ids) else ("warning" if deleted_count > 0 else "danger")
+                    flash(message, flash_category)
+                else:
+                    if wants_json:
+                        return _json("No scan IDs were provided for permanent deletion.", 400)
+                    flash("No scan IDs were provided for permanent deletion.", "warning")
                     
         except Exception as e:
             db_session.rollback()
@@ -6774,6 +6866,159 @@ def _auto_update_on_start():
 
         if update_source in {"release", "releases", "tag", "tags"}:
             tag_prefix = os.environ.get("QSS_RELEASE_TAG_PREFIX", "v").strip()
+
+            # Optionally use the GitHub release asset instead of a git checkout.
+            use_release_asset = os.environ.get("QSS_AUTO_UPDATE_USE_RELEASE_ASSET", "false").lower() == "true"
+            if use_release_asset:
+                try:
+                    import tempfile, tarfile, zipfile, shutil
+
+                    # Determine repository to query (env override or try to infer from git remote)
+                    repo_full = os.environ.get("QSS_AUTO_UPDATE_REPO")
+                    if not repo_full:
+                        try:
+                            rem = subprocess.run([git, "config", "--get", "remote.origin.url"], cwd=BASE_DIR, capture_output=True, text=True)
+                            url = rem.stdout.strip()
+                            # extract owner/repo from URL
+                            m = re.search(r"[:/]([^/]+/[^/]+?)(?:\.git)?$", url or "")
+                            repo_full = m.group(1) if m else None
+                        except Exception:
+                            repo_full = None
+                    if not repo_full:
+                        repo_full = "kolavtz/molten-rocket-quantum_scanner"
+
+                    api_url = f"https://api.github.com/repos/{repo_full}/releases"
+                    logger.info("Querying GitHub releases for %s", repo_full)
+                    req = urllib.request.Request(api_url, headers={"User-Agent": "QuantumShield-AutoUpdate"})
+                    with urllib.request.urlopen(req, timeout=30) as resp:
+                        releases = json.load(resp)
+
+                    # Find latest release matching tag prefix and pre-release rules
+                    allow_prerelease = os.environ.get("QSS_AUTO_UPDATE_ALLOW_PRERELEASE", "false").lower() == "true"
+                    selected = None
+                    for rel in releases:
+                        tag = rel.get("tag_name", "")
+                        if tag_prefix and not tag.startswith(tag_prefix):
+                            continue
+                        if rel.get("draft"):
+                            continue
+                        if rel.get("prerelease") and not allow_prerelease:
+                            continue
+                        selected = rel
+                        break
+
+                    if not selected:
+                        logger.info("No matching release assets found; skipping release asset update check.")
+                    else:
+                        latest_tag = selected.get("tag_name")
+                        # If already on same tag, skip
+                        current = subprocess.run([git, "describe", "--tags", "--exact-match"], cwd=BASE_DIR, capture_output=True, text=True)
+                        current_tag = current.stdout.strip() if current.returncode == 0 else ""
+                        if current_tag == latest_tag:
+                            logger.info("Local repository is already on latest release tag %s", latest_tag)
+                            return
+
+                        # find matching asset
+                        assets = selected.get("assets", []) or []
+                        asset = None
+                        for a in assets:
+                            name = a.get("name", "")
+                            if name == f"app-{latest_tag}.zip" or name == f"app-{latest_tag}.tar.gz":
+                                asset = a
+                                break
+                        if not asset:
+                            # fallback: first 'app-*.(zip|tar.gz)'
+                            for a in assets:
+                                n = a.get("name", "")
+                                if n.startswith("app-") and (n.endswith('.zip') or n.endswith('.tar.gz')):
+                                    asset = a
+                                    break
+
+                        if not asset:
+                            logger.warning("No suitable release asset found for tag %s", latest_tag)
+                        else:
+                            if os.environ.get("QSS_ALLOW_AUTO_PULL", "false").lower() != "true":
+                                logger.warning("Auto-pull disabled (set QSS_ALLOW_AUTO_PULL=true to enable). Skipping asset update.")
+                                return
+
+                            download_url = asset.get("browser_download_url")
+                            if not download_url:
+                                logger.warning("Release asset has no download URL; skipping.")
+                                return
+
+                            tmp = tempfile.mkdtemp(prefix="qss-update-")
+                            filename = os.path.join(tmp, asset.get("name"))
+                            logger.info("Downloading release asset %s", download_url)
+                            try:
+                                with urllib.request.urlopen(download_url, timeout=120) as r, open(filename, 'wb') as out:
+                                    shutil.copyfileobj(r, out)
+                            except Exception as e:
+                                logger.warning("Failed to download asset: %s", e)
+                                shutil.rmtree(tmp, ignore_errors=True)
+                                return
+
+                            # extract
+                            extracted = os.path.join(tmp, "extracted")
+                            os.makedirs(extracted, exist_ok=True)
+                            try:
+                                if filename.endswith('.zip'):
+                                    with zipfile.ZipFile(filename, 'r') as zf:
+                                        zf.extractall(extracted)
+                                else:
+                                    with tarfile.open(filename, 'r:*') as tf:
+                                        tf.extractall(extracted)
+                            except Exception as e:
+                                logger.warning("Failed to extract asset: %s", e)
+                                shutil.rmtree(tmp, ignore_errors=True)
+                                return
+
+                            # Backup and apply
+                            backup_dir = os.path.join(BASE_DIR, f".qss_update_backup_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}")
+                            os.makedirs(backup_dir, exist_ok=True)
+                            logger.info("Applying release files from asset (backup -> %s)", backup_dir)
+                            try:
+                                for root, dirs, files in os.walk(extracted):
+                                    for fname in files:
+                                        src = os.path.join(root, fname)
+                                        rel = os.path.relpath(src, extracted)
+                                        dest = os.path.join(BASE_DIR, rel)
+                                        dest_dir = os.path.dirname(dest)
+                                        os.makedirs(dest_dir, exist_ok=True)
+                                        if os.path.exists(dest):
+                                            bpath = os.path.join(backup_dir, rel)
+                                            os.makedirs(os.path.dirname(bpath), exist_ok=True)
+                                            try:
+                                                shutil.move(dest, bpath)
+                                            except Exception:
+                                                # best-effort backup
+                                                shutil.copy2(dest, bpath)
+                                        shutil.copy2(src, dest)
+
+                                logger.info("Release asset applied successfully; restarting to pick up changes.")
+                                os.environ["QSS_AUTO_UPDATE_PERFORMED"] = "1"
+                                python = sys.executable
+                                os.execv(python, [python] + sys.argv)
+                            except Exception as e:
+                                logger.warning("Failed while applying release files: %s", e)
+                                # attempt to restore from backup
+                                try:
+                                    for root, dirs, files in os.walk(backup_dir):
+                                        for fname in files:
+                                            bsrc = os.path.join(root, fname)
+                                            rel = os.path.relpath(bsrc, backup_dir)
+                                            dst = os.path.join(BASE_DIR, rel)
+                                            os.makedirs(os.path.dirname(dst), exist_ok=True)
+                                            shutil.copy2(bsrc, dst)
+                                except Exception:
+                                    logger.warning("Rollback failed; manual intervention required.")
+                                finally:
+                                    shutil.rmtree(tmp, ignore_errors=True)
+                                return
+                except Exception as exc:
+                    logger.warning("Release-asset auto-update failed: %s", exc)
+                    # continue to fallback to git-based flow below
+
+            # Fallback to git-based tag checkout if asset flow not used or failed
             fetch = subprocess.run([git, "fetch", "--tags", "--prune", "origin"], cwd=BASE_DIR, capture_output=True, text=True)
             if fetch.returncode != 0:
                 logger.warning("git fetch --tags failed: %s", fetch.stderr.strip())

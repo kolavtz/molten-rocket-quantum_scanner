@@ -131,16 +131,6 @@
     }).join('') || '<div style="color:var(--text-secondary);">No additional result summary is available yet.</div>';
   }
 
-  function renderRawResult(payload) {
-    var node = document.getElementById('scanDetailRaw');
-    if (!node) return;
-    try {
-      node.textContent = JSON.stringify(payload || {}, null, 2);
-    } catch (_err) {
-      node.textContent = String(payload || '');
-    }
-  }
-
   function renderScanMetricCards(kpis) {
     var holder = document.getElementById('scanLiveKpis');
     if (!holder) return;
@@ -257,9 +247,18 @@
       var status = String(row.status || 'unknown');
       var statusColor = 'var(--text-secondary)';
       if (status === 'completed') statusColor = 'var(--safe)';
+      if (status === 'queued') statusColor = 'var(--text-secondary)';
       if (status === 'running') statusColor = 'var(--warn)';
+      if (status === 'not_scanned') statusColor = 'var(--warn)';
       if (status === 'failed' || status === 'error') statusColor = 'var(--danger)';
       var meta = row.result_scan_id ? ('<a href="/results/' + encodeURIComponent(String(row.result_scan_id)) + '" target="_blank" rel="noreferrer" style="color:var(--accent);">Open result</a>') : '';
+      if (row.reason_code || row.reason_message) {
+        var reasonText = String(row.reason_code || '').trim();
+        if (row.reason_message) {
+          reasonText = reasonText ? (reasonText + ' — ' + String(row.reason_message)) : String(row.reason_message);
+        }
+        meta = escapeHtml(reasonText);
+      }
       if (row.error) {
         meta = escapeHtml(String(row.error));
       }
@@ -291,6 +290,78 @@
     return data;
   }
 
+  function downloadFile(filename, content, mimeType) {
+    var blob = new Blob([content], { type: mimeType });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportScans(format) {
+    try {
+      var resp = await fetch('/api/scans/export?format=' + encodeURIComponent(format), {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: { 'Accept': format === 'csv' ? 'text/csv' : 'application/json', 'X-CSRFToken': getCsrfToken() }
+      });
+      if (!resp.ok) {
+        var errData = {};
+        try { errData = await resp.json(); } catch (_err) { }
+        throw new Error(errData.message || ('Export failed (' + resp.status + ')'));
+      }
+      if (format === 'csv') {
+        var text = await resp.text();
+        downloadFile('quantumshield_scans_export.csv', text, 'text/csv');
+      } else {
+        var data = await resp.json();
+        downloadFile('quantumshield_scans_export.json', JSON.stringify(data, null, 2), 'application/json');
+      }
+      setActionMessage('Scan export started. Check your downloads.');
+    } catch (err) {
+      setActionMessage(err.message || 'Export failed.', true);
+    }
+  }
+
+  async function cancelScan(scanId) {
+    if (!scanId) {
+      window.alert('Missing scan id for cancellation.');
+      return;
+    }
+    try {
+      var payload = await postJson('/api/scans/' + encodeURIComponent(scanId) + '/cancel', {});
+      window.alert(payload.data?.message || 'Scan cancellation requested.');
+      setActionMessage('Scan cancellation requested for ' + scanId + '.');
+    } catch (err) {
+      window.alert(err.message || 'Cancel failed.');
+      setActionMessage(err.message || 'Cancel failed.', true);
+    }
+  }
+
+  async function deleteScan(scanId) {
+    if (!scanId) {
+      window.alert('Missing scan id to delete.');
+      return;
+    }
+    if (!window.confirm('Delete this scan record? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      var payload = await postJson('/api/scans/' + encodeURIComponent(scanId) + '/delete', {});
+      window.alert(payload.data?.message || 'Scan deleted successfully.');
+      setActionMessage('Scan deleted: ' + scanId + '. Refreshing table...');
+      var searchBtn = document.querySelector('[data-api-search-btn]');
+      if (searchBtn) searchBtn.click();
+    } catch (err) {
+      window.alert(err.message || 'Delete failed.');
+      setActionMessage(err.message || 'Delete failed.', true);
+    }
+  }
+
   async function fetchStatus(scanId) {
     var resp = await fetch('/api/scans/' + encodeURIComponent(scanId) + '/status', {
       method: 'GET',
@@ -303,6 +374,13 @@
       throw new Error(data.message || ('Status failed (' + resp.status + ')'));
     }
     return data;
+  }
+
+  function unwrapApiData(payload) {
+    if (payload && typeof payload === 'object' && payload.data && typeof payload.data === 'object') {
+      return payload.data;
+    }
+    return payload && typeof payload === 'object' ? payload : {};
   }
 
   function currentRadioValue(name, fallbackValue) {
@@ -320,6 +398,7 @@
   function switchMode(mode, canBulk) {
     var tabSingle = document.getElementById('tabSingle');
     var tabBulk = document.getElementById('tabBulk');
+    var disclosure = document.getElementById('scanDetailDisclosure');
     var disclosure = document.getElementById('scanDetailDisclosure');
     var modeSingle = document.getElementById('modeSingle');
     var modeBulk = document.getElementById('modeBulk');
@@ -367,6 +446,8 @@
     var scheduleAutoAdd = document.getElementById('scheduleAutoAdd');
     var scheduleCreateBtn = document.getElementById('scheduleCreateBtn');
     var schedulesList = document.getElementById('schedulesList');
+    var exportCsvBtn = document.getElementById('exportCsvBtn');
+    var exportJsonBtn = document.getElementById('exportJsonBtn');
 
     var tabSingle = document.getElementById('tabSingle');
     var tabBulk = document.getElementById('tabBulk');
@@ -388,6 +469,7 @@
       togglePanel('addToInventoryBulk', 'inventoryBulkFields');
     }
 
+    var disclosure = document.getElementById('scanDetailDisclosure');
     if (disclosure) {
       disclosure.addEventListener('toggle', syncDisclosureLabel);
       syncDisclosureLabel();
@@ -400,6 +482,17 @@
         singleTarget.focus();
       });
     });
+
+    if (exportCsvBtn) {
+      exportCsvBtn.addEventListener('click', function () {
+        exportScans('csv');
+      });
+    }
+    if (exportJsonBtn) {
+      exportJsonBtn.addEventListener('click', function () {
+        exportScans('json');
+      });
+    }
 
     var scanMap = {};
     var pollTimer = null;
@@ -493,7 +586,6 @@
         }
       }
 
-      renderRawResult({ live: live, result: result });
     }
 
     async function loadDetail(scanId) {
@@ -538,7 +630,7 @@
     }
 
     function startPolling(scanIds) {
-      (scanIds || []).forEach(function (id) {
+      (scanIds || []).filter(Boolean).forEach(function (id) {
         if (!scanMap[id]) {
           scanMap[id] = { scan_id: id, status: 'queued' };
         }
@@ -555,18 +647,28 @@
         }
 
         var allDone = true;
+        var completedNow = 0;
+        var failedNow = 0;
         for (var i = 0; i < ids.length; i += 1) {
           var id = ids[i];
           try {
             var payload = await fetchStatus(id);
-            scanMap[id] = payload.data || { scan_id: id, status: 'unknown' };
+            var rowData = unwrapApiData(payload);
+            var previousStatus = String((scanMap[id] || {}).status || '').toLowerCase();
+            scanMap[id] = rowData && Object.keys(rowData).length ? rowData : { scan_id: id, status: 'unknown' };
             if (detailState.scanId === id) {
               detailState.live = scanMap[id];
               syncDetailView();
             }
             var st = String((scanMap[id] || {}).status || '').toLowerCase();
-            if (st !== 'completed' && st !== 'failed') {
+            if (st !== 'completed' && st !== 'failed' && st !== 'not_scanned') {
               allDone = false;
+            }
+            if (st === 'completed' && previousStatus !== 'completed') {
+              completedNow += 1;
+            }
+            if (st === 'failed' && previousStatus !== 'failed') {
+              failedNow += 1;
             }
           } catch (_err) {
             allDone = false;
@@ -574,6 +676,9 @@
         }
 
         renderProgressRows(scanMap);
+        if (completedNow > 0 || failedNow > 0) {
+          setActionMessage('Scan update: ' + completedNow + ' completed, ' + failedNow + ' failed.');
+        }
         loadScanMetrics();
         if (allDone) {
           clearInterval(pollTimer);
@@ -610,8 +715,13 @@
             asset_class_mode: currentRadioValue('singleAssetClassMode', 'auto'),
             asset_class_value: singleAssetClassValue ? String(singleAssetClassValue.value || '').trim() : ''
           });
-          setActionMessage('Scan queued: ' + payload.scan_id);
-          startPolling([payload.scan_id]);
+          var singleData = unwrapApiData(payload);
+          var queuedScanId = String(payload.scan_id || singleData.scan_id || '').trim();
+          if (!queuedScanId) {
+            throw new Error('Scan request accepted but no scan_id returned.');
+          }
+          setActionMessage('Scan queued: ' + queuedScanId + ' (tracking started)');
+          startPolling([queuedScanId]);
           if (singleTarget) singleTarget.value = '';
         } catch (err) {
           setActionMessage(err.message || 'Failed to submit single scan.', true);
@@ -669,8 +779,14 @@
             asset_class_mode: currentRadioValue('bulkAssetClassMode', 'auto'),
             asset_class_value: bulkAssetClassValue ? String(bulkAssetClassValue.value || '').trim() : ''
           });
-          setActionMessage('Bulk scan queued: ' + payload.queued_count + ' targets');
-          startPolling(payload.scan_ids || []);
+          var bulkData = unwrapApiData(payload);
+          var bulkIds = payload.scan_ids || bulkData.scan_ids || [];
+          var queuedCount = Number(payload.queued_count || bulkData.queued_count || bulkIds.length || 0);
+          if (!Array.isArray(bulkIds) || bulkIds.length === 0) {
+            throw new Error('Bulk scan accepted but no tracking scan_ids returned.');
+          }
+          setActionMessage('Bulk scan queued: ' + queuedCount + ' targets (tracking started)');
+          startPolling(bulkIds);
           if (bulkTargets) bulkTargets.value = '';
           if (bulkCsvFile) bulkCsvFile.value = '';
           if (bulkCsvHint) bulkCsvHint.textContent = 'CSV format: ip,[ports separated by comma or space]';
@@ -978,6 +1094,8 @@
   window.QuantumShieldScans = {
     init: init,
     promote: promote,
+    cancelScan: cancelScan,
+    deleteScan: deleteScan,
     showRecordDetails: function (record) {
       detailLoader(record);
     }

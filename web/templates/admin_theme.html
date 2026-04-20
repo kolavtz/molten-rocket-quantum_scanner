@@ -268,29 +268,28 @@
     /* Sandbox Mockup layout scope variables overrides */
     .sandbox-mockup {
         border-radius: 8px; overflow: hidden; height: 320px;
-        background: var(--bg-primary); color: var(--text-primary);
-        border: 1.5px solid var(--border-subtle); display: flex; flex-direction: column;
-        --accent: var(--accent); --bg-card: color-mix(in srgb, var(--bg-card) 92%, transparent); --bg-navbar: var(--bg-navbar); --bg-input: color-mix(in srgb, var(--bg-input) 88%, transparent);
-        --text-secondary: var(--text-secondary); --border-subtle: color-mix(in srgb, var(--border-subtle) 80%, transparent);
-        --safe: var(--safe); --warn: var(--warn); --danger: var(--danger);
+        background: var(--sandbox-bg-primary, var(--bg-primary));
+        color: var(--sandbox-text-primary, var(--text-primary));
+        border: 1.5px solid var(--sandbox-border-subtle, var(--border-subtle));
+        display: flex; flex-direction: column;
     }
-    .mock-nav { background: var(--bg-navbar); padding: 0.6rem 0.8rem; border-bottom: 2px solid var(--accent); position: relative; }
-    .mock-nav-logo { font-size: 0.8rem; font-weight: bold; color: var(--text-primary); }
-    .mock-content { flex: 1; background: var(--bg-primary); padding: 0.8rem; }
-    .mock-title { font-size: 0.82rem; font-weight: 600; margin-bottom: 0.2rem; color: var(--text-primary); }
-    .mock-text { font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 0.7rem; }
-    .mock-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.6rem; margin-bottom:0.6rem; }
-    .mock-card-header { font-size: 0.65rem; color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.3rem; margin-bottom: 0.4rem; font-family: 'JetBrains Mono', monospace;}
+    .mock-nav { background: var(--sandbox-bg-navbar, var(--bg-navbar)); padding: 0.6rem 0.8rem; border-bottom: 2px solid var(--sandbox-accent, var(--accent)); position: relative; }
+    .mock-nav-logo { font-size: 0.8rem; font-weight: bold; color: var(--sandbox-text-primary, var(--text-primary)); }
+    .mock-content { flex: 1; background: var(--sandbox-bg-primary, var(--bg-primary)); padding: 0.8rem; }
+    .mock-title { font-size: 0.82rem; font-weight: 600; margin-bottom: 0.2rem; color: var(--sandbox-text-primary, var(--text-primary)); }
+    .mock-text { font-size: 0.7rem; color: var(--sandbox-text-secondary, var(--text-secondary)); margin-bottom: 0.7rem; }
+    .mock-card { background: var(--sandbox-bg-card, var(--bg-card)); border: 1px solid var(--sandbox-border-subtle, var(--border-subtle)); border-radius: 6px; padding: 0.6rem; margin-bottom:0.6rem; }
+    .mock-card-header { font-size: 0.65rem; color: var(--sandbox-text-secondary, var(--text-secondary)); border-bottom: 1px solid var(--sandbox-border-subtle, var(--border-subtle)); padding-bottom: 0.3rem; margin-bottom: 0.4rem; font-family: 'JetBrains Mono', monospace;}
     .mock-kpi-row { display: flex; gap: 0.5rem; }
-    .mock-kpi { flex: 1; padding: 0.4rem; border-radius: 4px; border: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--bg-input) 86%, var(--bg-card) 14%); }
+    .mock-kpi { flex: 1; padding: 0.4rem; border-radius: 4px; border: 1px solid var(--sandbox-border-subtle, var(--border-subtle)); background: color-mix(in srgb, var(--sandbox-bg-input, var(--bg-input)) 86%, var(--sandbox-bg-card, var(--bg-card)) 14%); }
     .mock-kpi-val { font-size: 0.88rem; font-weight: bold; display: block; }
-    .mock-kpi-cap { font-size: 0.55rem; color: var(--text-secondary); }
+    .mock-kpi-cap { font-size: 0.55rem; color: var(--sandbox-text-secondary, var(--text-secondary)); }
     .mock-badge-row { display: flex; gap: 0.3rem; }
-    .mock-badge { font-size: 0.55rem; padding: 0.15rem 0.35rem; border-radius: 3px; font-weight:600; text-shadow:0 1px 1px color-mix(in srgb, var(--bg-primary) 72%, transparent); }
-    .bg-safe { background: var(--safe); color: var(--bg-primary); } .bg-warn { background: var(--warn); color: var(--bg-primary); } .bg-danger { background: var(--danger); color: var(--bg-primary); }
-    .mock-form { padding-top: 0.4rem; border-top: 1px solid var(--border-subtle); }
-    .mock-input { width: 100%; background: var(--bg-input); border: 1px solid var(--border-subtle); color: var(--text-primary); font-size: 0.65rem; padding: 0.3rem; border-radius: 4px; }
-    .mock-btn { background: var(--accent); color: var(--text-on-accent); border: none; font-size: 0.65rem; font-weight: bold; padding: 0.3rem 0.6rem; border-radius: 4px; width: 100%; text-shadow:0 1px 1px color-mix(in srgb, var(--bg-primary) 72%, transparent); }
+    .mock-badge { font-size: 0.55rem; padding: 0.15rem 0.35rem; border-radius: 3px; font-weight:600; text-shadow:0 1px 1px color-mix(in srgb, var(--sandbox-bg-primary, var(--bg-primary)) 72%, transparent); }
+    .bg-safe { background: var(--sandbox-safe, var(--safe)); color: var(--sandbox-bg-primary, var(--bg-primary)); } .bg-warn { background: var(--sandbox-warn, var(--warn)); color: var(--sandbox-bg-primary, var(--bg-primary)); } .bg-danger { background: var(--sandbox-danger, var(--danger)); color: var(--sandbox-bg-primary, var(--bg-primary)); }
+    .mock-form { padding-top: 0.4rem; border-top: 1px solid var(--sandbox-border-subtle, var(--border-subtle)); }
+    .mock-input { width: 100%; background: var(--sandbox-bg-input, var(--bg-input)); border: 1px solid var(--sandbox-border-subtle, var(--border-subtle)); color: var(--sandbox-text-primary, var(--text-primary)); font-size: 0.65rem; padding: 0.3rem; border-radius: 4px; }
+    .mock-btn { background: var(--sandbox-accent, var(--accent)); color: var(--sandbox-text-on-accent, #ffffff); border: none; font-size: 0.65rem; font-weight: bold; padding: 0.3rem 0.6rem; border-radius: 4px; width: 100%; text-shadow:0 1px 1px color-mix(in srgb, var(--sandbox-bg-primary, var(--bg-primary)) 72%, transparent); }
 </style>
 
 <script>
@@ -327,9 +326,9 @@
             'text_muted', 'accent_color', 'safe', 'warn', 'danger'
         ];
         fields.forEach(f => {
-            const input = document.getElementById(activePrefix + f);
+            const input = document.getElementById(prefix + f);
             if(input) {
-                const varName = f === 'accent_color' ? '--accent' : '--' + f.replace('_', '-');
+                const varName = f === 'accent_color' ? '--sandbox-accent' : '--sandbox-' + f.replace('_', '-');
                 sandbox.style.setProperty(varName, input.value);
             }
         });
@@ -368,13 +367,30 @@
 
     ['dark_', 'light_'].forEach(pfx => {
         fields.forEach(f => {
-            const varName = f === 'accent_color' ? '--accent' : '--' + f.replace('_', '-');
+            const varName = f === 'accent_color' ? '--sandbox-accent' : '--sandbox-' + f.replace('_', '-');
             setupSync(pfx + f + '_picker', pfx + f, varName);
         });
     });
 
+    function initializeThemePreview() {
+        const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-theme-tab') || 'night';
+        if (activeTab === 'day') {
+            updateSandboxScope('light_');
+        } else if (activeTab === 'global') {
+            const selected = document.getElementById('mode')?.value || 'system';
+            const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+            if (selected === 'light' || (selected === 'system' && prefersLight)) {
+                updateSandboxScope('light_');
+            } else {
+                updateSandboxScope('dark_');
+            }
+        } else {
+            updateSandboxScope('dark_');
+        }
+    }
+
     // Boot initialize active view
-    updateSandboxScope('dark_');
+    initializeThemePreview();
 
     // Global mode selection should also update the sandbox preview instantly
     const modeSelect = document.getElementById('mode');

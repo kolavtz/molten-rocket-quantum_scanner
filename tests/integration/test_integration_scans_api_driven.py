@@ -160,6 +160,139 @@ def test_scan_metrics_endpoint_returns_universal_envelope(app_client):
     assert isinstance(data.get("items"), list)
     assert "kpis" in data and isinstance(data["kpis"], dict)
     assert {"total", "page", "page_size", "total_pages"}.issubset(set(data.keys()))
+    assert {"queued", "not_scanned", "running", "completed", "failed"}.issubset(set(data["kpis"].keys()))
+
+
+def test_scans_export_json_returns_scan_list(app_client):
+    with patch("web.routes.scans._export_scan_items", return_value=[{"scan_id": "export-1", "target": "example.com", "status": "completed", "scan_type": "single"}]):
+        resp = app_client.get("/api/scans/export?format=json")
+
+    assert resp.status_code == 200
+    payload = json.loads(resp.data)
+    assert payload.get("success") is True
+    assert payload["data"]["count"] == 1
+    assert payload["data"]["items"][0]["scan_id"] == "export-1"
+
+
+def test_scans_export_csv_returns_download(app_client):
+    with patch("web.routes.scans._export_scan_items", return_value=[{"scan_id": "export-2", "target": "example.com", "status": "completed", "scan_type": "single"}]):
+        resp = app_client.get("/api/scans/export?format=csv")
+
+    assert resp.status_code == 200
+    assert resp.headers.get("Content-Type", "").startswith("text/csv")
+    text = resp.data.decode("utf-8")
+    assert "scan_id" in text
+    assert "export-2" in text
+
+
+def test_scan_cancel_endpoint_updates_active_job(app_client):
+    import web.routes.scans as scans_module
+    active_jobs = {
+        "job-cancel-1": {
+            "job_id": "job-cancel-1",
+            "statuses": {
+                "scan-cancel-1": {
+                    "scan_id": "scan-cancel-1",
+                    "status": "queued",
+                    "target": "example.com",
+                    "job_position": 1,
+                    "job_total": 1,
+                    "queue_position": 1,
+                    "queue_total": 1,
+                    "completed_count": 0,
+                    "total_count": 1,
+                }
+            },
+        }
+    }
+    with patch("web.routes.scans._can_scan", return_value=True), patch.dict(
+        "web.routes.scans._scan_jobs",
+        active_jobs,
+        clear=True,
+    ):
+        resp = app_client.post("/api/scans/scan-cancel-1/cancel", data=json.dumps({}), content_type="application/json")
+        assert resp.status_code == 200
+        payload = json.loads(resp.data)
+        assert payload.get("success") is True
+        assert payload["data"]["scan_id"] == "scan-cancel-1"
+        assert active_jobs["job-cancel-1"]["statuses"]["scan-cancel-1"]["status"] == "failed"
+
+
+def test_scan_delete_endpoint_requires_bulk_access(app_client):
+    with patch("web.routes.scans._can_bulk_scan", return_value=True), patch("web.routes.scans._load_scan_report", return_value={"scan_id": "scan-delete-1"}), patch("web.routes.scans._soft_delete_scan", return_value=True):
+        resp = app_client.post("/api/scans/scan-delete-1/delete", data=json.dumps({}), content_type="application/json")
+
+    assert resp.status_code == 200
+    payload = json.loads(resp.data)
+    assert payload.get("success") is True
+    assert payload["data"]["deleted"] is True
+
+
+def test_single_scan_status_exposes_queue_metadata(app_client):
+    fake_report = {
+        "scan_id": "queue-meta-1",
+        "target": "queue-meta.example",
+        "status": "complete",
+        "total_assets": 1,
+        "overview": {"average_compliance_score": 77},
+    }
+
+    with patch("web.routes.scans._can_scan", return_value=True), patch("web.app.run_scan_pipeline", return_value=fake_report):
+        create_resp = app_client.post(
+            "/api/scans",
+            data=json.dumps({"target": "queue-meta.example"}),
+            content_type="application/json",
+        )
+
+    assert create_resp.status_code == 202
+    payload = json.loads(create_resp.data)
+    scan_id = payload.get("scan_id") or payload.get("data", {}).get("scan_id")
+    assert scan_id
+
+    status_resp = app_client.get(f"/api/scans/{scan_id}/status")
+    assert status_resp.status_code == 200
+    status_payload = json.loads(status_resp.data)
+    data = status_payload.get("data", {})
+    assert "queue_position" in data
+    assert "queue_total" in data
+    assert "completed_count" in data
+    assert "total_count" in data
+
+
+def test_single_scan_invalid_target_sets_not_scanned_reason(app_client):
+    class _ImmediateThread:
+        def __init__(self, target=None, args=None, kwargs=None, daemon=None):
+            self._target = target
+            self._args = args or ()
+            self._kwargs = kwargs or {}
+
+        def start(self):
+            if self._target:
+                self._target(*self._args, **self._kwargs)
+
+    with patch("web.routes.scans._can_scan", return_value=True), \
+         patch("web.routes.scans.threading.Thread", side_effect=lambda *a, **kw: _ImmediateThread(*a, **kw)), \
+         patch("web.app.sanitize_target", side_effect=ValueError("Invalid target")):
+        create_resp = app_client.post(
+            "/api/scans",
+            data=json.dumps({"target": "%%%"}),
+            content_type="application/json",
+        )
+
+    assert create_resp.status_code == 202
+    create_payload = json.loads(create_resp.data)
+    scan_id = create_payload.get("scan_id") or create_payload.get("data", {}).get("scan_id")
+    assert scan_id
+
+    status_resp = app_client.get(f"/api/scans/{scan_id}/status")
+    assert status_resp.status_code == 200
+    status_payload = json.loads(status_resp.data)
+    status_data = status_payload.get("data", {})
+
+    assert status_data.get("status") == "not_scanned"
+    assert status_data.get("reason_code") == "invalid_target"
+    assert isinstance(status_data.get("reason_message"), str)
+    assert status_data.get("reason_message")
 
 
 def test_scan_certificate_details_endpoint_works_with_report_fallback(app_client):

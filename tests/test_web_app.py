@@ -1243,6 +1243,123 @@ class TestNonInventoryApiMutations:
         assert reloaded is not None
         assert reloaded.is_deleted is False
 
+    def test_recycle_bin_delete_assets_json(self, client, mock_admin):
+        target = _new_target('recycle-json-delete')
+        asset = Asset(
+            target=target,
+            asset_type='Web App',
+            is_deleted=True,
+            deleted_at=datetime.now(timezone.utc),
+        )
+        db_session.add(asset)
+        db_session.commit()
+
+        resp = client.post(
+            '/recycle-bin',
+            data=json.dumps({'action': 'delete_assets', 'asset_ids': [asset.id]}),
+            content_type='application/json',
+            headers={'Accept': 'application/json'},
+        )
+
+        assert resp.status_code == 200
+        payload = json.loads(resp.data)
+        assert payload.get('status') == 'success'
+        assert payload.get('deleted_count') == 1
+        assert db_session.query(Asset).filter(Asset.id == asset.id).first() is None
+
+    def test_recycle_bin_delete_assets_json_requires_ids(self, client, mock_admin):
+        resp = client.post(
+            '/recycle-bin',
+            data=json.dumps({'action': 'delete_assets'}),
+            content_type='application/json',
+            headers={'Accept': 'application/json'},
+        )
+
+        assert resp.status_code == 400
+        payload = json.loads(resp.data)
+        assert payload.get('status') == 'error'
+        assert 'No asset IDs were provided' in (payload.get('message') or '')
+
+    def test_recycle_bin_delete_assets_json_surfaces_delete_failures(self, client, mock_admin):
+        target = _new_target('recycle-json-delete-failure')
+        asset = Asset(
+            target=target,
+            asset_type='Web App',
+            is_deleted=True,
+            deleted_at=datetime.now(timezone.utc),
+        )
+        db_session.add(asset)
+        db_session.commit()
+        asset_id = int(asset.id)
+
+        original_delete = db_session.delete
+
+        def _delete_with_failure(obj):
+            if isinstance(obj, Asset) and int(getattr(obj, 'id', 0) or 0) == asset_id:
+                raise RuntimeError('forced delete failure for regression coverage')
+            return original_delete(obj)
+
+        with patch.object(db_session, 'delete', side_effect=_delete_with_failure):
+            resp = client.post(
+                '/recycle-bin',
+                data=json.dumps({'action': 'delete_assets', 'asset_ids': [asset_id]}),
+                content_type='application/json',
+                headers={'Accept': 'application/json'},
+            )
+
+        assert resp.status_code == 500
+        payload = json.loads(resp.data)
+        assert payload.get('status') == 'error'
+        assert payload.get('deleted_count') == 0
+        assert payload.get('failed_count') == 1
+        failed_ids = payload.get('failed_asset_ids') or []
+        assert asset_id in [int(v) for v in failed_ids]
+        assert db_session.query(Asset).filter(Asset.id == asset_id).first() is not None
+
+    def test_recycle_bin_delete_assets_form(self, client, mock_admin):
+        target = _new_target('recycle-form-delete-assets')
+        asset = Asset(
+            target=target,
+            asset_type='Web App',
+            is_deleted=True,
+            deleted_at=datetime.now(timezone.utc),
+        )
+        db_session.add(asset)
+        db_session.commit()
+
+        resp = client.post(
+            '/recycle-bin',
+            data={'action': 'delete_assets', 'asset_ids': [str(asset.id)]},
+            headers={'Accept': 'text/html'},
+        )
+
+        assert resp.status_code == 302
+        assert db_session.query(Asset).filter(Asset.id == asset.id).first() is None
+
+    def test_recycle_bin_delete_scans_form(self, client, mock_admin):
+        target = _new_target('recycle-form-delete-scans')
+        scan = Scan(
+            scan_id=f"scan-{uuid4().hex[:12]}",
+            target=target,
+            status='complete',
+            report_json='{}',
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+            is_deleted=True,
+            deleted_at=datetime.now(timezone.utc),
+        )
+        db_session.add(scan)
+        db_session.commit()
+
+        resp = client.post(
+            '/recycle-bin',
+            data={'action': 'delete_scans', 'scan_ids': [str(scan.id)]},
+            headers={'Accept': 'text/html'},
+        )
+
+        assert resp.status_code == 302
+        assert db_session.query(Scan).filter(Scan.id == scan.id).first() is None
+
 
 class TestAdminUserApiMutations:
     """Tests for admin user management table-row actions via JSON API."""

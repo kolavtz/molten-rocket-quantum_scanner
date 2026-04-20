@@ -14,7 +14,13 @@
 
 <section class="glass-card" style="padding:1rem; margin-bottom:1rem;">
   <h3 style="margin-bottom:0.8rem; text-transform:uppercase;">Operational Metrics</h3>
-  <div id="scanLiveKpis" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0.6rem; margin-bottom:0.8rem;"></div>
+  <div style="display:flex; flex-wrap:wrap; gap:0.6rem; align-items:center; margin-bottom:0.8rem;">
+    <div id="scanLiveKpis" style="flex:1 1 320px; display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0.6rem;"></div>
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+      <button id="exportCsvBtn" class="scan-button scan-button-secondary" type="button">Export CSV</button>
+      <button id="exportJsonBtn" class="scan-button scan-button-secondary" type="button">Export JSON</button>
+    </div>
+  </div>
 
   <h3 style="margin-bottom:0.8rem; text-transform:uppercase;">Progress</h3>
   <div id="scanProgress" style="display:grid; gap:0.4rem; font-size:0.85rem;"></div>
@@ -221,11 +227,9 @@
     <div class="glass-card" style="padding:0.8rem; margin-bottom:0.8rem;">
       <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase; margin-bottom:0.5rem;">Summary</div>
       <div id="scanDetailSummary" style="display:grid; gap:0.4rem;"></div>
-    </div>
-
-    <div class="glass-card" style="padding:0.8rem;">
-      <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase; margin-bottom:0.5rem;">Raw Result Snapshot</div>
-      <pre id="scanDetailRaw" style="margin:0; white-space:pre-wrap; word-break:break-word; color:var(--text-primary); background:transparent; border:none; padding:0;"></pre>
+      <div style="margin-top:0.7rem; font-size:0.78rem; color:var(--text-secondary);">
+        Full scan JSON remains available from the API and the <strong>Open Full Result</strong> link above.
+      </div>
     </div>
 
     <div class="glass-card" style="padding:0.8rem; margin-top:0.8rem;">
@@ -315,8 +319,10 @@
       <label for="scanFilterStatus" style="display:block; margin-bottom:0.2rem; color:var(--text-secondary); font-size:0.75rem;">Status</label>
       <select id="scanFilterStatus" class="scan-input" style="padding-left:0.8rem;">
         <option value="">All</option>
+        <option value="queued">Queued</option>
         <option value="running">Running</option>
         <option value="completed">Completed</option>
+        <option value="not_scanned">Not Scanned</option>
         <option value="failed">Failed</option>
       </select>
     </div>
@@ -368,9 +374,79 @@
 <script>
   function scanStatusBadge(value) {
     const state = String(value || 'unknown').toLowerCase();
-    const color = state === 'completed' ? 'var(--safe)' : (state === 'running' ? 'var(--warn)' : (state === 'failed' ? 'var(--danger)' : 'var(--text-secondary)'));
+    const color =
+      state === 'completed' ? 'var(--safe)' :
+      state === 'queued' ? 'var(--text-secondary)' :
+      state === 'running' ? 'var(--warn)' :
+      state === 'not_scanned' ? 'var(--warn)' :
+      (state === 'failed' ? 'var(--danger)' : 'var(--text-secondary)');
     return '<span class="status-pill" style="border-color:' + color + '; color:' + color + ';">' + state.toUpperCase() + '</span>';
   }
+
+  function scanLifecycleWidget(_value, row) {
+    const raw = String((row && row.status) || 'unknown').trim().toLowerCase();
+    const isQueued = raw === 'queued' || raw === 'pending';
+    const isStarted = raw === 'running' || raw === 'in_progress' || raw === 'started';
+    const isFinished = raw === 'completed' || raw === 'complete' || raw === 'success' || raw === 'done' || raw === 'failed' || raw === 'error' || raw === 'not_scanned' || raw === 'skipped';
+
+    let label = 'Queued';
+    let cls = 'is-queued';
+    if (isStarted) {
+      label = 'Started';
+      cls = 'is-started';
+    } else if (isFinished) {
+      label = 'Finished';
+      cls = 'is-finished';
+    } else if (!isQueued) {
+      label = 'Queued';
+      cls = 'is-queued';
+    }
+
+    return (
+      '<span class="scan-lifecycle-pill ' + cls + '" role="status" aria-label="Scan lifecycle ' + label.toLowerCase() + '">' +
+        '<span class="scan-lifecycle-dot"></span>' +
+        label +
+      '</span>'
+    );
+  }
+
+  function scanQueueCell(_value, row) {
+    const pos = Number((row && (row.queue_position ?? row.job_position)) || 0);
+    const total = Number((row && (row.queue_total ?? row.job_total ?? row.total_count)) || 0);
+    if (pos > 0 && total > 0) return pos + '/' + total;
+    if (total > 0) return String(total);
+    return '—';
+  }
+
+  function scanCompletedCell(_value, row) {
+    const completed = Number((row && row.completed_count) || 0);
+    const total = Number((row && (row.total_count ?? row.job_total ?? row.queue_total)) || 0);
+    if (total > 0) return completed + '/' + total;
+    return completed > 0 ? String(completed) : '—';
+  }
+
+  function scanReasonCell(_value, row) {
+    const status = String((row && row.status) || '').trim().toLowerCase();
+    const reasonCode = String((row && row.reason_code) || '').trim();
+    const reasonMessage = String((row && row.reason_message) || '').trim();
+    const error = String((row && (row.error || row.error_message)) || '').trim();
+
+    if (status === 'not_scanned' || status === 'skipped') {
+      if (reasonCode && reasonMessage) return reasonCode + ' — ' + reasonMessage;
+      if (reasonMessage) return reasonMessage;
+      if (reasonCode) return reasonCode;
+      return 'No execution reason provided';
+    }
+
+    if (status === 'failed' && error) {
+      return error;
+    }
+
+    return '—';
+  }
+
+  const canScanAction = {{ 'true' if can_single_scan else 'false' }};
+  const canBulkAction = {{ 'true' if can_bulk_scan else 'false' }};
 
   function scanDateDisplay(value) {
     if (!value) return '—';
@@ -383,12 +459,25 @@
     const scanId = String((row && row.scan_id) || '').trim();
     if (!scanId) return '—';
     const safeScanId = scanId.replace(/'/g, "\\'");
+    const normalizedStatus = String((row && row.status) || '').trim().toLowerCase();
+    const isCompleted = normalizedStatus === 'completed' || normalizedStatus === 'complete' || normalizedStatus === 'success';
     const actions = [];
     if (row && row.actions) {
       actions.push('<a class="scan-button scan-button-secondary" href="' + String(row.actions) + '">Open Result</a>');
     }
-    actions.push('<button class="scan-button" type="button" onclick="window.QuantumShieldScans.promote(\'' + safeScanId + '\', \'inventory\')">Add to Inventory</button>');
-    actions.push('<button class="scan-button scan-button-secondary" type="button" onclick="window.QuantumShieldScans.promote(\'' + safeScanId + '\', \'cbom\')">Enable CBOM</button>');
+    if (isCompleted) {
+      actions.push('<button class="scan-button" type="button" onclick="window.QuantumShieldScans.promote(\'' + safeScanId + '\', \'inventory\')">Add to Inventory</button>');
+      actions.push('<button class="scan-button scan-button-secondary" type="button" onclick="window.QuantumShieldScans.promote(\'' + safeScanId + '\', \'cbom\')">Enable CBOM</button>');
+      if (canBulkAction) {
+        actions.push('<button class="scan-button scan-button-secondary" type="button" onclick="window.QuantumShieldScans.deleteScan(\'' + safeScanId + '\')">Delete</button>');
+      }
+    } else {
+      if (canScanAction) {
+        actions.push('<button class="scan-button scan-button-secondary" type="button" onclick="window.QuantumShieldScans.cancelScan(\'' + safeScanId + '\')">Cancel</button>');
+      }
+      actions.push('<button class="scan-button" type="button" disabled title="Wait for scan completion before promotion">Add to Inventory</button>');
+      actions.push('<button class="scan-button scan-button-secondary" type="button" disabled title="Wait for scan completion before enabling CBOM">Enable CBOM</button>');
+    }
     return '<div style="display:flex; gap:0.35rem; flex-wrap:wrap;">' + actions.join('') + '</div>';
   }
 
@@ -414,9 +503,13 @@
       { field: 'scan_id', label: 'Scan ID' },
       { field: 'target', label: 'Target' },
       { field: 'scan_type', label: 'Scan Type' },
+      { field: 'queue', label: 'Queue', render: scanQueueCell },
+      { field: 'completed_count', label: 'Completed', render: scanCompletedCell },
       { field: 'started_at', label: 'Started At', render: function(v){ return scanDateDisplay(v); } },
       { field: 'completed_at', label: 'Completed At', render: function(v){ return scanDateDisplay(v); } },
       { field: 'status', label: 'Status', render: function(v){ return scanStatusBadge(v); } },
+      { field: 'lifecycle', label: 'Lifecycle', render: scanLifecycleWidget },
+      { field: 'reason', label: 'Why Not Scanned', render: scanReasonCell },
       { field: 'assets_found', label: 'Assets Found' },
       { field: 'pqc_score', label: 'PQC Score' },
       { field: 'actions', label: 'Actions', render: scanActionsCell }
@@ -531,6 +624,46 @@
   .scan-tab.scan-tab-active {
     color: var(--accent);
     border-bottom-color: var(--accent);
+  }
+
+  .scan-lifecycle-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    padding: 0.22rem 0.62rem;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .scan-lifecycle-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.95;
+  }
+
+  .scan-lifecycle-pill.is-queued {
+    color: var(--text-secondary);
+    border-color: color-mix(in srgb, var(--text-secondary) 45%, transparent);
+    background: color-mix(in srgb, var(--text-secondary) 14%, transparent);
+  }
+
+  .scan-lifecycle-pill.is-started {
+    color: var(--warn);
+    border-color: color-mix(in srgb, var(--warn) 50%, transparent);
+    background: color-mix(in srgb, var(--warn) 16%, transparent);
+  }
+
+  .scan-lifecycle-pill.is-finished {
+    color: var(--safe);
+    border-color: color-mix(in srgb, var(--safe) 50%, transparent);
+    background: color-mix(in srgb, var(--safe) 16%, transparent);
   }
 </style>
 {% endblock %}

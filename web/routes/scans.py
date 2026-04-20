@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import io
 import json
 import os
 import math
@@ -102,14 +104,18 @@ def _safe_json_list(value: Any) -> list[str]:
     return []
 
 
+def _normalize_role(role: Any) -> str:
+    return db.normalize_role(str(role or ""))
+
+
 def _can_scan() -> bool:
-    role = str(getattr(current_user, "role", "") or "").strip().title()
-    return getattr(current_user, "is_authenticated", False) and role in {r.title() for r in SCAN_ROLES}
+    role = _normalize_role(getattr(current_user, "role", ""))
+    return getattr(current_user, "is_authenticated", False) and role in SCAN_ROLES
 
 
 def _can_bulk_scan() -> bool:
-    role = str(getattr(current_user, "role", "") or "").strip().title()
-    return getattr(current_user, "is_authenticated", False) and role in {r.title() for r in BULK_SCAN_ROLES}
+    role = _normalize_role(getattr(current_user, "role", ""))
+    return getattr(current_user, "is_authenticated", False) and role in BULK_SCAN_ROLES
 
 
 def _parse_ports(value: Any) -> list[int] | None:
@@ -173,8 +179,16 @@ def _normalize_status(value: Any) -> str:
     text = str(value or "").strip().lower()
     if text in {"complete", "completed", "done", "success"}:
         return "completed"
-    if text in {"running", "in_progress", "queued", "pending"}:
+    if text in {"queued", "pending"}:
+        return "queued"
+    if text in {"running", "in_progress", "in-progress", "started"}:
         return "running"
+    if text in {"completed_with_errors", "complete_with_errors", "partial_success"}:
+        return "completed"
+    if text in {"not_scanned", "not-scanned", "skipped"}:
+        return "not_scanned"
+    if text in {"cancelled", "canceled"}:
+        return "failed"
     if text in {"failed", "error"}:
         return "failed"
     return text or "unknown"
@@ -191,6 +205,55 @@ def _normalize_scan_type(value: Any) -> str:
     if "bulk" in text:
         return "bulk"
     return "single"
+
+
+def _is_terminal_scan_status(value: Any) -> bool:
+    return _normalize_status(value) in {"completed", "failed", "not_scanned"}
+
+
+def _find_active_job_for_scan(scan_id: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    with _scan_jobs_lock:
+        for job in _scan_jobs.values():
+            statuses = job.get("statuses") or {}
+            if scan_id in statuses:
+                return job, statuses.get(scan_id)
+    return None, None
+
+
+def _normalize_role(role: Any) -> str:
+    return db.normalize_role(str(role or ""))
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    text = str(value or "").strip()
+    if not text:
+        return default
+    try:
+        return int(float(text))
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    if value is None:
+        return default
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value or "").strip()
+    if not text:
+        return default
+    try:
+        return float(text)
+    except (TypeError, ValueError):
+        return default
 
 
 def _build_scan_item_from_report(report: dict[str, Any]) -> dict[str, Any]:
@@ -223,6 +286,9 @@ def _build_scan_item_from_report(report: dict[str, Any]) -> dict[str, Any]:
         cbom_components = int(report.get("cbom_component_count") or 0)
 
     scan_id = str(report.get("scan_id") or "")
+    job_position = _safe_int(report.get("job_position") or report.get("queue_position"), 0)
+    job_total = _safe_int(report.get("job_total") or report.get("queue_total"), 0)
+    completed_count = _safe_int(report.get("completed_count"), 0) or (1 if _normalize_status(report.get("status")) == "completed" else 0)
     
     # Extract timestamps
     started_at = str(report.get("started_at") or report.get("timestamp") or "")
@@ -230,14 +296,23 @@ def _build_scan_item_from_report(report: dict[str, Any]) -> dict[str, Any]:
     
     return {
         "scan_id": scan_id,
+        "job_id": str(report.get("job_id") or ""),
+        "job_position": job_position,
+        "job_total": job_total,
+        "queue_position": job_position,
+        "queue_total": job_total,
+        "completed_count": completed_count,
+        "total_count": _safe_int(report.get("total_count") or job_total, 0),
+        "reason_code": str(report.get("reason_code") or ""),
+        "reason_message": str(report.get("reason_message") or ""),
         "target": str(report.get("target") or ""),
         "scan_type": _normalize_scan_type(report.get("scan_kind") or report.get("scan_type")),
         "status": _normalize_status(report.get("status") or "completed"),
-        "assets_found": int(assets_found or 0),
-        "services_discovered": int(services_discovered or 0),
-        "total_certificates": int(total_certificates or 0),
-        "cbom_components": int(cbom_components or 0),
-        "pqc_score": round(float(pqc_score or 0), 2),
+        "assets_found": _safe_int(assets_found, 0),
+        "services_discovered": _safe_int(services_discovered, 0),
+        "total_certificates": _safe_int(total_certificates, 0),
+        "cbom_components": _safe_int(cbom_components, 0),
+        "pqc_score": round(_safe_float(pqc_score, 0.0), 2),
         "started_at": started_at,
         "completed_at": completed_at,
         "date": started_at or completed_at or "",
@@ -289,14 +364,23 @@ def _collect_scan_items() -> list[dict[str, Any]]:
                 items.append(
                     {
                         "scan_id": sid,
+                        "job_id": str(job.get("job_id") or ""),
+                        "job_position": _safe_int(st.get("job_position"), 0),
+                        "job_total": _safe_int(st.get("job_total") or job.get("total"), 0),
+                        "queue_position": _safe_int(st.get("job_position"), 0),
+                        "queue_total": _safe_int(st.get("job_total") or job.get("total"), 0),
+                        "completed_count": _safe_int(job.get("completed"), 0),
+                        "total_count": _safe_int(job.get("total"), 0),
+                        "reason_code": str(st.get("reason_code") or ""),
+                        "reason_message": str(st.get("reason_message") or ""),
                         "target": str(st.get("target") or ""),
                         "scan_type": _normalize_scan_type(st.get("scan_type") or (st.get("options") or {}).get("scan_type") or "single"),
                         "status": _normalize_status(st.get("status") or job.get("status")),
-                        "assets_found": int(st.get("assets_found") or 0),
-                        "services_discovered": int(st.get("services_discovered") or st.get("assets_found") or 0),
-                        "total_certificates": int(st.get("total_certificates") or 0),
-                        "cbom_components": int(st.get("cbom_components") or 0),
-                        "pqc_score": round(float(st.get("pqc_score") or 0), 2),
+                        "assets_found": _safe_int(st.get("assets_found"), 0),
+                        "services_discovered": _safe_int(st.get("services_discovered") or st.get("assets_found"), 0),
+                        "total_certificates": _safe_int(st.get("total_certificates"), 0),
+                        "cbom_components": _safe_int(st.get("cbom_components"), 0),
+                        "pqc_score": round(_safe_float(st.get("pqc_score"), 0.0), 2),
                         "started_at": str(st.get("started_at") or job.get("started_at") or ""),
                         "completed_at": str(st.get("completed_at") or job.get("completed_at") or ""),
                         "date": str(st.get("updated_at") or job.get("updated_at") or ""),
@@ -430,6 +514,10 @@ def _status_snapshot(scan_id: str) -> dict[str, Any] | None:
                 row["job_status"] = job.get("status")
                 row["completed"] = int(job.get("completed") or 0)
                 row["total"] = int(job.get("total") or 0)
+                row["completed_count"] = int(job.get("completed") or 0)
+                row["total_count"] = int(job.get("total") or 0)
+                row["reason_code"] = str(row.get("reason_code") or "")
+                row["reason_message"] = str(row.get("reason_message") or "")
                 return row
     return None
 
@@ -447,6 +535,8 @@ def _compute_scan_kpis(items: list[dict[str, Any]]) -> dict[str, Any]:
     completed = 0
     failed = 0
     running = 0
+    queued = 0
+    not_scanned = 0
     total_assets_found = 0
     pqc_scores: list[float] = []
     scans_last_24h = 0
@@ -457,8 +547,12 @@ def _compute_scan_kpis(items: list[dict[str, Any]]) -> dict[str, Any]:
             completed += 1
         elif status_text in {"failed", "error"}:
             failed += 1
-        elif status_text in {"queued", "pending", "running", "in_progress"}:
+        elif status_text in {"queued", "pending"}:
+            queued += 1
+        elif status_text in {"running", "in_progress"}:
             running += 1
+        elif status_text in {"not_scanned", "skipped"}:
+            not_scanned += 1
 
         try:
             total_assets_found += int(row.get("assets_found") or 0)
@@ -491,6 +585,8 @@ def _compute_scan_kpis(items: list[dict[str, Any]]) -> dict[str, Any]:
         "total_scans": int(total_scans),
         "completed": int(completed),
         "failed": int(failed),
+        "queued": int(queued),
+        "not_scanned": int(not_scanned),
         "running": int(running),
         "active_jobs": int(active_jobs),
         "scans_last_24h": int(scans_last_24h),
@@ -515,6 +611,39 @@ def _load_scan_report(scan_id: str) -> dict[str, Any] | None:
         return report
 
     return None
+
+
+def _soft_delete_scan(scan_id: str) -> bool:
+    conn = None
+    try:
+        conn = db._get_connection()
+        if conn is None:
+            return False
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE scans SET is_deleted = 1, deleted_at = %s WHERE scan_id = %s",
+            (datetime.now(timezone.utc), scan_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception:
+        try:
+            if conn is not None:
+                conn.rollback()
+        except Exception:
+            pass
+        return False
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def _export_scan_items() -> list[dict[str, Any]]:
+    return [
+        _build_scan_item_from_report(report)
+        for report in db.list_scans(limit=2000)
+        if isinstance(report, dict)
+    ]
 
 
 def _certificate_summary(items: list[dict[str, Any]]) -> dict[str, Any]:
@@ -697,6 +826,9 @@ def _process_job(
                 if not running_job:
                     return
                 statuses = running_job.get("statuses") or {}
+                existing_status = _normalize_status(statuses.get(tracking_scan_id, {}).get("status"))
+                if existing_status in {"completed", "failed", "not_scanned"}:
+                    continue
                 statuses[tracking_scan_id]["status"] = "running"
                 statuses[tracking_scan_id]["updated_at"] = _now_iso()
                 running_job["statuses"] = statuses
@@ -728,6 +860,17 @@ def _process_job(
                 if not testing_mode and not bool(report.get("orm_persisted")):
                     db.save_scan(report)
 
+                report["status"] = "completed"
+                report["job_id"] = job_id
+                report["job_position"] = idx + 1
+                report["job_total"] = len(target_entries)
+                report["queue_position"] = idx + 1
+                report["queue_total"] = len(target_entries)
+                report["completed_count"] = idx + 1
+                report["total_count"] = len(target_entries)
+                report["reason_code"] = ""
+                report["reason_message"] = ""
+
                 web_app_module.scan_store[report.get("scan_id")] = report
 
                 _upsert_inventory_asset_from_scan(
@@ -748,10 +891,13 @@ def _process_job(
                     statuses[tracking_scan_id] = {
                         "scan_id": tracking_scan_id,
                         "target": clean_target,
+                        "job_id": job_id,
+                        "job_position": idx + 1,
+                        "job_total": len(target_entries),
                         "scan_type": _normalize_scan_type(job_options.get("scan_type") or ("api_bulk" if len(target_entries) > 1 else "api_single")),
                         "status": "completed",
-                        "assets_found": int(report.get("total_assets") or len(report.get("discovered_services") or [])),
-                        "pqc_score": float((report.get("overview") or {}).get("average_compliance_score") or report.get("overall_pqc_score") or 0),
+                        "assets_found": _safe_int(report.get("total_assets") or len(report.get("discovered_services") or []), 0),
+                        "pqc_score": _safe_float((report.get("overview") or {}).get("average_compliance_score") or report.get("overall_pqc_score"), 0.0),
                         "result_scan_id": report.get("scan_id"),
                         "ports": effective_ports or [],
                         "started_at": str(running_job.get("started_at") or ""),
@@ -762,6 +908,17 @@ def _process_job(
                     running_job["completed"] = int(running_job.get("completed") or 0) + 1
                     running_job["updated_at"] = _now_iso()
             except Exception as exc:
+                error_text = str(exc)
+                error_lower = error_text.lower()
+                terminal_status = "failed"
+                reason_code = "scan_failed"
+                reason_message = error_text or "Scan execution failed."
+
+                if isinstance(exc, ValueError) or "invalid" in error_lower or "sanitize" in error_lower:
+                    terminal_status = "not_scanned"
+                    reason_code = "invalid_target"
+                    reason_message = "Target could not be validated before scan execution."
+
                 with _scan_jobs_lock:
                     running_job = _scan_jobs.get(job_id)
                     if not running_job:
@@ -770,16 +927,50 @@ def _process_job(
                     statuses[tracking_scan_id] = {
                         "scan_id": tracking_scan_id,
                         "target": target,
+                        "job_id": job_id,
+                        "job_position": idx + 1,
+                        "job_total": len(target_entries),
                         "scan_type": _normalize_scan_type(job_options.get("scan_type") or ("api_bulk" if len(target_entries) > 1 else "api_single")),
-                        "status": "failed",
+                        "status": terminal_status,
+                        "reason_code": reason_code,
+                        "reason_message": reason_message,
                         "error": str(exc),
                         "started_at": str(running_job.get("started_at") or ""),
                         "completed_at": _now_iso(),
                         "updated_at": _now_iso(),
                     }
                     running_job["statuses"] = statuses
-                    running_job["failed"] = int(running_job.get("failed") or 0) + 1
+                    if terminal_status == "not_scanned":
+                        running_job["not_scanned"] = int(running_job.get("not_scanned") or 0) + 1
+                    else:
+                        running_job["failed"] = int(running_job.get("failed") or 0) + 1
                     running_job["updated_at"] = _now_iso()
+
+                failure_report = {
+                    "scan_id": tracking_scan_id,
+                    "target": target,
+                    "status": terminal_status,
+                    "scan_kind": _normalize_scan_type(job_options.get("scan_type") or ("api_bulk" if len(target_entries) > 1 else "api_single")),
+                    "started_at": _now_iso(),
+                    "completed_at": _now_iso(),
+                    "timestamp": _now_iso(),
+                    "generated_at": _now_iso(),
+                    "total_assets": 0,
+                    "overview": {"average_compliance_score": 0, "total_assets": 0},
+                    "error_message": error_text if terminal_status == "failed" else "",
+                    "reason_code": reason_code,
+                    "reason_message": reason_message,
+                    "job_id": job_id,
+                    "job_position": idx + 1,
+                    "job_total": len(target_entries),
+                    "queue_position": idx + 1,
+                    "queue_total": len(target_entries),
+                    "completed_count": 0,
+                    "total_count": len(target_entries),
+                }
+                if not testing_mode:
+                    db.save_scan(failure_report)
+                web_app_module.scan_store[tracking_scan_id] = failure_report
 
         with _scan_jobs_lock:
             finished_job = _scan_jobs.get(job_id)
@@ -813,7 +1004,12 @@ def _start_job(targets: list[Any], ports: list[int] | None, options: dict[str, A
         sid: {
             "scan_id": sid,
             "target": normalized_entries[idx].get("target"),
+            "job_id": job_id,
+            "job_position": idx + 1,
+            "job_total": len(normalized_entries),
             "status": "queued",
+            "reason_code": "",
+            "reason_message": "",
             "updated_at": _now_iso(),
             "options": dict(options or {}),
             "ports": normalized_entries[idx].get("ports") or [],
@@ -832,6 +1028,7 @@ def _start_job(targets: list[Any], ports: list[int] | None, options: dict[str, A
             "total": len(normalized_entries),
             "completed": 0,
             "failed": 0,
+            "not_scanned": 0,
             "created_at": _now_iso(),
             "updated_at": _now_iso(),
         }
@@ -1000,6 +1197,51 @@ def api_scans_list():
     )
 
 
+@scans_bp.route("/api/scans/export", methods=["GET"])
+@login_required
+def api_scans_export():
+    format_type = str(request.args.get("format", "json") or "json").strip().lower()
+    items = _export_scan_items()
+    if format_type == "csv":
+        fieldnames = [
+            "scan_id",
+            "target",
+            "scan_type",
+            "status",
+            "assets_found",
+            "services_discovered",
+            "total_certificates",
+            "cbom_components",
+            "pqc_score",
+            "job_id",
+            "job_position",
+            "job_total",
+            "queue_position",
+            "queue_total",
+            "completed_count",
+            "total_count",
+            "reason_code",
+            "reason_message",
+            "started_at",
+            "completed_at",
+            "date",
+        ]
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        for item in items:
+            writer.writerow(item)
+        csv_data = output.getvalue()
+        output.close()
+        return current_app.response_class(
+            csv_data,
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment; filename=quantumshield_scans_export.csv"},
+        )
+
+    return _api_success({"items": items, "count": len(items), "format": "json"})
+
+
 @scans_bp.route("/api/scans", methods=["POST"])
 @login_required
 def api_scan_single():
@@ -1112,7 +1354,26 @@ def api_scan_status(scan_id: str):
     # Prefer in-flight tracking status.
     snapshot = _status_snapshot(scan_id)
     if snapshot is not None:
-        return _api_success(snapshot, legacy={"status": "success"})
+        data_payload = {
+            "scan_id": scan_id,
+            "target": str(snapshot.get("target") or ""),
+            "status": _normalize_status(snapshot.get("status") or snapshot.get("job_status") or "unknown"),
+            "assets_found": _safe_int(snapshot.get("assets_found"), 0),
+            "pqc_score": _safe_float(snapshot.get("pqc_score"), 0.0),
+            "updated_at": snapshot.get("updated_at") or _now_iso(),
+            "result_scan_id": snapshot.get("result_scan_id") or scan_id,
+            "job_id": str(snapshot.get("job_id") or ""),
+            "job_position": _safe_int(snapshot.get("job_position"), 0),
+            "job_total": _safe_int(snapshot.get("job_total") or snapshot.get("total"), 0),
+            "queue_position": _safe_int(snapshot.get("job_position"), 0),
+            "queue_total": _safe_int(snapshot.get("job_total") or snapshot.get("total"), 0),
+            "completed_count": _safe_int(snapshot.get("completed_count") or snapshot.get("completed"), 0),
+            "total_count": _safe_int(snapshot.get("total_count") or snapshot.get("total"), 0),
+            "reason_code": str(snapshot.get("reason_code") or ""),
+            "reason_message": str(snapshot.get("reason_message") or ""),
+            "error": str(snapshot.get("error") or ""),
+        }
+        return _api_success(data_payload, legacy={"status": "success"})
 
     # Fallback: check persisted/in-memory reports by real scan_id.
     report = _load_scan_report(scan_id)
@@ -1127,6 +1388,16 @@ def api_scan_status(scan_id: str):
             "pqc_score": item.get("pqc_score"),
             "updated_at": item.get("date") or _now_iso(),
             "result_scan_id": scan_id,
+            "job_id": item.get("job_id") or "",
+            "job_position": _safe_int(item.get("job_position"), 0),
+            "job_total": _safe_int(item.get("job_total") or item.get("total_count"), 0),
+            "queue_position": _safe_int(item.get("queue_position") or item.get("job_position"), 0),
+            "queue_total": _safe_int(item.get("queue_total") or item.get("job_total") or item.get("total_count"), 0),
+            "completed_count": _safe_int(item.get("completed_count"), 0),
+            "total_count": _safe_int(item.get("total_count") or item.get("job_total"), 0),
+            "reason_code": item.get("reason_code") or "",
+            "reason_message": item.get("reason_message") or "",
+            "error": item.get("error_message") or "",
         }
         return _api_success(data_payload, legacy={"status": "success"})
 
@@ -1205,6 +1476,105 @@ def api_scan_promote(scan_id: str):
         "scan_id": resolved_scan_id,
         "destination": "inventory",
     }), 200
+
+
+@scans_bp.route("/api/scans/<scan_id>/cancel", methods=["POST"])
+@login_required
+def api_scan_cancel(scan_id: str):
+    if not _can_scan():
+        return _api_error("Insufficient role for scan cancel.", code="forbidden", status_code=403)
+
+    job, status = _find_active_job_for_scan(scan_id)
+    if not job or not isinstance(status, dict):
+        return _api_error("Active scan job not found.", code="not_found", status_code=404)
+
+    current_status = _normalize_status(status.get("status"))
+    if current_status in {"completed", "failed", "not_scanned"}:
+        return _api_error("Scan cannot be canceled in its current state.", code="conflict", status_code=409)
+
+    with _scan_jobs_lock:
+        active_job = _scan_jobs.get(job.get("job_id"))
+        if not active_job:
+            return _api_error("Active scan job not found.", code="not_found", status_code=404)
+        statuses = active_job.get("statuses") or {}
+        scan_status = statuses.get(scan_id) or {}
+        scan_status["status"] = "failed"
+        scan_status["reason_code"] = "cancelled"
+        scan_status["reason_message"] = "Scan was canceled by user."
+        scan_status["error"] = "Canceled by user."
+        scan_status["completed_at"] = _now_iso()
+        scan_status["updated_at"] = _now_iso()
+        statuses[scan_id] = scan_status
+        active_job["statuses"] = statuses
+        active_job["failed"] = int(active_job.get("failed") or 0) + 1
+        active_job["completed"] = int(active_job.get("completed") or 0) + 1
+        active_job["updated_at"] = _now_iso()
+
+    try:
+        import web.app as web_app_module
+        web_app_module.scan_store[scan_id] = {
+            "scan_id": scan_id,
+            "target": scan_status.get("target", ""),
+            "status": "failed",
+            "reason_code": "cancelled",
+            "reason_message": "Scan was canceled by user.",
+            "error": "Canceled by user.",
+            "job_id": job.get("job_id", ""),
+            "job_position": scan_status.get("job_position", 0),
+            "job_total": scan_status.get("job_total", 0),
+            "queue_position": scan_status.get("queue_position", 0),
+            "queue_total": scan_status.get("queue_total", 0),
+            "completed_count": scan_status.get("completed_count", 0),
+            "total_count": scan_status.get("total_count", 0),
+            "updated_at": scan_status.get("updated_at"),
+        }
+    except Exception:
+        pass
+
+    return _api_success(
+        {
+            "scan_id": scan_id,
+            "status": "failed",
+            "reason_code": "cancelled",
+            "reason_message": "Scan was canceled by user.",
+        }
+    )
+
+
+@scans_bp.route("/api/scans/<scan_id>/delete", methods=["POST"])
+@login_required
+def api_scan_delete(scan_id: str):
+    if not _can_bulk_scan():
+        return _api_error("Insufficient role for scan deletion.", code="forbidden", status_code=403)
+
+    if _find_active_job_for_scan(scan_id)[0] is not None:
+        with _scan_jobs_lock:
+            job, status = _find_active_job_for_scan(scan_id)
+            if job and status:
+                status["status"] = "failed"
+                status["reason_code"] = "cancelled"
+                status["reason_message"] = "Scan was canceled prior to deletion."
+                status["error"] = "Canceled by user."
+                status["completed_at"] = _now_iso()
+                status["updated_at"] = _now_iso()
+                job["failed"] = int(job.get("failed") or 0) + 1
+                job["completed"] = int(job.get("completed") or 0) + 1
+                job["updated_at"] = _now_iso()
+
+    report = _load_scan_report(scan_id)
+    if report is None:
+        return _api_error("Scan not found.", code="not_found", status_code=404)
+
+    if not _soft_delete_scan(scan_id):
+        return _api_error("Unable to delete scan.", code="server_error", status_code=500)
+
+    try:
+        import web.app as web_app_module
+        web_app_module.scan_store.pop(scan_id, None)
+    except Exception:
+        pass
+
+    return _api_success({"scan_id": scan_id, "deleted": True})
 
 
 @scans_bp.route("/api/scans/metrics", methods=["GET"])

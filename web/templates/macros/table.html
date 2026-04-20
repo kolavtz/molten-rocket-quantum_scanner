@@ -115,10 +115,10 @@
       </thead>
       <tbody>
         {% for item in items %}
-        <tr>
+        <tr{% if item is mapping and item.id is defined %} data-asset-id="{{ item.id }}"{% endif %}>
           {% for header in headers %}
             {% set value = item[header.field] if item is mapping and header.field in item else item|attr(header.field) %}
-            <td class="{% if header.class_name %}{{ header.class_name }}{% endif %}">
+            <td class="{% if header.class_name %}{{ header.class_name }}{% endif %}" data-field="{{ header.field }}">
               {% if header.safe %}
                 {{ value|default('')|safe }}
               {% else %}

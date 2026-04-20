@@ -685,12 +685,123 @@
 
     function _getRowByAssetId(assetId) {
         if (!assetId) return null;
+        const rowByDataAttr = document.querySelector(`tr[data-asset-id="${String(assetId)}"]`);
+        if (rowByDataAttr) {
+            return rowByDataAttr;
+        }
         const byCheckbox = document.querySelector(`input[name="asset_ids"][value="${String(assetId)}"]`);
         if (byCheckbox) {
             return byCheckbox.closest('tr');
         }
         const trigger = document.querySelector(`[data-asset-id="${String(assetId)}"]`);
         return trigger ? trigger.closest('tr') : null;
+    }
+
+    function _escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function _renderRiskBadge(riskLevel) {
+        const risk = String(riskLevel || 'Medium').trim() || 'Medium';
+        return `<span class="risk-pill risk-${_escapeHtml(risk.toLowerCase())}">${_escapeHtml(risk)}</span>`;
+    }
+
+    function _renderCertBadge(certStatus, certDays) {
+        const status = String(certStatus || 'Not Scanned').trim() || 'Not Scanned';
+        const meta = [];
+        if (typeof certDays === 'number' && Number.isFinite(certDays)) {
+            meta.push(`Days remaining: ${Math.trunc(certDays)}`);
+        }
+        const titleAttr = meta.length ? ` title="${_escapeHtml(meta.join(' | '))}"` : '';
+        return `<span class="cert-pill cert-${_escapeHtml(status.toLowerCase().replace(/\s+/g, '-'))}"${titleAttr}>${_escapeHtml(status)}</span>`;
+    }
+
+    function _applyInventoryApiItemToRow(item) {
+        if (!item || item.id == null) return;
+        const row = _getRowByAssetId(item.id);
+        if (!row) return;
+
+        row.dataset.assetId = String(item.id);
+
+        const normalizedName = String(item.name || item.asset_name || item.target || '').trim();
+        const normalizedType = String(item.asset_type || item.type || 'Web App').trim() || 'Web App';
+        const normalizedOwner = String(item.owner || 'Unassigned').trim() || 'Unassigned';
+        const normalizedRisk = String(item.risk_level || item.risk || 'Medium').trim() || 'Medium';
+        const normalizedKeyLength = item.key_length ? String(item.key_length) : '-';
+        const normalizedLastScan = String(item.last_scan || 'Never').trim() || 'Never';
+        const normalizedScanStatus = String(item.scan_status || item.last_scan_status || 'Never').trim() || 'Never';
+        const normalizedCertStatus = String(item.cert_status || 'Not Scanned').trim() || 'Not Scanned';
+
+        const textFields = {
+            name: normalizedName,
+            asset_type: normalizedType,
+            type: normalizedType,
+            owner: normalizedOwner,
+            key_length: normalizedKeyLength,
+            last_scan: normalizedLastScan,
+            scan_status: normalizedScanStatus,
+            tls_version: String(item.tls_version || 'Unknown').trim() || 'Unknown',
+            cipher_suite: String(item.cipher_suite || 'Unknown').trim() || 'Unknown',
+            ca: String(item.ca || 'Unknown').trim() || 'Unknown',
+        };
+
+        Object.entries(textFields).forEach(([field, value]) => {
+            const cell = row.querySelector(`[data-field="${field}"]`);
+            if (!cell) return;
+            cell.textContent = value;
+        });
+
+        const riskCell = row.querySelector('[data-field="risk_html"]');
+        if (riskCell) {
+            riskCell.innerHTML = _renderRiskBadge(normalizedRisk);
+        }
+
+        const certCell = row.querySelector('[data-field="cert_status_html"]');
+        if (certCell) {
+            certCell.innerHTML = _renderCertBadge(normalizedCertStatus, typeof item.cert_days === 'number' ? item.cert_days : null);
+        }
+
+        const viewBtn = row.querySelector('[data-open-scan-result]');
+        if (viewBtn) {
+            const lastScanId = item.last_scan_id != null ? String(item.last_scan_id) : '';
+            const resultUrl = lastScanId ? `/results/${lastScanId}` : '';
+            viewBtn.dataset.lastScanId = lastScanId;
+            viewBtn.dataset.resultUrl = resultUrl;
+            viewBtn.disabled = !resultUrl;
+            viewBtn.style.pointerEvents = resultUrl ? 'auto' : 'none';
+            viewBtn.style.opacity = resultUrl ? '1' : '0.6';
+        }
+
+        if (normalizedScanStatus && normalizedScanStatus !== 'Never') {
+            _setRowScanStatus(item.id, normalizedScanStatus);
+        }
+    }
+
+    async function _refreshVisibleInventoryRows() {
+        try {
+            const query = window.location.search || '';
+            const resp = await fetch(`/api/assets${query}`, {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' }
+            });
+            const result = await resp.json();
+            if (!resp.ok || !result || result.success !== true || !result.data || !Array.isArray(result.data.items)) {
+                return false;
+            }
+
+            result.data.items.forEach((item) => {
+                _applyInventoryApiItemToRow(item);
+            });
+            return true;
+        } catch (_err) {
+            return false;
+        }
     }
 
     function _findOrCreateRowBadge(row) {
@@ -871,10 +982,12 @@
             if (response.ok && isStarted) {
                 statusEl.textContent = 'Scan all inventory has been queued and is running in the background.';
                 statusEl.style.color = 'var(--pqc-safe)';
+                await _refreshVisibleInventoryRows();
                 _refreshInventoryKpis();
             } else if (response.ok && isComplete) {
                 statusEl.textContent = 'Scan all inventory completed successfully.';
                 statusEl.style.color = 'var(--pqc-safe)';
+                await _refreshVisibleInventoryRows();
                 _refreshInventoryKpis();
             } else {
                 statusEl.textContent = 'Scan all inventory failed to start: ' + message;
@@ -939,6 +1052,7 @@
                 feedback.style.color = 'var(--pqc-safe)';
                 feedback.textContent = result?.message || result?.data?.message || 'Scan completed. Refreshing inventory…';
                 _updateInventoryCount(result.data?.created ? 1 : 0);
+                await _refreshVisibleInventoryRows();
                 _refreshInventoryKpis();
                 setTimeout(() => location.reload(), 3000);
             } else {
@@ -1046,6 +1160,7 @@
                         uniqueIds.forEach(id => _setRowScanStatus(id, 'Started'));
                     }
                     _flashBanner(data.message || `Submitting bulk scan for ${uniqueIds.length} asset(s)…`, 'success');
+                    await _refreshVisibleInventoryRows();
                     _startPollingStatus();
                     _refreshInventoryKpis();
                     return;
@@ -1136,6 +1251,7 @@
                     }
                 }
                 _flashBanner(data.message || 'Scan initialized.', responseStatus === 'warning' ? 'warning' : 'success');
+                await _refreshVisibleInventoryRows();
                 _startPollingStatus();
                 _refreshInventoryKpis();
             } else {
@@ -1162,14 +1278,12 @@
             }
 
             try {
-                const resp = await fetch('/api/assets', { headers: { 'Accept': 'application/json' } });
+                const query = window.location.search || '';
+                const resp = await fetch(`/api/assets${query}`, { headers: { 'Accept': 'application/json' } });
                 const result = await resp.json();
                 if (resp.ok && result.success && result.data.items) {
                     result.data.items.forEach(item => {
-                        const status = String(item.scan_status || item.last_scan_status || 'complete').toLowerCase();
-                        if (status !== 'queued' && status !== 'started' && status !== 'running') {
-                            _setRowScanStatus(item.id, item.scan_status || item.last_scan_status || 'Complete');
-                        }
+                        _applyInventoryApiItemToRow(item);
                     });
                 }
             } catch (err) {
@@ -1183,6 +1297,7 @@
         _startPollingStatus();
     }
 
+    _refreshVisibleInventoryRows();
     _refreshInventoryKpis();
     const kpiInterval = window.setInterval(() => {
         if (!document.hidden) {

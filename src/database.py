@@ -190,7 +190,7 @@ def _get_connection():
                 connect_timeout=_CONNECT_TIMEOUT,
             )
             # Verify the connection is alive (avoids stale-conn bugs)
-            conn.ping(reconnect=True)
+            conn.ping()
             return conn
         except Exception as exc:
             last_exc = exc
@@ -220,7 +220,7 @@ def _get_server_connection():
                 password=MYSQL_PASSWORD,
                 connect_timeout=_CONNECT_TIMEOUT,
             )
-            conn.ping(reconnect=True)
+            conn.ping()
             return conn
         except Exception as exc:
             last_exc = exc
@@ -1503,7 +1503,7 @@ def list_assets() -> List[Dict[str, Any]]:
     finally: conn.close()
 
 
-def save_scan(report: Dict[str, Any]) -> bool:
+def save_scan(report: Dict[str, Any], _retry_init: bool = True) -> bool:
     """Persist a scan report to MySQL.  Returns ``True`` on success."""
     conn = _get_connection()
     if conn is None:
@@ -1574,6 +1574,16 @@ def save_scan(report: Dict[str, Any]) -> bool:
         conn.commit()
         return True
     except Exception as exc:
+        if _retry_init and (
+            "Unknown column 'report_json'" in str(exc)
+            or "Unknown column 'is_encrypted'" in str(exc)
+            or "Unknown column 'scan_id'" in str(exc)
+            or ("doesn't exist" in str(exc) and "scans" in str(exc))
+        ):
+            logger.warning("Detected legacy scans schema issue during save_scan; attempting migration.")
+            if init_db():
+                conn.close()
+                return save_scan(report, _retry_init=False)
         logger.error("MySQL save_scan error: %s", exc)
         return False
     finally:
@@ -1616,7 +1626,7 @@ def save_cbom(scan_id: str, cbom_dict: Dict[str, Any]) -> bool:
     return False
 
 
-def get_scan(scan_id: str) -> Optional[Dict[str, Any]]:
+def get_scan(scan_id: str, _retry_init: bool = True) -> Optional[Dict[str, Any]]:
     """Load a scan report from MySQL.  Returns ``None`` if not found."""
     conn = _get_connection()
     if conn is None:
@@ -1635,6 +1645,16 @@ def get_scan(scan_id: str) -> Optional[Dict[str, Any]]:
             return json.loads(data) if isinstance(data, str) else data
         return None
     except Exception as exc:
+        if _retry_init and (
+            "Unknown column 'report_json'" in str(exc)
+            or "Unknown column 'is_encrypted'" in str(exc)
+            or "Unknown column 'scan_id'" in str(exc)
+            or ("doesn't exist" in str(exc) and "scans" in str(exc))
+        ):
+            logger.warning("Detected legacy scans schema issue during get_scan; attempting migration.")
+            if init_db():
+                conn.close()
+                return get_scan(scan_id, _retry_init=False)
         logger.error("MySQL get_scan error: %s", exc)
         return None
     finally:
@@ -1642,7 +1662,7 @@ def get_scan(scan_id: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def list_scans(limit: int = 50) -> List[Dict[str, Any]]:
+def list_scans(limit: int = 50, _retry_init: bool = True) -> List[Dict[str, Any]]:
     """Return recent scans ordered by timestamp (newest first)."""
     conn = _get_connection()
     if conn is None:
@@ -1689,6 +1709,16 @@ def list_scans(limit: int = 50) -> List[Dict[str, Any]]:
 
         return results
     except Exception as exc:
+        if _retry_init and (
+            "Unknown column 'report_json'" in str(exc)
+            or "Unknown column 'is_encrypted'" in str(exc)
+            or "Unknown column 'scan_id'" in str(exc)
+            or ("doesn't exist" in str(exc) and "scans" in str(exc))
+        ):
+            logger.warning("Detected legacy scans schema issue during list_scans; attempting migration.")
+            if init_db():
+                conn.close()
+                return list_scans(limit, _retry_init=False)
         logger.error("MySQL list_scans error: %s", exc)
         return []
     finally:
@@ -1732,7 +1762,7 @@ def get_enterprise_metrics() -> Dict[str, Any]:
                 AVG(compliance_score) as avg_score,
                 MAX(scanned_at) as latest_scan
             FROM scans 
-            WHERE status = 'complete' AND COALESCE(is_deleted, 0) = 0
+            WHERE status IN ('complete', 'completed') AND COALESCE(is_deleted, 0) = 0
         """)
         row = cur.fetchone()
         if row and row.get("scan_count", 0) > 0:

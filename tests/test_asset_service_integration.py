@@ -63,3 +63,20 @@ def test_get_inventory_view_model_handles_certificate_telemetry_failure():
             assert result['kpis']['weak_crypto_issues'] == 0
             assert result['kpis']['expired_certificates'] == 0
             assert result['cert_issues_count'] == 0
+
+
+def test_extract_key_length_from_certificate_details():
+    service = AssetService()
+    assert service._extract_key_length_from_certificate_details({'subject_public_key_info': {'subject_public_key_bits': 4096}}) == 4096
+    assert service._extract_key_length_from_certificate_details({'key_length': '2048'}) == 2048
+    assert service._extract_key_length_from_certificate_details({'key_size': 1024}) == 1024
+    assert service._extract_key_length_from_certificate_details({'public_key_bits': '512'}) == 512
+
+
+def test_extract_valid_until_from_certificate_details():
+    service = AssetService()
+    dt = service._extract_valid_until_from_certificate_details({'validity': {'not_after': '2026-12-31T23:59:59Z'}})
+    assert dt is not None and dt.year == 2026 and dt.month == 12 and dt.day == 31
+    assert service._extract_valid_until_from_certificate_details({'valid_to': '2027-01-01T00:00:00Z'}) is not None
+    assert service._extract_valid_until_from_certificate_details({'valid_until': '2028-01-01'}) is not None
+    assert service._extract_valid_until_from_certificate_details({}) is None

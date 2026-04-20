@@ -45,6 +45,16 @@ def test_scan_table_calls_modal_open(authenticated_client):
     assert "window.QuantumShieldScans.showRecordDetails" in content, "Scan table does not call showRecordDetails()"
 
 
+def test_scan_detail_template_hides_raw_json_snapshot(authenticated_client):
+    """Test that the scan detail UI does not render raw JSON payloads directly."""
+    with open('web/templates/scans.html', 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    assert 'id="scanDetailRaw"' not in content, "Raw JSON snapshot block should not be rendered in the scan UI"
+    assert 'Raw Result Snapshot' not in content, "Raw JSON snapshot heading should not be rendered in the scan UI"
+    assert 'Full scan JSON remains available from the API' in content, "UI should point users to the API-backed full result instead"
+
+
 def test_api_scan_result_endpoint_exists(authenticated_client):
     """Test that API endpoint for scan results exists."""
     # This uses the existing endpoint from scans.py

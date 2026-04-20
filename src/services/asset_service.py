@@ -112,6 +112,41 @@ class AssetService:
                 return {}
         return {}
 
+    def _extract_key_length_from_certificate_details(self, cert_details: dict) -> int:
+        if not isinstance(cert_details, dict):
+            return 0
+        for key in ('key_length', 'key_size', 'public_key_bits', 'subject_public_key_bits'):
+            value = cert_details.get(key)
+            if isinstance(value, (int, float)) and int(value) > 0:
+                return int(value)
+            if isinstance(value, str) and value.strip().isdigit():
+                return int(value.strip())
+        spki = cert_details.get('subject_public_key_info')
+        if isinstance(spki, dict):
+            value = spki.get('subject_public_key_bits') or spki.get('public_key_bits')
+            if isinstance(value, (int, float)) and int(value) > 0:
+                return int(value)
+            if isinstance(value, str) and value.strip().isdigit():
+                return int(value.strip())
+        return 0
+
+    def _extract_valid_until_from_certificate_details(self, cert_details: dict):
+        if not isinstance(cert_details, dict):
+            return None
+        validity = cert_details.get('validity') if isinstance(cert_details.get('validity'), dict) else {}
+        candidates = [
+            validity.get('not_after'),
+            validity.get('expires_on'),
+            cert_details.get('valid_to'),
+            cert_details.get('valid_until'),
+        ]
+        for candidate in candidates:
+            if isinstance(candidate, str) and candidate.strip():
+                dt = self._coerce_datetime(candidate.strip())
+                if dt is not None:
+                    return dt
+        return None
+
     def load_combined_assets(self) -> list:
         """Hydrate inventory rows from MySQL tables only (assets/scans/certificates)."""
 
@@ -228,10 +263,29 @@ class AssetService:
                 tls_version = str(getattr(latest_cert, "tls_version", "") or "Unknown")
                 cipher_suite = str(getattr(latest_cert, "cipher_suite", "") or "Unknown")
                 ca_name = str(getattr(latest_cert, "ca", "") or getattr(latest_cert, "issuer", "") or "Unknown")
+                cert_details_from_row = self._safe_json_dict(getattr(latest_cert, "certificate_details", None))
+                if key_length <= 0:
+                    key_length = self._extract_key_length_from_certificate_details(cert_details_from_row)
+
                 valid_until = getattr(latest_cert, "valid_until", None)
+                expiry_days = getattr(latest_cert, "expiry_days", None)
+                if not valid_until and expiry_days is None:
+                    valid_until = self._extract_valid_until_from_certificate_details(cert_details_from_row)
+
                 if valid_until:
-                    cert_valid_until = valid_until.strftime("%Y-%m-%d")
-                    cert_days = int((valid_until - now_naive_utc).days)
+                    if isinstance(valid_until, str):
+                        valid_until = self._coerce_datetime(valid_until)
+                    if isinstance(valid_until, datetime):
+                        cert_valid_until = valid_until.strftime("%Y-%m-%d")
+                        cert_days = int((valid_until - now_naive_utc).days)
+                        if cert_days < 0:
+                            cert_status = "Expired"
+                        elif cert_days <= 30:
+                            cert_status = "Expiring"
+                        else:
+                            cert_status = "Valid"
+                elif isinstance(expiry_days, (int, float)):
+                    cert_days = int(expiry_days)
                     if cert_days < 0:
                         cert_status = "Expired"
                     elif cert_days <= 30:
@@ -281,7 +335,22 @@ class AssetService:
                     or getattr(latest_scan, "started_at", None)
                 )
                 last_scan_id = getattr(latest_scan, "scan_id", None) or getattr(latest_scan, "id", None)
-                scan_status = str(getattr(latest_scan, "status", "") or "Unknown").title()
+                raw_scan_status = str(getattr(latest_scan, "status", "") or "unknown").strip().lower()
+                scan_status_aliases = {
+                    "complete": "completed",
+                    "completed": "completed",
+                    "done": "completed",
+                    "success": "completed",
+                    "error": "failed",
+                    "failed": "failed",
+                    "queued": "queued",
+                    "pending": "queued",
+                    "running": "running",
+                    "in_progress": "running",
+                    "not_scanned": "not_scanned",
+                    "skipped": "not_scanned",
+                }
+                scan_status = scan_status_aliases.get(raw_scan_status, raw_scan_status or "unknown")
                 if "overall_pqc_score" not in latest_scan_report and getattr(latest_scan, "overall_pqc_score", None) is not None:
                     latest_scan_report["overall_pqc_score"] = float(latest_scan.overall_pqc_score)
                 scan_kind = str(latest_scan_report.get("scan_kind") or "N/A")

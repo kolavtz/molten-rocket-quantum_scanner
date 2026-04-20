@@ -123,6 +123,28 @@ class TestInitDb:
         # At minimum, should attempt USE and scan creation plus some migrations.
         assert mock_cursor.execute.call_count >= 4  # USE + CREATE table + other initial statements
 
+    @patch("pymysql.connect")
+    def test_get_connection_uses_ping_without_reconnect(self, mock_pymysql_connect, mock_conn):
+        """_get_connection should validate a new connection with conn.ping()."""
+        mock_pymysql_connect.return_value = mock_conn
+        from src.database import _get_connection
+
+        result = _get_connection()
+
+        assert result is mock_conn
+        mock_conn.ping.assert_called_once_with()
+
+    @patch("pymysql.connect")
+    def test_get_server_connection_uses_ping_without_reconnect(self, mock_pymysql_connect, mock_conn):
+        """_get_server_connection should validate a new server connection with conn.ping()."""
+        mock_pymysql_connect.return_value = mock_conn
+        from src.database import _get_server_connection
+
+        result = _get_server_connection()
+
+        assert result is mock_conn
+        mock_conn.ping.assert_called_once_with()
+
 
 def test_ensure_scans_id_column_adds_missing_id(mock_cursor):
     """Should add scans.id column for legacy table without id."""

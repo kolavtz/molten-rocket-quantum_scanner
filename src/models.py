@@ -165,6 +165,8 @@ def _normalize_scan_status(value):
         "completed": "complete",
         "in_progress": "running",
         "in-progress": "running",
+        "skipped": "not_scanned",
+        "not-scanned": "not_scanned",
     }
     return aliases.get(text, text or "queued")
 
