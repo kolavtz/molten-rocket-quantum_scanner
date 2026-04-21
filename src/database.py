@@ -2405,7 +2405,14 @@ def reset_user_2fa(user_id: str) -> bool:
             (str(user_id),),
         )
         conn.commit()
-        return cur.rowcount > 0
+        if cur.rowcount > 0:
+            return True
+
+        # If the row was already in the reset state, the UPDATE may affect 0 rows.
+        # Return success as long as the user still exists.
+        verify_cur = conn.cursor(pymysql.cursors.DictCursor)
+        verify_cur.execute("SELECT 1 FROM users WHERE id = %s", (str(user_id),))
+        return verify_cur.fetchone() is not None
     except Exception as exc:
         logger.warning("MySQL reset_user_2fa error: %s", exc)
         return False

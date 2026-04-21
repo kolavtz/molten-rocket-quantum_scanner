@@ -397,6 +397,79 @@ class TestGetCbom:
         assert result is None
 
 
+class TestTwoFactorDatabase:
+    @patch("src.database._get_connection")
+    @patch("src.database._encrypt_data", side_effect=lambda data: f"enc:{data}")
+    def test_set_user_2fa_success(self, mock_encrypt, mock_get_conn, mock_conn, mock_cursor):
+        """set_user_2fa should encrypt values and update the user row."""
+        mock_get_conn.return_value = mock_conn
+        mock_cursor.rowcount = 1
+        from src.database import set_user_2fa
+
+        result = set_user_2fa("user-1", "SECRETABC", json.dumps(["backup1", "backup2"]))
+
+        assert result is True
+        assert mock_cursor.execute.call_count == 1
+        sql = mock_cursor.execute.call_args[0][0]
+        params = mock_cursor.execute.call_args[0][1]
+
+        assert "UPDATE users" in sql
+        assert params[0] == "enc:SECRETABC"
+        assert params[1] == "enc:[\"backup1\", \"backup2\"]"
+        assert params[2] == "user-1"
+        mock_conn.commit.assert_called_once()
+        mock_conn.close.assert_called_once()
+
+    @patch("src.database._get_connection")
+    def test_set_user_2fa_unavailable(self, mock_get_conn):
+        """set_user_2fa should return False when MySQL is unavailable."""
+        mock_get_conn.return_value = None
+        from src.database import set_user_2fa
+
+        assert set_user_2fa("user-1", "SECRETABC", None) is False
+
+    @patch("src.database._get_connection")
+    def test_reset_user_2fa_success_when_rows_affected(self, mock_get_conn, mock_conn, mock_cursor):
+        """reset_user_2fa should succeed when the UPDATE affects a row."""
+        mock_get_conn.return_value = mock_conn
+        mock_cursor.rowcount = 1
+        from src.database import reset_user_2fa
+
+        assert reset_user_2fa("user-1") is True
+        sql = mock_cursor.execute.call_args[0][0]
+        assert "UPDATE users" in sql
+        mock_conn.commit.assert_called_once()
+        mock_conn.close.assert_called_once()
+
+    @patch("src.database._get_connection")
+    def test_reset_user_2fa_success_when_already_reset(self, mock_get_conn, mock_conn, mock_cursor):
+        """reset_user_2fa should return True when user exists but rowcount is 0."""
+        mock_get_conn.return_value = mock_conn
+        mock_cursor.rowcount = 0
+        verify_cursor = MagicMock()
+        verify_cursor.fetchone.return_value = {"exists": 1}
+        mock_conn.cursor.side_effect = [mock_cursor, verify_cursor]
+        from src.database import reset_user_2fa
+
+        assert reset_user_2fa("user-1") is True
+        assert verify_cursor.execute.call_args[0][0].strip().startswith("SELECT 1 FROM users")
+        mock_conn.close.assert_called_once()
+
+    @patch("src.database._get_connection")
+    def test_reset_user_2fa_returns_false_when_user_missing(self, mock_get_conn, mock_conn, mock_cursor):
+        """reset_user_2fa should return False when the target user does not exist."""
+        mock_get_conn.return_value = mock_conn
+        mock_cursor.rowcount = 0
+        verify_cursor = MagicMock()
+        verify_cursor.fetchone.return_value = None
+        mock_conn.cursor.side_effect = [mock_cursor, verify_cursor]
+        from src.database import reset_user_2fa
+
+        assert reset_user_2fa("user-1") is False
+        assert verify_cursor.execute.call_args[0][0].strip().startswith("SELECT 1 FROM users")
+        mock_conn.close.assert_called_once()
+
+
 class TestDnsRecords:
     @patch("src.database._get_connection")
     def test_save_dns_records_success(self, mock_get_conn, mock_conn, mock_cursor):

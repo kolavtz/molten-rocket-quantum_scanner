@@ -1569,6 +1569,68 @@ class TestAdminUserApiMutations:
         assert payload['message'] == 'Password reset email sent.'
         assert payload['user_id'] == user_id
 
+    def test_admin_reset_2fa_json(self, client, mock_admin):
+        from werkzeug.security import generate_password_hash
+        import uuid
+        from src import database as db
+
+        db.init_db()
+
+        username = f'test_reset_2fa_{uuid.uuid4().hex[:8]}'
+        email = f'{username}@example.com'
+
+        user_id = db.create_invited_user(
+            employee_id=f'EMP-{uuid.uuid4().hex[:8]}',
+            username=username,
+            email=email,
+            role='Viewer',
+            created_by=None,
+            password_hash=generate_password_hash('Test123!')
+        )
+        assert user_id is not None
+
+        assert db.set_user_2fa(user_id, 'TESTSECRET1234567890', json.dumps(['backup1', 'backup2']))
+        user = db.get_user_by_id(user_id)
+        assert user is not None
+        assert bool(user.get('two_factor_enabled')) is True
+
+        with patch('web.app.current_user') as route_user:
+            route_user.role = 'Admin'
+            route_user.id = 999
+            route_user.username = 'admin'
+            resp = client.post(
+                f'/admin/users/{user_id}/reset-2fa',
+                data=json.dumps({}),
+                content_type='application/json',
+                headers={'Accept': 'application/json'},
+            )
+
+        assert resp.status_code == 200
+        payload = json.loads(resp.data)
+        assert payload['status'] == 'success'
+        assert payload['message'] == '2FA reset.'
+
+        user = db.get_user_by_id(user_id)
+        assert user is not None
+        assert bool(user.get('two_factor_enabled')) is False
+        assert user.get('two_factor_secret') is None
+        assert user.get('backup_codes') is None
+
+        with patch('web.app.current_user') as route_user:
+            route_user.role = 'Admin'
+            route_user.id = 999
+            route_user.username = 'admin'
+            resp2 = client.post(
+                f'/admin/users/{user_id}/reset-2fa',
+                data=json.dumps({}),
+                content_type='application/json',
+                headers={'Accept': 'application/json'},
+            )
+
+        assert resp2.status_code == 200
+        payload2 = json.loads(resp2.data)
+        assert payload2['status'] == 'success'
+
     def test_setup_password_api_validation(self, client):
         from werkzeug.security import generate_password_hash
         import uuid
