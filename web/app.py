@@ -7175,6 +7175,9 @@ if __name__ == "__main__":
     _start_scheduler_if_enabled()
     _bootstrap_runtime_state()
 
+    if int(FLASK_PORT) <= 0:
+        raise RuntimeError("PORT (or FLASK_PORT) must be set to a valid non-zero value before starting the app.")
+
     print(f"\n{'='*60}")
     print(f"  [QuantumShield] {app.import_name} - Quantum-Safe TLS Scanner")
     print(f"  Running on https://{FLASK_HOST}:{FLASK_PORT}")

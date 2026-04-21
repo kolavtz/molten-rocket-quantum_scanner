@@ -477,8 +477,9 @@ SQLALCHEMY_DATABASE_URI = (
 # Determine project root (for constructing absolute paths)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Flexible port handling for production (e.g. Heroku/Azure use $PORT)
-FLASK_PORT = int(os.environ.get("PORT", os.environ.get("FLASK_PORT", "5000")))
+# Environment-driven port handling (Render/Heroku/etc. inject PORT)
+_flask_port_raw = os.environ.get("PORT") or os.environ.get("FLASK_PORT")
+FLASK_PORT = int(_flask_port_raw) if _flask_port_raw else 0
 FLASK_HOST = os.environ.get("FLASK_HOST", "127.0.0.1")
 
 RESULTS_DIR = os.path.join(BASE_DIR, "scan_results")
