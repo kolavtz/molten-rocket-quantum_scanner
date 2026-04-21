@@ -94,6 +94,24 @@ from web.pdf_export import generate_report_pdf
 def _normalize_role(role: Any) -> str:
     return db.normalize_role(str(role or ""))
 
+
+def _normalized_required_2fa_roles() -> set[str]:
+    return {_normalize_role(role) for role in REQUIRE_2FA_ROLES if _normalize_role(role)}
+
+
+def _role_requires_2fa(user_data: dict[str, Any] | None) -> bool:
+    """Return True when a user's role must complete 2FA.
+
+    Global REQUIRE_2FA still overrides role-based policy and forces 2FA
+    for every authenticated user.
+    """
+    if not user_data:
+        return False
+    if REQUIRE_2FA:
+        return True
+    role = _normalize_role(user_data.get("role", ""))
+    return role in _normalized_required_2fa_roles()
+
 # ── Flask App ────────────────────────────────────────────────────────
 
 app = Flask(
@@ -135,6 +153,7 @@ from config import (
     MAX_LOGIN_ATTEMPTS,
     LOGIN_LOCKOUT_MINUTES,
     REQUIRE_2FA,
+    REQUIRE_2FA_ROLES,
     SESSION_COOKIE_NAME,
     SESSION_IDLE_TIMEOUT_SECONDS,
     AUDIT_LOG_PAGE_SIZE,
@@ -2594,7 +2613,8 @@ def login():
                     return redirect(url_for("setup_password", token=token))
 
             # If 2FA is required by policy or already enabled for this user, defer full login
-            if REQUIRE_2FA or user_data.get("two_factor_enabled"):
+            requires_2fa = _role_requires_2fa(user_data)
+            if requires_2fa or user_data.get("two_factor_enabled"):
                 # stash pre-2FA context and redirect to the appropriate 2FA flow
                 session["pre_2fa_user_id"] = user_data["id"]
                 session["pre_2fa_remember"] = remember
@@ -2605,12 +2625,17 @@ def login():
                     "mfa_required",
                     "info",
                     target_user_id=user_data["id"],
-                    details={"require_2fa": bool(REQUIRE_2FA), "two_factor_enabled": bool(user_data.get("two_factor_enabled"))},
+                    details={
+                        "require_2fa": bool(REQUIRE_2FA),
+                        "role_requires_2fa": bool(requires_2fa),
+                        "two_factor_enabled": bool(user_data.get("two_factor_enabled")),
+                    },
                 )
 
                 if user_data.get("two_factor_enabled"):
                     return redirect(url_for("two_factor_login"))
                 else:
+                    flash("Your role requires 2FA setup before you can continue.", "warning")
                     return redirect(url_for("two_factor_setup"))
 
             # No 2FA required — complete login immediately
@@ -2730,6 +2755,13 @@ def two_factor_login():
     user = db.get_user_by_id(pre_id)
     if not user:
         flash("User not found. Please log in again.", "error")
+        return redirect(url_for("login"))
+
+    if not user.get("two_factor_enabled"):
+        if _role_requires_2fa(user):
+            flash("Your role requires 2FA setup before you can continue.", "warning")
+            return redirect(url_for("two_factor_setup"))
+        flash("2FA is not enabled for this account. Please log in again.", "error")
         return redirect(url_for("login"))
 
     if request.method == "GET":

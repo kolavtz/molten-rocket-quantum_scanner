@@ -68,6 +68,48 @@ class TestRoutes:
         # Should redirect to index
         assert resp.status_code == 302
 
+    def test_login_forces_admin_to_2fa_setup_when_not_enrolled(self, client):
+        user_data = {
+            'id': 'user-1',
+            'username': 'admin_user',
+            'role': 'Admin',
+            'password_hash': 'hashed',
+            'is_active': True,
+            'two_factor_enabled': False,
+        }
+
+        with patch('web.app.db.get_user_by_username', return_value=user_data), \
+             patch('web.app.check_password_hash', return_value=True), \
+             patch('web.app._audit'), \
+             patch('web.app.db.mark_login_failure'), \
+             patch('web.app.db.mark_login_success') as mock_login_success:
+            resp = client.post('/login', data={'username': 'admin_user', 'password': 'CorrectHorseBatteryStaple'})
+
+        assert resp.status_code == 302
+        assert '/2fa/setup' in (resp.headers.get('Location') or '')
+        mock_login_success.assert_not_called()
+
+    def test_login_routes_admin_with_2fa_to_verification(self, client):
+        user_data = {
+            'id': 'user-2',
+            'username': 'admin_user',
+            'role': 'Admin',
+            'password_hash': 'hashed',
+            'is_active': True,
+            'two_factor_enabled': True,
+        }
+
+        with patch('web.app.db.get_user_by_username', return_value=user_data), \
+             patch('web.app.check_password_hash', return_value=True), \
+             patch('web.app._audit'), \
+             patch('web.app.db.mark_login_failure'), \
+             patch('web.app.db.mark_login_success') as mock_login_success:
+            resp = client.post('/login', data={'username': 'admin_user', 'password': 'CorrectHorseBatteryStaple'})
+
+        assert resp.status_code == 302
+        assert '/2fa/login' in (resp.headers.get('Location') or '')
+        mock_login_success.assert_not_called()
+
     def test_scan_manual_asset_class_forwarded(self, client, mock_admin):
         fake_report = {
             'scan_id': 'manual001',
