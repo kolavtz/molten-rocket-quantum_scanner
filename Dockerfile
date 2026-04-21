@@ -5,9 +5,12 @@ LABEL description="Quantum-Safe TLS Scanner — PNB Cybersecurity Hackathon 2026
 
 WORKDIR /app
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies

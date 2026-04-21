@@ -8,8 +8,10 @@ used across the application are defined here.
 import os
 from dotenv import load_dotenv  # type: ignore
 
-# Load user's .env file if present
-load_dotenv()
+# Load .env scaffolding first, then override with .env.local if present.
+# This lets .env stay in the repo as a scaffold while .env.local holds local secrets.
+load_dotenv(dotenv_path=".env", override=False)
+load_dotenv(dotenv_path=".env.local", override=True)
 
 # ---------------------------------------------------------------------------
 # Application

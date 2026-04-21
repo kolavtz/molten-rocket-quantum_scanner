@@ -28,7 +28,9 @@ def _get_env(name: str, fallback: str = "") -> str:
 
 
 def main() -> int:
-    load_dotenv()
+    # Load `.env` scaffolding, then allow `.env.local` to override with real secrets.
+    load_dotenv(dotenv_path=".env", override=False)
+    load_dotenv(dotenv_path=".env.local", override=True)
 
     host = _get_env("REMOTE_MYSQL_HOST", _get_env("MYSQL_HOST", "localhost"))
     port = int(_get_env("REMOTE_MYSQL_PORT", _get_env("MYSQL_PORT", "3306")))
