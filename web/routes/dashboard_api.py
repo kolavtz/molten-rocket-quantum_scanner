@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from flask import Blueprint, Response, request
-from flask_login import login_required
+from flask_login import current_user, login_required
 from sqlalchemy import func, inspect, or_, text
 
 from middleware.api_auth import api_guard
@@ -33,6 +33,7 @@ from src.services.pqc_service import PQCService
 from src.services.risk_calculation_service import RiskCalculationService
 from src.services.asset_service import AssetService
 from src.services.geo_service import GeoService
+from src.services.subdomain_service import SubdomainService
 from utils.api_helper import (
     apply_sort,
     build_data_envelope,
@@ -1165,6 +1166,95 @@ def api_discovery():
     kpis = _discovery_kpis()
     data = build_data_envelope(items, total, params, kpis)
     return success_response(data, filters=_filters_payload(params, {"tab": tab}))
+
+
+@api_dashboards_bp.route("/api/discovery/promote", methods=["POST"])
+@login_required
+@api_guard
+def api_discovery_promote():
+    try:
+        payload = request.get_json(silent=True) or request.form or {}
+        tab = str(payload.get("tab") or "domains").strip().lower()
+        discovery_id = payload.get("discovery_id")
+
+        if not discovery_id:
+            return error_response("discovery_id is required", 400)
+
+        if tab == "subdomains":
+            asset = SubdomainService.promote_to_inventory(
+                int(discovery_id),
+                owner=payload.get("owner") or getattr(current_user, "username", "System"),
+            )
+            if asset:
+                return success_response({"asset_id": asset.id, "discovery_id": discovery_id})
+            return error_response("Subdomain promotion failed", 500)
+
+        tab_model_map = {
+            "domains": DiscoveryDomain,
+            "ssl": DiscoverySSL,
+            "ips": DiscoveryIP,
+            "software": DiscoverySoftware
+        }
+        model = tab_model_map.get(tab)
+        if not model:
+            return error_response(f"Invalid tab: {tab}.", 400)
+
+        discovery = db_session.query(model).filter(model.id == int(discovery_id), model.is_deleted == False).first()
+        if not discovery:
+            return error_response("Discovery item not found", 404)
+
+        target = ""
+        if isinstance(discovery, DiscoveryDomain):
+            target = discovery.domain
+        elif isinstance(discovery, DiscoverySSL):
+            target = discovery.endpoint
+        elif isinstance(discovery, DiscoveryIP):
+            target = discovery.ip_address
+        elif isinstance(discovery, DiscoverySoftware):
+            target = discovery.product
+
+        target = str(target or "").strip().lower()
+        if not target:
+            return error_response("Cannot infer target", 400)
+
+        invalid_targets = {"", "-", "--", "n/a", "na", "unknown", "0.0.0.0", "::"}
+        if target in invalid_targets:
+            discovery.status = "false_positive"
+            discovery.is_deleted = True
+            discovery.deleted_at = func.now()
+            db_session.commit()
+            return error_response("Invalid placeholder discovery record was removed.", 400)
+
+        asset = db_session.query(Asset).filter(Asset.target == target).first()
+        if not asset:
+            asset = Asset(
+                target=target,
+                url=f"https://{target}",
+                asset_type=payload.get("asset_type") or "Web App",
+                owner=payload.get("owner") or getattr(current_user, "username", "Unassigned"),
+                risk_level="Medium",
+                is_deleted=False,
+            )
+            db_session.add(asset)
+            db_session.flush()
+        elif asset.is_deleted:
+            asset.is_deleted = False
+
+        discovery.asset_id = asset.id
+        discovery.promoted_to_inventory = True
+        discovery.promoted_at = func.now()
+        discovery.promoted_by = current_user.id
+        discovery.status = "confirmed"
+        db_session.commit()
+
+        return success_response({
+            "asset_id": asset.id,
+            "discovery_id": discovery_id,
+            "cluster_key": target,
+        })
+    except Exception as e:
+        db_session.rollback()
+        return error_response(str(e), 500)
 
 
 @api_dashboards_bp.route("/api/cbom/metrics", methods=["GET"])

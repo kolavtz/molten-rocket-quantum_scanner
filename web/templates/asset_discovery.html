@@ -481,6 +481,13 @@
         software: { apiTab: 'software', bodyId: 'softwareTableBody', colSpan: 7 }
     };
 
+    const ROUTES = {
+        discovery: '{{ url_for("api_dashboards.api_discovery") }}',
+        discoveryPromote: '{{ url_for("api_dashboards.api_discovery_promote") }}',
+        discoveryIpLocations: '{{ url_for("api_dashboards.api_discovery_ip_locations") }}',
+        recentDiscoveries: '{{ url_for("api_dashboards.api_assets_recent_discoveries") }}'
+    };
+
     const INVALID_IP_DISCOVERY_VALUES = new Set(['', '-', '--', 'n/a', 'na', 'unknown', '0.0.0.0', '::']);
 
     function csrfToken() {
@@ -683,7 +690,7 @@
                 order: 'desc'
             });
 
-            const resp = await fetch(`/api/discovery?${params.toString()}`, {
+            const resp = await fetch(`${ROUTES.discovery}?${params.toString()}`, {
                 headers: { 'Accept': 'application/json' },
                 credentials: 'same-origin'
             });
@@ -735,7 +742,7 @@
             button.textContent = 'Adding...';
         }
         try {
-            const resp = await fetch('/api/discovery/promote', {
+            const resp = await fetch(ROUTES.discoveryPromote, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -854,7 +861,7 @@
         };
 
         try {
-            const resp = await fetch('/api/discovery/ip-locations?limit=300', {
+            const resp = await fetch(`${ROUTES.discoveryIpLocations}`, {
                 headers: { 'Accept': 'application/json' },
                 credentials: 'same-origin'
             });
@@ -928,7 +935,7 @@
         if (!body) return;
         body.innerHTML = '<tr><td colspan="4" class="table-state">Loading recent discoveries…</td></tr>';
         try {
-            const resp = await fetch('/api/assets/recent-discoveries?days=7', {
+            const resp = await fetch(`${ROUTES.recentDiscoveries}`, {
                 headers: { 'Accept': 'application/json' },
                 credentials: 'same-origin'
             });

@@ -6,18 +6,76 @@ A comprehensive scanner that discovers cryptographic assets on public-facing sys
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Local Setup
+
+### 1) Prerequisites
+- Python 3.10 or newer
+- MySQL 8+ (or compatible MySQL/MariaDB)
+- `pip` and a virtual environment
+- Optional: local or remote LM server if you want AI assistant features
+
+### 2) Clone the repository
+```bash
+cd c:\Users\saura\Downloads\hf-proj\molten-rocket-quantum_scanner
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 3) Configure environment variables
+Copy the provided example env file and set the required values:
 
 ```bash
-# Clone & setup
-cd quantum-safe-scanner
-pip install -r requirements.txt
-
-# Run the web dashboard
-python web/app.py
-
-# Open http://127.0.0.1:5000
+copy .env.example .env
 ```
+
+Then edit `.env` and set at minimum:
+- `QSS_SECRET_KEY`
+- `QSS_ENCRYPTION_KEY`
+- `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`
+- `QSS_ADMIN_USERNAME`, `QSS_ADMIN_PASSWORD`, `QSS_ADMIN_EMAIL`
+
+The app also supports fallback DB keys:
+- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+- `sql_server_url_with_port`, `sql_user`, `sql_password`
+
+> Do not commit `.env` or any real secret values.
+
+### 4) Create the MySQL database
+Open MySQL and run:
+
+```sql
+CREATE DATABASE quantumshield CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'quantumshield'@'localhost' IDENTIFIED BY 'YourSecurePassword';
+GRANT ALL PRIVILEGES ON quantumshield.* TO 'quantumshield'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+Update `.env` if you use a different username or host.
+
+### 5) Apply schema / SQL setup
+There are two supported setup paths:
+
+```bash
+python apply_models_schema.py
+```
+
+This creates the database schema from SQLAlchemy models.
+
+If you need migration-based SQL instead, run:
+
+```bash
+python apply_migration.py
+```
+
+This applies the SQL in `migrations/001_add_findings_and_metrics_tables.sql`.
+
+### 6) Start the app
+```bash
+python web/app.py
+```
+
+Open `http://127.0.0.1:5000` in your browser.
 
 ## 🎯 Features
 
@@ -165,7 +223,7 @@ python -m pytest tests/ --cov=src --cov-report=term-missing
 
 ## ☁️ Free Remote Hosting + Remote MySQL
 
-For deploying this app with a remote SQL host and free web hosting, see:
+For deploying this app with a remote SQL host and web hosting, see:
 
 - `FREE_REMOTE_HOSTING_SETUP.md`
 
