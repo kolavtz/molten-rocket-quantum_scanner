@@ -46,3 +46,4 @@ tmp/ui-ux-pro-max-skill-src-*/
 /artifacts/*
 all_files.txt
 include_files.txt
+__pycache__/*

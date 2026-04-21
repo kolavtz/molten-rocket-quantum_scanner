@@ -21,6 +21,8 @@ RUN pip install --no-cache-dir -r requirements.txt gunicorn
 COPY config.py .
 COPY src/ src/
 COPY web/ web/
+COPY middleware/ middleware/
+COPY utils/ utils/
 COPY scan.py .
 
 # Create results directory
