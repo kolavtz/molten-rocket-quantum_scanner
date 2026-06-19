@@ -346,6 +346,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/api_client.js') }}"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
     // Initialize Charts
@@ -369,27 +370,13 @@
             stateEl.style.color = error ? 'var(--risk-critical)' : 'var(--text-muted)';
         }
 
-        async function fetchEnvelope(url) {
+        async function fetchEnvelope(url, opts) {
             try {
-                const response = await fetch(url, {
-                    headers: { Accept: 'application/json' },
-                    credentials: 'same-origin',
-                    cache: 'no-store'
-                });
-                const contentType = String(response.headers.get('content-type') || '').toLowerCase();
-                if (!contentType.includes('application/json')) {
-                    return { ok: false, data: null, error: `non-json response (${response.status})` };
-                }
-
-                const payload = await response.json();
-                if (!response.ok || payload?.success === false) {
-                    const apiMessage = payload?.error?.message || payload?.message || `status ${response.status}`;
-                    return { ok: false, data: payload?.data || null, error: apiMessage };
-                }
-
-                return { ok: true, data: payload?.data || null, error: null };
-            } catch (error) {
-                return { ok: false, data: null, error: String(error || 'request failed') };
+                const env = await window.fetchEnvelope(url, opts);
+                const ok = !!env && env.success !== false;
+                return { ok, data: env?.data ?? null, error: ok ? null : (env?.message || `status ${env?.status || 'error'}`) };
+            } catch (e) {
+                return { ok: false, data: null, error: String(e) };
             }
         }
 
@@ -412,13 +399,17 @@
         // Asset Type Donut
         if (typeCanvas) {
             const ctxType = typeCanvas.getContext('2d');
+            // resolve token-based palette for charts
+            const css = getComputedStyle(document.documentElement);
+            const palette = [css.getPropertyValue('--ui-info').trim() || '#00ffcc', css.getPropertyValue('--pqc-warn').trim() || '#af52de', css.getPropertyValue('--pqc-safe').trim() || '#34c759', css.getPropertyValue('--risk-medium').trim() || '#ffcc00', css.getPropertyValue('--risk-high').trim() || '#ff9500'];
+
             typeChart = new Chart(ctxType, {
                 type: 'doughnut',
                 data: {
                     labels: {{ asset_type_dist.keys()|list|tojson if asset_type_dist else [] }},
                     datasets: [{
                         data: {{ asset_type_dist.values()|map(attribute='count')|list|tojson if asset_type_dist else [] }},
-                        backgroundColor: ['#00ffcc', '#af52de', '#34c759', '#ffcc00', '#ff9500'],
+                        backgroundColor: palette,
                         borderWidth: 0,
                         hoverOffset: 10
                     }]
@@ -453,7 +444,7 @@
                             {{ cert_expiry.count_61_to_90_days if cert_expiry else 0 }},
                             {{ cert_expiry.count_greater_90_days if cert_expiry else 0 }}
                         ],
-                        backgroundColor: ['#ff2d55', '#ff9500', '#ffcc00', '#34c759'],
+                        backgroundColor: [css.getPropertyValue('--risk-critical').trim() || '#ff2d55', css.getPropertyValue('--risk-high').trim() || '#ff9500', css.getPropertyValue('--risk-medium').trim() || '#ffcc00', css.getPropertyValue('--risk-low').trim() || '#34c759'],
                         borderRadius: 4
                     }]
                 },
@@ -531,11 +522,13 @@
 
                 L.geoJSON(featureCollection, {
                     pointToLayer: function (feature, latlng) {
+                        const css = getComputedStyle(document.documentElement);
+                        const crit = css.getPropertyValue('--risk-critical').trim() || '#ff2d55';
+                        const high = css.getPropertyValue('--risk-high').trim() || '#ff9500';
+                        const low = css.getPropertyValue('--risk-low').trim() || '#00ffcc';
                         return L.circleMarker(latlng, {
                             radius: 6,
-                            fillColor: feature.properties.risk === 'Critical'
-                                ? '#ff2d55'
-                                : (feature.properties.risk === 'High' ? '#ff9500' : '#00ffcc'),
+                            fillColor: feature.properties.risk === 'Critical' ? crit : (feature.properties.risk === 'High' ? high : low),
                             color: "#000",
                             weight: 1,
                             opacity: 1,

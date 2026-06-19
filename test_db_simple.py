@@ -1,19 +1,16 @@
 import mysql.connector
 import time
-from dotenv import load_dotenv
-import os
 
-load_dotenv()
+from config import MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE
 
-host = os.environ.get("MYSQL_HOST")
+host = MYSQL_HOST
 if host == "localhost":
     host = "::1"
-port = int(os.environ.get("MYSQL_PORT", 3306))
+port = int(MYSQL_PORT)
 
-
-user = os.environ.get("MYSQL_USER")
-password = os.environ.get("MYSQL_PASSWORD")
-database = os.environ.get("MYSQL_DATABASE")
+user = MYSQL_USER
+password = MYSQL_PASSWORD
+database = MYSQL_DATABASE
 
 print(f"[*] Trying to connect to {user}@{host}:{port}/{database}...")
 

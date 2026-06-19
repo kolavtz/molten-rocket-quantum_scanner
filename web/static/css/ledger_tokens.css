@@ -1,0 +1,101 @@
+/* ─── THE OBSIDIAN LEDGER: DESIGN TOKENS ───────────────────── */
+
+:root {
+    /* 1. Core Palette: The Deep Void */
+    --background: #0B0E14;
+    --surface-dim: #0B0E14;
+    --surface-container-lowest: #000000;
+    --surface-container-low: #10131A;
+    --surface-container-high: #1C2028;
+    --surface-container-highest: #22262F;
+    --surface-bright: #22262F;
+
+    /* 2. Brand & Status Accents */
+    --primary: #81ECFF;
+    --primary-container: #00E3FD;
+    --on-primary-fixed: #000000;
+    
+    --error: #FF716C;
+    --error-container: rgba(255, 113, 108, 0.2);
+    
+    --tertiary: #C4FFF7;
+    --tertiary-container: rgba(196, 255, 247, 0.15);
+    
+    --secondary: #DFE2EE;
+    --on-surface: #ECEDF6;
+    --outline-variant: #45484F;
+
+    /* 3. Typography */
+    --font-heading: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    
+    /* 4. Glass & Elevation */
+    --glass-blur: blur(12px);
+    --radius-xl: 0.75rem;
+    --shadow-ambient: 0 32px 64px rgba(0, 0, 0, 0.08); /* Dark glow shadow */
+}
+
+/* ─── Typography Hierarchy ────────────────────────────────── */
+.display-lg {
+    font-family: var(--font-heading);
+    font-size: 2.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: var(--on-surface);
+}
+
+.headline-md {
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--on-surface);
+}
+
+.title-lg {
+    font-family: var(--font-heading);
+    font-size: 3rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.label-sm {
+    font-family: var(--font-body);
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--secondary);
+    letter-spacing: 0.15em;
+}
+
+.label-md {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--secondary);
+}
+
+.tracked {
+    letter-spacing: 0.2em;
+}
+
+.body-sm {
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--secondary);
+}
+
+/* ─── Global Reset & Body ─────────────────────────────────── */
+body {
+    background-color: var(--background) !important;
+    color: var(--on-surface) !important;
+    font-family: var(--font-body);
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Remove 1px borders globally by default */
+* {
+    border-color: transparent;
+}

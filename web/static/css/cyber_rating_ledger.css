@@ -1,0 +1,483 @@
+/* ─── CYBER RATING: OBSIDIAN LEDGER LAYER ─────────────────── */
+
+.cyber-container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 2.5rem;
+    font-family: var(--font-body);
+    min-height: 100vh;
+}
+
+/* ─── HERO & STATES ───────────────────────────────────────── */
+.cyber-hero {
+    margin-bottom: 3.5rem;
+}
+
+.cyber-hero h1 {
+    font-family: var(--font-heading);
+    font-size: 2.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0;
+    color: var(--on-surface);
+}
+
+.cyber-hero p {
+    color: var(--secondary);
+    font-size: 0.875rem;
+    margin-top: 0.75rem;
+    opacity: 0.8;
+}
+
+.api-state {
+    font-family: var(--font-body);
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--secondary);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+    opacity: 0.6;
+}
+
+/* ─── DASHBOARD SECTION ───────────────────────────────────── */
+.cyber-score-layout {
+    display: grid;
+    grid-template-columns: 0.8fr 2fr; /* Asymmetrical Focus */
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+}
+
+.cyber-score-card {
+    background: var(--surface-container-high);
+    padding: 2.5rem 2rem;
+    border-radius: 1rem;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    transition: all 0.4s ease;
+}
+
+.cyber-score-card:hover {
+    background: var(--surface-container-highest);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-ambient);
+}
+
+.cyber-score-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--primary);
+    box-shadow: 0 0 20px var(--primary);
+    opacity: 0.6;
+}
+
+.cyber-score-card.tier-elite::before { background: var(--tertiary); box-shadow: 0 0 20px var(--tertiary); }
+.cyber-score-card.tier-legacy::before { background: #facc15; box-shadow: 0 0 20px #facc15; }
+.cyber-score-card.tier-critical::before { background: var(--error); box-shadow: 0 0 20px var(--error); }
+
+.cyber-score-card .value {
+    font-family: var(--font-heading);
+    font-size: 4rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+}
+
+.cyber-score-card .label {
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--secondary);
+    margin-top: 0.75rem;
+}
+
+.cyber-score-card .scale-label {
+    font-family: var(--font-body);
+    font-size: 0.65rem;
+    color: var(--secondary);
+    opacity: 0.5;
+    margin-top: 0.4rem;
+}
+
+.stats-card {
+    background: var(--surface-container-high);
+    padding: 2.5rem;
+    border-radius: 1rem;
+}
+
+.stats-card .section-title {
+    font-family: var(--font-body);
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: var(--secondary);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 2rem;
+    opacity: 0.6;
+}
+
+.cyber-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.25rem;
+}
+
+.cyber-kpi {
+    background: var(--surface-container-low);
+    padding: 1.5rem 1.25rem;
+    border-radius: 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.cyber-kpi:hover {
+    background: var(--surface-container-highest);
+}
+
+.cyber-kpi .val {
+    font-family: var(--font-heading);
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1.2;
+}
+
+.cyber-kpi .lbl {
+    font-family: var(--font-body);
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--secondary);
+    margin-top: 0.5rem;
+    opacity: 0.7;
+}
+
+/* ─── SEARCH & FILTERS ────────────────────────────────────── */
+.search-filter-bar {
+    background: var(--surface-container-low);
+    padding: 1rem 2rem;
+    border-radius: 0.75rem;
+    display: grid;
+    grid-template-columns: 1fr 200px 140px;
+    gap: 1.25rem;
+    margin-bottom: 2.5rem;
+    align-items: center;
+}
+
+.minimal-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1.5px solid rgba(69, 72, 79, 0.4); /* outline-variant at 40% */
+    color: #fff;
+    padding: 0.5rem 0;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
+}
+
+.minimal-input:focus {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: 0 4px 12px rgba(129, 236, 255, 0.1);
+}
+
+select.minimal-input {
+    cursor: pointer;
+}
+
+select.minimal-input option {
+    background: var(--surface-container-high);
+    color: #fff;
+}
+
+/* ─── WORKSPACE GRID ──────────────────────────────────────── */
+.cyber-main-grid {
+    display: grid;
+    grid-template-columns: 1.25fr 0.75fr;
+    gap: 1.5rem;
+}
+
+.workspace-card {
+    background: var(--surface-container-high);
+    padding: 2.5rem;
+    border-radius: 1rem;
+}
+
+.workspace-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.workspace-header h2 {
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--on-surface);
+    margin: 0;
+}
+
+.workspace-header .meta {
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    color: var(--secondary);
+    opacity: 0.6;
+}
+
+/* No-Line Gap Row System */
+.rating-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rating-row {
+    display: grid;
+    grid-template-columns: 1fr 120px 80px;
+    gap: 1.25rem;
+    padding: 1.25rem 2rem;
+    background: var(--surface-container-low);
+    align-items: center;
+    transition: all 0.2s ease;
+    border-radius: 4px;
+}
+
+.rating-row:hover {
+    background: var(--surface-container-highest);
+}
+
+.rating-row-target {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--on-surface);
+    word-break: break-all;
+}
+
+.rating-row-score {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.95rem;
+    text-align: right;
+    color: #fff;
+}
+
+/* Status Pill Badges */
+.tier-badge {
+    padding: 0.4rem 1.25rem;
+    border-radius: 100px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    font-family: var(--font-body);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: inline-block;
+    text-align: center;
+    min-width: 90px;
+}
+
+.tier-badge.badge-elite {
+    background: var(--tertiary-container);
+    color: var(--tertiary);
+}
+
+.tier-badge.badge-standard {
+    background: rgba(129, 236, 255, 0.15);
+    color: var(--primary);
+}
+
+.tier-badge.badge-legacy {
+    background: rgba(250, 204, 21, 0.15);
+    color: #facc15;
+}
+
+.tier-badge.badge-critical {
+    background: var(--error-container);
+    color: var(--error);
+}
+
+/* Remediation Priorities */
+.remediation-priority-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.remediation-card {
+    background: var(--surface-container-low);
+    padding: 1rem 1.25rem;
+    border-radius: 0.75rem;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    transition: all 0.3s ease;
+}
+
+.remediation-card:hover {
+    background: var(--surface-container-highest);
+}
+
+.remediation-card i {
+    color: var(--primary);
+    margin-top: 3px;
+    font-size: 0.9rem;
+}
+
+.remediation-card .text {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--on-surface);
+}
+
+/* Matrix Table Grid */
+.matrix-section {
+    margin-top: 2.5rem;
+}
+
+.matrix-section .title {
+    font-family: var(--font-body);
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: var(--secondary);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1.25rem;
+    opacity: 0.6;
+}
+
+.matrix-grid {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.matrix-row {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 1rem;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    padding: 0.5rem 0;
+}
+
+.matrix-row strong {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.matrix-row span {
+    color: var(--secondary);
+    opacity: 0.8;
+}
+
+/* Pagination Controls */
+.pager-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 2rem;
+}
+
+.pager-text {
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    color: var(--secondary);
+    opacity: 0.7;
+}
+
+.pager-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Button overrides for Obsidian style */
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-container) 100%);
+    color: var(--on-primary-fixed);
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: var(--radius-xl);
+    border: none;
+    padding: 0.65rem 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 12px rgba(129, 236, 255, 0.1);
+}
+
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 0 20px rgba(129, 236, 255, 0.25);
+}
+
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background: transparent;
+    border: 1.5px solid rgba(69, 72, 79, 0.4);
+    color: var(--on-surface);
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: var(--radius-xl);
+    padding: 0.65rem 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--on-surface);
+}
+
+.btn-secondary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* Responsive Overrides */
+@media (max-width: 1200px) {
+    .cyber-score-layout {
+        grid-template-columns: 1fr;
+    }
+    .cyber-main-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 800px) {
+    .cyber-kpi-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    .search-filter-bar {
+        grid-template-columns: 1fr;
+    }
+    .rating-row {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+        padding: 1.25rem;
+    }
+    .rating-row-score {
+        text-align: left;
+    }
+}

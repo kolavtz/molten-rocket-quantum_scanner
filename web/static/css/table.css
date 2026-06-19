@@ -1,22 +1,18 @@
 /* Shared glassmorphism table system */
 
 .search-container {
-    margin-bottom: 1rem;
-    padding: 12px 16px;
-    background:
-        linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 92%, transparent), color-mix(in srgb, var(--bg-primary) 96%, transparent));
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent);
-    border-radius: 12px;
-    box-shadow: var(--shadow-sm);
-    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    margin-bottom: 2rem;
+    padding: 1.5rem 2rem;
+    background: var(--surface-container-high);
+    border: none;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-ambient);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease;
 }
 
 .search-container:hover {
     transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-    border-color: var(--border-hover);
+    background: var(--surface-container-highest);
 }
 
 .table-search-form {
@@ -70,11 +66,12 @@
 
 .table-control-select,
 .goto-page-input {
-    background: color-mix(in srgb, var(--bg-input) 92%, var(--bg-card) 8%);
-    border: 1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent);
-    border-radius: 10px;
+    background: var(--surface-container-low);
+    border: none;
+    border-bottom: 1px solid var(--outline-variant);
+    border-radius: 8px;
     color: var(--text-primary);
-    padding: 0.45rem 0.65rem;
+    padding: 0.65rem 0.85rem;
     min-height: 40px;
     outline: none;
 }
@@ -116,26 +113,26 @@
 }
 
 .asset-table th {
-    background: color-mix(in srgb, var(--bg-card) 96%, var(--bg-primary) 4%);
-    color: var(--text-secondary);
+    background: var(--surface-container-highest);
+    color: var(--secondary);
     font-weight: 700;
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    padding: 1rem 0.85rem;
+    letter-spacing: 0.15em;
+    padding: 1.5rem 1rem;
     position: sticky;
     top: 0;
     z-index: 2;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 48%, transparent);
+    border: none;
 }
 
 .asset-table td {
-    color: var(--text-primary);
-    background: var(--bg-card);
+    color: var(--on-surface);
+    background: var(--surface-container-low);
 }
 
 .asset-table tbody tr:nth-child(even) {
-    background: color-mix(in srgb, var(--bg-card) 90%, var(--bg-secondary) 10%);
+    background: var(--surface-dim);
 }
 
 .asset-table tbody tr:hover {
@@ -182,13 +179,13 @@
 }
 
 .asset-table td {
-    padding: 0.9rem 0.85rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 22%, transparent);
+    padding: 1.25rem 1rem;
+    border: none;
     vertical-align: middle;
 }
 
 .asset-table tbody tr:hover {
-    background: color-mix(in srgb, var(--accent) 8%, var(--bg-card) 92%);
+    background: var(--surface-container-high);
 }
 
 .sticky-column {
@@ -239,24 +236,21 @@
 
 .risk-low,
 .cert-valid {
-    background: color-mix(in srgb, var(--safe) 14%, var(--bg-card) 86%);
-    color: color-mix(in srgb, var(--safe) 85%, var(--text-primary) 15%);
-    border: 1px solid color-mix(in srgb, var(--safe) 30%, transparent);
+    background: var(--tertiary-container);
+    color: var(--tertiary);
 }
 
 .risk-medium,
 .cert-expiring {
-    background: color-mix(in srgb, var(--warn) 14%, var(--bg-card) 86%);
-    color: color-mix(in srgb, var(--warn) 88%, var(--text-primary) 12%);
-    border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
+    background: rgba(250, 204, 21, 0.15);
+    color: #facc15;
 }
 
 .risk-high,
 .risk-critical,
 .cert-expired {
-    background: color-mix(in srgb, var(--danger) 14%, var(--bg-card) 86%);
-    color: color-mix(in srgb, var(--danger) 88%, var(--text-primary) 12%);
-    border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+    background: var(--error-container);
+    color: var(--error);
 }
 
 .row-actions {

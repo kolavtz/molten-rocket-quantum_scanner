@@ -1,3 +1,46 @@
+/* Centralized API client helpers and envelope normalizer */
+(function () {
+    'use strict';
+
+    const ApiClient = {
+        normalizeApiEnvelope(payload) {
+            if (!payload) return { success: false, data: null, message: null, status: null };
+            if (typeof payload === 'object' && ('success' in payload || 'data' in payload || 'status' in payload)) {
+                return payload;
+            }
+            if (payload && payload.status) {
+                return {
+                    success: String(payload.status).toLowerCase() === 'success' || String(payload.status).toLowerCase() === 'complete',
+                    status: payload.status,
+                    data: payload.data || null,
+                    message: payload.message || null
+                };
+            }
+            if (payload && payload.data) {
+                return { success: true, data: payload.data, message: payload.message || null };
+            }
+            return { success: false, data: payload || null, message: payload && payload.message ? payload.message : null };
+        },
+
+        async fetchEnvelope(url, opts) {
+            const resp = await fetch(url, opts);
+            let raw = null;
+            try { raw = await resp.json(); } catch (e) { /* ignore */ }
+            if (!resp.ok) {
+                // Try to return any useful structured error
+                const normalized = ApiClient.normalizeApiEnvelope(raw);
+                normalized.status = resp.status;
+                if (!('success' in normalized)) normalized.success = false;
+                return normalized;
+            }
+            return ApiClient.normalizeApiEnvelope(raw);
+        }
+    };
+
+    window.ApiClient = ApiClient;
+    window.normalizeApiEnvelope = ApiClient.normalizeApiEnvelope;
+    window.fetchEnvelope = ApiClient.fetchEnvelope;
+})();
 /**
  * Universal API Client for QuantumShield Dashboards
  * Provides standardized fetching, caching, and error handling

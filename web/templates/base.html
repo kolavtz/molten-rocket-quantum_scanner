@@ -11,8 +11,9 @@
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ledger_tokens.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/table.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/quantum_ui_refresh.css') }}">
@@ -22,117 +23,16 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     {% block head %}{% endblock %}
     <style>
+        /* The Obsidian Ledger - Dynamic Overrides (Optional) */
         :root {
             {% if theme.active %}
-            --bg-navbar: {{ theme.active.bg_navbar }} !important;
-            --bg-primary: {{ theme.active.bg_primary }} !important;
-            --bg-secondary: {{ theme.active.bg_secondary }} !important;
-            --bg-card: {{ theme.active.bg_card }} !important;
-            --bg-input: {{ theme.active.bg_input }} !important;
-            --border-subtle: {{ theme.active.border_subtle }} !important;
-            --border-hover: {{ theme.active.border_hover }} !important;
-            --text-primary: {{ theme.active.text_primary }} !important;
-            --text-secondary: {{ theme.active.text_secondary }} !important;
-            --text-muted: {{ theme.active.text_muted }} !important;
-            --accent: {{ theme.active.accent_color }} !important;
-            --accent-hover: {{ theme.active.accent_color }}ee !important;
-            --text-on-accent: {{ theme.active.text_on_accent | default('#ffffff') }} !important;
-            --safe: {{ theme.active.safe }} !important;
-            --warn: {{ theme.active.warn }} !important;
-            --danger: {{ theme.active.danger }} !important;
-            --accent-primary: {{ theme.active.accent_color }} !important;
+            --primary: {{ theme.active.accent_color }} !important;
+            --primary-container: {{ theme.active.accent_color }}dd !important;
+            --on-surface: {{ theme.active.text_primary }} !important;
+            --secondary: {{ theme.active.text_secondary }} !important;
             {% endif %}
         }
-        .navbar {
-            background-color: {{ theme.bg_navbar or 'rgba(15, 18, 25, 0.95)' }} !important;
-        }
-        @media (max-width: 900px) {
-            .nav-links {
-                background-color: {{ theme.bg_navbar or 'rgba(15, 18, 25, 0.98)' }} !important;
-                animation: none !important;
-            }
-        }
-        
-        /* Global Table Sorting Cues */
-        .scans-table th { cursor: pointer; position: relative; }
-        .scans-table th:hover { background: rgba(255,255,255,0.05); }
-        .scans-table th::after { content: ' ↕'; font-size: 0.65rem; opacity: 0.3; margin-left: 4px; }
-        
-        /* Navbar Button Overrides */
-        button.nav-link, button.nav-dropdown-trigger {
-            color: var(--text-secondary, #b3b9c5);
-            background: none;
-            border: none;
-            font-family: inherit;
-            cursor: pointer;
-            padding: 0;
-            display: inline-flex;
-            align-items: center;
-        }
-        button.nav-link:hover, button.nav-dropdown-trigger:hover {
-            color: var(--accent-primary, #00ffcc) !important;
-        }
-        button.nav-link .nav-text, button.nav-dropdown-trigger .nav-text {
-            color: inherit;
-        }
     </style>
-    <style>
-        html[data-theme='dark'] {
-            --bg-primary: {{ theme.dark.bg_primary }} !important;
-            --bg-secondary: {{ theme.dark.bg_secondary }} !important;
-            --bg-card: {{ theme.dark.bg_card }} !important;
-            --bg-input: {{ theme.dark.bg_input }} !important;
-            --bg-dark: {{ theme.dark.bg_primary }} !important;
-            --border-subtle: {{ theme.dark.border_subtle }} !important;
-            --border-hover: {{ theme.dark.border_hover }} !important;
-            --text-primary: {{ theme.dark.text_primary }} !important;
-            --text-secondary: {{ theme.dark.text_secondary }} !important;
-            --text-muted: {{ theme.dark.text_muted }} !important;
-            --text-light: {{ theme.dark.text_primary }} !important;
-            --accent: {{ theme.dark.accent_color }} !important;
-            --accent-hover: {{ theme.dark.accent_color }}ee !important;
-            --accent-primary: {{ theme.dark.accent_color }} !important;
-            --text-on-accent: {{ theme.dark.text_on_accent | default('#f9fafb') }} !important;
-            --safe: {{ theme.dark.safe }} !important;
-            --warn: {{ theme.dark.warn }} !important;
-            --danger: {{ theme.dark.danger }} !important;
-        }
-        html[data-theme='light'] {
-            --bg-primary: {{ theme.light.bg_primary }} !important;
-            --bg-secondary: {{ theme.light.bg_secondary }} !important;
-            --bg-card: {{ theme.light.bg_card }} !important;
-            --bg-input: {{ theme.light.bg_input }} !important;
-            --bg-dark: {{ theme.light.bg_primary }} !important;
-            --border-subtle: {{ theme.light.border_subtle }} !important;
-            --border-hover: {{ theme.light.border_hover }} !important;
-            --text-primary: {{ theme.light.text_primary }} !important;
-            --text-secondary: {{ theme.light.text_secondary }} !important;
-            --text-muted: {{ theme.light.text_muted }} !important;
-            --text-light: {{ theme.light.text_primary }} !important;
-            --accent: {{ theme.light.accent_color }} !important;
-            --accent-hover: {{ theme.light.accent_color }}ee !important;
-            --accent-primary: {{ theme.light.accent_color }} !important;
-            --text-on-accent: {{ theme.light.text_on_accent | default('#ffffff') }} !important;
-            --safe: {{ theme.light.safe }} !important;
-            --warn: {{ theme.light.warn }} !important;
-            --danger: {{ theme.light.danger }} !important;
-        }
-        html[data-theme='dark'] .navbar {
-            background-color: {{ theme.dark.bg_navbar }} !important;
-        }
-        html[data-theme='light'] .navbar {
-            background-color: {{ theme.light.bg_navbar }} !important;
-        }
-        @media (max-width: 900px) {
-            html[data-theme='dark'] .nav-links {
-                background-color: {{ theme.dark.bg_navbar }} !important;
-                animation: none !important;
-            }
-            html[data-theme='light'] .nav-links {
-                background-color: {{ theme.light.bg_navbar }} !important;
-                animation: none !important;
-            }
-        }
 
         .scans-table th::after {
             content: none !important;

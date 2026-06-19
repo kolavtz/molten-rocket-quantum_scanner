@@ -4,17 +4,16 @@
  */
 
 :root {
-    --color-primary: var(--accent);
-    --color-success: var(--safe);
-    --color-warning: var(--warn);
-    --color-danger: var(--danger);
-    --color-dark: var(--bg-card);
-    --color-darker: var(--bg-primary);
-    --color-light: var(--text-primary);
-    --color-gray: var(--text-secondary);
-    --color-gray-light: var(--text-primary);
-    --color-glass:
-        linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 94%, transparent), color-mix(in srgb, var(--bg-primary) 96%, transparent));
+    --color-primary: var(--primary);
+    --color-success: var(--tertiary);
+    --color-warning: #facc15;
+    --color-danger: var(--error);
+    --color-dark: var(--surface-container-high);
+    --color-darker: var(--background);
+    --color-light: var(--on-surface);
+    --color-gray: var(--secondary);
+    --color-gray-light: var(--on-surface);
+    --color-glass: rgba(28, 32, 40, 0.6);
     
     --spacing-xs: 0.25rem;
     --spacing-sm: 0.5rem;
@@ -45,11 +44,9 @@ html {
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-primary) 100%);
-    background-attachment: fixed;
-    color: var(--text-primary);
-    line-height: 1.6;
+    background-color: var(--background);
+    color: var(--on-surface);
+    font-family: var(--font-body);
 }
 
 /**
@@ -64,13 +61,14 @@ body {
 
 .kpi-card {
     background: var(--color-glass);
-    backdrop-filter: blur(10px);
-    border: 1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent);
+    backdrop-filter: var(--glass-blur);
+    border: none;
     border-radius: var(--radius-lg);
     padding: var(--spacing-lg);
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     position: relative;
     overflow: hidden;
+    box-shadow: var(--shadow-ambient);
 }
 
 .kpi-card::before {
@@ -84,10 +82,8 @@ body {
 }
 
 .kpi-card:hover {
-    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-    background: color-mix(in srgb, var(--bg-secondary) 80%, var(--bg-card) 20%);
+    background: var(--surface-container-highest);
     transform: translateY(-4px);
-    box-shadow: 0 20px 25px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .kpi-label {
@@ -99,12 +95,10 @@ body {
 }
 
 .kpi-value {
-    font-size: 2.25rem;
+    font-family: var(--font-heading);
+    font-size: 2.5rem;
     font-weight: 700;
-    background: linear-gradient(135deg, var(--accent), var(--safe));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--on-surface);
 }
 
 .kpi-change {
@@ -157,9 +151,9 @@ body {
 
 .search-input:focus {
     outline: none;
-    border-color: var(--color-primary);
-    background: color-mix(in srgb, var(--bg-input) 84%, var(--bg-card) 16%);
-    box-shadow: 0 0 0 3px var(--accent-muted);
+    border-bottom-color: var(--primary);
+    background: var(--surface-container-high);
+    box-shadow: 0 4px 12px rgba(129, 236, 255, 0.1);
 }
 
 .search-icon {

@@ -4,34 +4,58 @@
 
 {% block head %}
 <style>
-    .scan-container { padding: 1.5rem 0; }
-    .scan-hero { margin-bottom: 2rem; }
-    .scan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
-    .tab-nav { display: flex; gap: 0.5rem; padding: 0.25rem; background: rgba(255, 255, 255, 0.03); border-radius: 12px; border: 1px solid var(--border-subtle); width: fit-content; margin-bottom: 1.5rem; }
-    .tab-btn { padding: 0.6rem 1.25rem; border-radius: 10px; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); cursor: pointer; transition: all 0.2s ease; border: none; background: transparent; text-transform: uppercase; letter-spacing: 0.05em; }
-    .tab-btn.active { background: var(--accent); color: var(--bg-primary); box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 30%, transparent); }
-    .scan-input { width: 100%; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 0.75rem 1rem; color: var(--text-primary); font-size: 0.85rem; outline: none; transition: border-color 0.2s; }
-    .scan-input:focus { border-color: var(--accent); }
-    .history-table-container { margin-bottom: 2rem; }
-    @media (max-width: 1000px) { .scan-grid { grid-template-columns: 1fr; } }
+    .scan-container { padding: 1.25rem 0 1.75rem; }
+    .scan-hero { margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.35rem; }
+    .scan-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; margin-bottom: 1.5rem; }
+    .scan-panel { padding: 1.35rem; }
+    .scan-kicker { font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--secondary); font-weight: 700; }
+    .scan-title { font-size: clamp(2rem, 4vw, 2.85rem); font-weight: 900; letter-spacing: -0.03em; margin: 0; }
+    .scan-subtitle { color: var(--secondary); margin: 0; max-width: 68ch; }
+    .tab-nav { display: inline-flex; gap: 0.35rem; padding: 0.3rem; background: color-mix(in srgb, var(--surface-container-low) 84%, transparent); border-radius: 999px; width: fit-content; margin-bottom: 1.25rem; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--outline-variant) 20%, transparent); }
+    .tab-btn { padding: 0.7rem 1.1rem; border-radius: 999px; font-size: 0.74rem; font-weight: 700; color: var(--secondary); cursor: pointer; transition: transform 160ms ease, background-color 160ms ease, color 160ms ease; border: none; background: transparent; text-transform: uppercase; letter-spacing: 0.08em; }
+    .tab-btn:hover { transform: translateY(-1px); }
+    .tab-btn.active { background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 28%, transparent), color-mix(in srgb, var(--primary-container) 18%, transparent)); color: var(--on-surface); box-shadow: 0 10px 24px color-mix(in srgb, var(--primary) 14%, transparent); }
+    .scan-input { width: 100%; background: color-mix(in srgb, var(--surface-container-low) 88%, transparent); border: 1px solid color-mix(in srgb, var(--outline-variant) 40%, transparent); border-radius: 12px; padding: 0.8rem 1rem; color: var(--on-surface); font-size: 0.95rem; outline: none; transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease; }
+    .scan-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent); background: color-mix(in srgb, var(--surface-container-high) 92%, transparent); }
+    .scan-option { display:flex; align-items:center; gap:0.7rem; padding:0.95rem; border-radius: 14px; background: color-mix(in srgb, var(--surface-container-low) 88%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--outline-variant) 20%, transparent); }
+    .scan-option input { accent-color: var(--primary); }
+    .scan-option span { font-size: 0.88rem; font-weight: 600; color: var(--on-surface); }
+    .scan-progress-shell { display:flex; flex-direction:column; gap:0.75rem; }
+    .scan-progress-empty { text-align:center; padding:1.8rem 1rem; color: var(--secondary); font-size:0.88rem; }
+    .scan-history-bar { display:flex; justify-content:space-between; align-items:flex-end; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
+    .scan-history-actions { display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; }
+    .scan-history-actions .scan-input { width:min(100%, 280px); }
+    .scan-feedback { padding: 0.95rem 1rem; border-radius: 14px; border: 1px solid transparent; font-size: 0.88rem; line-height: 1.45; }
+    .scan-feedback[data-tone="info"] { background: color-mix(in srgb, var(--primary) 10%, transparent); border-color: color-mix(in srgb, var(--primary) 28%, transparent); color: var(--on-surface); }
+    .scan-feedback[data-tone="success"] { background: color-mix(in srgb, var(--pqc-safe) 10%, transparent); border-color: color-mix(in srgb, var(--pqc-safe) 26%, transparent); color: var(--on-surface); }
+    .scan-feedback[data-tone="warn"] { background: color-mix(in srgb, var(--risk-medium) 10%, transparent); border-color: color-mix(in srgb, var(--risk-medium) 26%, transparent); color: var(--on-surface); }
+    .scan-feedback[data-tone="error"] { background: color-mix(in srgb, var(--risk-critical) 10%, transparent); border-color: color-mix(in srgb, var(--risk-critical) 28%, transparent); color: var(--on-surface); }
+    .scan-tone-pill { border-radius: 999px; padding: 0.2rem 0.7rem; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .scan-tone-pill[data-tone="success"] { background: color-mix(in srgb, var(--pqc-safe) 16%, transparent); color: var(--pqc-safe); }
+    .scan-tone-pill[data-tone="info"] { background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--primary); }
+    .scan-tone-pill[data-tone="warn"] { background: color-mix(in srgb, var(--risk-medium) 16%, transparent); color: var(--risk-medium); }
+    .scan-tone-pill[data-tone="error"] { background: color-mix(in srgb, var(--risk-critical) 16%, transparent); color: var(--risk-critical); }
+    .scan-tone-pill[data-tone="neutral"] { background: color-mix(in srgb, var(--outline-variant) 18%, transparent); color: var(--secondary); }
+    @media (max-width: 1000px) { .scan-grid { grid-template-columns: 1fr; } .scan-history-bar { align-items: stretch; } }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="scan-container">
     <div class="scan-hero">
-        <h1 style="font-size: 2.5rem; font-weight: 900; letter-spacing: -0.02em; margin: 0;">SCAN CENTER</h1>
-        <p style="color: var(--text-secondary); margin-top: 0.5rem;">Dedicated workflow for cryptographic discovery and CBOM generation.</p>
+        <div class="scan-kicker">Operational workflow</div>
+        <h1 class="scan-title">Scan Center</h1>
+        <p class="scan-subtitle">Dedicated workflow for cryptographic discovery and CBOM generation, backed by live scan jobs and persisted results.</p>
     </div>
 
     <!-- Active & Initialization Section -->
     <div class="scan-grid">
-        <div class="glass-card" style="padding: 1.5rem;">
-            <div class="metric-title" style="margin-bottom: 1.5rem;"><i class="fa-solid fa-play" style="margin-right:8px; color:var(--accent);"></i> Initialize New Discovery</div>
+        <div class="glass-card scan-panel">
+            <div class="metric-title" style="margin-bottom: 1.25rem;"><i class="fa-solid fa-play" style="margin-right:8px; color:var(--primary);"></i> Initialize New Discovery</div>
             
             <div class="tab-nav">
-                <button class="tab-btn active" onclick="switchMode(this, 'single')">Single Target</button>
-                <button class="tab-btn" onclick="switchMode(this, 'bulk')">Bulk Process</button>
+                <button type="button" class="tab-btn active" onclick="switchMode(this, 'single')">Single Target</button>
+                <button type="button" class="tab-btn" onclick="switchMode(this, 'bulk')">Bulk Process</button>
             </div>
 
             <form action="/scan" method="POST" id="scanForm" enctype="multipart/form-data">
@@ -39,26 +63,26 @@
                 
                 <div id="modeSingle">
                     <div class="form-group" style="margin-bottom: 1rem;">
-                        <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.4rem; display: block;">Target Host / URL</label>
+                        <label style="font-size: 0.75rem; font-weight: 700; color: var(--secondary); margin-bottom: 0.4rem; display: block; text-transform: uppercase; letter-spacing: 0.08em;">Target Host / URL</label>
                         <input name="target" type="text" class="scan-input" placeholder="e.g. quantum-safe-api.com" required>
                     </div>
                 </div>
 
                 <div id="modeBulk" style="display:none;">
                     <div class="form-group" style="margin-bottom: 1rem;">
-                        <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.4rem; display: block;">Target List (Newline separated)</label>
-                        <textarea name="target_list" class="scan-input" style="height:120px;" placeholder="app1.com&#10;app2.com"></textarea>
+                        <label style="font-size: 0.75rem; font-weight: 700; color: var(--secondary); margin-bottom: 0.4rem; display: block; text-transform: uppercase; letter-spacing: 0.08em;">Target List (newline separated)</label>
+                        <textarea name="target_list" class="scan-input" style="height:120px; resize: vertical;" placeholder="app1.com&#10;app2.com"></textarea>
                     </div>
                 </div>
 
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem;">
-                    <label class="glass-card" style="padding:0.75rem; cursor:pointer; display:flex; align-items:center; gap:0.5rem;">
-                        <input type="checkbox" name="autodiscovery" style="accent-color:var(--accent);">
-                        <span style="font-size:0.8rem; font-weight:600;">Full Autodiscovery</span>
+                    <label class="scan-option" style="cursor:pointer;">
+                        <input type="checkbox" name="autodiscovery">
+                        <span>Full Autodiscovery</span>
                     </label>
-                    <label class="glass-card" style="padding:0.75rem; cursor:pointer; display:flex; align-items:center; gap:0.5rem;">
-                        <input type="checkbox" name="add_to_inventory" checked style="accent-color:var(--accent);">
-                        <span style="font-size:0.8rem; font-weight:600;">Track in Inventory</span>
+                    <label class="scan-option" style="cursor:pointer;">
+                        <input type="checkbox" name="add_to_inventory" checked>
+                        <span>Track in Inventory</span>
                     </label>
                 </div>
 
@@ -66,21 +90,21 @@
             </form>
         </div>
 
-        <div class="glass-card" style="padding: 1.5rem;">
-            <div class="metric-title" style="margin-bottom:1.5rem;"><i class="fa-solid fa-clock-rotate-left" style="margin-right:8px;"></i> Active Progress</div>
-            <div id="scanProgress" style="display:flex; flex-direction:column; gap:0.75rem;">
-                <div style="text-align:center; padding:2rem; color:var(--text-secondary); font-size:0.85rem;">No scans currently active.</div>
+        <div class="glass-card scan-panel">
+            <div class="metric-title" style="margin-bottom:1.25rem;"><i class="fa-solid fa-clock-rotate-left" style="margin-right:8px; color:var(--primary);"></i> Active Progress</div>
+            <div id="scanProgress" class="scan-progress-shell">
+                <div class="scan-progress-empty">No scans currently active.</div>
             </div>
         </div>
     </div>
 
     <!-- Scan History Table -->
     <div class="glass-card history-table-container" style="padding: 1.5rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+        <div class="scan-history-bar">
             <div class="metric-title">Recent Discoveries</div>
-            <div style="display:flex; gap:0.5rem;">
-                <input type="text" id="historySearch" class="scan-input" style="width:200px; padding:0.5rem;" placeholder="Search results..." oninput="fetchHistory()">
-                <button class="button secondary" style="padding:0.5rem 1rem;" onclick="fetchHistory()">Refresh</button>
+            <div class="scan-history-actions">
+                <input type="text" id="historySearch" class="scan-input" placeholder="Search results..." oninput="fetchHistory()">
+                <button type="button" class="button secondary" style="padding:0.6rem 1rem;" onclick="fetchHistory()">Refresh</button>
             </div>
         </div>
         
@@ -106,6 +130,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/api_client.js') }}"></script>
 <script>
     /* ── Tab mode switch ── */
     function switchMode(btn, mode) {
@@ -113,6 +138,24 @@
         btn.classList.add('active');
         document.getElementById('modeSingle').style.display = mode === 'single' ? 'block' : 'none';
         document.getElementById('modeBulk').style.display = mode === 'bulk' ? 'block' : 'none';
+    }
+
+    function getTone(status) {
+        switch ((status || '').toLowerCase()) {
+            case 'completed':
+                return 'success';
+            case 'running':
+                return 'info';
+            case 'queued':
+                return 'neutral';
+            case 'not_scanned':
+                return 'warn';
+            case 'failed':
+            case 'error':
+                return 'error';
+            default:
+                return 'neutral';
+        }
     }
 
     /* ── Scan history fetch ── */
@@ -123,7 +166,7 @@
         try {
             const resp = await fetch(`/api/scans?q=${encodeURIComponent(query)}&page=1&page_size=50&order=desc`);
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            const result = await resp.json();
+            const result = normalizeApiEnvelope(await resp.json());
 
             /* Handle both legacy (array) and paginated (object) responses */
             let items = [];
@@ -131,8 +174,6 @@
                 items = result;
             } else if (result.items) {
                 items = result.items;
-            } else if (result.data && result.data.items) {
-                items = result.data.items;
             }
 
             if (!items.length) {
@@ -144,7 +185,7 @@
                 <tr>
                     <td style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--accent);">${(s.scan_id||'N/A').slice(0,14)}</td>
                     <td style="font-weight:600;">${s.target || '--'}</td>
-                    <td><span class="status-pill" style="border-color:${getStatusColor(s.status)};color:${getStatusColor(s.status)}">${(s.status||'unknown').toUpperCase()}</span></td>
+                    <td><span class="status-pill scan-tone-pill" data-tone="${getTone(s.status)}">${(s.status||'unknown').replace(/_/g, ' ').toUpperCase()}</span></td>
                     <td style="font-size:0.75rem;">${s.scan_type || 'Standard'}</td>
                     <td style="font-size:0.75rem;">${s.completed_at ? new Date(s.completed_at).toLocaleString() : (s.date || 'In Progress')}</td>
                     <td>
@@ -157,16 +198,6 @@
             `).join('');
         } catch (err) {
             body.innerHTML = `<tr><td colspan="6" style="color:var(--danger);padding:1rem;text-align:center;">Error loading scan history: ${err.message}</td></tr>`;
-        }
-    }
-
-    function getStatusColor(status) {
-        switch((status||'').toLowerCase()) {
-            case 'completed': return 'var(--pqc-safe, #34c759)';
-            case 'running': return 'var(--accent, #00ffcc)';
-            case 'failed':
-            case 'error': return 'var(--risk-critical, #ff453a)';
-            default: return 'var(--text-secondary)';
         }
     }
 
@@ -216,7 +247,7 @@
                 },
                 body: JSON.stringify(payload)
             });
-            const result = await resp.json();
+            const result = normalizeApiEnvelope(await resp.json());
 
             if (resp.ok) {
                 const jobId = result.job_id;
@@ -240,12 +271,7 @@
     });
 
     function showScanFeedback(html, type, container) {
-        const colors = { info: 'rgba(0,255,204,0.08)', success: 'rgba(52,199,89,0.1)', warn: 'rgba(255,170,0,0.1)', error: 'rgba(255,51,102,0.1)' };
-        const borders = { info: 'rgba(0,255,204,0.2)', success: 'rgba(52,199,89,0.3)', warn: 'rgba(255,170,0,0.3)', error: 'rgba(255,51,102,0.3)' };
-        container.innerHTML = `
-            <div style="padding:1rem 1.25rem;background:${colors[type]||colors.info};border:1px solid ${borders[type]||borders.info};border-radius:10px;font-size:0.85rem;">
-                ${html}
-            </div>`;
+        container.innerHTML = `<div class="scan-feedback" data-tone="${type || 'info'}">${html}</div>`;
     }
 
     async function pollJobStatus(jobId, container) {
@@ -254,21 +280,21 @@
             attempts++;
             if (attempts > 30) { clearInterval(interval); return; }
             try {
-                const resp = await fetch(`/api/scans/jobs/${jobId}`);
+                const resp = await fetch(`/api/scans/jobs/${encodeURIComponent(jobId)}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store' });
                 if (!resp.ok) return;
-                const job = await resp.json();
+                const job = normalizeApiEnvelope(await resp.json());
                 const status = job.status || 'unknown';
-                const completed = job.completed || 0;
-                const total = job.total || 1;
+                const completed = Number(job.completed || 0);
+                const total = Number(job.total || 1);
                 showScanFeedback(
-                    `<i class="fa-solid fa-circle-notch fa-spin"></i> Job ${jobId}: ${status} – ${completed}/${total} complete`,
+                    `<i class="fa-solid fa-circle-notch fa-spin"></i> Job ${jobId}: ${String(status).replace(/_/g, ' ')} – ${completed}/${total} complete`,
                     'info', container
                 );
-                if (['completed','completed_with_errors','failed'].includes(status)) {
+                if (['completed','completed_with_errors','failed'].includes(String(status).toLowerCase())) {
                     clearInterval(interval);
                     await fetchHistory();
-                    const label = status === 'completed' ? `<i class="fa-solid fa-check-circle" style="color:var(--pqc-safe)"></i> All scans complete.` : `<i class="fa-solid fa-triangle-exclamation" style="color:var(--warn)"></i> Job ${status}.`;
-                    showScanFeedback(label, status === 'completed' ? 'success' : 'warn', container);
+                    const label = String(status).toLowerCase() === 'completed' ? `<i class="fa-solid fa-check-circle" style="color:var(--pqc-safe)"></i> All scans complete.` : `<i class="fa-solid fa-triangle-exclamation" style="color:var(--risk-medium)"></i> Job ${String(status).replace(/_/g, ' ')}.`;
+                    showScanFeedback(label, String(status).toLowerCase() === 'completed' ? 'success' : 'warn', container);
                 }
             } catch(_) {}
         }, 3000);

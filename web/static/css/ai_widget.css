@@ -21,15 +21,16 @@
   height: 44px;
   padding: 0 12px 0 10px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--text-on-accent) 26%, transparent);
+  border: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--accent) 78%, white 8%), color-mix(in srgb, var(--accent) 68%, black 16%));
-  color: var(--text-on-accent, #fff);
-  box-shadow: 0 12px 34px rgba(0,0,0,0.48), 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent) inset;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-container) 100%);
+  color: #000;
+  box-shadow: var(--shadow-ambient);
   cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .ai-toggle svg {
@@ -52,16 +53,16 @@
   height: 32px;
   padding: 4px 10px;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 60%, transparent);
-  background: color-mix(in srgb, var(--bg-secondary) 68%, transparent);
-  color: var(--text-secondary);
+  border: none;
+  background: var(--surface-container-highest);
+  color: var(--secondary);
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: 700;
   cursor: pointer;
 }
-.ai-agent-toggle.on { background: var(--accent); color: var(--text-on-accent); border-color: transparent; }
+.ai-agent-toggle.on { background: var(--primary); color: #000; }
 
 .ai-panel {
   width: 380px;
@@ -75,12 +76,11 @@
   bottom: 68px;
   border-radius: 18px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 55%, transparent);
-  background:
-    linear-gradient(145deg, color-mix(in srgb, var(--bg-card) 80%, rgba(255,255,255,0.04)), color-mix(in srgb, var(--bg-primary) 90%, transparent));
-  backdrop-filter: blur(16px) saturate(130%);
-  color: var(--text-primary);
-  box-shadow: 0 30px 90px rgba(0,0,0,0.52);
+  border: none;
+  background: var(--surface-container-low);
+  backdrop-filter: var(--glass-blur);
+  color: var(--on-surface);
+  box-shadow: var(--shadow-ambient);
   display: flex;
   flex-direction: column;
   transform: translateY(10px) scale(0.995);
@@ -100,8 +100,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--border-subtle);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 95%, transparent), color-mix(in srgb, var(--bg-card) 70%, transparent));
+  border-bottom: 1px solid var(--outline-variant);
+  background: var(--surface-container-high);
 }
 .ai-header .title { font-weight: 800; font-size: 1.02rem; letter-spacing: -0.01em; }
 .ai-header .subtitle { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
@@ -139,16 +139,14 @@
 }
 .ai-msg.user {
   align-self: flex-end;
-  background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent) 10%, transparent));
-  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
-  color: var(--text-on-accent);
+  background: var(--surface-container-highest);
+  color: var(--on-surface);
   font-weight: 600;
 }
 .ai-msg.assistant {
   align-self: flex-start;
-  background: color-mix(in srgb, var(--bg-secondary) 74%, transparent);
-  border-color: color-mix(in srgb, var(--border-subtle) 44%, transparent);
-  color: var(--text-primary);
+  background: var(--surface-dim);
+  color: var(--on-surface);
 }
 
 .ai-input-area {
@@ -188,9 +186,9 @@
   letter-spacing: 0.02em;
 }
 .ai-btn.primary {
-  border-color: transparent;
-  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 74%, black 10%));
-  color: var(--text-on-accent);
+  border: none;
+  background: linear-gradient(180deg, var(--primary), var(--primary-container));
+  color: #000;
   min-width: 88px;
 }
 

@@ -1,18 +1,20 @@
 /* Quantum UI refresh: shared obsidian + neon styling across pages */
 :root {
-  --ui-depth-shadow: 0 18px 36px color-mix(in srgb, var(--accent) 12%, transparent);
-  --glass-bg: color-mix(in srgb, var(--surface-elevated) 86%, transparent);
-  --glass-border: color-mix(in srgb, var(--border) 68%, transparent);
-  --glass-blur: blur(14px);
+  --ui-depth-shadow: var(--shadow-ambient);
+  --glass-bg: rgba(28, 32, 40, 0.6);
+  --glass-border: transparent;
+  --glass-blur: var(--glass-blur);
   
-  /* Security Color Palette */
-  --risk-critical: #ff2d55;
-  --risk-high: #ff9500;
-  --risk-medium: #ffcc00;
-  --risk-low: #00c7be;
-  --pqc-safe: #34c759;
-  --pqc-warn: #af52de;
-  --accent-glow: 0 0 20px color-mix(in srgb, var(--accent) 40%, transparent);
+  /* Security Color Palette - consolidated, non-overlapping semantic tokens */
+  --risk-critical: #FF4D4F; /* vivid red */
+  --risk-high: #FF8A3D;     /* orange */
+  --risk-medium: #F59E0B;   /* amber */
+  --risk-low: #34D399;      /* teal/low-risk */
+  --pqc-safe: #16A34A;      /* green - PQC safe */
+  --pqc-warn: #8B5CF6;      /* purple - PQC warning */
+  --ui-info: #06B6D4;       /* cyan/info */
+  --ui-neutral: #94A3B8;    /* muted neutral */
+  --accent-glow: 0 0 20px rgba(0, 180, 220, 0.12);
 }
 
 .glass-morphism {
@@ -28,22 +30,17 @@
 .card,
 .table-scroll,
 .scans-table-wrapper {
-  border: 1px solid var(--glass-border);
-  background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 12%, transparent), transparent 45%),
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--surface-elevated) 92%, transparent),
-      color-mix(in srgb, var(--surface) 96%, transparent)
-    );
+  background: var(--surface-container-high);
   backdrop-filter: var(--glass-blur);
-  box-shadow: var(--shadow-sm);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  border-radius: var(--ui-radius-md);
+  box-shadow: var(--shadow-ambient);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--glass-border));
-  box-shadow: var(--accent-glow), var(--ui-depth-shadow);
+  background: var(--surface-container-highest);
+  box-shadow: var(--shadow-ambient);
   transform: translateY(-4px);
 }
 
@@ -81,6 +78,48 @@
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
+}
+
+.status-pill[data-tone="critical"],
+.badge-critical {
+  color: var(--risk-critical);
+  background: color-mix(in srgb, var(--risk-critical) 16%, transparent);
+}
+
+.status-pill[data-tone="high"],
+.badge-high {
+  color: var(--risk-high);
+  background: color-mix(in srgb, var(--risk-high) 16%, transparent);
+}
+
+.status-pill[data-tone="medium"],
+.badge-medium {
+  color: var(--risk-medium);
+  background: color-mix(in srgb, var(--risk-medium) 16%, transparent);
+}
+
+.status-pill[data-tone="low"],
+.badge-low {
+  color: var(--risk-low);
+  background: color-mix(in srgb, var(--risk-low) 16%, transparent);
+}
+
+.status-pill[data-tone="success"],
+.badge-success {
+  color: var(--pqc-safe);
+  background: color-mix(in srgb, var(--pqc-safe) 16%, transparent);
+}
+
+.status-pill[data-tone="info"],
+.badge-info {
+  color: var(--ui-info);
+  background: color-mix(in srgb, var(--ui-info) 16%, transparent);
+}
+
+.status-pill[data-tone="neutral"],
+.badge-neutral {
+  color: var(--ui-neutral);
+  background: color-mix(in srgb, var(--ui-neutral) 16%, transparent);
 }
 
 .scans-table thead th {

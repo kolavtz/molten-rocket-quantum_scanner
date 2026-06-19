@@ -4,7 +4,91 @@
 
 You are a pair-programmer and automation assistant working in this repo.
 Priorities: correctness > security > maintainability > speed.
+# Design System Specification: The Obsidian Ledger
 
+## 1. Overview & Creative North Star
+The "Obsidian Ledger" represents a shift from traditional, cluttered dashboard design toward an editorial, high-precision experience. In the high-stakes world of cybersecurity, clarity is the ultimate luxury. This design system treats data as a luminous artifact emerging from a deep, atmospheric void.
+
+**Creative North Star: Atmospheric Precision.**
+We break the "template" look by eschewing rigid grid lines in favor of intentional asymmetry and tonal depth. By utilizing significant whitespace (breathing room) and sharp, technical typography, we create an environment that feels more like a sophisticated command center and less like a standard SaaS application. The layout should feel "curated," where each data point is given the stage it deserves through overlapping layers and varying typographic scales.
+
+---
+
+## 2. Colors & Surface Logic
+The palette is rooted in the "Deep Void"—a foundation of charcoal and slate that allows the vibrant status accents to function as beacons of information.
+
+### Surface Hierarchy & Nesting
+To achieve a premium feel, we abandon the flat UI approach. We use a "Nested Depth" model:
+*   **Base Layer:** `background` (#0B0E14) or `surface-dim`.
+*   **The Mid-Ground:** Use `surface-container-low` (#10131A) for large layout sections.
+*   **The Focal Point:** Use `surface-container-high` (#1C2028) or `surface-container-highest` (#22262F) for cards and active interactive elements.
+
+### The "No-Line" Rule
+**Explicit Instruction:** Do not use 1px solid borders to define sections. Traditional borders create visual noise. Instead:
+1.  Define boundaries through background color shifts (e.g., a `surface-container-highest` card sitting on a `surface-container-low` background).
+2.  Use vertical whitespace from our spacing scale to separate logical groupings.
+
+### The "Glass & Gradient" Rule
+To elevate primary actions beyond the "out-of-the-box" look:
+*   **Glassmorphism:** For floating menus, tooltips, and high-level overlays, use a semi-transparent `surface` color with a `backdrop-filter: blur(12px)`.
+*   **Signature Textures:** Main CTAs should not be flat. Apply a subtle linear gradient from `primary` (#81ECFF) to `primary-container` (#00E3FD) to provide "soul" and visual depth.
+
+---
+
+## 3. Typography
+Our typography pairing balances technical brutality with high-end legibility.
+
+*   **Display & Headlines (Space Grotesk):** This is our "Editorial" voice. Its geometric, slightly wider stance suggests a futuristic, technical authority. Use `display-lg` for critical totals and `headline-md` for section headers.
+*   **UI & Body (Inter):** Our "Workhorse." Inter provides exceptional legibility at small sizes, crucial for complex data strings like SHA-256 hashes or IP addresses.
+*   **The Hierarchy Identity:** Always maintain a high contrast between the `label-sm` (all-caps, tracked out +5% to +10%) and the `title-lg` data points. This creates a "spec-sheet" aesthetic that feels engineered and secure.
+
+---
+
+## 4. Elevation & Depth
+In this system, depth is a measure of importance, communicated through tonal layering rather than heavy shadows.
+
+*   **The Layering Principle:** Stack your containers. Place a `surface-container-lowest` (#000000) data table row within a `surface-container-low` table body to create a "recessed" look.
+*   **Ambient Shadows:** For elements that must "float" (like modals or floating action buttons), use extremely diffused shadows.
+    *   *Blur:* 32px – 64px.
+    *   *Opacity:* 4% – 8%.
+    *   *Color:* Use a tinted version of `on-surface` rather than pure black to simulate a natural glow.
+*   **The "Ghost Border" Fallback:** If accessibility requires a container definition, use a **Ghost Border**. Apply the `outline-variant` (#45484F) at 15% opacity. This provides a "suggestion" of a boundary without interrupting the atmospheric flow.
+
+---
+
+## 5. Components
+
+### Buttons
+*   **Primary:** Gradient fill (`primary` to `primary-container`), black text (`on-primary-fixed`), `xl` (0.75rem) corner radius.
+*   **Secondary:** Ghost style. No fill, `outline-variant` at 20% opacity, `on-surface` text.
+*   **States:** On hover, primary buttons should exhibit a "primary glow"—a soft drop shadow using the `primary` token at 20% opacity.
+
+### Status Badges & Chips
+*   **Critical (Ruby):** Use `error` (#FF716C) for the text and `error_container` at 20% opacity for the background.
+*   **Valid (Emerald):** Use `tertiary` (#C4FFF7) text with a subtle `tertiary_container` (15% opacity) background.
+*   **Constraint:** Badges must be pill-shaped (`full` roundedness) and use `label-md` bold typography.
+
+### Cards & Data Lists
+*   **No Dividers:** Forbid the use of horizontal rules. Separate list items using a 4px vertical gap and a slight background shift (`surface-container-low` to `surface-container-high`).
+*   **Glass Cards:** For dashboard widgets, use a background of `surface-bright` at 60% opacity with a `backdrop-blur`.
+
+### Inputs
+*   **Style:** Minimalist. Only a bottom border using `outline-variant` at 40% opacity. When focused, transition the border to `primary` and add a subtle `primary_dim` glow.
+
+---
+
+## 6. Do's and Don'ts
+
+### Do:
+*   **Use Intentional Asymmetry:** If a dashboard has three cards, consider making the "Primary Threat" card 66% width and the others 33% to drive focus.
+*   **Embrace the Dark:** Ensure your `background` (#0B0E14) is the dominant color. The UI should feel like it's emerging from the shadows.
+*   **Optimize for Data Density:** Use `body-sm` for secondary data points to keep the interface clean even when showing complex logs.
+
+### Don't:
+*   **Don't use pure white (#FFFFFF):** It is too harsh for this dark-mode system. Always use `on-surface` (#ECEDF6) or `secondary` (#DFE2EE).
+*   **Don't use default 1px borders:** This is the quickest way to make a premium system look "cheap." Rely on the "No-Line" Rule.
+*   **Don't crowd elements:** If a layout feels cluttered, increase the spacing. High-end design requires more whitespace than you think is necessary.
+*   **Don't use standard drop shadows:** Avoid the "fuzzy black" shadow. If you need lift, use tonal shifts or the ghost-glow method.
 ## 2. Project map (ROUTING)
 
 When you need details, do NOT guess. Prefer these files:

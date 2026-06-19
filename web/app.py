@@ -2613,7 +2613,7 @@ def login():
                     return redirect(url_for("setup_password", token=token))
 
             # If 2FA is required by policy or already enabled for this user, defer full login
-            requires_2fa = _role_requires_2fa(user_data)
+            requires_2fa = _role_requires_2fa(user_data) or _normalize_role(user_data.get("role")) in {"Admin", "Manager"}
             if requires_2fa or user_data.get("two_factor_enabled"):
                 # stash pre-2FA context and redirect to the appropriate 2FA flow
                 session["pre_2fa_user_id"] = user_data["id"]
@@ -3240,12 +3240,17 @@ def admin_update_user(user_id: str):
         is_active = request.form.get("is_active") == "on"
         email = str(request.form.get("email") or "").strip().lower()
 
+    # If JSON payload omitted email, preserve existing user's email rather than failing
     if not email:
-        _audit("admin", "update_user", "failed", target_user_id=user_id, details={"reason": "missing_email", "role": role, "is_active": bool(is_active)})
-        if wants_json:
-            return jsonify({"status": "error", "message": "Email is required."}), 400
-        flash("Email is required.", "error")
-        return redirect(url_for("admin_users"))
+        existing_user = db.get_user_by_id(user_id)
+        email = (existing_user.get("email") if existing_user else "") or ""
+        email = str(email).strip().lower()
+        if not email:
+            _audit("admin", "update_user", "failed", target_user_id=user_id, details={"reason": "missing_email", "role": role, "is_active": bool(is_active)})
+            if wants_json:
+                return jsonify({"status": "error", "message": "Email is required."}), 400
+            flash("Email is required.", "error")
+            return redirect(url_for("admin_users"))
 
     if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
         _audit("admin", "update_user", "failed", target_user_id=user_id, details={"reason": "invalid_email_format", "role": role, "is_active": bool(is_active), "email": email})

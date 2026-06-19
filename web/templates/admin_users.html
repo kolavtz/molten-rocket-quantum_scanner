@@ -1,461 +1,408 @@
 {% extends "base.html" %}
 
-{% block title %}User Management | QuantumShield{% endblock %}
+{% block title %}Identity Directory | Obsidian Ledger{% endblock %}
+
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_users_ledger.css') }}">
+<style>
+    /* Inline specific tweaks for this page */
+    .hero-glitch {
+        display: inline-block;
+        font-family: var(--font-display);
+        position: relative;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<header class="section-header">
-    <h1 class="hero-title">USER MANAGEMENT</h1>
-    <p class="hero-subtitle">access control // team provisioning</p>
+<header class="section-header" style="margin-bottom: 0;">
+    <h1 class="hero-title">IDENTITY <span class="hero-glitch">DIRECTORY</span></h1>
+    <p class="hero-subtitle">access authorization // team provisioning</p>
 </header>
 
-<div class="admin-container" style="margin-top: 2rem;">
+<div class="user-mgmt-layout">
     
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="flash-messages" style="margin-bottom: 2rem; border-left: 2px solid var(--accent); padding-left: 1rem;">
-        {% for category, message in messages %}
-          <div class="flash-msg">{{ message|upper }}</div>
-        {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
+    <!-- Left Sidebar: Provisioning Cluster -->
+    <aside class="provision-sidebar">
+        <div class="provision-form-container">
+            <div class="form-header-cluster">
+                <div class="provision-title">PROVISION<br>USER</div>
+                <div class="cmd-badge">CMD_742</div>
+            </div>
 
-    <div class="admin-grid" style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem;">
-        
-        <!-- Invite Form -->
-        <div class="glass-card" style="padding: 1.5rem;">
-            <h3 style="margin-bottom: 1.5rem; text-transform: uppercase; font-size: 1rem; letter-spacing: 1px; border-bottom: 1px solid var(--text-muted); padding-bottom: 0.5rem;">PROVISION USER</h3>
             <form action="{{ url_for('admin_users') }}" method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="form-group">
-                    <label class="form-label" for="employee_id">EMPLOYEE_ID</label>
-                    <input type="text" id="employee_id" name="employee_id" class="form-input" placeholder="EMP-0000" required>
+                
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label class="form-label" for="employee_id">REGISTRY ID</label>
+                    <div style="position: relative; display: flex; align-items: center;">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 0; opacity: 0.5;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                        <input type="text" id="employee_id" name="employee_id" class="form-input" style="padding-left: 1.5rem;" placeholder="Q-UID-0000" required>
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="username">AUTH_ID</label>
-                    <input type="text" id="username" name="username" class="form-input" placeholder="id.reference" required>
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label class="form-label" for="username">AUTH IDENTITY</label>
+                    <input type="text" id="username" name="username" class="form-input" placeholder="identity.auth" required>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="email">CONTACT_EMAIL</label>
-                    <input type="email" id="email" name="email" class="form-input" placeholder="user@org.net" required>
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label class="form-label" for="email">EMAIL ADDRESS</label>
+                    <div style="position: relative; display: flex; align-items: center;">
+                        <span style="position: absolute; left: 0; opacity: 0.5; font-family: var(--font-mono); font-size: 0.8rem;">@</span>
+                        <input type="email" id="email" name="email" class="form-input" style="padding-left: 1.5rem;" placeholder="user@quantum.net" required>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label class="form-label" for="role">ACCESS_LEVEL</label>
-                    <select id="role" name="role" class="form-input" required>
-                        <option value="Viewer" selected>VIEWER</option>
-                        <option value="SingleScan">SINGLE_SCAN</option>
-                        <option value="Manager">MANAGER</option>
-                        <option value="Admin">ADMIN</option>
+                <div class="form-group" style="margin-bottom: 2rem;">
+                    <label class="form-label" for="role">ACCESS VECTOR</label>
+                    <select id="role" name="role" class="form-input" style="appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2210%22%20height%3D%226%22%20fill%3D%22none%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cpath%20d%3D%22m1%201%204%204%204-4%22%20stroke%3D%22%23666%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 0.5rem center; cursor: pointer;" required>
+                        <option value="Viewer">Restricted Observer</option>
+                        <option value="SingleScan">Single Operator</option>
+                        <option value="Manager">System Manager</option>
+                        <option value="Admin">Administrator</option>
                     </select>
                 </div>
 
-                <button type="submit" class="scan-button" style="width: 100%; margin-top: 1rem;">
-                    ISSUE CREDENTIALS
+                <button type="submit" class="btn btn-primary" style="width: 100%; border-radius: 6px;">
+                    INITIALIZE ACCOUNT
                 </button>
             </form>
+
+            <div class="provision-caption">
+                REQUIRES LEVEL 4 ENCRYPTION KEY
+            </div>
         </div>
 
-        <!-- Registered Users List -->
-        <div class="glass-card" style="padding: 1.5rem;">
-            <h3 style="margin-bottom: 1.5rem; text-transform: uppercase; font-size: 1rem; letter-spacing: 1px; border-bottom: 1px solid var(--text-muted); padding-bottom: 0.5rem;">ACTIVE DIRECTORY</h3>
-            <div class="glass-card" style="padding:0.9rem; margin-bottom:1rem; background:rgba(255,255,255,0.02);">
-                <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
-                    <label style="display:flex; align-items:center; gap:0.45rem; font-size:0.78rem; color:var(--text-secondary);">
-                        <input id="selectAllUsers" type="checkbox">
-                        SELECT_ALL
-                    </label>
-                    <select id="bulkRoleSelect" class="form-input" style="padding: 0.35rem; font-size:0.75rem; width:130px;">
-                        <option value="Viewer">VIEWER</option>
-                        <option value="SingleScan">SINGLE_SCAN</option>
-                        <option value="Manager">MANAGER</option>
-                        <option value="Admin">ADMIN</option>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages">
+            {% for category, message in messages %}
+              <div class="flash-msg" style="padding: 1rem; background: var(--surface-container-high); border-left: 2px solid var(--primary); font-size: 0.72rem; margin-bottom: 0.5rem;">
+                {{ message|upper }}
+              </div>
+            {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+    </aside>
+
+    <!-- Right Column: User Directory Main -->
+    <main class="directory-main">
+        
+        <!-- Search & Tab Bar (Stubbed for layout) -->
+        <div style="display:flex; justify-content: space-between; align-items: center; padding-bottom: 1rem;">
+             <div style="display:flex; gap: 2rem;">
+                 <span style="color: var(--primary); font-weight: 700; font-size: 0.72rem; letter-spacing: 0.1em; border-bottom: 1px solid var(--primary); padding-bottom: 4px;">DIRECTORY</span>
+                 <span style="color: var(--text-muted); font-weight: 600; font-size: 0.72rem; letter-spacing: 0.1em; cursor: pointer;">THREATS</span>
+                 <span style="color: var(--text-muted); font-weight: 600; font-size: 0.72rem; letter-spacing: 0.1em; cursor: pointer;">NODES</span>
+             </div>
+             <div style="display:flex; align-items: center; gap: 10px;">
+                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.5;">
+                     <circle cx="11" cy="11" r="8"></circle>
+                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                 </svg>
+                 <input type="text" placeholder="Search system resources..." style="background: transparent; border: none; font-size: 0.85rem; color: var(--on-surface); outline: none;">
+             </div>
+        </div>
+
+        <!-- Bulk Action Bar -->
+        <div id="bulkBar" class="bulk-action-bar" style="display: none;">
+            <div class="selection-count" id="bulkCount">0 SELECTED</div>
+            
+            <div style="display:flex; align-items: center; gap: 0.75rem;">
+                <button id="bulkPurgeBtn" class="btn icon-btn danger" title="Bulk Purge" style="background: color-mix(in srgb, var(--error) 15%, transparent); width: auto; padding: 4px 12px; height: auto; display: flex; gap: 6px; font-size: 0.7rem; font-weight: 700;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    Bulk Purge
+                </button>
+                
+                <div style="display:flex; align-items: center; gap: 8px;">
+                    <select id="bulkRoleSelect" class="form-input" style="padding: 4px 8px; font-size: 0.7rem; width: 154px; height: 32px; background: var(--surface-container-highest);">
+                        <option value="Viewer">Apply Role: Auditor</option>
+                        <option value="SingleScan">Apply Role: Operator</option>
+                        <option value="Manager">Apply Role: Manager</option>
+                        <option value="Admin">Apply Role: Admin</option>
                     </select>
-                    <button id="bulkRoleBtn" type="button" class="scan-button" style="padding:0.38rem 0.6rem; font-size:0.7rem; min-height:44px;">APPLY_ROLE</button>
-                    <button id="bulkDeleteBtn" type="button" class="scan-button" style="padding:0.38rem 0.6rem; font-size:0.7rem; min-height:44px; border-color:var(--danger); color:var(--danger); background:transparent;">BULK_DELETE</button>
-                    <span id="bulkUserMeta" style="font-size:0.73rem; color:var(--text-muted);">0 SELECTED</span>
+                    <button id="bulkRoleApplyBtn" class="icon-btn" style="width:32px; height:32px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </button>
                 </div>
-                <div style="margin-top:0.45rem; font-size:0.72rem; color:var(--text-muted);">NOTE: Current logged-in user cannot be deleted.</div>
-            </div>
-            <div class="scans-table-wrapper">
-                <table class="scans-table">
-                    <thead>
-                        <tr>
-                            <th>SEL</th>
-                            <th>ID</th>
-                            <th>USER</th>
-                            <th>EMAIL</th>
-                            <th>ROLE</th>
-                            <th>STATUS</th>
-                            <th>API_KEY</th>
-                            <th>CTRL</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for user in users %}
-                        <tr class="scan-row">
-                            <td style="text-align:center;">
-                                <input
-                                    class="js-user-select"
-                                    type="checkbox"
-                                    value="{{ user.id }}"
-                                    data-username="{{ user.username }}"
-                                    {% if user.id == current_user.id %}disabled title="Current logged-in user is protected"{% endif %}
-                                >
-                            </td>
-                            <td class="time-cell">{{ user.employee_id or '---' }}</td>
-                            <td class="target-cell">{{ user.username }}</td>
-                            <td class="email-cell" style="font-family: 'JetBrains Mono', monospace; font-size: .72rem; color: var(--text-secondary);">{{ user.email or '---' }}</td>
-                            <td>
-                                <span class="status-badge" style="color: var(--accent);">{{ user.role|upper }}</span>
-                            </td>
-                            <td>
-                                {% if user.is_active %}
-                                <span class="status-badge" style="color: var(--safe); border-color: var(--safe);">ACTIVE</span>
-                                {% else %}
-                                <span class="status-badge" style="color: var(--danger); border-color: var(--danger);">SUSPENDED</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if user.api_key_hash %}
-                                <span style="color:#5b9e6f;font-family:'JetBrains Mono',monospace;font-size:.7rem;">● ISSUED</span>
-                                {% else %}
-                                <span style="color:#c45c5c;font-family:'JetBrains Mono',monospace;font-size:.7rem;">○ NONE</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <form class="js-admin-user-update" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="display:flex; gap: 0.5rem; align-items: center;">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <input type="email" name="email" value="{{ user.email or '' }}" class="form-input" style="padding: 0.2rem; font-size: 0.7rem; width: 190px;" placeholder="EMAIL@ORG.NET" required>
-                                    <select name="role" class="form-input" style="padding: 0.2rem; font-size: 0.7rem; width: 100px;">
-                                        <option value="Viewer" {% if user.role|lower == 'viewer' %}selected{% endif %}>VIEWER</option>
-                                        <option value="SingleScan" {% if user.role|lower == 'singlescan' %}selected{% endif %}>SINGLE</option>
-                                        <option value="Manager" {% if user.role|lower == 'manager' %}selected{% endif %}>MANAGER</option>
-                                        <option value="Admin" {% if user.role|lower == 'admin' %}selected{% endif %}>ADMIN</option>
-                                    </select>
-                                    <input type="checkbox" name="is_active" {% if user.is_active %}checked{% endif %} title="Active Status">
-                                    <button type="submit" class="scan-button" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; min-height:44px;">COMMIT</button>
-                                </form>
-                                <div style="margin-top: 0.5rem; display:flex; gap: 0.4rem; flex-wrap:wrap;">
-                                    {% if user.email %}
-                                    <button class="js-admin-reset-pass scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; border-color: var(--text-muted); color: var(--text-muted); background: transparent; cursor: pointer;">RESET_PASS</button>
-                                    {% endif %}
-                                    <button class="js-admin-regen-key scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; min-height:44px; border-color: var(--safe); color: var(--safe); background: transparent; cursor: pointer;">REGEN_KEY</button>
-                                    <button class="js-admin-reset-2fa scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; min-height:44px; border-color: var(--danger); color: var(--danger); background: transparent; cursor: pointer;">RESET_2FA</button>
-                                </div>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="8" class="text-center" style="padding: 2rem; color: var(--text-muted);">EMPTYSET // NO USERS</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
             </div>
         </div>
 
+        <!-- Header Row -->
+        <div class="row-header">
+            <span style="display:flex; align-items:center;"><input type="checkbox" id="selectAll" class="custom-checkbox"></span>
+            <span>Quantum ID</span>
+            <span>Identity Entity</span>
+            <span>Security Status</span>
+            <span>Permissions</span>
+            <span style="text-align: right; padding-right: 1.5rem;">Protection</span>
+        </div>
+
+        <!-- List Area -->
+        <div class="identity-list">
+            {% for user in users %}
+            <div class="user-identity-card" data-id="{{ user.id }}">
+                <div style="display:flex; align-items:center;">
+                    <input type="checkbox" class="js-user-select custom-checkbox" value="{{ user.id }}" 
+                    {% if user.id == current_user.id %}disabled title="Root user is protected"{% endif %}>
+                </div>
+                
+                <div class="identity-item">
+                    <span style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--primary); font-weight: 600;">#{{ user.employee_id or 'QX-0000' }}</span>
+                </div>
+
+                <div class="identity-entity">
+                    <div class="identity-name">{{ user.username }}</div>
+                    <div class="identity-email">{{ user.email }}</div>
+                </div>
+
+                <div class="status-beacon-container">
+                    {% if user.is_active %}
+                    <div class="beacon active"></div>
+                    <span class="status-badge" style="color: var(--tertiary); font-size: 0.62rem; background: color-mix(in srgb, var(--tertiary) 12%, transparent); border: none;">ACTIVE</span>
+                    {% else %}
+                    <div class="beacon offline"></div>
+                    <span class="status-badge" style="color: var(--text-muted); font-size: 0.62rem; background: var(--surface-container-highest); border: none;">OFFLINE</span>
+                    {% endif %}
+                </div>
+
+                <div style="display:flex; flex-direction: column; gap: 4px;">
+                    <span class="status-badge" style="font-size: 0.58rem; background: var(--surface-container-highest); color: var(--primary); border: none; font-weight: 800; max-width: fit-content; min-width: 60px; text-align: center;">{{ user.role|upper }}</span>
+                    {% if user.two_factor_enabled %}
+                    <span style="font-size: 0.52rem; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; padding-left: 4px;">2FA SECURED</span>
+                    {% else %}
+                    <span style="font-size: 0.52rem; color: var(--error); font-weight: 700; letter-spacing: 0.05em; padding-left: 4px; opacity: 0.8;">2FA PENDING</span>
+                    {% endif %}
+                </div>
+
+                <div class="control-cluster">
+                     <button class="icon-btn js-reset-pass" data-id="{{ user.id }}" title="Reset Password">
+                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                     </button>
+                     <button class="icon-btn js-reset-2fa" data-id="{{ user.id }}" title="Reset 2FA">
+                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                     </button>
+                     <button class="icon-btn js-regen-key" data-id="{{ user.id }}" title="Regenerate API Access">
+                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                     </button>
+                     <button class="icon-btn danger js-delete-user" data-id="{{ user.id }}" title="Purge Identity" {% if user.id == current_user.id %}disabled{% endif %}>
+                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                     </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Directory Stats -->
+        <div class="directory-stats">
+            <div class="stat-item">
+                <div class="stat-label">TOTAL NODES</div>
+                <div class="stat-value">{{ users|length }}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">ENCRYPTED LINKS</div>
+                {% set mfa_count = users|selectattr("two_factor_enabled", "equalto", True)|list|length %}
+                {% set total = users|length %}
+                <div class="stat-value">{% if total > 0 %}{{ (mfa_count / total * 100)|round(1) }}{% else %}0{% endif %}%</div>
+            </div>
+        </div>
+    </main>
+
+</div>
+
+<!-- Email Change Modal (Custom Obsidian Styled) -->
+<div id="emailModal" class="modal" style="display:none; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);">
+    <div class="glass-card" style="width: 400px; margin: 100px auto; padding: 2rem;">
+        <div class="provision-title" style="margin-bottom: 2rem;">UPDATE<br>EMAIL</div>
+        <input type="hidden" id="editUserId">
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label class="form-label">NEW CONTACT VECTOR</label>
+            <input type="email" id="editEmail" class="form-input" placeholder="user@org.net">
+        </div>
+        <div style="display:flex; gap: 1rem; margin-top: 2rem;">
+            <button class="btn btn-primary" onclick="commitEmailChange()" style="flex: 1; border-radius: 6px;">SAVE ACCESS</button>
+            <button class="btn" onclick="closeModal()" style="flex: 1; background: transparent; border: 1px solid var(--outline-variant); border-radius: 6px;">ABORT</button>
+        </div>
     </div>
 </div>
 
 <script>
-// Helper: get CSRF token from meta tag
-function getCsrfToken() {
-    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-}
-
-// Helper: show flash message
-function showFlash(message, category = 'success') {
-    const flashDiv = document.createElement('div');
-    flashDiv.className = 'flash-msg';
-    flashDiv.textContent = message.toUpperCase();
-    flashDiv.style.position = 'fixed';
-    flashDiv.style.top = '1rem';
-    flashDiv.style.right = '1rem';
-    flashDiv.style.backgroundColor = category === 'success' ? 'var(--safe)' : 'var(--danger)';
-    flashDiv.style.color = '#000';
-    flashDiv.style.padding = '0.75rem 1.5rem';
-    flashDiv.style.borderRadius = 'var(--radius-md)';
-    flashDiv.style.zIndex = '9999';
-    flashDiv.style.maxWidth = '400px';
-    document.body.appendChild(flashDiv);
-    setTimeout(() => flashDiv.remove(), 5000);
-}
-
-async function parseJsonResponse(response) {
-    const raw = await response.text();
-    if (!raw || !raw.trim()) {
-        return {};
+    // --- Helper Functions ---
+    function getCsrfToken() {
+        return '{{ csrf_token() }}';
     }
-    try {
-        return JSON.parse(raw);
-    } catch (_err) {
-        const trimmed = raw.trim().toLowerCase();
-        if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<html')) {
-            throw new Error('Session expired or access denied. Please refresh and log in again.');
-        }
-        throw new Error('Server returned an invalid JSON response.');
+
+    function showToast(message, error = false) {
+        const toast = document.createElement('div');
+        toast.className = 'flash-msg';
+        toast.style.cssText = `position:fixed; bottom:24px; right:24px; background:var(--surface-container-high); border-left:4px solid ${error ? 'var(--error)' : 'var(--primary)'}; padding:1rem 2rem; box-shadow:var(--shadow-ambient); z-index:10000; font-family:var(--font-display); font-size:0.75rem; font-weight:700; letter-spacing:0.05em;`;
+        toast.textContent = message.toUpperCase();
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
     }
-}
 
-// Helper: update role badge in row
-function updateRoleBadge(row, role) {
-    const badge = row.querySelector('.status-badge[style*="accent"]');
-    if (badge) {
-        badge.textContent = role.toUpperCase();
-    }
-}
-
-// Helper: update status badge in row
-function updateStatusBadge(row, isActive) {
-    const statusCell = row.querySelector('td:nth-child(6)');
-    if (statusCell) {
-        statusCell.innerHTML = isActive
-            ? '<span class="status-badge" style="color: var(--safe); border-color: var(--safe);">ACTIVE</span>'
-            : '<span class="status-badge" style="color: var(--danger); border-color: var(--danger);">SUSPENDED</span>';
-    }
-}
-
-// Helper: update email text in row
-function updateEmailCell(row, email) {
-    const emailCell = row.querySelector('.email-cell');
-    if (emailCell) {
-        emailCell.textContent = email || '---';
-    }
-}
-
-// Role + Status update form
-document.querySelectorAll('.js-admin-user-update').forEach(form => {
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const userId = form.getAttribute('data-user-id');
-        const username = form.getAttribute('data-username');
-        const email = (form.querySelector('[name="email"]')?.value || '').trim().toLowerCase();
-        const role = form.querySelector('[name="role"]').value;
-        const isActive = form.querySelector('[name="is_active"]').checked;
-
-        if (!email) {
-            showFlash('Email is required.', 'error');
-            return;
-        }
-        
-        try {
-            const response = await fetch(`/admin/users/${userId}/update`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': getCsrfToken(),
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({ email, role, is_active: isActive })
-            });
-            
-            const payload = await parseJsonResponse(response);
-            if (!response.ok || payload.status === 'error') {
-                throw new Error(payload.message || 'Failed to update user');
-            }
-            
-            // Update display in-place
-            const row = form.closest('tr');
-            updateRoleBadge(row, role);
-            updateStatusBadge(row, isActive);
-            updateEmailCell(row, email);
-            showFlash('User profile updated.', 'success');
-        } catch (error) {
-            showFlash(error.message, 'error');
-            console.error('Admin user update error:', error);
-        }
-    });
-});
-
-function selectedUserIds() {
-    return Array.from(document.querySelectorAll('.js-user-select:checked')).map(cb => cb.value);
-}
-
-function updateBulkMeta() {
-    const selected = selectedUserIds();
-    const meta = document.getElementById('bulkUserMeta');
-    if (meta) {
-        meta.textContent = `${selected.length} SELECTED`;
-    }
-}
-
-document.getElementById('selectAllUsers')?.addEventListener('change', (e) => {
-    const checked = e.target.checked;
-    document.querySelectorAll('.js-user-select:not(:disabled)').forEach(cb => {
-        cb.checked = checked;
-    });
-    updateBulkMeta();
-});
-
-document.querySelectorAll('.js-user-select').forEach(cb => cb.addEventListener('change', updateBulkMeta));
-
-document.getElementById('bulkRoleBtn')?.addEventListener('click', async () => {
-    const ids = selectedUserIds();
-    const role = document.getElementById('bulkRoleSelect')?.value || 'Viewer';
-    if (!ids.length) {
-        showFlash('Select at least one user.', 'error');
-        return;
-    }
-    try {
-        const response = await fetch('/admin/users/bulk', {
+    async function req(url, body) {
+        const res = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken(),
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
+                'X-CSRFToken': getCsrfToken()
             },
-            body: JSON.stringify({ action: 'update_role', user_ids: ids, role })
+            body: JSON.stringify(body)
         });
-        const payload = await parseJsonResponse(response);
-        if (!response.ok || payload.status === 'error') {
-            throw new Error(payload.message || 'Bulk role update failed.');
-        }
-        showFlash(payload.message || 'Bulk role update completed.', 'success');
-        window.location.reload();
-    } catch (error) {
-        showFlash(error.message, 'error');
+        return await res.json();
     }
-});
 
-document.getElementById('bulkDeleteBtn')?.addEventListener('click', async () => {
-    const ids = selectedUserIds();
-    if (!ids.length) {
-        showFlash('Select at least one user.', 'error');
-        return;
-    }
-    if (!confirm(`Delete ${ids.length} selected user(s)? Current logged-in user is protected.`)) {
-        return;
-    }
-    try {
-        const response = await fetch('/admin/users/bulk', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken(),
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({ action: 'delete', user_ids: ids })
+    // --- Selection Logic ---
+    const selectAll = document.getElementById('selectAll');
+    const userChecks = document.querySelectorAll('.js-user-select');
+    const bulkBar = document.getElementById('bulkBar');
+    const bulkCount = document.getElementById('bulkCount');
+
+    function updateSelectionState() {
+        const selected = Array.from(userChecks).filter(c => c.checked);
+        const count = selected.length;
+        
+        if (count > 0) {
+            bulkBar.style.display = 'flex';
+            bulkCount.textContent = `${count} SELECTED`;
+        } else {
+            bulkBar.style.display = 'none';
+        }
+
+        userChecks.forEach(cb => {
+            const card = cb.closest('.user-identity-card');
+            if (cb.checked) {
+                card.classList.add('selected');
+            } else {
+                card.classList.remove('selected');
+            }
         });
-        const payload = await parseJsonResponse(response);
-        if (!response.ok || payload.status === 'error') {
-            throw new Error(payload.message || 'Bulk deletion failed.');
-        }
-        showFlash(payload.message || 'Bulk deletion completed.', 'success');
-        window.location.reload();
-    } catch (error) {
-        showFlash(error.message, 'error');
     }
-});
 
-// Reset password button
-document.querySelectorAll('.js-admin-reset-pass').forEach(btn => {
-    btn.addEventListener('click', async () => {
-        const userId = btn.getAttribute('data-user-id');
-        const username = btn.getAttribute('data-username');
-        
-        try {
-            const response = await fetch(`/admin/users/${userId}/reset-password`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': getCsrfToken(),
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({})
-            });
-            
-            const payload = await parseJsonResponse(response);
-            if (!response.ok || payload.status === 'error') {
-                throw new Error(payload.message || 'Failed to reset password');
-            }
-            
-            showFlash('Password reset email sent.', 'success');
-        } catch (error) {
-            showFlash(error.message, 'error');
-            console.error('Admin reset password error:', error);
+    selectAll.addEventListener('change', (e) => {
+        userChecks.forEach(cb => {
+            if (!cb.disabled) cb.checked = e.target.checked;
+        });
+        updateSelectionState();
+    });
+
+    userChecks.forEach(cb => {
+        cb.addEventListener('change', updateSelectionState);
+    });
+
+    // --- Bulk Actions ---
+    document.getElementById('bulkPurgeBtn').addEventListener('click', async () => {
+        const ids = Array.from(userChecks).filter(c => c.checked).map(c => c.value);
+        if (!confirm(`Purge ${ids.length} identity artifacts from directory?`)) return;
+
+        const data = await req('/admin/users/bulk', { action: 'delete', user_ids: ids });
+        if (data.status === 'success') {
+            showToast(data.message);
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(data.message, true);
         }
     });
-});
 
-// Regenerate API key button
-document.querySelectorAll('.js-admin-regen-key').forEach(btn => {
-    btn.addEventListener('click', async () => {
-        const userId = btn.getAttribute('data-user-id');
-        const username = btn.getAttribute('data-username');
+    document.getElementById('bulkRoleApplyBtn').addEventListener('click', async () => {
+        const ids = Array.from(userChecks).filter(c => c.checked).map(c => c.value);
+        const role = document.getElementById('bulkRoleSelect').value;
+        const data = await req('/admin/users/bulk', { action: 'update_role', user_ids: ids, role: role });
         
-        if (!confirm(`Regenerate API key for ${username}? Current key will be revoked.`)) {
-            return;
-        }
-        
-        try {
-            const response = await fetch(`/admin/users/${userId}/regen-api-key`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': getCsrfToken(),
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({})
-            });
-            
-            const payload = await parseJsonResponse(response);
-            if (!response.ok || payload.status === 'error') {
-                throw new Error(payload.message || 'Failed to regenerate API key');
-            }
-            
-            // Show new key in a modal/alert for copy
-            const keyValue = payload.api_key;
-            const msg = `New API key: ${keyValue}\n\nCopy now. This will not be shown again.`;
-            alert(msg);
-            showFlash('API key regenerated.', 'success');
-        } catch (error) {
-            showFlash(error.message, 'error');
-            console.error('Admin regen key error:', error);
+        if (data.status === 'success') {
+            showToast(data.message);
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(data.message, true);
         }
     });
-});
 
-// Reset 2FA button
-document.querySelectorAll('.js-admin-reset-2fa').forEach(btn => {
-    btn.addEventListener('click', async () => {
-        const userId = btn.getAttribute('data-user-id');
-        const username = btn.getAttribute('data-username');
-
-        if (!confirm(`Reset 2FA for ${username}? This will require the user to reconfigure 2FA on next login.`)) {
-            return;
-        }
-
-        try {
-            const response = await fetch(`/admin/users/${userId}/reset-2fa`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': getCsrfToken(),
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({})
-            });
-
-            const payload = await parseJsonResponse(response);
-            if (!response.ok || payload.status === 'error') {
-                throw new Error(payload.message || 'Failed to reset 2FA');
-            }
-
-            showFlash('2FA reset for user.', 'success');
-        } catch (error) {
-            showFlash(error.message, 'error');
-            console.error('Admin reset 2FA error:', error);
-        }
+    // --- Individual Actions ---
+    document.querySelectorAll('.js-reset-pass').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            const data = await req(`/admin/users/${id}/reset-password`, {});
+            showToast(data.message || (data.status === 'success' ? 'RESET EMAIL SENT' : 'ACTION FAILED'), data.status !== 'success');
+        });
     });
-});
+
+    document.querySelectorAll('.js-reset-2fa').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            if (!confirm('Abort MFA authorization for this identity?')) return;
+            const data = await req(`/admin/users/${id}/reset-2fa`, {});
+            showToast(data.message, data.status !== 'success');
+            if (data.status === 'success') setTimeout(() => location.reload(), 1000);
+        });
+    });
+
+    document.querySelectorAll('.js-regen-key').forEach(btn => {
+        btn.addEventListener('click', async () => {
+             const id = btn.dataset.id;
+             if (!confirm('Regenerate API access credentials? Local overrides will be invalidated.')) return;
+             const data = await req(`/admin/users/${id}/regen-api-key`, {});
+             if (data.status === 'success') {
+                 prompt('NEW ACCESS KEY ISSUED (COPY NOW):', data.api_key);
+                 showToast('KEY REGENERATED');
+             } else {
+                 showToast(data.message, true);
+             }
+        });
+    });
+
+    document.querySelectorAll('.js-delete-user').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            if (!confirm('Permanently purge this identity artifact?')) return;
+            const data = await req('/admin/users/bulk', { action: 'delete', user_ids: [id] });
+            if (data.status === 'success') {
+                showToast('IDENTITY PURGED');
+                btn.closest('.user-identity-card').style.opacity = '0.3';
+                btn.closest('.user-identity-card').style.pointerEvents = 'none';
+            } else {
+                showToast(data.message, true);
+            }
+        });
+    });
+
+    // --- Email Edit ---
+    function openModal(id, email) {
+        document.getElementById('editUserId').value = id;
+        document.getElementById('editEmail').value = email;
+        document.getElementById('emailModal').style.display = 'block';
+    }
+    function closeModal() {
+        document.getElementById('emailModal').style.display = 'none';
+    }
+    async function commitEmailChange() {
+        const id = document.getElementById('editUserId').value;
+        const email = document.getElementById('editEmail').value;
+        const data = await req(`/admin/users/${id}/update`, { email });
+        if (data.status === 'success') {
+            showToast('EMAIL VECTOR UPDATED');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(data.message, true);
+        }
+    }
+
+    // Allow clicking name/email to edit email
+    document.querySelectorAll('.identity-entity').forEach(ent => {
+        ent.style.cursor = 'pointer';
+        ent.addEventListener('click', () => {
+            const card = ent.closest('.user-identity-card');
+            const id = card.dataset.id;
+            const email = ent.querySelector('.identity-email').textContent;
+            openModal(id, email);
+        });
+    });
+
 </script>
 {% endblock %}

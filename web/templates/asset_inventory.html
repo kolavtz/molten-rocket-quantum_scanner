@@ -12,8 +12,8 @@
     .inventory-panel-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 1.5rem; margin-bottom: 2rem; }
     .pipeline-strip { display: flex; flex-direction: column; gap: 0.5rem; }
     .pipeline-stage { display: flex; align-items: center; gap: 1rem; padding: 0.75rem; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: 10px; transition: all 0.3s ease; }
-    .pipeline-stage[data-status="complete"] { border-color: var(--pqc-safe); background: rgba(52, 199, 89, 0.05); }
-    .pipeline-stage[data-status="running"] { border-color: var(--accent); background: rgba(0, 255, 204, 0.05); animation: pulse-border 2s infinite; }
+    .pipeline-stage[data-status="complete"] { border-color: var(--pqc-safe); background: color-mix(in srgb, var(--pqc-safe) 6%, transparent); }
+    .pipeline-stage[data-status="running"] { border-color: var(--ui-info); background: color-mix(in srgb, var(--ui-info) 6%, transparent); animation: pulse-border 2s infinite; }
     @keyframes pulse-border { 0% { border-color: var(--accent); } 50% { border-color: rgba(0, 255, 204, 0.3); } 100% { border-color: var(--accent); } }
     .stage-index { width: 24px; height: 24px; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; color: var(--text-secondary); }
     .stage-label { font-size: 0.8rem; font-weight: 700; flex: 1; }
@@ -70,7 +70,7 @@
         justify-content: space-between;
         align-items: center;
         border-bottom: 1px solid rgba(255,255,255,0.07);
-        background: linear-gradient(90deg, rgba(0,255,204,0.04), transparent);
+        background: linear-gradient(90deg, color-mix(in srgb, var(--ui-info) 6%, transparent), transparent);
         flex-shrink: 0;
     }
     .inv-modal-header h2 { margin: 0; font-size: 1.15rem; font-weight: 800; }
@@ -234,14 +234,14 @@
         white-space: nowrap;
     }
     .row-scan-status-badge.status-queued {
-        color: var(--accent);
-        background: rgba(0, 255, 204, 0.12);
-        border-color: rgba(0, 255, 204, 0.28);
+        color: var(--ui-info);
+        background: color-mix(in srgb, var(--ui-info) 12%, transparent);
+        border-color: color-mix(in srgb, var(--ui-info) 24%, transparent);
     }
     .row-scan-status-badge.status-running {
-        color: #7dd3fc;
-        background: rgba(56, 189, 248, 0.14);
-        border-color: rgba(56, 189, 248, 0.32);
+        color: var(--ui-info);
+        background: color-mix(in srgb, var(--ui-info) 12%, transparent);
+        border-color: color-mix(in srgb, var(--ui-info) 28%, transparent);
     }
     .row-scan-status-badge.status-complete,
     .row-scan-status-badge.status-completed,
@@ -254,15 +254,15 @@
     .row-scan-status-badge.status-partial,
     .row-scan-status-badge.status-in_progress,
     .row-scan-status-badge.status-started {
-        color: #facc15;
-        background: rgba(250, 204, 21, 0.14);
-        border-color: rgba(250, 204, 21, 0.30);
+        color: var(--risk-medium);
+        background: color-mix(in srgb, var(--risk-medium) 12%, transparent);
+        border-color: color-mix(in srgb, var(--risk-medium) 26%, transparent);
     }
     .row-scan-status-badge.status-failed,
     .row-scan-status-badge.status-error {
-        color: var(--danger, #ff3366);
-        background: rgba(255, 51, 102, 0.14);
-        border-color: rgba(255, 51, 102, 0.30);
+        color: var(--risk-critical);
+        background: color-mix(in srgb, var(--risk-critical) 12%, transparent);
+        border-color: color-mix(in srgb, var(--risk-critical) 28%, transparent);
     }
 </style>
 {% endblock %}
@@ -488,6 +488,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/api_client.js') }}"></script>
 <script>
 (function () {
     'use strict';
@@ -636,7 +637,8 @@
                 credentials: 'same-origin',
                 headers: { 'Accept': 'application/json' }
             });
-            const payload = await resp.json();
+            const payloadRaw = await resp.json();
+            const payload = normalizeApiEnvelope(payloadRaw);
             if (!resp.ok || payload?.success === false) {
                 return;
             }
@@ -790,7 +792,8 @@
                 credentials: 'same-origin',
                 headers: { 'Accept': 'application/json' }
             });
-            const result = await resp.json();
+            const resultRaw = await resp.json();
+            const result = normalizeApiEnvelope(resultRaw);
             if (!resp.ok || !result || result.success !== true || !result.data || !Array.isArray(result.data.items)) {
                 return false;
             }
@@ -972,7 +975,8 @@
                 },
                 body: formData,
             });
-            const result = await response.json();
+            const resultRaw = await response.json();
+            const result = normalizeApiEnvelope(resultRaw);
 
             const statusRaw = String(result?.status || result?.data?.status || '').toLowerCase();
             const isStarted = statusRaw === 'started' || statusRaw === 'in_progress';
@@ -1147,8 +1151,9 @@
                         csrf_token: csrf
                     })
                 });
-                const data = await resp.json();
-                if (resp.ok && data.status === 'success') {
+                const dataRaw = await resp.json();
+                const data = normalizeApiEnvelope(dataRaw);
+                if (resp.ok && data.status === 'success' || data.success === true) {
                     const results = Array.isArray(data.results) ? data.results : [];
                     if (results.length) {
                         results.forEach(item => {
@@ -1187,8 +1192,9 @@
                         csrf_token: csrf
                     })
                 });
-                const data = await resp.json();
-                if (resp.ok && data.status === 'success') {
+                const dataRaw = await resp.json();
+                const data = normalizeApiEnvelope(dataRaw);
+                if (resp.ok && data.status === 'success' || data.success === true) {
                     _flashBanner(data.message || `Moved ${uniqueIds.length} asset(s) to Recycle Bin.`, 'success');
                     const serverDeletedIds = Array.isArray(data.deleted_ids) && data.deleted_ids.length
                         ? data.deleted_ids
@@ -1240,8 +1246,9 @@
                 headers: { 'Accept': 'application/json', 'X-CSRFToken': csrf },
                 body: formData
             });
-            const data = await resp.json();
-            const responseStatus = String(data.status || '').toLowerCase();
+                const dataRaw = await resp.json();
+                const data = normalizeApiEnvelope(dataRaw);
+                const responseStatus = String(data.status || '').toLowerCase();
             if (resp.ok && ['success', 'complete', 'warning'].includes(responseStatus)) {
                 if (assetId) {
                     if (responseStatus === 'complete') {
@@ -1429,8 +1436,9 @@
                     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf, 'Accept': 'application/json' },
                     body: JSON.stringify({ owner, risk_level: riskLevel, csrf_token: csrf })
                 });
-                const data = await resp.json();
-                if (resp.ok && data.status === 'success') {
+                const dataRaw = await resp.json();
+                const data = normalizeApiEnvelope(dataRaw);
+                if (resp.ok && (data.status === 'success' || data.success === true)) {
                     closeEditModal();
                     /* Update the row's risk pill in DOM */
                     const riskPill = _getRowByAssetId(assetId)?.querySelector('.risk-pill');

@@ -220,10 +220,6 @@ def _find_active_job_for_scan(scan_id: str) -> tuple[dict[str, Any] | None, dict
     return None, None
 
 
-def _normalize_role(role: Any) -> str:
-    return db.normalize_role(str(role or ""))
-
-
 def _safe_int(value: Any, default: int = 0) -> int:
     if value is None:
         return default
@@ -520,6 +516,39 @@ def _status_snapshot(scan_id: str) -> dict[str, Any] | None:
                 row["reason_message"] = str(row.get("reason_message") or "")
                 return row
     return None
+
+
+def _job_snapshot(job_id: str) -> dict[str, Any] | None:
+    with _scan_jobs_lock:
+        job = _scan_jobs.get(job_id)
+        if not job:
+            return None
+
+        statuses = job.get("statuses") or {}
+        items = [
+            dict(statuses[scan_id])
+            for scan_id in job.get("scan_ids") or []
+            if isinstance(statuses.get(scan_id), dict)
+        ]
+        completed = int(job.get("completed") or 0)
+        failed = int(job.get("failed") or 0)
+        not_scanned = int(job.get("not_scanned") or 0)
+        total = int(job.get("total") or len(job.get("scan_ids") or []))
+
+        return {
+            "job_id": str(job.get("job_id") or job_id),
+            "status": str(job.get("status") or "unknown"),
+            "total": total,
+            "completed": completed,
+            "failed": failed,
+            "not_scanned": not_scanned,
+            "scan_ids": list(job.get("scan_ids") or []),
+            "items": items,
+            "created_at": str(job.get("created_at") or ""),
+            "updated_at": str(job.get("updated_at") or ""),
+            "completed_count": completed,
+            "total_count": total,
+        }
 
 
 def _compute_scan_kpis(items: list[dict[str, Any]]) -> dict[str, Any]:
@@ -1404,6 +1433,16 @@ def api_scan_status(scan_id: str):
     return _api_error("Scan status not found.", code="not_found", status_code=404)
 
 
+@scans_bp.route("/api/scans/jobs/<job_id>", methods=["GET"])
+@login_required
+def api_scan_job_status(job_id: str):
+    job = _job_snapshot(job_id)
+    if job is None:
+        return _api_error("Scan job not found.", code="not_found", status_code=404)
+
+    return _api_success(job, legacy={"status": job.get("status", "unknown"), "job_id": job_id})
+
+
 @scans_bp.route("/api/scans/<scan_id>/result", methods=["GET"])
 @login_required
 def api_scan_result(scan_id: str):
@@ -1493,7 +1532,7 @@ def api_scan_cancel(scan_id: str):
         return _api_error("Scan cannot be canceled in its current state.", code="conflict", status_code=409)
 
     with _scan_jobs_lock:
-        active_job = _scan_jobs.get(job.get("job_id"))
+        active_job = _scan_jobs.get(str(job.get("job_id") or ""))
         if not active_job:
             return _api_error("Active scan job not found.", code="not_found", status_code=404)
         statuses = active_job.get("statuses") or {}

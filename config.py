@@ -6,12 +6,14 @@ used across the application are defined here.
 """
 
 import os
+from pathlib import Path
 from dotenv import load_dotenv  # type: ignore
 
 # Load .env scaffolding first, then override with .env.local if present.
-# This lets .env stay in the repo as a scaffold while .env.local holds local secrets.
-load_dotenv(dotenv_path=".env", override=False)
-load_dotenv(dotenv_path=".env.local", override=True)
+# Resolve files relative to this config module so launch cwd does not matter.
+_BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(dotenv_path=_BASE_DIR / ".env", override=False)
+load_dotenv(dotenv_path=_BASE_DIR / ".env.local", override=True)
 
 # ---------------------------------------------------------------------------
 # Application
@@ -447,18 +449,18 @@ PROTOCOL_OID_MAP = {
 # MySQL — Redundant Storage
 # ---------------------------------------------------------------------------
 # Support for user's custom .env keys
-_sql_url = os.environ.get("sql_server_url_with_port", "")
+_sql_url = os.environ.get("sql_server_url_with_port", "") or os.environ.get("SQL_SERVER_URL_WITH_PORT", "")
 if ":" in _sql_url:
     _sql_host, _sql_port = _sql_url.split(":", 1)
 else:
     _sql_host = _sql_url or "localhost"
     _sql_port = "3306"
 
-MYSQL_HOST     = os.environ.get("MYSQL_HOST", _sql_host)
-MYSQL_PORT     = int(os.environ.get("MYSQL_PORT", _sql_port))
-MYSQL_USER     = os.environ.get("MYSQL_USER", os.environ.get("sql_user", "root"))
-MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD", os.environ.get("sql_password", ""))
-MYSQL_DATABASE = os.environ.get("MYSQL_DATABASE", "quantumshield")
+MYSQL_HOST     = os.environ.get("MYSQL_HOST", os.environ.get("DB_HOST", _sql_host))
+MYSQL_PORT     = int(os.environ.get("MYSQL_PORT", os.environ.get("DB_PORT", _sql_port)))
+MYSQL_USER     = os.environ.get("MYSQL_USER", os.environ.get("DB_USER", os.environ.get("sql_user", "root")))
+MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD", os.environ.get("DB_PASSWORD", os.environ.get("sql_password", "")))
+MYSQL_DATABASE = os.environ.get("MYSQL_DATABASE", os.environ.get("DB_NAME", "quantumshield"))
 
 from urllib.parse import quote_plus
 # Derived ORM Configuration Pattern

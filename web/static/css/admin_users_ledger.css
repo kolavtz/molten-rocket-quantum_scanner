@@ -1,0 +1,257 @@
+/* admin_users_ledger.css - Obsidian Ledger User Management Stylings */
+
+.user-mgmt-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 2.5rem;
+  margin-top: 2rem;
+  align-items: start;
+}
+
+/* --- Left Column: Provisioning --- */
+.provision-sidebar {
+  position: sticky;
+  top: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.provision-form-container {
+  background: var(--surface-container-low);
+  backdrop-filter: var(--glass-blur);
+  padding: 2rem;
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.provision-form-container::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--primary);
+  opacity: 0.8;
+}
+
+.form-header-cluster {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+}
+
+.provision-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--on-surface);
+  line-height: 1.2;
+}
+
+.cmd-badge {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  background: var(--surface-container-highest);
+  color: var(--secondary);
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+.provision-caption {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 1.5rem;
+}
+
+/* --- Right Column: Directory --- */
+.directory-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Bulk Action Bar */
+.bulk-action-bar {
+  background: var(--surface-container-low);
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  min-height: 54px;
+  animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-ambient);
+}
+
+.selection-count {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--primary);
+  padding-right: 1.5rem;
+  border-right: 1px solid var(--outline-variant);
+}
+
+/* User Card/Row System */
+.user-identity-card {
+  background: var(--surface-container-low);
+  margin-bottom: 4px;
+  padding: 1rem 1.5rem;
+  display: grid;
+  grid-template-columns: 48px 110px 1fr 140px 140px 180px;
+  align-items: center;
+  transition: background 0.2s ease;
+  border-radius: 4px;
+}
+
+.user-identity-card:hover {
+  background: var(--surface-container-high);
+}
+
+.user-identity-card .identity-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-identity-card .column-label {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Identity Entity Style */
+.identity-entity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.identity-name {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--on-surface);
+}
+
+.identity-email {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* Status Beacons */
+.status-beacon-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.beacon {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  position: relative;
+}
+
+.beacon.active { background: var(--tertiary); box-shadow: 0 0 10px var(--tertiary); }
+.beacon.offline { background: var(--text-muted); }
+.beacon.locked { background: var(--error); box-shadow: 0 0 10px var(--error); }
+
+/* Control Cluster */
+.control-cluster {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-container-highest);
+  color: var(--secondary);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+  background: var(--outline-variant);
+  color: var(--on-surface);
+}
+
+.icon-btn.danger:hover {
+  background: var(--error-container);
+  color: var(--error);
+}
+
+/* Stats Row */
+.directory-stats {
+  display: flex;
+  gap: 3rem;
+  margin-top: 1rem;
+  padding: 1rem 0;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--on-surface);
+}
+
+.stat-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Custom Checkbox override for Obsidian look */
+.custom-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+/* Labels */
+.row-header {
+    display: grid;
+    grid-template-columns: 48px 110px 1fr 140px 140px 180px;
+    padding: 0 1.5rem 0.75rem 1.5rem;
+}
+
+.row-header span {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}

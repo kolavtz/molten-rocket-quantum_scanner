@@ -1,6 +1,15 @@
+import os
+
 import pytest
 
-from web.app import app
+os.environ["RATELIMIT_ENABLED"] = "false"
+
+from web.app import app, limiter
+
+try:
+    limiter.enabled = False
+except Exception:
+    pass
 
 
 @pytest.fixture

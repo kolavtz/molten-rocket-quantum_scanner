@@ -53,6 +53,37 @@ from config import (
 
 logger = logging.getLogger(__name__)
 
+# Local JSON user-store fallback for environments without MySQL (tests / offline dev)
+_USER_STORE_DIR = os.environ.get("QSS_USER_STORE_DIR") or os.path.join(os.path.dirname(__file__), "..", "data")
+_USER_STORE_FILE = os.path.join(_USER_STORE_DIR, "users.json")
+
+def _ensure_user_store_dir():
+    try:
+        os.makedirs(_USER_STORE_DIR, exist_ok=True)
+    except Exception:
+        pass
+
+def _load_user_store() -> dict:
+    _ensure_user_store_dir()
+    try:
+        if not os.path.exists(_USER_STORE_FILE):
+            return {}
+        with open(_USER_STORE_FILE, "r", encoding="utf-8") as fh:
+            return json.load(fh) or {}
+    except Exception:
+        return {}
+
+def _save_user_store(store: dict) -> bool:
+    _ensure_user_store_dir()
+    try:
+        with open(_USER_STORE_FILE, "w", encoding="utf-8") as fh:
+            json.dump(store, fh, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        logger.warning("Failed to persist user store: %s", e)
+        return False
+
+
 VALID_ROLES = {"Admin", "Manager", "SingleScan", "Viewer"}
 
 
@@ -2184,6 +2215,12 @@ def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
     """Load an active user by ID."""
     conn = _get_connection()
     if conn is None:
+        # JSON fallback
+        store = _load_user_store()
+        user = store.get(str(user_id))
+        if user and user.get("is_active", True):
+            user["role"] = normalize_role(user.get("role", "Viewer"))
+            return user
         return None
     try:
         cur = conn.cursor(pymysql.cursors.DictCursor)
@@ -2200,6 +2237,11 @@ def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
     """Load an active user by username."""
     conn = _get_connection()
     if conn is None:
+        store = _load_user_store()
+        for u in store.values():
+            if (u.get("username") or "").lower() == (username or "").lower() and u.get("is_active", True):
+                u["role"] = normalize_role(u.get("role", "Viewer"))
+                return u
         return None
     try:
         cur = conn.cursor(pymysql.cursors.DictCursor)
@@ -2216,6 +2258,11 @@ def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
     """Look up an active user by email address (case-insensitive)."""
     conn = _get_connection()
     if conn is None:
+        store = _load_user_store()
+        for u in store.values():
+            if (u.get("email") or "").lower() == (email or "").lower() and u.get("is_active", True):
+                u["role"] = normalize_role(u.get("role", "Viewer"))
+                return u
         return None
     try:
         cur = conn.cursor(pymysql.cursors.DictCursor)
@@ -2237,13 +2284,17 @@ def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
 def list_users() -> List[Dict[str, Any]]:
     conn = _get_connection()
     if conn is None:
-        return []
+        store = _load_user_store()
+        users = list(store.values())
+        for u in users:
+            u["role"] = normalize_role(u.get("role", "Viewer"))
+        return users
     try:
         cur = conn.cursor(pymysql.cursors.DictCursor)
         cur.execute(
             """
             SELECT id, employee_id, username, email, role, is_active, created_by,
-                   last_login_at, created_at,
+                   last_login_at, created_at, two_factor_enabled,
                    (api_key_hash IS NOT NULL) AS api_key_hash
             FROM users
             ORDER BY created_at DESC
@@ -2268,7 +2319,27 @@ def create_invited_user(
     """Create a user invited by an admin/manager and return the new user ID."""
     conn = _get_connection()
     if conn is None:
-        return None
+        # JSON fallback: persist to local user store for tests / offline mode
+        store = _load_user_store()
+        user_id = str(uuid.uuid4())
+        now = datetime.utcnow().isoformat()
+        user = {
+            "id": user_id,
+            "employee_id": employee_id,
+            "username": username,
+            "email": (email or "").strip().lower(),
+            "password_hash": password_hash,
+            "role": normalize_role(role),
+            "created_by": created_by,
+            "is_active": True,
+            "must_change_password": True,
+            "failed_login_attempts": 0,
+            "created_at": now,
+            "two_factor_enabled": False,
+        }
+        store[user_id] = user
+        _save_user_store(store)
+        return user_id
     user_id = str(uuid.uuid4())
     try:
         cur = conn.cursor()
@@ -2306,7 +2377,19 @@ def update_user_profile(
 ) -> bool:
     conn = _get_connection()
     if conn is None:
-        return False
+        # JSON fallback update
+        store = _load_user_store()
+        user = store.get(str(user_id))
+        if not user:
+            return False
+        if role is not None:
+            user["role"] = normalize_role(role)
+        if is_active is not None:
+            user["is_active"] = bool(is_active)
+        if email is not None:
+            user["email"] = str(email or "").strip().lower()
+        store[str(user_id)] = user
+        return _save_user_store(store)
     updates = []
     params: List[Any] = []
     if role is not None:
@@ -2360,7 +2443,15 @@ def set_user_2fa(user_id: str, secret: str, backup_codes_json: Optional[str] = N
     """
     conn = _get_connection()
     if conn is None:
-        return False
+        store = _load_user_store()
+        user = store.get(str(user_id))
+        if not user:
+            return False
+        user["two_factor_secret"] = secret
+        user["backup_codes"] = backup_codes_json
+        user["two_factor_enabled"] = True
+        store[str(user_id)] = user
+        return _save_user_store(store)
     try:
         enc_secret = _encrypt_data(secret) if secret is not None else None
         enc_backup = _encrypt_data(backup_codes_json) if backup_codes_json is not None else None
@@ -2391,7 +2482,15 @@ def reset_user_2fa(user_id: str) -> bool:
     """
     conn = _get_connection()
     if conn is None:
-        return False
+        store = _load_user_store()
+        user = store.get(str(user_id))
+        if not user:
+            return False
+        user["two_factor_secret"] = None
+        user["backup_codes"] = None
+        user["two_factor_enabled"] = False
+        store[str(user_id)] = user
+        return _save_user_store(store)
     try:
         cur = conn.cursor()
         cur.execute(
@@ -2490,7 +2589,19 @@ def bulk_update_user_role(user_ids: List[str], role: str, exclude_user_id: Optio
 
     conn = _get_connection()
     if conn is None:
-        return 0
+        # JSON fallback: update local store
+        store = _load_user_store()
+        updated = 0
+        for uid in normalized_ids:
+            if exclude_user_id and uid == str(exclude_user_id):
+                continue
+            user = store.get(uid)
+            if user:
+                user["role"] = normalize_role(role)
+                store[uid] = user
+                updated += 1
+        _save_user_store(store)
+        return updated
     try:
         placeholders = ", ".join(["%s"] * len(normalized_ids))
         params: List[Any] = [normalize_role(role)] + normalized_ids
@@ -2523,7 +2634,19 @@ def bulk_delete_users(user_ids: List[str], exclude_user_id: Optional[str] = None
 
     conn = _get_connection()
     if conn is None:
-        return 0
+        # JSON fallback: delete from local store (soft delete: set is_active False)
+        store = _load_user_store()
+        deleted = 0
+        for uid in normalized_ids:
+            if exclude_user_id and uid == str(exclude_user_id):
+                continue
+            user = store.get(uid)
+            if user:
+                user["is_active"] = False
+                store[uid] = user
+                deleted += 1
+        _save_user_store(store)
+        return deleted
     try:
         placeholders = ", ".join(["%s"] * len(normalized_ids))
         sql = f"DELETE FROM users WHERE id IN ({placeholders})"
@@ -2593,7 +2716,17 @@ def create_password_setup_token(user_id: str, expires_hours: int = 24) -> Option
     """Create and persist a one-time password setup token; returns the raw token."""
     conn = _get_connection()
     if conn is None:
-        return None
+        store = _load_user_store()
+        user = store.get(str(user_id))
+        if not user:
+            return None
+        raw_token = secrets.token_urlsafe(48)
+        user["password_setup_token_hash"] = _hash_token(raw_token)
+        user["password_setup_token_expiry"] = (_utcnow() + timedelta(hours=max(1, expires_hours))).isoformat()
+        user["must_change_password"] = True
+        store[str(user_id)] = user
+        _save_user_store(store)
+        return raw_token
     raw_token = secrets.token_urlsafe(48)
     token_hash = _hash_token(raw_token)
     expiry = _utcnow() + timedelta(hours=max(1, expires_hours))
@@ -2623,6 +2756,18 @@ def create_password_setup_token(user_id: str, expires_hours: int = 24) -> Option
 def get_user_by_setup_token(raw_token: str) -> Optional[Dict[str, Any]]:
     conn = _get_connection()
     if conn is None:
+        store = _load_user_store()
+        token_hash = _hash_token(raw_token)
+        now = _utcnow()
+        for user in store.values():
+            expiry = user.get("password_setup_token_expiry")
+            try:
+                expiry_dt = datetime.fromisoformat(expiry) if expiry else None
+            except Exception:
+                expiry_dt = None
+            if user.get("password_setup_token_hash") == token_hash and expiry_dt and expiry_dt >= now and user.get("is_active", True):
+                user["role"] = normalize_role(user.get("role", "Viewer"))
+                return user
         return None
     token_hash = _hash_token(raw_token)
     now_ts = _utcnow()
@@ -2650,7 +2795,19 @@ def get_user_by_setup_token(raw_token: str) -> Optional[Dict[str, Any]]:
 def set_user_password(user_id: str, password_hash: str) -> bool:
     conn = _get_connection()
     if conn is None:
-        return False
+        store = _load_user_store()
+        user = store.get(str(user_id))
+        if not user:
+            return False
+        user["password_hash"] = password_hash
+        user["password_setup_token_hash"] = None
+        user["password_setup_token_expiry"] = None
+        user["must_change_password"] = False
+        user["password_changed_at"] = _utcnow().isoformat()
+        user["failed_login_attempts"] = 0
+        user["lockout_until"] = None
+        store[str(user_id)] = user
+        return _save_user_store(store)
     try:
         cur = conn.cursor()
         cur.execute(
@@ -2712,7 +2869,15 @@ def generate_api_key(user_id: str) -> Optional[str]:
     """
     conn = _get_connection()
     if conn is None:
-        return None
+        store = _load_user_store()
+        user = store.get(str(user_id))
+        if not user:
+            return None
+        raw_key = _API_KEY_PREFIX + secrets.token_hex(48)
+        user["api_key_hash"] = _hash_token(raw_key)
+        store[str(user_id)] = user
+        _save_user_store(store)
+        return raw_key
     raw_key = _API_KEY_PREFIX + secrets.token_hex(48)
     key_hash = _hash_token(raw_key)
     try:
@@ -2743,6 +2908,12 @@ def get_user_by_api_key(raw_key: str) -> Optional[Dict[str, Any]]:
         return None
     conn = _get_connection()
     if conn is None:
+        store = _load_user_store()
+        key_hash = _hash_token(raw_key)
+        for user in store.values():
+            if user.get("api_key_hash") == key_hash and user.get("is_active", True):
+                user["role"] = normalize_role(user.get("role", "Viewer"))
+                return user
         return None
     key_hash = _hash_token(raw_key)
     try:
@@ -2766,7 +2937,13 @@ def revoke_api_key(user_id: str) -> bool:
     """Clear the API key hash for *user_id* (key is revoked immediately)."""
     conn = _get_connection()
     if conn is None:
-        return False
+        store = _load_user_store()
+        user = store.get(str(user_id))
+        if not user:
+            return False
+        user["api_key_hash"] = None
+        store[str(user_id)] = user
+        return _save_user_store(store)
     try:
         cur = conn.cursor()
         cur.execute(
