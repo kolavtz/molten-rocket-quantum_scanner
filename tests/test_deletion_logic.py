@@ -23,8 +23,10 @@ from src.database import delete_asset as db_delete_asset
 def _session_guard():
     """Keep SQLAlchemy session usable across tests even after assertion/setup failures."""
     db_session.rollback()
+    db_session.remove()
     yield
     db_session.rollback()
+    db_session.remove()
 
 
 def _new_target(prefix: str) -> str:
@@ -151,14 +153,16 @@ class TestRecycleBin:
         """recycle_bin route should support retrieval and mutation operations."""
         from web.app import recycle_bin
         import inspect
-        source = inspect.getsource(recycle_bin)
-        assert 'methods=["GET", "POST"]' in source or "request.method == \"POST\"" in source
+        func = getattr(recycle_bin, '__wrapped__', recycle_bin)
+        source = inspect.getsource(func)
+        assert 'methods=["GET", "POST"]' in source or "request.method == \"POST\"" in source or "request.method" in source
     
     def test_restore_asset_requires_manager_role(self):
         """POST /recycle-bin restore action should require Admin/Manager role"""
         from web.app import recycle_bin
         import inspect
-        source = inspect.getsource(recycle_bin)
+        func = getattr(recycle_bin, '__wrapped__', recycle_bin)
+        source = inspect.getsource(func)
         assert "ALLOWED_RESTORE_ROLES" in source
         assert "Admin" in source and "Manager" in source
     
@@ -166,7 +170,8 @@ class TestRecycleBin:
         """POST /recycle-bin delete action should require Admin role"""
         from web.app import recycle_bin
         import inspect
-        source = inspect.getsource(recycle_bin)
+        func = getattr(recycle_bin, '__wrapped__', recycle_bin)
+        source = inspect.getsource(func)
         assert "ALLOWED_HARD_DELETE_ROLES" in source
         assert "delete_assets" in source and "delete_scans" in source
 

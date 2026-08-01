@@ -103,3 +103,29 @@ def test_2fa_login_with_backup_code():
             # Successful login should redirect (302) or return dashboard (200 depending on follow_redirects)
             assert resp.status_code in (200, 302)
             assert mock_mark_used.called
+
+
+def test_2fa_login_invalid_non_base32_secret():
+    user = {
+        'id': 'u3',
+        'username': 'charlie',
+        'email': 'charlie@example.com',
+        'password_hash': generate_password_hash('secret'),
+        'is_active': True,
+        'two_factor_enabled': True,
+        'two_factor_secret': 'INVALID_NON_BASE32_SECRET_123!@#',
+        'backup_codes': None,
+        'role': 'Viewer'
+    }
+
+    with app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess['pre_2fa_user_id'] = user['id']
+
+        with patch('web.app.db.get_user_by_id', return_value=user), \
+             patch('web.app.db._decrypt_data', return_value=user['two_factor_secret']):
+
+            # Submit invalid OTP code; should not raise 500 binascii.Error
+            resp = client.post('/2fa/login', data={'otp': '123456'}, follow_redirects=False)
+            assert resp.status_code != 500
+

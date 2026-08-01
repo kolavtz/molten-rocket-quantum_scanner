@@ -237,7 +237,7 @@ def pqc_asset_details(asset_id: int):
     
     except Exception as e:
         logger.error(f"PQC asset details error for asset {asset_id}: {e}", exc_info=True)
-        return render_template('error.html', error='Failed to load asset details'), 500
+        return render_template('error.html', error_message='Failed to load asset details'), 500
 
 
 # ===============================================================================

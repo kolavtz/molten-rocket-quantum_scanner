@@ -29,7 +29,7 @@ if _engine_uri.startswith("sqlite:"):
     poolclass = StaticPool if ":memory:" in _engine_uri else None
     engine = create_engine(
         _engine_uri,
-        connect_args={"check_same_thread": False},
+        connect_args={"check_same_thread": False, "timeout": 30},
         poolclass=poolclass,
         pool_pre_ping=True,
     )

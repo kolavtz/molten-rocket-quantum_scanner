@@ -2748,28 +2748,14 @@ def two_factor_setup():
         flash("Setup session expired. Start setup again.", "error")
         return redirect(url_for("login"))
 
-    # Validate the session-stored secret is valid base32 before passing to pyotp
-    def _is_valid_base32_setup(s):
-        import base64 as _b64s, binascii as _bas
-        if not s:
-            return False
-        try:
-            _b64s.b32decode(s, casefold=True)
-            return True
-        except (_bas.Error, Exception):
-            return False
     ok = False
-    if secret and _is_valid_base32_setup(secret):
+    if secret:
         try:
             totp = pyotp.TOTP(secret)
             ok = totp.verify(str(code or "").strip(), valid_window=1)
         except Exception as exc:
             logger.warning("2FA setup TOTP verification error: %s", exc)
             ok = False
-    elif secret and not _is_valid_base32_setup(secret):
-        logger.error("2FA setup: session secret is not valid base32 — aborting setup")
-        flash("Setup session data is corrupted. Please start setup again.", "error")
-        return redirect(url_for("login"))
 
     if ok:
         # Create backup codes (show once)
@@ -2831,39 +2817,14 @@ def two_factor_login():
     # Attempt TOTP verification
     enc_secret = user.get("two_factor_secret")
     secret = db._decrypt_data(enc_secret) if enc_secret else None
-    # Validate the decrypted secret is a valid base32 string before using pyotp.
-    # _decrypt_data returns None on failure; a non-None value might still be
-    # corrupted, so we validate it is pure base32 to avoid binascii.Error crashes.
-    def _is_valid_base32(s):
-        import base64 as _b64, binascii as _ba
-        if not s:
-            return False
-        try:
-            _b64.b32decode(s, casefold=True)
-            return True
-        except (_ba.Error, Exception):
-            return False
     ok = False
-    if secret and _is_valid_base32(secret):
+    if secret:
         try:
             totp = pyotp.TOTP(secret)
             ok = totp.verify(str(code or "").strip(), valid_window=1)
         except Exception as exc:
             logger.warning("2FA login TOTP verification error for user %s: %s", pre_id, exc)
             ok = False
-    elif enc_secret and not secret:
-        # Decryption failed completely (InvalidToken / key mismatch)
-        logger.error(
-            "2FA login: TOTP secret could not be decrypted for user %s. "
-            "The stored secret may have been encrypted with a different key.",
-            pre_id,
-        )
-    elif secret and not _is_valid_base32(secret):
-        logger.error(
-            "2FA login: Decrypted TOTP secret for user %s is not valid base32. "
-            "The 2FA enrollment may be corrupted — admin reset required.",
-            pre_id,
-        )
 
     if ok:
         db.mark_login_success(pre_id)
@@ -2883,7 +2844,6 @@ def two_factor_login():
     if enc_backup:
         try:
             dec = db._decrypt_data(enc_backup)
-            # _decrypt_data now returns None on failure; guard against it
             backup_list = json.loads(dec or "[]")
             provided_hash = hashlib.sha256(str(code or "").encode()).hexdigest()
             for entry in backup_list:

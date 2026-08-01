@@ -260,8 +260,11 @@ def test_single_scan_status_exposes_queue_metadata(app_client):
 
 
 def test_single_scan_invalid_target_sets_not_scanned_reason(app_client):
-    class _ImmediateThread:
+    import threading
+
+    class _ImmediateThread(threading.Thread):
         def __init__(self, target=None, args=None, kwargs=None, daemon=None):
+            super().__init__(target=target, args=args, kwargs=kwargs, daemon=daemon)
             self._target = target
             self._args = args or ()
             self._kwargs = kwargs or {}

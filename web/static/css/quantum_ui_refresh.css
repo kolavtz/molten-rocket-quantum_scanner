@@ -238,7 +238,7 @@ button,
   border-radius: var(--ui-radius-sm);
 }
 
-input,
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
 select,
 textarea,
 .scan-input,
@@ -247,6 +247,8 @@ textarea,
   min-height: 44px;
   border-radius: var(--ui-radius-sm);
 }
+
+
 
 input:focus-visible,
 select:focus-visible,

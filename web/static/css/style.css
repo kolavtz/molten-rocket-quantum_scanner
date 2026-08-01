@@ -43,6 +43,9 @@
 
     /* Transition — smooth */
     --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --easing-in: cubic-bezier(0.4, 0, 1, 1);
+    --easing-out: cubic-bezier(0, 0, 0.2, 1);
+    --easing-inout: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @media (prefers-color-scheme: light) {
@@ -2062,16 +2065,7 @@ code.tls-value {
     margin-top: 0.3rem;
 }
 
-/* ── Animations — subtle only ── */
-.animate-fade-in {
-    animation: fadeIn 0.4s ease forwards;
-    opacity: 0;
-}
 
-.animate-fade-in-up {
-    animation: fadeInUp 0.4s ease forwards;
-    opacity: 0;
-}
 
 @keyframes fadeIn {
     from {
@@ -2858,8 +2852,9 @@ code.tls-value {
 }
 
 /* ── Animate-fade-in utility ── */
-.animate-fade-in {
-    animation: _fadeSlideIn 0.4s var(--easing-out) both;
+.animate-fade-in,
+.animate-fade-in-up {
+    animation: _fadeSlideIn 0.4s var(--easing-out, cubic-bezier(0, 0, 0.2, 1)) both;
 }
 
 @keyframes _fadeSlideIn {
@@ -2870,6 +2865,15 @@ code.tls-value {
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-fade-in,
+    .animate-fade-in-up {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
     }
 }
 

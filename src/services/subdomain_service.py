@@ -11,6 +11,7 @@ import os
 import re
 
 try:
+    import dns
     import dns.exception  # type: ignore
     import dns.resolver  # type: ignore
 except Exception:

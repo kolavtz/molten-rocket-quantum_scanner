@@ -1,0 +1,425 @@
+/*
+ * QuantumShield — Premium Table & Dashboard UI System
+ * Provides consistent, beautiful glassmorphic table styles across all pages.
+ *
+ * .scans-table is aliased here so all existing templates get the upgrade
+ * without any HTML changes.
+ */
+
+/* ─── Design Tokens ──────────────────────────────────────────────── */
+:root {
+  --tbl-bg:          rgba(11, 18, 32, 0.72);
+  --tbl-border:      rgba(56, 189, 248, 0.12);
+  --tbl-head-bg:     rgba(6, 11, 22, 0.80);
+  --tbl-head-text:   #94a3b8;
+  --tbl-row-hover:   rgba(34, 211, 238, 0.06);
+  --tbl-row-stripe:  rgba(255, 255, 255, 0.025);
+  --tbl-td-text:     #e2e8f0;
+  --tbl-td-muted:    #64748b;
+  --tbl-radius:      12px;
+  --tbl-cell-px:     1rem;
+  --tbl-cell-py:     0.7rem;
+
+  /* Risk colours */
+  --risk-critical-bg:  rgba(239, 68, 68, 0.12);
+  --risk-critical-fg:  #f87171;
+  --risk-high-bg:      rgba(249, 115, 22, 0.12);
+  --risk-high-fg:      #fb923c;
+  --risk-medium-bg:    rgba(234, 179, 8, 0.12);
+  --risk-medium-fg:    #facc15;
+  --risk-low-bg:       rgba(34, 197, 94, 0.10);
+  --risk-low-fg:       #4ade80;
+  --risk-safe-bg:      rgba(52, 211, 153, 0.10);
+  --risk-safe-fg:      #34d399;
+}
+
+/* ─── Table wrapper ──────────────────────────────────────────────── */
+.qs-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--tbl-radius);
+  border: 1px solid var(--tbl-border);
+  background: var(--tbl-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* ─── Table base ─────────────────────────────────────────────────── */
+.qs-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 480px;
+  font-size: 0.825rem;
+  color: var(--tbl-td-text);
+}
+
+/* ─── Header ─────────────────────────────────────────────────────── */
+.qs-table thead {
+  background: var(--tbl-head-bg);
+}
+
+.qs-table thead th {
+  padding: var(--tbl-cell-py) var(--tbl-cell-px);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--tbl-head-text);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--tbl-border);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  /* Subtle top accent line on first row */
+  background: var(--tbl-head-bg);
+}
+
+.qs-table thead th:first-child { border-radius: var(--tbl-radius) 0 0 0; }
+.qs-table thead th:last-child  { border-radius: 0 var(--tbl-radius) 0 0; }
+
+/* ─── Body rows ──────────────────────────────────────────────────── */
+.qs-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.18s ease, transform 0.12s ease;
+}
+
+.qs-table tbody tr:last-child { border-bottom: none; }
+
+.qs-table tbody tr:nth-child(even) {
+  background: var(--tbl-row-stripe);
+}
+
+.qs-table tbody tr:hover {
+  background: var(--tbl-row-hover);
+  transform: translateX(2px);
+}
+
+/* ─── Cells ──────────────────────────────────────────────────────── */
+.qs-table td {
+  padding: var(--tbl-cell-py) var(--tbl-cell-px);
+  vertical-align: middle;
+  line-height: 1.45;
+}
+
+.qs-table td.td-name {
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.qs-table td.td-sub {
+  font-size: 0.72rem;
+  color: var(--tbl-td-muted);
+  margin-top: 2px;
+}
+
+.qs-table td.td-mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.76rem;
+}
+
+/* ─── Empty state ────────────────────────────────────────────────── */
+.qs-table .qs-empty {
+  text-align: center;
+  color: var(--tbl-td-muted);
+  padding: 2.5rem 1rem;
+  font-size: 0.8rem;
+}
+
+.qs-table .qs-empty i {
+  display: block;
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.4;
+}
+
+/* ─── Risk & Status Pills ────────────────────────────────────────── */
+.qs-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.qs-pill-critical { background: var(--risk-critical-bg); color: var(--risk-critical-fg); border: 1px solid rgba(239,68,68,0.3); }
+.qs-pill-high     { background: var(--risk-high-bg);     color: var(--risk-high-fg);     border: 1px solid rgba(249,115,22,0.3); }
+.qs-pill-medium   { background: var(--risk-medium-bg);   color: var(--risk-medium-fg);   border: 1px solid rgba(234,179,8,0.3); }
+.qs-pill-low      { background: var(--risk-low-bg);      color: var(--risk-low-fg);      border: 1px solid rgba(34,197,94,0.25); }
+.qs-pill-safe     { background: var(--risk-safe-bg);     color: var(--risk-safe-fg);     border: 1px solid rgba(52,211,153,0.25); }
+.qs-pill-info     { background: rgba(56,189,248,0.10);   color: #38bdf8;                 border: 1px solid rgba(56,189,248,0.25); }
+.qs-pill-neutral  { background: rgba(148,163,184,0.08);  color: #94a3b8;                 border: 1px solid rgba(148,163,184,0.2); }
+
+/* ─── Score cell ─────────────────────────────────────────────────── */
+.qs-score {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-family: 'JetBrains Mono', monospace;
+}
+.qs-score.score-critical { color: var(--risk-critical-fg); }
+.qs-score.score-high     { color: var(--risk-high-fg); }
+.qs-score.score-medium   { color: var(--risk-medium-fg); }
+.qs-score.score-low      { color: var(--risk-low-fg); }
+
+/* ─── Table section header ───────────────────────────────────────── */
+.qs-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.qs-table-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.qs-table-title i { font-size: 0.8rem; }
+
+.qs-table-count {
+  font-size: 0.65rem;
+  color: #475569;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ─── Pagination ─────────────────────────────────────────────────── */
+.qs-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--tbl-border);
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  color: #475569;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ─── Light-mode overrides ───────────────────────────────────────── */
+html[data-theme='light'] .qs-table-wrap {
+  --tbl-bg:         rgba(255,255,255,0.88);
+  --tbl-border:     rgba(14,165,233,0.15);
+  --tbl-head-bg:    rgba(241,245,249,0.95);
+  --tbl-head-text:  #475569;
+  --tbl-row-hover:  rgba(14,165,233,0.06);
+  --tbl-td-text:    #0f172a;
+  --tbl-td-muted:   #64748b;
+}
+
+/* ─── Metric card animations ─────────────────────────────────────── */
+@keyframes qs-count-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.metric-value {
+  animation: qs-count-up 0.4s ease both;
+}
+
+/* ─── Dashboard section header ───────────────────────────────────── */
+.qs-section-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #64748b;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.qs-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(56,189,248,0.2), transparent);
+}
+
+/* ─── Card glow on hover (selected/active) ───────────────────────── */
+.qs-card-active {
+  border-color: rgba(34,211,238,0.5) !important;
+  box-shadow: 0 0 0 1px rgba(34,211,238,0.18), 0 8px 32px rgba(34,211,238,0.12) !important;
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  :root {
+    --tbl-cell-px: 0.65rem;
+    --tbl-cell-py: 0.55rem;
+  }
+  .qs-table { font-size: 0.78rem; }
+  .qs-pill  { font-size: 0.6rem; padding: 0.15rem 0.45rem; }
+}
+
+/* ─── Alias: scans-table → qs-table ─────────────────────────────
+   Applies premium styles to every existing template that uses
+   .scans-table without requiring any HTML edits.
+   ────────────────────────────────────────────────────────────── */
+
+/* Wrapper */
+.scans-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--tbl-radius, 12px);
+  border: 1px solid var(--tbl-border, rgba(56,189,248,0.12));
+  background: var(--tbl-bg, rgba(11,18,32,0.72));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* Table */
+.scans-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.825rem;
+  color: var(--tbl-td-text, #e2e8f0);
+}
+
+/* Header */
+.scans-table thead {
+  background: var(--tbl-head-bg, rgba(6,11,22,0.80));
+}
+.scans-table thead th {
+  padding: var(--tbl-cell-py, 0.7rem) var(--tbl-cell-px, 1rem);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--tbl-head-text, #94a3b8);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--tbl-border, rgba(56,189,248,0.12));
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--tbl-head-bg, rgba(6,11,22,0.80));
+}
+
+/* Body rows */
+.scans-table tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.18s ease, transform 0.12s ease;
+}
+.scans-table tbody tr:last-child { border-bottom: none; }
+.scans-table tbody tr:nth-child(even) { background: var(--tbl-row-stripe, rgba(255,255,255,0.025)); }
+.scans-table tbody tr:hover {
+  background: var(--tbl-row-hover, rgba(34,211,238,0.06));
+  transform: translateX(2px);
+}
+
+/* Cells */
+.scans-table td {
+  padding: var(--tbl-cell-py, 0.7rem) var(--tbl-cell-px, 1rem);
+  vertical-align: middle;
+  line-height: 1.45;
+}
+
+/* Light-mode */
+html[data-theme='light'] .scans-table-wrapper {
+  background: rgba(255,255,255,0.88);
+  border-color: rgba(14,165,233,0.15);
+}
+html[data-theme='light'] .scans-table thead {
+  background: rgba(241,245,249,0.95);
+}
+html[data-theme='light'] .scans-table thead th {
+  color: #475569;
+  background: rgba(241,245,249,0.95);
+}
+html[data-theme='light'] .scans-table td {
+  color: #0f172a;
+}
+html[data-theme='light'] .scans-table tbody tr:hover {
+  background: rgba(14,165,233,0.06);
+}
+
+/* ─── Alias: cbom-table → qs-table ───────────────────────────── */
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--tbl-radius, 12px);
+  border: 1px solid var(--tbl-border, rgba(56,189,248,0.12));
+  background: var(--tbl-bg, rgba(11,18,32,0.72));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.cbom-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.825rem;
+  color: var(--tbl-td-text, #e2e8f0);
+}
+
+.cbom-table thead {
+  background: var(--tbl-head-bg, rgba(6,11,22,0.80));
+}
+.cbom-table thead th {
+  padding: var(--tbl-cell-py, 0.7rem) var(--tbl-cell-px, 1rem);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--tbl-head-text, #94a3b8);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--tbl-border, rgba(56,189,248,0.12));
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--tbl-head-bg, rgba(6,11,22,0.80));
+}
+
+.cbom-table tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.18s ease, transform 0.12s ease;
+}
+.cbom-table tbody tr:last-child { border-bottom: none; }
+.cbom-table tbody tr:nth-child(even) { background: var(--tbl-row-stripe, rgba(255,255,255,0.025)); }
+.cbom-table tbody tr:hover {
+  background: var(--tbl-row-hover, rgba(34,211,238,0.06));
+  transform: translateX(2px);
+}
+
+.cbom-table td {
+  padding: var(--tbl-cell-py, 0.7rem) var(--tbl-cell-px, 1rem);
+  vertical-align: middle;
+  line-height: 1.45;
+}
+
+/* Light-mode overrides for CBOM table */
+html[data-theme='light'] .cbom-table {
+  color: #0f172a;
+}
+html[data-theme='light'] .cbom-table thead {
+  background: rgba(241,245,249,0.95);
+}
+html[data-theme='light'] .cbom-table thead th {
+  color: #475569;
+  background: rgba(241,245,249,0.95);
+}
+html[data-theme='light'] .cbom-table tbody tr:hover {
+  background: rgba(14,165,233,0.06);
+}
+

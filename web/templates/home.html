@@ -5,678 +5,679 @@
 {% block head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-    .home-container {
-        padding: 1rem 0;
-    }
+/* ── Page layout ─────────────────────────────────────────────────── */
+.home-container { padding: 1.25rem 0 2rem; }
 
-    .metric-card {
-        padding: 1.25rem;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        min-height: 110px;
-    }
+/* ── Metric grid ─────────────────────────────────────────────────── */
+.home-metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.1rem;
+    margin-bottom: 1.75rem;
+}
+@media (max-width: 1280px) { .home-metric-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px)  { .home-metric-grid { grid-template-columns: 1fr; } }
 
-    .metric-title {
-        font-size: 0.65rem;
-        font-weight: 700;
-        color: var(--text-secondary);
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        margin-bottom: 0.5rem;
-    }
+.metric-card {
+    padding: 1.25rem 1.35rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 104px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent, #22d3ee), transparent);
+    opacity: 0.45;
+}
+.metric-card.card-danger::before  { background: linear-gradient(90deg, transparent, #f87171, transparent); }
+.metric-card.card-warn::before    { background: linear-gradient(90deg, transparent, #fbbf24, transparent); }
+.metric-card.card-success::before { background: linear-gradient(90deg, transparent, #34d399, transparent); }
+.metric-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.35); }
 
-    .metric-value {
-        font-size: 1.75rem;
-        font-weight: 800;
-        color: var(--text-primary);
-        line-height: 1;
-    }
+.metric-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-secondary, #94a3b8);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 0.4rem;
+}
+.metric-value {
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--text-primary, #e2e8f0);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+.metric-sub {
+    font-size: 0.67rem;
+    color: var(--text-secondary, #64748b);
+    margin-top: 0.35rem;
+    font-family: 'JetBrains Mono', monospace;
+}
 
-    .metric-trend {
-        font-size: 0.7rem;
-        margin-top: 0.5rem;
-    }
+/* ── Charts row ──────────────────────────────────────────────────── */
+.chart-section-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 1.75rem;
+}
+@media (max-width: 1180px) { .chart-section-grid { grid-template-columns: 1fr; } }
 
-    .trend-up { color: var(--pqc-safe); }
-    .trend-down { color: var(--risk-critical); }
+.chart-container { height: 220px; position: relative; }
 
-    .chart-container {
-        height: 240px;
-        position: relative;
-    }
+/* ── Risk bar ────────────────────────────────────────────────────── */
+.risk-bar-track {
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    background: rgba(255,255,255,0.04);
+    margin: 0.85rem 0 0.6rem;
+}
+.risk-segment { height: 100%; transition: width 0.6s cubic-bezier(.4,0,.2,1); }
+.risk-legend {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 0.4rem;
+}
+.risk-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.62rem;
+    color: var(--text-secondary, #64748b);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+}
+.risk-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
 
-    .map-container {
-        height: 400px;
-        border-radius: var(--ui-radius-lg);
-        overflow: hidden;
-        margin-bottom: 2rem;
-    }
+/* ── Map ─────────────────────────────────────────────────────────── */
+.map-container {
+    height: 360px;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 1.75rem;
+}
 
-    .risk-bar-wrapper {
-        height: 12px;
-        background: rgba(255,255,255,0.05);
-        border-radius: 6px;
-        overflow: hidden;
-        display: flex;
-        margin: 1rem 0;
-    }
+/* ── Table sections ──────────────────────────────────────────────── */
+.tables-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+@media (max-width: 1100px) { .tables-grid { grid-template-columns: 1fr; } }
 
-    .risk-segment {
-        height: 100%;
-        transition: width 0.5s ease;
-    }
-
-    .cyber-rating-display {
-        text-align: center;
-        padding: 1rem;
-    }
-
-    .rating-score {
-        font-size: 3.5rem;
-        font-weight: 900;
-        background: linear-gradient(135deg, var(--accent), var(--pqc-safe));
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-
-    .rating-tier {
-        font-size: 1rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.2em;
-        margin-top: -0.5rem;
-    }
-
-    .table-section {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1.5rem;
-        margin-top: 2rem;
-    }
-
-    @media (max-width: 1100px) {
-        .table-section {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    @media (max-width: 768px) {
-        .home-container {
-            padding: 0.6rem 0;
-        }
-
-        .chart-container {
-            height: 220px;
-        }
-
-        .map-container {
-            height: 300px;
-            margin-bottom: 1.2rem;
-        }
-
-        .table-scroll {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .table-scroll .scans-table {
-            min-width: 640px;
-        }
-    }
+/* ── Status bar ──────────────────────────────────────────────────── */
+#homeApiState {
+    font-size: 0.65rem;
+    color: var(--text-secondary, #64748b);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 1.25rem;
+}
+#homeApiState::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent, #22d3ee);
+    display: inline-block;
+    animation: pulse-dot 2s ease infinite;
+}
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(0.7); }
+}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="home-container">
+
     {% if error %}
-    <div class="glass-card" style="padding: 1rem; border-color: var(--risk-critical); margin-bottom: 1rem;" role="alert" aria-live="polite">
-        <strong style="color: var(--risk-critical);">Dashboard data error:</strong>
-        <span style="color: var(--text-secondary);"> {{ error }}</span>
+    <div class="glass-card" style="padding:0.85rem 1rem; border-color:var(--risk-critical,#f87171); margin-bottom:1.25rem;" role="alert">
+        <strong style="color:var(--risk-critical,#f87171);">Dashboard error:</strong>
+        <span style="color:var(--text-secondary);">{{ error }}</span>
     </div>
     {% endif %}
 
-    <div id="homeApiState" style="font-size:0.72rem; color:var(--text-muted); margin-bottom:1rem; text-transform:uppercase;">Syncing Home telemetry…</div>
+    <div id="homeApiState">Syncing live telemetry…</div>
 
-    <!-- Primary + Secondary Metrics -->
+    {# ── Metric cards ──────────────────────────────────────────── #}
     <div class="home-metric-grid">
-        <div class="glass-card metric-card">
-            <div class="metric-title">Total Assets</div>
-            <div class="metric-value" id="kpiTotalAssets">{{ summary.total_assets }}</div>
-            <div class="metric-trend" style="color:var(--text-muted);">Inventory</div>
-        </div>
-        <div class="glass-card metric-card">
-            <div class="metric-title">Public Web Apps</div>
-            <div class="metric-value" id="kpiWebApps">{{ summary.public_web_apps }}</div>
-            <div class="metric-trend" style="color:var(--text-muted);">Asset Class</div>
-        </div>
-        <div class="glass-card metric-card">
-            <div class="metric-title">APIs</div>
-            <div class="metric-value" id="kpiApis">{{ summary.apis }}</div>
-            <div class="metric-trend" style="color:var(--text-muted);">Internal/Public</div>
-        </div>
-        <div class="glass-card metric-card">
-            <div class="metric-title">Servers</div>
-            <div class="metric-value" id="kpiServers">{{ summary.servers }}</div>
-            <div class="metric-trend" style="color:var(--text-muted);">Inventory Class</div>
-        </div>
-        <div class="glass-card metric-card">
-            <div class="metric-title">Expiring Certs</div>
-            <div class="metric-value {% if (summary.expiring_certs_30 or 0) > 0 %}trend-down{% endif %}" id="kpiExpiringCerts">{{ summary.expiring_certs_30 }}</div>
-            <div class="metric-trend">&lt; 30 Days</div>
-        </div>
-        <div class="glass-card metric-card">
-            <div class="metric-title">High Risk</div>
-            <div class="metric-value {% if (summary.high_risk_assets or 0) > 0 %}trend-down{% endif %}" id="kpiHighRisk">{{ summary.high_risk_assets }}</div>
-            <div class="metric-trend">Action Required</div>
-        </div>
-        <div class="glass-card metric-card">
-            <div class="metric-title">Total Scans Completed</div>
-            <div class="metric-value" id="kpiTotalScans">{{ summary.total_scans }}</div>
-            <div class="metric-trend">Platform Wide</div>
-        </div>
-        <div class="glass-card metric-card">
-            <div class="metric-title">Weak Cipher Details</div>
-            <div class="metric-value {% if (summary.weak_ciphers_count or 0) > 0 %}trend-down{% endif %}" id="kpiWeakCipher">{{ summary.weak_ciphers_count }}</div>
-            <div class="metric-trend">TLS / Key Findings</div>
-        </div>
-    </div>
 
-    <!-- Middle Row: Charts -->
+        <div class="glass-card metric-card">
+            <div class="metric-label"><i class="fa-solid fa-layer-group" style="margin-right:.3rem;"></i>Total Assets</div>
+            <div class="metric-value" id="kpiTotalAssets">{{ summary.total_assets | default(0) }}</div>
+            <div class="metric-sub">Inventoried</div>
+        </div>
+
+        <div class="glass-card metric-card card-danger">
+            <div class="metric-label"><i class="fa-solid fa-triangle-exclamation" style="margin-right:.3rem;"></i>High Risk</div>
+            <div class="metric-value{% if (summary.high_risk_assets or 0) > 0 %}" style="color:var(--risk-critical,#f87171){% endif %}" id="kpiHighRisk">{{ summary.high_risk_assets | default(0) }}</div>
+            <div class="metric-sub">Action required</div>
+        </div>
+
+        <div class="glass-card metric-card card-warn">
+            <div class="metric-label"><i class="fa-solid fa-clock-rotate-left" style="margin-right:.3rem;"></i>Expiring Certs</div>
+            <div class="metric-value{% if (summary.expiring_certs_30 or 0) > 0 %}" style="color:var(--risk-medium,#fbbf24){% endif %}" id="kpiExpiringCerts">{{ summary.expiring_certs_30 | default(0) }}</div>
+            <div class="metric-sub">Within 30 days</div>
+        </div>
+
+        <div class="glass-card metric-card card-success">
+            <div class="metric-label"><i class="fa-solid fa-circle-check" style="margin-right:.3rem;"></i>Total Scans</div>
+            <div class="metric-value" id="kpiTotalScans">{{ summary.total_scans | default(0) }}</div>
+            <div class="metric-sub">Platform-wide</div>
+        </div>
+
+        <div class="glass-card metric-card">
+            <div class="metric-label"><i class="fa-solid fa-globe" style="margin-right:.3rem;"></i>Web Apps</div>
+            <div class="metric-value" id="kpiWebApps">{{ summary.public_web_apps | default(0) }}</div>
+            <div class="metric-sub">Public-facing</div>
+        </div>
+
+        <div class="glass-card metric-card">
+            <div class="metric-label"><i class="fa-solid fa-plug" style="margin-right:.3rem;"></i>APIs</div>
+            <div class="metric-value" id="kpiApis">{{ summary.apis | default(0) }}</div>
+            <div class="metric-sub">Internal / public</div>
+        </div>
+
+        <div class="glass-card metric-card">
+            <div class="metric-label"><i class="fa-solid fa-server" style="margin-right:.3rem;"></i>Servers</div>
+            <div class="metric-value" id="kpiServers">{{ summary.servers | default(0) }}</div>
+            <div class="metric-sub">Inventory class</div>
+        </div>
+
+        <div class="glass-card metric-card card-danger">
+            <div class="metric-label"><i class="fa-solid fa-bug" style="margin-right:.3rem;"></i>Weak Ciphers</div>
+            <div class="metric-value{% if (summary.weak_ciphers_count or 0) > 0 %}" style="color:var(--risk-high,#fb923c){% endif %}" id="kpiWeakCipher">{{ summary.weak_ciphers_count | default(0) }}</div>
+            <div class="metric-sub">TLS / Key findings</div>
+        </div>
+
+    </div>{# /metric grid #}
+
+    {# ── Charts row ────────────────────────────────────────────── #}
     <div class="chart-section-grid">
-        <!-- Asset Type (Donut) -->
-        <div class="glass-card" style="padding: 1.5rem;">
-            <div class="metric-title" style="margin-bottom: 1.5rem;"><i class="fa-solid fa-chart-pie" style="margin-right: 8px;"></i> Asset Distribution</div>
+
+        {# Asset Distribution #}
+        <div class="glass-card" style="padding:1.5rem;">
+            <div class="qs-section-title"><i class="fa-solid fa-chart-pie"></i>Asset Distribution</div>
             <div class="chart-container">
                 <canvas id="typeChart"></canvas>
             </div>
-            <div id="typeChartEmpty" style="color: var(--text-muted); min-height: 240px; display: none; place-items: center; text-align: center;">
-                No asset distribution data available.<br>
-                <a href="{{ url_for('scans.scans_page') }}">Run scans</a> to populate this chart.
+            <div id="typeChartEmpty" style="color:var(--text-secondary);text-align:center;padding:2rem;display:none;">
+                No data — <a href="{{ url_for('scans.scans_page') }}">run a scan</a>
             </div>
         </div>
 
-        <!-- Risk Distribution (Single Line Bar) -->
-        <div class="glass-card" style="padding: 1.5rem;">
-            <div class="metric-title"><i class="fa-solid fa-shield-virus" style="margin-right: 8px;"></i> Risk Exposure</div>
-            <div style="margin-top: 1.5rem;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-                    <div id="riskHighPct" style="font-size: 2.5rem; font-weight: 800;">{{ risk_metrics.high_risk_pct }}%</div>
-                    <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Assets at High Risk</div>
+        {# Risk Exposure #}
+        <div class="glass-card" style="padding:1.5rem;">
+            <div class="qs-section-title"><i class="fa-solid fa-shield-virus"></i>Risk Exposure</div>
+            <div style="margin-top:0.5rem;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:0.25rem;">
+                    <div id="riskHighPct" style="font-size:2.25rem;font-weight:900;color:var(--text-primary);">{{ risk_metrics.high_risk_pct | default(0) }}%</div>
+                    <div style="font-size:0.65rem;color:var(--text-secondary);font-family:'JetBrains Mono',monospace;text-transform:uppercase;">Assets at risk</div>
                 </div>
-                <div class="risk-bar-wrapper">
-                    <div id="riskCriticalSeg" class="risk-segment" style="width:{{ risk_metrics.distribution.Critical.pct }}%; background:var(--risk-critical);" title="Critical"></div>
-                    <div id="riskHighSeg" class="risk-segment" style="width:{{ risk_metrics.distribution.High.pct }}%; background:var(--risk-high);" title="High"></div>
-                    <div id="riskMediumSeg" class="risk-segment" style="width:{{ risk_metrics.distribution.Medium.pct }}%; background:var(--risk-medium);" title="Medium"></div>
-                    <div id="riskLowSeg" class="risk-segment" style="width:{{ risk_metrics.distribution.Low.pct }}%; background:var(--risk-low);" title="Low"></div>
+                <div class="risk-bar-track">
+                    <div id="riskCriticalSeg" class="risk-segment" style="width:{{ risk_metrics.distribution.Critical.pct | default(0) }}%;background:#f87171;" title="Critical"></div>
+                    <div id="riskHighSeg"     class="risk-segment" style="width:{{ risk_metrics.distribution.High.pct | default(0) }}%;background:#fb923c;" title="High"></div>
+                    <div id="riskMediumSeg"   class="risk-segment" style="width:{{ risk_metrics.distribution.Medium.pct | default(0) }}%;background:#facc15;" title="Medium"></div>
+                    <div id="riskLowSeg"      class="risk-segment" style="width:{{ risk_metrics.distribution.Low.pct | default(0) }}%;background:#4ade80;" title="Low"></div>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 1rem;">
-                    <div style="font-size: 0.6rem; color: var(--text-muted);"><i class="fa-solid fa-circle" style="color:var(--risk-critical);"></i> CRIT</div>
-                    <div style="font-size: 0.6rem; color: var(--text-muted);"><i class="fa-solid fa-circle" style="color:var(--risk-high);"></i> HIGH</div>
-                    <div style="font-size: 0.6rem; color: var(--text-muted);"><i class="fa-solid fa-circle" style="color:var(--risk-medium);"></i> MED</div>
-                    <div style="font-size: 0.6rem; color: var(--text-muted);"><i class="fa-solid fa-circle" style="color:var(--risk-low);"></i> LOW</div>
+                <div class="risk-legend">
+                    <div class="risk-legend-item"><div class="risk-dot" style="background:#f87171;"></div>Critical</div>
+                    <div class="risk-legend-item"><div class="risk-dot" style="background:#fb923c;"></div>High</div>
+                    <div class="risk-legend-item"><div class="risk-dot" style="background:#facc15;"></div>Medium</div>
+                    <div class="risk-legend-item"><div class="risk-dot" style="background:#4ade80;"></div>Low</div>
                 </div>
             </div>
         </div>
 
-        <!-- Cert Expiry (Timeline) -->
-        <div class="glass-card" style="padding: 1.5rem;">
-            <div class="metric-title" style="margin-bottom: 1.5rem;"><i class="fa-solid fa-clock-rotate-left" style="margin-right: 8px;"></i> Expiry Timeline</div>
+        {# Cert Expiry Timeline #}
+        <div class="glass-card" style="padding:1.5rem;">
+            <div class="qs-section-title"><i class="fa-solid fa-calendar-xmark"></i>Cert Expiry Timeline</div>
             <div class="chart-container">
                 <canvas id="expiryChart"></canvas>
             </div>
-            <div id="expiryChartEmpty" style="color: var(--text-muted); min-height: 240px; display: none; place-items: center; text-align: center;">
-                No certificate expiry data available.
+            <div id="expiryChartEmpty" style="color:var(--text-secondary);text-align:center;padding:2rem;display:none;">
+                No certificate expiry data.
             </div>
         </div>
-    </div>
 
-    <!-- Map Section -->
-    <div class="glass-card" style="padding: 1rem; margin-bottom: 2rem;">
-        <div class="metric-title" style="margin-bottom: 1rem; padding-left: 0.5rem;"><i class="fa-solid fa-earth-americas" style="margin-right: 8px;"></i> Global Asset Intelligence</div>
+    </div>{# /chart grid #}
+
+    {# ── World Map ──────────────────────────────────────────────── #}
+    <div class="glass-card" style="padding:1rem;margin-bottom:1.75rem;">
+        <div class="qs-section-title" style="padding:0 0.25rem;"><i class="fa-solid fa-earth-americas"></i>Global Asset Intelligence</div>
         <div id="homeMap" class="map-container"></div>
     </div>
 
-    <!-- Bottom Tables -->
-    <div class="table-section">
-        <!-- Top 10 High Risk Assets -->
-        <div class="glass-card" style="padding: 1.5rem;">
-            <div class="metric-title" style="margin-bottom: 1.25rem;"><i class="fa-solid fa-triangle-exclamation" style="margin-right: 8px; color: var(--risk-critical);"></i> Top 10 High Risk Assets</div>
-            <div class="table-scroll">
-                <table class="scans-table">
+    {# ── Bottom Tables ──────────────────────────────────────────── #}
+    <div class="tables-grid">
+
+        {# Top 10 High-Risk Assets #}
+        <div class="glass-card" style="padding:1.35rem;">
+            <div class="qs-table-header">
+                <div class="qs-table-title">
+                    <i class="fa-solid fa-triangle-exclamation" style="color:#f87171;"></i>
+                    Top 10 High-Risk Assets
+                </div>
+                <span class="qs-table-count" id="highRiskCount">—</span>
+            </div>
+            <div class="qs-table-wrap">
+                <table class="qs-table scans-table">
                     <thead>
                         <tr>
-                            <th>Asset Name</th>
+                            <th>Asset</th>
                             <th>Type</th>
-                            <th>Score</th>
-                            <th>Last Seen</th>
+                            <th>Risk Score</th>
+                            <th>Last Scan</th>
                         </tr>
                     </thead>
                     <tbody id="highRiskBody">
                         {% for asset in high_risk_assets %}
                         <tr>
-                            <td><div style="font-weight:600;">{{ asset.name }}</div><div style="font-size:0.65rem; color:var(--text-muted);">{{ asset.url }}</div></td>
-                            <td><span class="status-pill" style="border:1px solid var(--border-subtle); background:rgba(255,255,255,0.05);">{{ asset.asset_type }}</span></td>
-                            <td><strong style="color: {% if asset.risk_score > 700 %}var(--risk-critical){% else %}var(--risk-high){% endif %}">{{ asset.risk_score or '--' }}</strong></td>
-                            <td style="font-size:0.7rem;">{{ asset.last_scan_at.strftime('%Y-%m-%d') if asset.last_scan_at else 'Never' }}</td>
+                            <td>
+                                <div class="td-name" style="font-weight:600;color:#f1f5f9;">{{ asset.name | truncate(32) }}</div>
+                                <div style="font-size:0.68rem;color:#64748b;margin-top:2px;font-family:'JetBrains Mono',monospace;">{{ asset.url | truncate(40) if asset.url else '—' }}</div>
+                            </td>
+                            <td>
+                                <span class="qs-pill qs-pill-neutral">{{ asset.asset_type or '—' }}</span>
+                            </td>
+                            <td>
+                                <span class="qs-score {% if (asset.risk_score or 0) > 700 %}score-critical{% elif (asset.risk_score or 0) > 400 %}score-high{% else %}score-medium{% endif %}">
+                                    {{ asset.risk_score or '—' }}
+                                </span>
+                            </td>
+                            <td class="td-mono" style="font-size:0.72rem;color:#64748b;">
+                                {{ asset.last_scan_at.strftime('%Y-%m-%d') if asset.last_scan_at else 'Never' }}
+                            </td>
                         </tr>
                         {% endfor %}
                         {% if not high_risk_assets %}
-                        <tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding: 2rem;">No high risk assets found. <a href="{{ url_for('scans.scans_page') }}">Run scan</a></td></tr>
+                        <tr>
+                            <td colspan="4" class="qs-empty">
+                                <i class="fa-solid fa-shield-check"></i>
+                                No high-risk assets — <a href="{{ url_for('scans.scans_page') }}">run a scan</a>
+                            </td>
+                        </tr>
                         {% endif %}
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <!-- Recent Discoveries -->
-        <div class="glass-card" style="padding: 1.5rem;">
-            <div class="metric-title" style="margin-bottom: 1.25rem;"><i class="fa-solid fa-magnifying-glass" style="margin-right: 8px; color: var(--accent);"></i> Recent Discoveries</div>
-            <div class="table-scroll">
-                <table class="scans-table">
+        {# Recent Discoveries #}
+        <div class="glass-card" style="padding:1.35rem;">
+            <div class="qs-table-header">
+                <div class="qs-table-title">
+                    <i class="fa-solid fa-satellite-dish" style="color:var(--accent,#22d3ee);"></i>
+                    Recent Discoveries
+                </div>
+                <span class="qs-table-count" id="recentCount">Last 7 days</span>
+            </div>
+            <div class="qs-table-wrap">
+                <table class="qs-table scans-table">
                     <thead>
                         <tr>
-                            <th>Asset Name</th>
-                            <th>Asset Type</th>
-                            <th>Discovery Date</th>
-                            <th>Risk Score</th>
+                            <th>Asset</th>
+                            <th>Type</th>
+                            <th>Discovered</th>
+                            <th>Risk</th>
                         </tr>
                     </thead>
                     <tbody id="recentDiscoveryBody">
-                        {% for discovery in recent_discoveries %}
+                        {% for d in recent_discoveries %}
                         <tr>
-                            <td style="font-weight:600;">{{ discovery.name or '--' }}</td>
-                            <td>{{ discovery.type or '--' }}</td>
-                            <td style="font-size:0.75rem;">{{ discovery.date or '--' }}</td>
-                            <td style="font-size:0.75rem;">{{ discovery.risk or '--' }}</td>
+                            <td style="font-weight:600;color:#f1f5f9;">{{ d.name or '—' }}</td>
+                            <td><span class="qs-pill qs-pill-info">{{ d.type or '—' }}</span></td>
+                            <td class="td-mono" style="font-size:0.72rem;color:#64748b;">{{ d.date or '—' }}</td>
+                            <td>
+                                {% set r = d.risk | string | lower %}
+                                <span class="qs-pill {% if 'critical' in r %}qs-pill-critical{% elif 'high' in r %}qs-pill-high{% elif 'medium' in r %}qs-pill-medium{% else %}qs-pill-low{% endif %}">
+                                    {{ d.risk or '—' }}
+                                </span>
+                            </td>
                         </tr>
                         {% endfor %}
                         {% if not recent_discoveries %}
-                        <tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding: 2rem;">No recent discoveries in the last 7 days.</td></tr>
+                        <tr>
+                            <td colspan="4" class="qs-empty">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                No discoveries in the last 7 days
+                            </td>
+                        </tr>
                         {% endif %}
                     </tbody>
                 </table>
             </div>
         </div>
-    </div>
 
-    <div class="glass-card" style="padding: 1.5rem; margin-top: 1.5rem;">
-        <div class="metric-title" style="margin-bottom: 1rem;"><i class="fa-solid fa-bug" style="margin-right: 8px; color: var(--risk-high);"></i> Top 5 Vulnerable Software</div>
-        <div class="table-scroll">
-            <table class="scans-table">
+    </div>{# /tables grid #}
+
+    {# ── Top Vulnerable Software ────────────────────────────────── #}
+    <div class="glass-card" style="padding:1.35rem;margin-bottom:1.5rem;">
+        <div class="qs-table-header">
+            <div class="qs-table-title">
+                <i class="fa-solid fa-bug" style="color:#fb923c;"></i>
+                Top Vulnerable Software
+            </div>
+            <span class="qs-table-count">Top 5</span>
+        </div>
+        <div class="qs-table-wrap">
+            <table class="qs-table scans-table">
                 <thead>
                     <tr>
-                        <th>Software Name</th>
+                        <th>#</th>
+                        <th>Software / Product</th>
                         <th>Occurrences</th>
+                        <th>Affected Assets</th>
                     </tr>
                 </thead>
                 <tbody id="topSoftwareBody">
                     {% if top_software %}
-                    {% for software in top_software %}
+                    {% for sw in top_software %}
                     <tr>
-                        <td style="font-weight:600;">{{ software.product or '--' }}</td>
-                        <td>{{ software.count or 0 }}</td>
+                        <td class="td-mono" style="color:#475569;font-size:0.72rem;">{{ loop.index }}</td>
+                        <td style="font-weight:600;color:#f1f5f9;">{{ sw.product or '—' }}</td>
+                        <td>
+                            <span class="qs-score score-high">{{ sw.count or 0 }}</span>
+                        </td>
+                        <td>
+                            <div style="display:flex;align-items:center;gap:0.5rem;">
+                                <div style="flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,0.06);overflow:hidden;">
+                                    <div style="height:100%;background:var(--risk-high,#fb923c);width:{{ [((sw.count or 0) / (top_software[0].count or 1) * 100)|int, 100]|min }}%;border-radius:2px;transition:width .5s;"></div>
+                                </div>
+                                <span style="font-size:0.65rem;color:#475569;font-family:'JetBrains Mono',monospace;">{{ [((sw.count or 0) / (top_software[0].count or 1) * 100)|int, 100]|min }}%</span>
+                            </div>
+                        </td>
                     </tr>
                     {% endfor %}
                     {% else %}
-                    <tr><td colspan="2" style="text-align:center; color:var(--text-muted); padding:1.2rem;">No vulnerability software telemetry available yet.</td></tr>
+                    <tr>
+                        <td colspan="4" class="qs-empty">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            No vulnerability telemetry available — run a scan to populate
+                        </td>
+                    </tr>
                     {% endif %}
                 </tbody>
             </table>
         </div>
-        <div id="topSoftwareEmpty" style="color: var(--text-muted);{% if top_software %} display:none;{% endif %}">
-            No vulnerability software telemetry available yet.
-            <a href="{{ url_for('scans.scans_page') }}" style="margin-left: 0.5rem;">Run a scan</a>
-            or
-            <a href="{{ url_for('asset_discovery') }}" style="margin-left: 0.25rem;">open discovery</a>.
-        </div>
     </div>
 
     {% if not assets %}
-    <div class="glass-card" style="padding: 1rem; margin-top: 1.5rem;" role="status" aria-live="polite">
-        <strong>No data available.</strong>
-        <span style="color: var(--text-secondary);"> Add assets or run scans to populate dashboard metrics.</span>
-        <div style="margin-top: 0.6rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
-            <a class="button" href="{{ url_for('scans.scans_page') }}">Go to Scans Center</a>
-            <a class="button" href="{{ url_for('asset_discovery') }}">Go to Asset Discovery</a>
+    <div class="glass-card" style="padding:1.25rem;border-color:rgba(34,211,238,0.2);" role="status">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;">
+            <i class="fa-solid fa-circle-info" style="color:var(--accent);font-size:1.1rem;"></i>
+            <strong>No data yet</strong>
+        </div>
+        <p style="color:var(--text-secondary);font-size:0.8rem;margin-bottom:0.85rem;">Add assets or run scans to populate dashboard metrics.</p>
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+            <a class="button" href="{{ url_for('scans.scans_page') }}">Scan Center</a>
+            <a class="button" href="{{ url_for('asset_discovery') }}">Asset Discovery</a>
         </div>
     </div>
     {% endif %}
-</div>
+
+</div>{# /home-container #}
 {% endblock %}
 
 {% block scripts %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // Initialize Charts
-    document.addEventListener('DOMContentLoaded', function() {
-        const stateEl = document.getElementById('homeApiState');
-        const typeChartEmpty = document.getElementById('typeChartEmpty');
-        const expiryChartEmpty = document.getElementById('expiryChartEmpty');
+document.addEventListener('DOMContentLoaded', function () {
 
-        function esc(v) {
-            return String(v ?? '')
-                .replaceAll('&', '&amp;')
-                .replaceAll('<', '&lt;')
-                .replaceAll('>', '&gt;')
-                .replaceAll('"', '&quot;')
-                .replaceAll("'", '&#39;');
-        }
+    /* ── Helpers ────────────────────────────────────────────────── */
+    function esc(v) {
+        return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+               .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
 
-        function setState(message, error = false) {
-            if (!stateEl) return;
-            stateEl.textContent = message;
-            stateEl.style.color = error ? 'var(--risk-critical)' : 'var(--text-muted)';
-        }
+    function setText(id, val) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+    }
 
-        async function fetchEnvelope(url) {
-            try {
-                const response = await fetch(url, {
-                    headers: { Accept: 'application/json' },
-                    credentials: 'same-origin',
-                    cache: 'no-store'
-                });
-                const contentType = String(response.headers.get('content-type') || '').toLowerCase();
-                if (!contentType.includes('application/json')) {
-                    return { ok: false, data: null, error: `non-json response (${response.status})` };
-                }
+    function setState(msg, err) {
+        const el = document.getElementById('homeApiState');
+        if (!el) return;
+        el.textContent = msg;
+        el.style.color = err ? 'var(--risk-critical,#f87171)' : '';
+    }
 
-                const payload = await response.json();
-                if (!response.ok || payload?.success === false) {
-                    const apiMessage = payload?.error?.message || payload?.message || `status ${response.status}`;
-                    return { ok: false, data: payload?.data || null, error: apiMessage };
-                }
+    async function apiGet(url) {
+        try {
+            const r = await fetch(url, { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+            if (!r.ok) return { ok: false, data: null };
+            const payload = await r.json();
+            return { ok: payload?.success !== false, data: payload?.data ?? null };
+        } catch { return { ok: false, data: null }; }
+    }
 
-                return { ok: true, data: payload?.data || null, error: null };
-            } catch (error) {
-                return { ok: false, data: null, error: String(error || 'request failed') };
-            }
-        }
+    function riskClass(score) {
+        const s = Number(score || 0);
+        if (s > 700) return 'score-critical';
+        if (s > 400) return 'score-high';
+        if (s > 200) return 'score-medium';
+        return 'score-low';
+    }
 
-        function setText(id, value) {
-            const el = document.getElementById(id);
-            if (!el) return;
-            el.textContent = value;
-        }
+    function riskPillClass(risk) {
+        const r = String(risk || '').toLowerCase();
+        if (r.includes('critical')) return 'qs-pill-critical';
+        if (r.includes('high'))     return 'qs-pill-high';
+        if (r.includes('medium'))   return 'qs-pill-medium';
+        return 'qs-pill-low';
+    }
 
-        function toggleEmpty(emptyEl, show) {
-            if (!emptyEl) return;
-            emptyEl.style.display = show ? 'grid' : 'none';
-        }
-        const typeCanvas = document.getElementById('typeChart');
-        const expiryCanvas = document.getElementById('expiryChart');
-        let typeChart = null;
-        let expiryChart = null;
-        let homePollTimer = null;
+    /* ── Charts ─────────────────────────────────────────────────── */
+    const typeCanvas   = document.getElementById('typeChart');
+    const expiryCanvas = document.getElementById('expiryChart');
+    let typeChart = null, expiryChart = null;
 
-        // Asset Type Donut
-        if (typeCanvas) {
-            const ctxType = typeCanvas.getContext('2d');
-            typeChart = new Chart(ctxType, {
-                type: 'doughnut',
-                data: {
-                    labels: {{ asset_type_dist.keys()|list|tojson if asset_type_dist else [] }},
-                    datasets: [{
-                        data: {{ asset_type_dist.values()|map(attribute='count')|list|tojson if asset_type_dist else [] }},
-                        backgroundColor: ['#00ffcc', '#af52de', '#34c759', '#ffcc00', '#ff9500'],
-                        borderWidth: 0,
-                        hoverOffset: 10
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: { color: '#94a3b8', font: { size: 10 }, usePointStyle: true, padding: 15 }
-                        }
-                    },
-                    cutout: '70%'
-                }
-            });
-            toggleEmpty(typeChartEmpty, !(typeChart.data?.datasets?.[0]?.data || []).length);
-        }
+    const CHART_COLORS = ['#22d3ee','#a78bfa','#34d399','#fbbf24','#f87171','#38bdf8','#4ade80'];
 
-        // Cert Expiry Timeline Bar
-        if (expiryCanvas) {
-            const ctxExpiry = expiryCanvas.getContext('2d');
-            expiryChart = new Chart(ctxExpiry, {
-                type: 'bar',
-                data: {
-                    labels: ['0-30d', '31-60d', '61-90d', '>90d'],
-                    datasets: [{
-                        label: 'Certificates',
-                        data: [
-                            {{ cert_expiry.count_0_to_30_days if cert_expiry else 0 }},
-                            {{ cert_expiry.count_31_to_60_days if cert_expiry else 0 }},
-                            {{ cert_expiry.count_61_to_90_days if cert_expiry else 0 }},
-                            {{ cert_expiry.count_greater_90_days if cert_expiry else 0 }}
-                        ],
-                        backgroundColor: ['#ff2d55', '#ff9500', '#ffcc00', '#34c759'],
-                        borderRadius: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } },
-                        x: { grid: { display: false }, ticks: { color: '#64748b' } }
-                    },
-                    plugins: { legend: { display: false } }
-                }
-            });
-            const initialExpiry = (expiryChart.data?.datasets?.[0]?.data || []).reduce((sum, value) => sum + Number(value || 0), 0);
-            toggleEmpty(expiryChartEmpty, initialExpiry <= 0);
-        }
-
-        function renderTypeChart(items) {
-            if (!typeChart) return;
-            const safeItems = Array.isArray(items) ? items : [];
-            const labels = safeItems.map((it) => String(it.asset_type || 'Unknown'));
-            const values = safeItems.map((it) => Number(it.count || 0));
-            typeChart.data.labels = labels;
-            typeChart.data.datasets[0].data = values;
-            typeChart.update();
-            const total = values.reduce((sum, value) => sum + Number(value || 0), 0);
-            toggleEmpty(typeChartEmpty, total <= 0);
-        }
-
-        function renderExpiryChart(items) {
-            if (!expiryChart) return;
-            const lookup = {};
-            (Array.isArray(items) ? items : []).forEach((it) => {
-                lookup[String(it.bucket || '').trim()] = Number(it.count || 0);
-            });
-            const series = [
-                lookup['0-30'] || 0,
-                lookup['30-60'] || lookup['31-60'] || 0,
-                lookup['60-90'] || lookup['61-90'] || 0,
-                lookup['90+'] || 0,
-            ];
-            expiryChart.data.datasets[0].data = series;
-            expiryChart.update();
-            const total = series.reduce((sum, value) => sum + Number(value || 0), 0);
-            toggleEmpty(expiryChartEmpty, total <= 0);
-        }
-
-        // Initialize Map
-        const map = L.map('homeMap').setView([20, 0], 2);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        }).addTo(map);
-
-        // Fetch Geo locations via API-first endpoint
-        fetch("/api/assets/geo-locations?limit=200", { cache: 'no-store', credentials: 'same-origin' })
-            .then(res => res.json())
-            .then(data => {
-                const rows = (data && data.data && data.data.items) ? data.data.items : [];
-                const featureCollection = {
-                    type: 'FeatureCollection',
-                    features: rows.map((row) => ({
-                        type: 'Feature',
-                        geometry: {
-                            type: 'Point',
-                            coordinates: [Number(row.longitude || 0), Number(row.latitude || 0)]
-                        },
-                        properties: {
-                            title: row.asset_name || 'Unknown Asset',
-                            type: row.asset_type || 'Unknown',
-                            risk: row.risk_level || 'Medium',
-                            location: `${row.city || 'Unknown'}, ${row.country || 'Unknown'}`
-                        }
-                    }))
-                };
-
-                L.geoJSON(featureCollection, {
-                    pointToLayer: function (feature, latlng) {
-                        return L.circleMarker(latlng, {
-                            radius: 6,
-                            fillColor: feature.properties.risk === 'Critical'
-                                ? '#ff2d55'
-                                : (feature.properties.risk === 'High' ? '#ff9500' : '#00ffcc'),
-                            color: "#000",
-                            weight: 1,
-                            opacity: 1,
-                            fillOpacity: 0.8
-                        });
-                    },
-                    onEachFeature: function (feature, layer) {
-                        layer.bindPopup(`<strong>${feature.properties.title}</strong><br>Type: ${feature.properties.type}<br>Location: ${feature.properties.location}`);
-                    }
-                }).addTo(map);
-            })
-            .catch(() => {
-                // Keep map rendered even if geo API fails.
-            });
-
-        async function syncHomeTelemetry() {
-            setState('Syncing Home telemetry…');
-            const [metricsRes, typeRes, riskRes, certRes, highRiskRes, recentRes, softwareRes] = await Promise.all([
-                fetchEnvelope('/api/home/metrics'),
-                fetchEnvelope('/api/assets/distribution/by-type'),
-                fetchEnvelope('/api/assets/risk-percentage'),
-                fetchEnvelope('/api/certificates/expiry-timeline'),
-                fetchEnvelope('/api/assets/high-risk?limit=10'),
-                fetchEnvelope('/api/assets/recent-discoveries?days=7'),
-                fetchEnvelope('/api/vulnerabilities/top-software?limit=5')
-            ]);
-
-            let successCount = 0;
-            let failureCount = 0;
-
-            [metricsRes, typeRes, riskRes, certRes, highRiskRes, recentRes, softwareRes].forEach((result) => {
-                if (result.ok) {
-                    successCount += 1;
-                } else {
-                    failureCount += 1;
-                }
-            });
-
-            if (metricsRes.ok) {
-                const metricKpis = metricsRes?.data?.kpis || {};
-                setText('kpiTotalAssets', Number(metricKpis.total_assets || 0).toLocaleString());
-                setText('kpiTotalScans', Number(metricKpis.total_scans || 0).toLocaleString());
-                setText('kpiHighRisk', Number(metricKpis.vulnerable_assets || 0).toLocaleString());
-            }
-
-            if (typeRes.ok) {
-                const typeItems = typeRes?.data?.items || [];
-                const typeMap = Object.fromEntries(typeItems.map((it) => [String(it.asset_type || '').toLowerCase(), Number(it.count || 0)]));
-                renderTypeChart(typeItems);
-                setText('kpiWebApps', Number(typeMap['web app'] || typeMap['webapp'] || 0).toLocaleString());
-                setText('kpiApis', Number(typeMap['api'] || 0).toLocaleString());
-                setText('kpiServers', Number(typeMap['server'] || 0).toLocaleString());
-            }
-
-            if (certRes.ok) {
-                const certItems = certRes?.data?.items || [];
-                renderExpiryChart(certItems);
-                const expiring30 = Number((certItems.find((it) => String(it.bucket) === '0-30') || {}).count || 0);
-                setText('kpiExpiringCerts', expiring30.toLocaleString());
-            }
-
-            if (riskRes.ok) {
-                const riskItem = (riskRes?.data?.items || [])[0] || {};
-                const highPct = Number(riskItem.high_risk_pct || 0);
-                setText('riskHighPct', highPct.toFixed(1) + '%');
-                const dist = riskItem.distribution || {};
-                const criticalPct = Number((dist.Critical || {}).pct || 0);
-                const highDistPct = Number((dist.High || {}).pct || 0);
-                const mediumPct = Number((dist.Medium || {}).pct || 0);
-                const lowPct = Number((dist.Low || {}).pct || 0);
-                const criticalEl = document.getElementById('riskCriticalSeg');
-                const highEl = document.getElementById('riskHighSeg');
-                const mediumEl = document.getElementById('riskMediumSeg');
-                const lowEl = document.getElementById('riskLowSeg');
-                if (criticalEl) criticalEl.style.width = `${criticalPct}%`;
-                if (highEl) highEl.style.width = `${highDistPct}%`;
-                if (mediumEl) mediumEl.style.width = `${mediumPct}%`;
-                if (lowEl) lowEl.style.width = `${lowPct}%`;
-            }
-
-            if (highRiskRes.ok) {
-                const highRiskBody = document.getElementById('highRiskBody');
-                const highRiskItems = highRiskRes?.data?.items || [];
-                if (highRiskBody) {
-                    highRiskBody.innerHTML = highRiskItems.length
-                        ? highRiskItems.map((asset) => `<tr><td><div style="font-weight:600;">${esc(asset.asset_name || '--')}</div><div style="font-size:0.65rem; color:var(--text-muted);">${esc(asset.url || '--')}</div></td><td><span class="status-pill" style="border:1px solid var(--border-subtle); background:rgba(255,255,255,0.05);">${esc(asset.asset_type || '--')}</span></td><td><strong style="color:${Number(asset.risk_score || 0) > 700 ? 'var(--risk-critical)' : 'var(--risk-high)'}">${esc(asset.risk_score || '--')}</strong></td><td style="font-size:0.7rem;">${esc(asset.last_scan_date || 'Never')}</td></tr>`).join('')
-                        : '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding: 2rem;">No high risk assets found.</td></tr>';
-                }
-            }
-
-            if (recentRes.ok) {
-                const recentBody = document.getElementById('recentDiscoveryBody');
-                const recentItems = recentRes?.data?.items || [];
-                if (recentBody) {
-                    recentBody.innerHTML = recentItems.length
-                        ? recentItems.map((item) => `<tr><td style="font-weight:600;">${esc(item.asset_name || '--')}</td><td>${esc(item.asset_type || '--')}</td><td style="font-size:0.75rem;">${esc(item.discovery_date || '--')}</td><td style="font-size:0.75rem;">${esc(item.risk_score || '--')}</td></tr>`).join('')
-                        : '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding: 2rem;">No recent discoveries in the last 7 days.</td></tr>';
-                }
-            }
-
-            if (softwareRes.ok) {
-                const softwareBody = document.getElementById('topSoftwareBody');
-                const softwareEmpty = document.getElementById('topSoftwareEmpty');
-                const softwareItems = softwareRes?.data?.items || [];
-                if (softwareBody && softwareItems.length) {
-                    softwareBody.innerHTML = softwareItems.map((item) => `<tr><td style="font-weight:600;">${esc(item.software_name || '--')}</td><td>${esc(item.occurrence_count || 0)}</td></tr>`).join('');
-                    if (softwareEmpty) softwareEmpty.style.display = 'none';
-                } else if (softwareBody && !softwareItems.length) {
-                    softwareBody.innerHTML = '<tr><td colspan="2" style="text-align:center; color:var(--text-muted); padding:1.2rem;">No vulnerability software telemetry available yet.</td></tr>';
-                    if (softwareEmpty) softwareEmpty.style.display = 'block';
-                }
-            }
-
-            if (failureCount === 0) {
-                setState(`Home telemetry synced (live) • ${new Date().toLocaleTimeString()}`);
-            } else if (successCount > 0) {
-                setState(`Home telemetry partially synced (${successCount}/7 sources).`, false);
-            } else {
-                setState('Home API sync failed. Showing server-rendered values.', true);
-            }
-        }
-
-        syncHomeTelemetry();
-        homePollTimer = window.setInterval(() => {
-            if (!document.hidden) {
-                syncHomeTelemetry();
-            }
-        }, 15000);
-
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-                syncHomeTelemetry();
-            }
+    if (typeCanvas) {
+        typeChart = new Chart(typeCanvas.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: {{ asset_type_dist.keys()|list|tojson if asset_type_dist else [] }},
+                datasets: [{ data: {{ asset_type_dist.values()|map(attribute='count')|list|tojson if asset_type_dist else [] }}, backgroundColor: CHART_COLORS, borderWidth: 0, hoverOffset: 12 }]
+            },
+            options: { responsive:true, maintainAspectRatio:false, cutout:'72%',
+                plugins:{ legend:{ position:'right', labels:{ color:'#94a3b8', font:{size:11}, usePointStyle:true, padding:14 } } } }
         });
+        const typeTotal = (typeChart.data?.datasets?.[0]?.data || []).reduce((s,v)=>s+Number(v||0),0);
+        const typeEmpty = document.getElementById('typeChartEmpty');
+        if (typeEmpty) typeEmpty.style.display = typeTotal <= 0 ? 'block' : 'none';
+    }
 
-        window.addEventListener('beforeunload', () => {
-            if (homePollTimer) {
-                window.clearInterval(homePollTimer);
-                homePollTimer = null;
-            }
+    if (expiryCanvas) {
+        expiryChart = new Chart(expiryCanvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: ['0–30 d','31–60 d','61–90 d','>90 d'],
+                datasets: [{ label:'Certs', data:[
+                    {{ cert_expiry.count_0_to_30_days  if cert_expiry else 0 }},
+                    {{ cert_expiry.count_31_to_60_days if cert_expiry else 0 }},
+                    {{ cert_expiry.count_61_to_90_days if cert_expiry else 0 }},
+                    {{ cert_expiry.count_greater_90_days if cert_expiry else 0 }}
+                ], backgroundColor:['#f87171','#fb923c','#facc15','#4ade80'], borderRadius:6, borderSkipped:false }]
+            },
+            options: { responsive:true, maintainAspectRatio:false,
+                scales:{ y:{ beginAtZero:true, grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#64748b' } },
+                         x:{ grid:{ display:false }, ticks:{ color:'#64748b' } } },
+                plugins:{ legend:{ display:false } } }
         });
-    });
+    }
+
+    /* ── Map ────────────────────────────────────────────────────── */
+    const mapEl = document.getElementById('homeMap');
+    if (mapEl) {
+        const map = L.map('homeMap', { zoomControl:true, attributionControl:false }).setView([20, 0], 2);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom:18 }).addTo(map);
+        apiGet('/api/assets/geo-locations?limit=200').then(res => {
+            const items = res?.data?.items || [];
+            items.forEach(row => {
+                const lat = Number(row.latitude || 0), lng = Number(row.longitude || 0);
+                if (!lat && !lng) return;
+                const risk = String(row.risk_level || '').toLowerCase();
+                const color = risk.includes('critical') ? '#f87171' : risk.includes('high') ? '#fb923c' : '#22d3ee';
+                L.circleMarker([lat, lng], { radius:6, fillColor:color, color:'#000', weight:1, fillOpacity:0.85 })
+                 .bindPopup(`<strong>${esc(row.asset_name||'Asset')}</strong><br>${esc(row.asset_type||'')} — ${esc(row.city||'')} ${esc(row.country||'')}`)
+                 .addTo(map);
+            });
+        });
+    }
+
+    /* ── Live sync ──────────────────────────────────────────────── */
+    async function syncHome() {
+        setState('Syncing…');
+        const [metricsR, typeR, riskR, certR, highR, recentR, softR] = await Promise.all([
+            apiGet('/api/home/metrics'),
+            apiGet('/api/assets/distribution/by-type'),
+            apiGet('/api/assets/risk-percentage'),
+            apiGet('/api/certificates/expiry-timeline'),
+            apiGet('/api/assets/high-risk?limit=10'),
+            apiGet('/api/assets/recent-discoveries?days=7'),
+            apiGet('/api/vulnerabilities/top-software?limit=5')
+        ]);
+
+        /* KPIs */
+        if (metricsR.ok) {
+            const k = metricsR.data?.kpis || {};
+            setText('kpiTotalAssets', Number(k.total_assets||0).toLocaleString());
+            setText('kpiTotalScans',  Number(k.total_scans||0).toLocaleString());
+            setText('kpiHighRisk',    Number(k.vulnerable_assets||0).toLocaleString());
+        }
+        if (typeR.ok) {
+            const items = typeR.data?.items || [];
+            const m = Object.fromEntries(items.map(i => [String(i.asset_type||'').toLowerCase(), Number(i.count||0)]));
+            setText('kpiWebApps', Number(m['web app']||m['webapp']||0).toLocaleString());
+            setText('kpiApis',    Number(m['api']||0).toLocaleString());
+            setText('kpiServers', Number(m['server']||0).toLocaleString());
+            /* update donut */
+            if (typeChart) {
+                typeChart.data.labels   = items.map(i => String(i.asset_type||'Unknown'));
+                typeChart.data.datasets[0].data = items.map(i => Number(i.count||0));
+                typeChart.update();
+                const tot = items.reduce((s,i)=>s+Number(i.count||0),0);
+                const te = document.getElementById('typeChartEmpty');
+                if (te) te.style.display = tot <= 0 ? 'block' : 'none';
+            }
+        }
+        if (certR.ok) {
+            const items = certR.data?.items || [];
+            const get = (b) => Number((items.find(i=>String(i.bucket).trim()===b)||{}).count||0);
+            const series = [get('0-30'), get('30-60')||get('31-60'), get('60-90')||get('61-90'), get('90+')];
+            if (expiryChart) { expiryChart.data.datasets[0].data = series; expiryChart.update(); }
+            setText('kpiExpiringCerts', series[0].toLocaleString());
+        }
+        if (riskR.ok) {
+            const item = (riskR.data?.items||[])[0]||{};
+            setText('riskHighPct', Number(item.high_risk_pct||0).toFixed(1)+'%');
+            const d = item.distribution||{};
+            const segs = {riskCriticalSeg:'Critical',riskHighSeg:'High',riskMediumSeg:'Medium',riskLowSeg:'Low'};
+            Object.entries(segs).forEach(([id,key])=>{
+                const el=document.getElementById(id);
+                if(el) el.style.width = Number((d[key]||{}).pct||0)+'%';
+            });
+        }
+
+        /* High-risk table */
+        if (highR.ok) {
+            const items = highR.data?.items || [];
+            const body = document.getElementById('highRiskBody');
+            const cnt  = document.getElementById('highRiskCount');
+            if (cnt) cnt.textContent = items.length ? `${items.length} assets` : '—';
+            if (body) {
+                body.innerHTML = items.length
+                    ? items.map((a,i)=>`
+                        <tr>
+                          <td>
+                            <div style="font-weight:600;color:#f1f5f9;">${esc(a.asset_name||'—')}</div>
+                            <div style="font-size:0.68rem;color:#64748b;font-family:'JetBrains Mono',monospace;">${esc(a.url||'—')}</div>
+                          </td>
+                          <td><span class="qs-pill qs-pill-neutral">${esc(a.asset_type||'—')}</span></td>
+                          <td><span class="qs-score ${riskClass(a.risk_score)}">${esc(a.risk_score||'—')}</span></td>
+                          <td style="font-size:0.72rem;color:#64748b;font-family:'JetBrains Mono',monospace;">${esc(a.last_scan_date||'Never')}</td>
+                        </tr>`).join('')
+                    : '<tr><td colspan="4" class="qs-empty"><i class="fa-solid fa-shield-check"></i>No high-risk assets</td></tr>';
+            }
+        }
+
+        /* Recent discoveries table */
+        if (recentR.ok) {
+            const items = recentR.data?.items || [];
+            const body = document.getElementById('recentDiscoveryBody');
+            if (body) {
+                body.innerHTML = items.length
+                    ? items.map(d=>`
+                        <tr>
+                          <td style="font-weight:600;color:#f1f5f9;">${esc(d.asset_name||'—')}</td>
+                          <td><span class="qs-pill qs-pill-info">${esc(d.asset_type||'—')}</span></td>
+                          <td style="font-size:0.72rem;color:#64748b;font-family:'JetBrains Mono',monospace;">${esc(d.discovery_date||'—')}</td>
+                          <td><span class="qs-pill ${riskPillClass(d.risk_level||d.risk_score)}">${esc(d.risk_level||d.risk_score||'—')}</span></td>
+                        </tr>`).join('')
+                    : '<tr><td colspan="4" class="qs-empty"><i class="fa-solid fa-magnifying-glass"></i>No discoveries in last 7 days</td></tr>';
+            }
+        }
+
+        /* Vulnerable software table */
+        if (softR.ok) {
+            const items = softR.data?.items || [];
+            const body  = document.getElementById('topSoftwareBody');
+            const maxC  = Number((items[0]||{}).occurrence_count||(items[0]||{}).count||1);
+            if (body) {
+                body.innerHTML = items.length
+                    ? items.map((sw,i)=>{
+                        const cnt = Number(sw.occurrence_count||sw.count||0);
+                        const pct = Math.min(Math.round(cnt/maxC*100),100);
+                        return `<tr>
+                          <td style="color:#475569;font-family:'JetBrains Mono',monospace;font-size:0.72rem;">${i+1}</td>
+                          <td style="font-weight:600;color:#f1f5f9;">${esc(sw.software_name||sw.product||'—')}</td>
+                          <td><span class="qs-score score-high">${cnt}</span></td>
+                          <td>
+                            <div style="display:flex;align-items:center;gap:.5rem;">
+                              <div style="flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden;">
+                                <div style="height:100%;background:#fb923c;width:${pct}%;border-radius:2px;transition:width .5s;"></div>
+                              </div>
+                              <span style="font-size:.65rem;color:#475569;font-family:'JetBrains Mono',monospace;">${pct}%</span>
+                            </div>
+                          </td>
+                        </tr>`;}).join('')
+                    : '<tr><td colspan="4" class="qs-empty"><i class="fa-solid fa-shield-halved"></i>No vulnerability telemetry — run a scan</td></tr>';
+            }
+        }
+
+        setState(`Live sync complete · ${new Date().toLocaleTimeString()}`);
+    }
+
+    syncHome();
+    const timer = setInterval(() => { if (!document.hidden) syncHome(); }, 15000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) syncHome(); });
+    window.addEventListener('beforeunload', () => clearInterval(timer));
+});
 </script>
 {% endblock %}

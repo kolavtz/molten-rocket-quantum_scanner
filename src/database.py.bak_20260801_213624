@@ -147,29 +147,15 @@ def _encrypt_data(data: str) -> Optional[str]:
         return f.encrypt(data.encode('utf-8')).decode('utf-8')
     return None
 
-def _decrypt_data(encrypted_data: str) -> Optional[str]:
-    """Decrypt Fernet-encrypted data.  Returns None on any decryption failure.
-
-    IMPORTANT: Never return the raw ciphertext blob on failure.  Callers that
-    receive None must treat it as 'data unavailable' and refuse to use it.
-    Returning the raw blob caused binascii.Error crashes when pyotp tried to
-    interpret the Fernet token as a base32-encoded TOTP secret.
-    """
-    if not encrypted_data:
-        return None
+def _decrypt_data(encrypted_data: str) -> str:
     f = _get_fernet()
     if f:
         try:
             return f.decrypt(encrypted_data.encode('utf-8')).decode('utf-8')
         except InvalidToken:
-            logger.error("Failed to decrypt data (InvalidToken) — data treated as unavailable.")
-            return None  # Never return raw ciphertext; callers must handle None
-        except Exception as exc:  # pragma: no cover
-            logger.error("Unexpected decryption error: %s", exc)
-            return None
-    # Fernet not configured (no SECRET_KEY) — cannot decrypt
-    logger.warning("_decrypt_data called but Fernet is not initialised; returning None")
-    return None
+            logger.error("Failed to decrypt data (InvalidToken).")
+            return encrypted_data # Fallback to returning raw data, though it will likely fail JSON parsing
+    return encrypted_data
 
 # ---------------------------------------------------------------------------
 # Internal helpers — connection with retry + pool
