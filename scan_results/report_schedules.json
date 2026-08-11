@@ -1,5 +1,71 @@
 [
   {
+    "id": "d45eff1afdd2",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-08-11T09:43:23",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
+    "id": "8a925e9bddb8",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-08-11T09:37:28",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
+    "id": "76d4092b4814",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-08-11T09:30:56",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
     "id": "5a1253102e96",
     "created_by_id": null,
     "created_by": "unknown",
@@ -990,7 +1056,7 @@
     "status": "scheduled"
   },
   {
-    "id": "3451be7d4a55",
+    "id": "9268d94689e0",
     "created_by_id": null,
     "created_by": "unknown",
     "created_at": "2026-04-14T08:49:08",
@@ -1012,7 +1078,7 @@
     "status": "scheduled"
   },
   {
-    "id": "494c3bc6291f",
+    "id": "9683b4123518",
     "created_by_id": null,
     "created_by": "unknown",
     "created_at": "2026-04-14T08:49:08",
@@ -1034,51 +1100,7 @@
     "status": "scheduled"
   },
   {
-    "id": "49c49830497c",
-    "created_by_id": null,
-    "created_by": "unknown",
-    "created_at": "2026-04-14T08:49:08",
-    "enabled": true,
-    "report_type": "Executive Summary Report",
-    "frequency": "Weekly",
-    "assets": "All Assets",
-    "sections": [
-      "Asset Inventory"
-    ],
-    "schedule_date": "",
-    "schedule_time": "",
-    "timezone": "UTC",
-    "email_list": "",
-    "pdf_password": "",
-    "password_protected": false,
-    "save_path": "",
-    "download_link": false,
-    "status": "scheduled"
-  },
-  {
-    "id": "4bd46266a36e",
-    "created_by_id": null,
-    "created_by": "unknown",
-    "created_at": "2026-04-14T08:49:08",
-    "enabled": true,
-    "report_type": "Executive Summary Report",
-    "frequency": "Weekly",
-    "assets": "All Assets",
-    "sections": [
-      "Asset Inventory"
-    ],
-    "schedule_date": "",
-    "schedule_time": "",
-    "timezone": "UTC",
-    "email_list": "",
-    "pdf_password": "",
-    "password_protected": false,
-    "save_path": "",
-    "download_link": false,
-    "status": "scheduled"
-  },
-  {
-    "id": "53f890a4cf23",
+    "id": "99f785318beb",
     "created_by_id": null,
     "created_by": "unknown",
     "created_at": "2026-04-14T08:49:08",
@@ -1144,6 +1166,28 @@
     "status": "scheduled"
   },
   {
+    "id": "a2502cb97983",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-04-14T08:49:08",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
     "id": "746ac8146bc6",
     "created_by_id": null,
     "created_by": "unknown",
@@ -1188,7 +1232,7 @@
     "status": "scheduled"
   },
   {
-    "id": "99f785318beb",
+    "id": "07b9034a155a",
     "created_by_id": null,
     "created_by": "unknown",
     "created_at": "2026-04-14T08:49:08",
@@ -1232,7 +1276,7 @@
     "status": "scheduled"
   },
   {
-    "id": "01a0201a2492",
+    "id": "0b6c05d5b25a",
     "created_by_id": null,
     "created_by": "unknown",
     "created_at": "2026-04-14T08:49:08",
@@ -1276,7 +1320,29 @@
     "status": "scheduled"
   },
   {
-    "id": "9683b4123518",
+    "id": "0ea6a205c55e",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-04-14T08:49:08",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
+    "id": "1b308ec92b10",
     "created_by_id": null,
     "created_by": "unknown",
     "created_at": "2026-04-14T08:49:08",
@@ -1320,29 +1386,7 @@
     "status": "scheduled"
   },
   {
-    "id": "07b9034a155a",
-    "created_by_id": null,
-    "created_by": "unknown",
-    "created_at": "2026-04-14T08:49:08",
-    "enabled": true,
-    "report_type": "Executive Summary Report",
-    "frequency": "Weekly",
-    "assets": "All Assets",
-    "sections": [
-      "Asset Inventory"
-    ],
-    "schedule_date": "",
-    "schedule_time": "",
-    "timezone": "UTC",
-    "email_list": "",
-    "pdf_password": "",
-    "password_protected": false,
-    "save_path": "",
-    "download_link": false,
-    "status": "scheduled"
-  },
-  {
-    "id": "a2502cb97983",
+    "id": "1bbeb2b2cb6a",
     "created_by_id": null,
     "created_by": "unknown",
     "created_at": "2026-04-14T08:49:08",
@@ -1408,161 +1452,7 @@
     "status": "scheduled"
   },
   {
-    "id": "9268d94689e0",
-    "created_by_id": null,
-    "created_by": "unknown",
-    "created_at": "2026-04-14T08:49:08",
-    "enabled": true,
-    "report_type": "Executive Summary Report",
-    "frequency": "Weekly",
-    "assets": "All Assets",
-    "sections": [
-      "Asset Inventory"
-    ],
-    "schedule_date": "",
-    "schedule_time": "",
-    "timezone": "UTC",
-    "email_list": "",
-    "pdf_password": "",
-    "password_protected": false,
-    "save_path": "",
-    "download_link": false,
-    "status": "scheduled"
-  },
-  {
-    "id": "0b6c05d5b25a",
-    "created_by_id": null,
-    "created_by": "unknown",
-    "created_at": "2026-04-14T08:49:08",
-    "enabled": true,
-    "report_type": "Executive Summary Report",
-    "frequency": "Weekly",
-    "assets": "All Assets",
-    "sections": [
-      "Asset Inventory"
-    ],
-    "schedule_date": "",
-    "schedule_time": "",
-    "timezone": "UTC",
-    "email_list": "",
-    "pdf_password": "",
-    "password_protected": false,
-    "save_path": "",
-    "download_link": false,
-    "status": "scheduled"
-  },
-  {
-    "id": "0ea6a205c55e",
-    "created_by_id": null,
-    "created_by": "unknown",
-    "created_at": "2026-04-14T08:49:08",
-    "enabled": true,
-    "report_type": "Executive Summary Report",
-    "frequency": "Weekly",
-    "assets": "All Assets",
-    "sections": [
-      "Asset Inventory"
-    ],
-    "schedule_date": "",
-    "schedule_time": "",
-    "timezone": "UTC",
-    "email_list": "",
-    "pdf_password": "",
-    "password_protected": false,
-    "save_path": "",
-    "download_link": false,
-    "status": "scheduled"
-  },
-  {
-    "id": "d6e7b8b21e4d",
-    "created_by_id": null,
-    "created_by": "unknown",
-    "created_at": "2026-04-14T08:49:08",
-    "enabled": true,
-    "report_type": "Executive Summary Report",
-    "frequency": "Weekly",
-    "assets": "All Assets",
-    "sections": [
-      "Asset Inventory"
-    ],
-    "schedule_date": "",
-    "schedule_time": "",
-    "timezone": "UTC",
-    "email_list": "",
-    "pdf_password": "",
-    "password_protected": false,
-    "save_path": "",
-    "download_link": false,
-    "status": "scheduled"
-  },
-  {
     "id": "22a18348726c",
-    "created_by_id": null,
-    "created_by": "unknown",
-    "created_at": "2026-04-14T08:49:08",
-    "enabled": true,
-    "report_type": "Executive Summary Report",
-    "frequency": "Weekly",
-    "assets": "All Assets",
-    "sections": [
-      "Asset Inventory"
-    ],
-    "schedule_date": "",
-    "schedule_time": "",
-    "timezone": "UTC",
-    "email_list": "",
-    "pdf_password": "",
-    "password_protected": false,
-    "save_path": "",
-    "download_link": false,
-    "status": "scheduled"
-  },
-  {
-    "id": "1bbeb2b2cb6a",
-    "created_by_id": null,
-    "created_by": "unknown",
-    "created_at": "2026-04-14T08:49:08",
-    "enabled": true,
-    "report_type": "Executive Summary Report",
-    "frequency": "Weekly",
-    "assets": "All Assets",
-    "sections": [
-      "Asset Inventory"
-    ],
-    "schedule_date": "",
-    "schedule_time": "",
-    "timezone": "UTC",
-    "email_list": "",
-    "pdf_password": "",
-    "password_protected": false,
-    "save_path": "",
-    "download_link": false,
-    "status": "scheduled"
-  },
-  {
-    "id": "8f9d8bd289b1",
-    "created_by_id": null,
-    "created_by": "unknown",
-    "created_at": "2026-04-14T08:49:08",
-    "enabled": true,
-    "report_type": "Executive Summary Report",
-    "frequency": "Weekly",
-    "assets": "All Assets",
-    "sections": [
-      "Asset Inventory"
-    ],
-    "schedule_date": "",
-    "schedule_time": "",
-    "timezone": "UTC",
-    "email_list": "",
-    "pdf_password": "",
-    "password_protected": false,
-    "save_path": "",
-    "download_link": false,
-    "status": "scheduled"
-  },
-  {
-    "id": "1b308ec92b10",
     "created_by_id": null,
     "created_by": "unknown",
     "created_at": "2026-04-14T08:49:08",
@@ -1606,7 +1496,7 @@
     "status": "scheduled"
   },
   {
-    "id": "d845d3e44dde",
+    "id": "4bd46266a36e",
     "created_by_id": null,
     "created_by": "unknown",
     "created_at": "2026-04-14T08:49:08",
@@ -1629,6 +1519,182 @@
   },
   {
     "id": "29390a9d53ac",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-04-14T08:49:08",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
+    "id": "d6e7b8b21e4d",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-04-14T08:49:08",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
+    "id": "3451be7d4a55",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-04-14T08:49:08",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
+    "id": "01a0201a2492",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-04-14T08:49:08",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
+    "id": "494c3bc6291f",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-04-14T08:49:08",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
+    "id": "53f890a4cf23",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-04-14T08:49:08",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
+    "id": "49c49830497c",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-04-14T08:49:08",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
+    "id": "df3a956d5528",
+    "created_by_id": null,
+    "created_by": "unknown",
+    "created_at": "2026-04-14T08:49:08",
+    "enabled": true,
+    "report_type": "Executive Summary Report",
+    "frequency": "Weekly",
+    "assets": "All Assets",
+    "sections": [
+      "Asset Inventory"
+    ],
+    "schedule_date": "",
+    "schedule_time": "",
+    "timezone": "UTC",
+    "email_list": "",
+    "pdf_password": "",
+    "password_protected": false,
+    "save_path": "",
+    "download_link": false,
+    "status": "scheduled"
+  },
+  {
+    "id": "8f9d8bd289b1",
     "created_by_id": null,
     "created_by": "unknown",
     "created_at": "2026-04-14T08:49:08",
@@ -1716,7 +1782,7 @@
     "status": "scheduled"
   },
   {
-    "id": "df3a956d5528",
+    "id": "d845d3e44dde",
     "created_by_id": null,
     "created_by": "unknown",
     "created_at": "2026-04-14T08:49:08",
@@ -1738,10 +1804,10 @@
     "status": "scheduled"
   },
   {
-    "id": "c0888afee125",
-    "created_by_id": "<AsyncMock name='current_user.id' id='1626180548464'>",
+    "id": "227614565a86",
+    "created_by_id": "<AsyncMock name='current_user.id' id='2210901799472'>",
     "created_by": "admin",
-    "created_at": "2026-08-11T07:59:08.562571+00:00",
+    "created_at": "2026-08-11T09:43:34.911573+00:00",
     "enabled": true,
     "report_type": "Executive Summary Report",
     "frequency": "Weekly",

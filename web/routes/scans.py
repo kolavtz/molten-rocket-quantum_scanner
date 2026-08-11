@@ -684,9 +684,12 @@ def _upsert_inventory_asset_from_scan(
         return
 
     try:
-        from sqlalchemy import func
+        from sqlalchemy import func, or_
         from src.db import db_session
-        from src.models import Asset
+        from src.models import (
+            Asset, Certificate, PQCClassification, CBOMEntry,
+            DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware
+        )
 
         canonical = str(target or "").strip().lower()
         if not canonical:
@@ -705,6 +708,7 @@ def _upsert_inventory_asset_from_scan(
                 is_deleted=False,
             )
             db_session.add(asset)
+            db_session.flush()
         else:
             # Restore if soft-deleted (explicit add_to_inventory restores the asset)
             if getattr(asset, "is_deleted", False):
@@ -721,9 +725,40 @@ def _upsert_inventory_asset_from_scan(
             if notes:
                 existing = str(getattr(asset, "notes", "") or "").strip()
                 incoming = str(notes).strip()
-                asset.notes = incoming if not existing else f"{existing} | {incoming}"
+                if incoming not in existing:
+                    asset.notes = incoming if not existing else f"{existing} | {incoming}"
             if scan_pk:
                 asset.last_scan_id = int(scan_pk)
+
+        db_session.flush()
+        asset_id = int(asset.id)
+
+        # Relational linking for telemetry saved under scan_pk with missing or outdated asset_id
+        if scan_pk:
+            db_session.query(Certificate).filter(
+                Certificate.scan_id == scan_pk,
+                or_(Certificate.asset_id == None, Certificate.asset_id != asset_id)
+            ).update({"asset_id": asset_id}, synchronize_session=False)
+
+            db_session.query(PQCClassification).filter(
+                PQCClassification.scan_id == scan_pk,
+                or_(PQCClassification.asset_id == None, PQCClassification.asset_id != asset_id)
+            ).update({"asset_id": asset_id}, synchronize_session=False)
+
+            db_session.query(CBOMEntry).filter(
+                CBOMEntry.scan_id == scan_pk,
+                or_(CBOMEntry.asset_id == None, CBOMEntry.asset_id != asset_id)
+            ).update({"asset_id": asset_id}, synchronize_session=False)
+
+            for model_cls in (DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware):
+                if hasattr(model_cls, "scan_id"):
+                    db_session.query(model_cls).filter(
+                        model_cls.scan_id == scan_pk
+                    ).update({
+                        "asset_id": asset_id,
+                        "promoted_to_inventory": True,
+                        "status": "confirmed"
+                    }, synchronize_session=False)
 
         db_session.commit()
     except Exception:
@@ -732,6 +767,7 @@ def _upsert_inventory_asset_from_scan(
             db_session.rollback()
         except Exception:
             pass
+
 
 
 
@@ -1260,6 +1296,7 @@ def api_scan_promote(scan_id: str):
         risk_level=None,
         notes="Promoted from Scan Center",
         asset_type="Web App",
+        scan_pk=getattr(scan_row, "id", None),
     )
 
     if scan_row is not None:

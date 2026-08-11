@@ -106,7 +106,7 @@ def _encrypt_data(data: str) -> Optional[str]:
     f = _get_fernet()
     if f:
         return f.encrypt(data.encode('utf-8')).decode('utf-8')
-    return data
+    return None
 
 def _decrypt_data(encrypted_data: str) -> str:
     f = _get_fernet()

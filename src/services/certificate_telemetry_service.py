@@ -14,7 +14,7 @@ No mock or hardcoded data — all metrics computed from DB.
 
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Tuple
-from sqlalchemy import func, and_, or_
+from sqlalchemy import func, and_, or_, select
 from collections import Counter
 import json
 
@@ -65,13 +65,12 @@ class CertificateTelemetryService:
 
     def _active_asset_ids_subquery(self):
         """
-        Returns a subquery of asset IDs that are NOT soft-deleted.
+        Returns a scalar subquery of asset IDs that are NOT soft-deleted.
         Use as: Certificate.asset_id.in_(self._active_asset_ids_subquery())
         This ensures certificates for deleted assets are hidden everywhere
         except the Recycle Bin.
         """
-        db = self._get_db_session()
-        return db.query(Asset.id).filter(Asset.is_deleted == False).subquery()
+        return select(Asset.id).where(Asset.is_deleted == False)
 
     def _certificate_details_from_row(self, cert: Certificate) -> Dict:
         base = {

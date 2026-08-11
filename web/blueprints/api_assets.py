@@ -12,7 +12,8 @@ from flask_login import login_required
 from src.db import db_session as SessionLocal
 from src.models import (
     Asset, Certificate, Scan, Subdomain,
-    DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware
+    DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware,
+    PQCClassification, CBOMEntry
 )
 from src.services.subdomain_service import SubdomainService
 from src.services import rdap_service
@@ -467,7 +468,7 @@ def promote_discovery_to_asset():
             db.close()
             return api_response(success=False, message="Cannot infer target", status_code=400)
         
-        asset = db.query(Asset).filter(Asset.target == target).first()
+        asset = db.query(Asset).filter(func.lower(Asset.target) == target).first()
         if not asset:
             asset = Asset(
                 target=target,
@@ -481,17 +482,25 @@ def promote_discovery_to_asset():
             db.flush()
         elif asset.is_deleted:
             asset.is_deleted = False
-        
+
         # Update discovery state
         discovery.asset_id = asset.id
         discovery.promoted_to_inventory = True
         discovery.promoted_at = func.now()
-        discovery.promoted_by = current_user.id
+        discovery.promoted_by = getattr(current_user, "id", None)
         discovery.status = 'confirmed'
-        
+
+        # Link any existing scan telemetry for this discovery item's scan_id
+        if getattr(discovery, "scan_id", None):
+            scan_pk = discovery.scan_id
+            db.query(Certificate).filter(Certificate.scan_id == scan_pk, Certificate.asset_id == None).update({"asset_id": asset.id}, synchronize_session=False)
+            db.query(PQCClassification).filter(PQCClassification.scan_id == scan_pk, PQCClassification.asset_id == None).update({"asset_id": asset.id}, synchronize_session=False)
+            db.query(CBOMEntry).filter(CBOMEntry.scan_id == scan_pk, CBOMEntry.asset_id == None).update({"asset_id": asset.id}, synchronize_session=False)
+
         db.commit()
         db.close()
         return api_response(success=True, data={"asset_id": asset.id, "discovery_id": discovery_id})
+
     except Exception as e:
         return api_response(success=False, message=str(e), status_code=500)
 

@@ -1746,6 +1746,11 @@ def run_scan_pipeline(
         db_session.flush()
 
         scan_pk = getattr(db_scan, "id", None) or getattr(db_scan, "scan_id", None)
+        if scan_pk is not None:
+            try:
+                report["db_scan_id"] = int(scan_pk)
+            except Exception:
+                pass
         
         # Resolve Asset for relational sync across discovery/certificates/PQC/CBOM.
         # Rules:

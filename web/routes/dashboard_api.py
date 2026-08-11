@@ -171,6 +171,7 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
     like = f"%{params['search']}%" if params.get("search") else None
     where_parts = [
         "COALESCE(d.is_deleted, 0) = 0",
+        "COALESCE(s.is_deleted, 0) = 0",
         f"d.{vc} IS NOT NULL",
         f"TRIM(d.{vc}) != ''",
         f"TRIM(LOWER(d.{vc})) != '--'",
@@ -191,18 +192,28 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
     sort_sql = config["sort_map"].get(params.get("sort") or "", config["sort_map"]["detection_date"])
     order_sql = "DESC" if str(params.get("order", "asc")).lower() == "desc" else "ASC"
 
-    # Dedup inner join: only latest row per unique identifier
+    # Dedup inner join: only latest row per unique identifier (excluding deleted scans & deleted assets)
+    table_cols = list(db_session.execute(text(f"SELECT * FROM {config['table']} LIMIT 0")).keys())
+    has_scan_id = "scan_id" in table_cols
+    scan_dedup_join = "LEFT JOIN scans s_sub ON s_sub.id = d_sub.scan_id" if has_scan_id else ""
+    scan_dedup_cond = "AND (d_sub.scan_id IS NULL OR COALESCE(s_sub.is_deleted, 0) = 0)" if has_scan_id else ""
+
     dedup_join = f"""
         INNER JOIN (
-            SELECT MAX(id) AS max_id
-            FROM {config["table"]}
-            WHERE COALESCE(is_deleted, 0) = 0
-              AND {vc} IS NOT NULL
-              AND TRIM({vc}) != ''
-              AND TRIM(LOWER({vc})) != '--'
-            GROUP BY TRIM(LOWER({vc}))
+            SELECT MAX(d_sub.id) AS max_id
+            FROM {config["table"]} d_sub
+            {scan_dedup_join}
+            WHERE COALESCE(d_sub.is_deleted, 0) = 0
+              {scan_dedup_cond}
+              AND d_sub.{vc} IS NOT NULL
+              AND TRIM(d_sub.{vc}) != ''
+              AND TRIM(LOWER(d_sub.{vc})) != '--'
+            GROUP BY TRIM(LOWER(d_sub.{vc}))
         ) d_latest ON d.id = d_latest.max_id
     """
+
+    scan_join = "LEFT JOIN scans s ON s.id = d.scan_id" if has_scan_id else "LEFT JOIN (SELECT 1 AS id, 0 AS is_deleted) s ON 1=1"
+    where_parts.append("COALESCE(s.is_deleted, 0) = 0" if has_scan_id else "1=1")
 
     # For subdomains: join to the subdomain's own asset record (created when inventoried)
     # For others: join via the stored asset_id foreign key
@@ -224,6 +235,7 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
             a.owner AS owner
         FROM {config["table"]} d
         {dedup_join}
+        {scan_join}
         {asset_join}
         WHERE {where_sql}
         ORDER BY {sort_sql} {order_sql}, d.id DESC
@@ -233,6 +245,7 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
         SELECT COUNT(*)
         FROM {config['table']} d
         {dedup_join}
+        {scan_join}
         {count_asset_join}
         WHERE {where_sql}
     """
@@ -257,10 +270,19 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
 
 
 def _ssl_discovery_query(params: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
-    # Prefer the canonical certificate table for SSL discovery and only fallback to legacy view.
+    # Prefer the canonical certificate table for SSL discovery, grouped by Asset.target (latest cert per asset)
+    subq = (
+        db_session.query(func.max(Certificate.id).label("max_cert_id"))
+        .join(Asset, Certificate.asset_id == Asset.id)
+        .filter(Certificate.is_deleted == False, Asset.is_deleted == False)
+        .group_by(Asset.target)
+        .subquery()
+    )
+
     base = (
         db_session.query(Certificate, Asset)
         .join(Asset, Certificate.asset_id == Asset.id)
+        .join(subq, Certificate.id == subq.c.max_cert_id)
         .filter(Certificate.is_deleted == False, Asset.is_deleted == False)
     )
 
@@ -309,10 +331,15 @@ def _ssl_discovery_query(params: dict[str, Any]) -> tuple[list[dict[str, Any]], 
             total,
         )
 
-    # Legacy fallback for mixed-schema environments
+    # Legacy fallback for discovery_ssl table with deduplication
     if _table_exists("discovery_ssl"):
         like = f"%{params['search']}%" if params.get("search") else None
-        where_parts = ["COALESCE(d.is_deleted, 0) = 0"]
+        where_parts = [
+            "COALESCE(d.is_deleted, 0) = 0",
+            "d.endpoint IS NOT NULL",
+            "TRIM(d.endpoint) != ''",
+            "TRIM(LOWER(d.endpoint)) != '--'",
+        ]
         sql_params: dict[str, Any] = {
             "limit": params["page_size"],
             "offset": (params["page"] - 1) * params["page_size"],
@@ -332,6 +359,19 @@ def _ssl_discovery_query(params: dict[str, Any]) -> tuple[list[dict[str, Any]], 
             "key_length": "d.key_length",
         }.get(params.get("sort") or "", "COALESCE(d.updated_at, d.created_at)")
         order_sql = "DESC" if str(params.get("order", "asc")).lower() == "desc" else "ASC"
+
+        dedup_join = """
+            INNER JOIN (
+                SELECT MAX(id) AS max_id
+                FROM discovery_ssl
+                WHERE COALESCE(is_deleted, 0) = 0
+                  AND endpoint IS NOT NULL
+                  AND TRIM(endpoint) != ''
+                  AND TRIM(LOWER(endpoint)) != '--'
+                GROUP BY TRIM(LOWER(endpoint))
+            ) d_latest ON d.id = d_latest.max_id
+        """
+
         query_sql = f"""
             SELECT
                 d.id,
@@ -346,6 +386,7 @@ def _ssl_discovery_query(params: dict[str, Any]) -> tuple[list[dict[str, Any]], 
                 a.id AS asset_id,
                 a.owner AS owner
             FROM discovery_ssl d
+            {dedup_join}
             LEFT JOIN assets a
                 ON a.id = d.asset_id
                AND COALESCE(a.is_deleted, 0) = 0
@@ -353,7 +394,7 @@ def _ssl_discovery_query(params: dict[str, Any]) -> tuple[list[dict[str, Any]], 
             ORDER BY {sort_sql} {order_sql}, d.id DESC
             LIMIT :limit OFFSET :offset
         """
-        count_sql = f"SELECT COUNT(*) FROM discovery_ssl d LEFT JOIN assets a ON a.id = d.asset_id AND COALESCE(a.is_deleted, 0) = 0 WHERE {where_sql}"
+        count_sql = f"SELECT COUNT(*) FROM discovery_ssl d {dedup_join} LEFT JOIN assets a ON a.id = d.asset_id AND COALESCE(a.is_deleted, 0) = 0 WHERE {where_sql}"
         rows = db_session.execute(text(query_sql), sql_params).mappings().all()
         total = int(db_session.execute(text(count_sql), sql_params).scalar() or 0)
         return (
@@ -382,21 +423,26 @@ def _ssl_discovery_query(params: dict[str, Any]) -> tuple[list[dict[str, Any]], 
 
 def _discovery_kpis() -> dict[str, int]:
     table_counts = {}
-    for table_name, key in (
-        ("discovery_domains", "domains"),
-        ("discovery_ips", "ips"),
-        ("discovery_software", "software"),
-        ("discovery_ssl", "ssl"),
-    ):
+    table_col_map = (
+        ("discovery_domains", "domains", "domain"),
+        ("discovery_ips", "ips", "ip_address"),
+        ("discovery_software", "software", "product"),
+        ("discovery_ssl", "ssl", "endpoint"),
+    )
+    for table_name, key, col in table_col_map:
         if _table_exists(table_name):
-            count_sql = text(f"SELECT COUNT(*) FROM {table_name} WHERE COALESCE(is_deleted, 0) = 0")
+            count_sql = text(
+                f"SELECT COUNT(DISTINCT TRIM(LOWER({col}))) FROM {table_name} "
+                f"WHERE COALESCE(is_deleted, 0) = 0 AND {col} IS NOT NULL "
+                f"AND TRIM({col}) != '' AND TRIM(LOWER({col})) != '--'"
+            )
             table_counts[key] = int(db_session.execute(count_sql).scalar() or 0)
         else:
             table_counts[key] = 0
 
     if table_counts["ssl"] == 0:
         table_counts["ssl"] = int(
-            db_session.query(func.count(Certificate.id))
+            db_session.query(func.count(func.distinct(Asset.target)))
             .join(Asset, Certificate.asset_id == Asset.id)
             .filter(Certificate.is_deleted == False, Asset.is_deleted == False)
             .scalar()
