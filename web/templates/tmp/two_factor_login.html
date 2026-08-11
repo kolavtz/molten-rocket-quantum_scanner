@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Two-Factor Authentication // QuantumShield{% endblock %}
+
+{% block content %}
+<div class="login-page-wrapper">
+  <div class="login-card">
+    <div class="login-card-header">
+      <div class="shield-icon">🔒</div>
+      <div>
+        <h1>Enter Authentication Code</h1>
+        <p>Enter the 6-digit code from your authenticator app, or use a backup code.</p>
+      </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('two_factor_login') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="lf-group">
+        <label class="lf-label">One-time code</label>
+        <div class="lf-input-wrap">
+          <input class="lf-input" type="text" name="otp" placeholder="Authenticator or backup code" required>
+        </div>
+      </div>
+
+      <button class="btn-authorize" type="submit">Verify</button>
+    </form>
+
+    <div class="login-security-note">If you have lost your authenticator app, ask your administrator to reset your 2FA.</div>
+  </div>
+</div>
+{% endblock %}

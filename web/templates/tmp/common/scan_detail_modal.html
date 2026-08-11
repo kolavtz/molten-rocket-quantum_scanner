@@ -1,0 +1,441 @@
+<!-- scan_detail_modal.html - Scan Results Detail Modal (Glassmorphism) -->
+<div id="qsScanDetailModal" class="qs-modal-overlay" aria-hidden="true">
+    <div class="qs-modal-shell">
+        <!-- Header -->
+        <div class="qs-modal-header">
+            <div class="qs-modal-title-group">
+                <h2 id="qsScanDetailTitle">Scan Results</h2>
+                <div id="qsScanDetailSubtitle" class="qs-modal-subtitle">Loading scan details...</div>
+            </div>
+            <button class="qs-modal-close" onclick="window.ScanDetailModal.close()" aria-label="Close modal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Content (Scrollable) -->
+        <div class="qs-modal-content" style="overflow-y: auto; flex: 1; display: block;">
+            
+            <!-- Loading State -->
+            <div id="qsScanLoadingState" style="padding: 3rem 2rem; text-align: center; color: var(--text-muted);">
+                <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 2rem; margin-bottom: 1rem; display: block; color: var(--accent);"></i>
+                <p>Loading scan details...</p>
+            </div>
+
+            <!-- Content Container (Hidden until loaded) -->
+            <div id="qsScanContentContainer" style="display: none; padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1.5rem;">
+                
+                <!-- Scan Metadata Section -->
+                <div class="qs-detail-card" style="background: rgba(0, 255, 204, 0.03); border: 1px solid rgba(0, 255, 204, 0.1); padding: 1.25rem; border-radius: 12px;">
+                    <h3 style="margin: 0 0 1rem 0; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-info-circle"></i> Scan Metadata
+                    </h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem;">
+                        <div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem; font-weight: 600;">Target</div>
+                            <div id="qsScanTarget" style="font-size: 0.95rem; font-weight: 700; word-break: break-all;">--</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem; font-weight: 600;">Status</div>
+                            <div><span id="qsScanStatus" class="status-pill" style="padding: 0.3rem 0.75rem; font-size: 0.75rem; border-radius: 4px; display: inline-block;"></span></div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem; font-weight: 600;">Scan Type</div>
+                            <div id="qsScanType" style="font-size: 0.85rem;">--</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem; font-weight: 600;">Started</div>
+                            <div id="qsScanStarted" style="font-size: 0.8rem; font-family: 'JetBrains Mono', monospace;">--</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem; font-weight: 600;">Completed</div>
+                            <div id="qsScanCompleted" style="font-size: 0.8rem; font-family: 'JetBrains Mono', monospace;">--</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem; font-weight: 600;">Duration</div>
+                            <div id="qsScanDuration" style="font-size: 0.85rem;">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Summary Section -->
+                <div class="qs-detail-card" style="background: rgba(52, 199, 89, 0.03); border: 1px solid rgba(52, 199, 89, 0.1); padding: 1.25rem; border-radius: 12px;">
+                    <h3 style="margin: 0 0 1rem 0; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--pqc-safe, #34c759); display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-chart-pie"></i> Results Summary
+                    </h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem;">
+                        <div style="text-align: center; padding: 1rem; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                            <div id="qsResultsTargets" style="font-size: 1.75rem; font-weight: 800; color: var(--accent); line-height: 1;">0</div>
+                            <div style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 0.4rem; text-transform: uppercase; letter-spacing: 0.04em;">Targets</div>
+                        </div>
+                        <div style="text-align: center; padding: 1rem; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                            <div id="qsResultsHosts" style="font-size: 1.75rem; font-weight: 800; color: var(--pqc-safe, #34c759); line-height: 1;">0</div>
+                            <div style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 0.4rem; text-transform: uppercase; letter-spacing: 0.04em;">Hosts Found</div>
+                        </div>
+                        <div style="text-align: center; padding: 1rem; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                            <div id="qsResultsCerts" style="font-size: 1.75rem; font-weight: 800; color: var(--warning, #ffa500); line-height: 1;">0</div>
+                            <div style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 0.4rem; text-transform: uppercase; letter-spacing: 0.04em;">Certificates</div>
+                        </div>
+                        <div style="text-align: center; padding: 1rem; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                            <div id="qsResultsIssues" style="font-size: 1.75rem; font-weight: 800; color: var(--danger, #ff453a); line-height: 1;">0</div>
+                            <div style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 0.4rem; text-transform: uppercase; letter-spacing: 0.04em;">Issues</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Targets Section -->
+                <div class="qs-detail-card" style="border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); padding: 1.25rem;">
+                    <h3 style="margin: 0 0 1rem 0; font-size: 0.9rem; font-weight: 700; display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-server"></i> Targets Scanned
+                    </h3>
+                    <div style="max-height: 280px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px;">
+                        <table class="qs-detail-table" style="font-size: 0.85rem; width: 100%; border-collapse: collapse;">
+                            <thead style="background: rgba(255,255,255,0.02); position: sticky; top: 0;">
+                                <tr>
+                                    <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: 600;">Target</th>
+                                    <th style="padding: 0.75rem; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: 600; width: 100px;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="qsScanTargets">
+                                <tr><td colspan="2" style="padding: 1rem; text-align: center; color: var(--text-muted);">No targets found.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- SSL/TLS Certificates Section -->
+                <div class="qs-detail-card" style="border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); padding: 1.25rem;">
+                    <h3 style="margin: 0 0 1rem 0; font-size: 0.9rem; font-weight: 700; display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-lock"></i> SSL/TLS Certificates
+                    </h3>
+                    <div style="max-height: 350px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px;">
+                        <table class="qs-detail-table" style="font-size: 0.8rem; width: 100%; border-collapse: collapse;">
+                            <thead style="background: rgba(255,255,255,0.02); position: sticky; top: 0;">
+                                <tr>
+                                    <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: 600;">Common Name</th>
+                                    <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: 600;">Issuer</th>
+                                    <th style="padding: 0.75rem; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: 600; width: 90px;">Valid Until</th>
+                                    <th style="padding: 0.75rem; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: 600; width: 80px;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="qsScanCertificates">
+                                <tr><td colspan="4" style="padding: 1rem; text-align: center; color: var(--text-muted);">No certificates found.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Recommendations Section -->
+                <div class="qs-detail-card" style="background: rgba(255, 170, 0, 0.03); border: 1px solid rgba(255, 170, 0, 0.1); padding: 1.25rem; border-radius: 12px;">
+                    <h3 style="margin: 0 0 1rem 0; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--warning, #ffa500); display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-lightbulb"></i> Recommendations
+                    </h3>
+                    <div id="qsScanRecommendations" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div style="padding: 0.75rem; background: rgba(255,255,255,0.02); border-radius: 8px; border-left: 3px solid var(--warning, #ffa500); font-size: 0.85rem; line-height: 1.5;">
+                            <strong>No issues detected.</strong> All scanned targets passed validation checks.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: flex-end; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <button class="pnb-btn" onclick="window.ScanDetailModal.close()" style="padding: 0.6rem 1.5rem; font-size: 0.85rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">Close</button>
+                </div>
+            </div>
+
+            <!-- Error State -->
+            <div id="qsScanErrorState" style="display: none; padding: 2rem; text-align: center;">
+                <i class="fa-solid fa-exclamation-triangle" style="font-size: 2.5rem; margin-bottom: 1rem; display: block; color: var(--danger, #ff453a);"></i>
+                <div id="qsScanErrorMsg" style="color: var(--text-secondary); margin-bottom: 1.5rem;">Failed to load scan details.</div>
+                <button class="pnb-btn" onclick="window.ScanDetailModal.close()" style="padding: 0.6rem 1.5rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+window.ScanDetailModal = {
+    currentScanId: null,
+    
+    async open(scanId) {
+        this.currentScanId = scanId;
+        const modal = document.getElementById('qsScanDetailModal');
+        if (!modal) return;
+        
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+        
+        // Show loading state
+        document.getElementById('qsScanLoadingState').style.display = 'block';
+        document.getElementById('qsScanContentContainer').style.display = 'none';
+        document.getElementById('qsScanErrorState').style.display = 'none';
+        
+        try {
+            // Fetch scan details from API
+            const resp = await fetch(`/api/scans/${encodeURIComponent(scanId)}/result`, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                }
+            });
+            
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            
+            if (data.status !== 'success' || !data.data) {
+                throw new Error(data.message || 'Invalid response format');
+            }
+            
+            this.populateModal(data.data);
+            
+            // Hide loading, show content
+            document.getElementById('qsScanLoadingState').style.display = 'none';
+            document.getElementById('qsScanContentContainer').style.display = 'flex';
+            document.getElementById('qsScanErrorState').style.display = 'none';
+            
+        } catch (err) {
+            console.error('Failed to load scan details:', err);
+            document.getElementById('qsScanLoadingState').style.display = 'none';
+            document.getElementById('qsScanContentContainer').style.display = 'none';
+            document.getElementById('qsScanErrorMsg').textContent = `Error: ${err.message}`;
+            document.getElementById('qsScanErrorState').style.display = 'block';
+        }
+    },
+    
+    populateModal(report) {
+        // Scan ID and title
+        document.getElementById('qsScanDetailTitle').textContent = `Scan Results: ${report.target || 'Unknown'}`;
+        document.getElementById('qsScanDetailSubtitle').textContent = `Scan ID: ${(this.currentScanId || '').slice(0, 16)}`;
+        
+        // Metadata
+        document.getElementById('qsScanTarget').textContent = report.target || '--';
+        document.getElementById('qsScanType').textContent = report.scan_type || 'Standard';
+        
+        // Status pill
+        const status = (report.status || 'unknown').toUpperCase();
+        const statusEl = document.getElementById('qsScanStatus');
+        statusEl.textContent = status;
+        statusEl.setAttribute('data-status', status.toLowerCase());
+        if (status === 'COMPLETE') {
+            statusEl.style.background = 'rgba(52, 199, 89, 0.2)';
+            statusEl.style.color = 'var(--pqc-safe, #34c759)';
+            statusEl.style.border = '1px solid rgba(52, 199, 89, 0.4)';
+        } else if (status === 'FAILED') {
+            statusEl.style.background = 'rgba(255, 69, 58, 0.2)';
+            statusEl.style.color = 'var(--danger, #ff453a)';
+            statusEl.style.border = '1px solid rgba(255, 69, 58, 0.4)';
+        } else {
+            statusEl.style.background = 'rgba(255, 165, 0, 0.2)';
+            statusEl.style.color = 'var(--warning, #ffa500)';
+            statusEl.style.border = '1px solid rgba(255, 165, 0, 0.4)';
+        }
+        
+        // Timestamps
+        if (report.created_at) {
+            try {
+                const startTime = new Date(report.created_at);
+                document.getElementById('qsScanStarted').textContent = startTime.toLocaleString();
+            } catch (e) {}
+        }
+        
+        if (report.completed_at) {
+            try {
+                const endTime = new Date(report.completed_at);
+                document.getElementById('qsScanCompleted').textContent = endTime.toLocaleString();
+                
+                // Calculate duration
+                if (report.created_at) {
+                    const start = new Date(report.created_at);
+                    const end = new Date(report.completed_at);
+                    const durationMs = end - start;
+                    const seconds = Math.round(durationMs / 1000);
+                    document.getElementById('qsScanDuration').textContent = `${seconds}s`;
+                }
+            } catch (e) {}
+        }
+        
+        // Results summary
+        const results = report.results || [];
+        const certCount = (report.certificates || []).length;
+        
+        document.getElementById('qsResultsTargets').textContent = '1';
+        document.getElementById('qsResultsHosts').textContent = String(results.length || 0);
+        document.getElementById('qsResultsCerts').textContent = String(certCount);
+        
+        // Count issues
+        let issueCount = 0;
+        if (results.some(r => r.status !== 'completed')) {
+            issueCount += results.filter(r => r.status !== 'completed').length;
+        }
+        if (report.certificates) {
+            issueCount += (report.certificates || []).filter(c => {
+                const valid = c.valid_until ? new Date(c.valid_until) : null;
+                const now = new Date();
+                return valid && valid < now;
+            }).length;
+        }
+        document.getElementById('qsResultsIssues').textContent = String(issueCount);
+        
+        // Populate Targets table
+        const targetsBody = document.getElementById('qsScanTargets');
+        if (results.length > 0) {
+            targetsBody.innerHTML = results.map(r => `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 0.75rem;"><strong>${(r.target || r.ip || 'Unknown').slice(0, 35)}</strong></td>
+                    <td style="padding: 0.75rem; text-align: center;"><span class="status-pill" style="padding: 0.2rem 0.5rem; font-size: 0.7rem; border-radius: 4px; display: inline-block; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);">${(r.status || 'unknown').toUpperCase()}</span></td>
+                </tr>
+            `).join('');
+        }
+        
+        // Populate Certificates table
+        const certsBody = document.getElementById('qsScanCertificates');
+        if (report.certificates && report.certificates.length > 0) {
+            certsBody.innerHTML = report.certificates.map(c => {
+                const validUntil = c.valid_until ? new Date(c.valid_until) : null;
+                const isExpired = validUntil && validUntil < new Date();
+                const daysRemaining = validUntil ? Math.ceil((validUntil - new Date()) / (1000 * 60 * 60 * 24)) : null;
+                
+                let statusText = 'Valid';
+                let statusColor = 'var(--pqc-safe, #34c759)';
+                
+                if (isExpired) {
+                    statusText = 'EXPIRED';
+                    statusColor = 'var(--danger, #ff453a)';
+                } else if (daysRemaining !== null && daysRemaining <= 30) {
+                    statusText = `${daysRemaining}d`;
+                    statusColor = 'var(--warning, #ffa500)';
+                }
+                
+                return `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 0.75rem;"><strong>${(c.subject_cn || c.common_name || 'Unknown').slice(0, 30)}</strong></td>
+                        <td style="padding: 0.75rem; font-size: 0.75rem;">${(c.issuer || 'Unknown').slice(0, 25)}</td>
+                        <td style="padding: 0.75rem; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;">${validUntil ? validUntil.toLocaleDateString() : 'N/A'}</td>
+                        <td style="padding: 0.75rem; text-align: center;"><span class="status-pill" style="padding: 0.2rem 0.5rem; font-size: 0.65rem; border-radius: 4px; display: inline-block; background: rgba(${this._colorToRgb(statusColor)}, 0.2); color: ${statusColor}; border: 1px solid ${statusColor}40;">${statusText}</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // Populate Recommendations
+        const recsContainer = document.getElementById('qsScanRecommendations');
+        const recommendations = [];
+        
+        if (certCount > 0) {
+            const expiredCount = (report.certificates || []).filter(c => {
+                const valid = c.valid_until ? new Date(c.valid_until) : null;
+                const now = new Date();
+                return valid && valid < now;
+            }).length;
+            
+            if (expiredCount > 0) {
+                recommendations.push({
+                    type: 'danger',
+                    text: `<strong>${expiredCount} certificate(s) expired.</strong> Renew immediately to maintain service.`
+                });
+            }
+            
+            const expiringCount = (report.certificates || []).filter(c => {
+                const valid = c.valid_until ? new Date(c.valid_until) : null;
+                const now = new Date();
+                const days = valid ? Math.ceil((valid - now) / (1000 * 60 * 60 * 24)) : null;
+                return valid && days !== null && days > 0 && days <= 30;
+            }).length;
+            
+            if (expiringCount > 0) {
+                recommendations.push({
+                    type: 'warning',
+                    text: `<strong>${expiringCount} certificate(s) expiring within 30 days.</strong> Schedule renewal.`
+                });
+            }
+        }
+        
+        if (results.some(r => r.status !== 'completed')) {
+            const failedCount = results.filter(r => r.status !== 'completed').length;
+            recommendations.push({
+                type: 'danger',
+                text: `<strong>${failedCount} target(s) failed.</strong> Check connectivity and firewall rules.`
+            });
+        }
+        
+        if (recommendations.length === 0) {
+            recommendations.push({
+                type: 'success',
+                text: '<strong>No issues detected.</strong> All scanned targets passed validation checks.'
+            });
+        }
+        
+        const colorMap = {
+            success: 'rgba(52, 199, 89, 0.2)',
+            warning: 'rgba(255, 165, 0, 0.2)',
+            danger: 'rgba(255, 69, 58, 0.2)'
+        };
+        const borderColorMap = {
+            success: 'var(--pqc-safe, #34c759)',
+            warning: 'var(--warning, #ffa500)',
+            danger: 'var(--danger, #ff453a)'
+        };
+        
+        recsContainer.innerHTML = recommendations.map(rec => `
+            <div style="padding: 0.75rem; background: ${colorMap[rec.type]}; border-radius: 8px; border-left: 3px solid ${borderColorMap[rec.type]}; font-size: 0.85rem; line-height: 1.5;">
+                ${rec.text}
+            </div>
+        `).join('');
+    },
+    
+    _colorToRgb(color) {
+        // Simple color to rgba converter
+        if (color.includes('34c759')) return '52, 199, 89';
+        if (color.includes('ffa500')) return '255, 165, 0';
+        if (color.includes('ff453a')) return '255, 69, 58';
+        return '52, 199, 89';
+    },
+    
+    close() {
+        const modal = document.getElementById('qsScanDetailModal');
+        if (!modal) return;
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+        this.currentScanId = null;
+    }
+};
+
+// Close on backdrop click
+document.getElementById('qsScanDetailModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'qsScanDetailModal') {
+        window.ScanDetailModal.close();
+    }
+});
+
+// Close on Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.getElementById('qsScanDetailModal')?.classList.contains('open')) {
+        window.ScanDetailModal.close();
+    }
+});
+</script>
+
+<style>
+#qsScanDetailModal {
+    position: fixed;
+    inset: 0;
+    width: 100dvw;
+    height: 100dvh;
+    background: rgba(2, 6, 23, 0.88);
+    backdrop-filter: blur(8px) saturate(150%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99000;
+    padding: clamp(0.75rem, 3vw, 2rem);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+
+#qsScanDetailModal.open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+</style>

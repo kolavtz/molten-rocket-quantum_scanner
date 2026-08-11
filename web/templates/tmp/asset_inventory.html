@@ -1,0 +1,559 @@
+{% extends "base.html" %}
+{% block title %}Asset Inventory | QuantumShield{% endblock %}
+
+{% block head %}
+<style>
+/* ============================================================
+   ASSET INVENTORY — Reference Design (aSSET-INVENTORY_gemini)
+   ============================================================ */
+:root {
+    --bg-main:#060b17; --bg-card:#0d1527; --bg-card-hover:#131f38;
+    --border-color:#1e2d4a; --text-primary:#f1f5f9; --text-muted:#64748b;
+    --cyan-accent:#00f2fe; --cyan-hover:#02c5cf; --cyan-dim:rgba(0,242,254,0.1);
+    --red-accent:#ef4444; --red-dim:rgba(239,68,68,0.15);
+    --orange-accent:#f97316; --green-accent:#10b981; --green-dim:rgba(16,185,129,0.15);
+}
+/* Page */
+.inv-main { padding:1.75rem; max-width:1600px; margin:0 auto; }
+.page-title  { font-size:1.6rem; font-weight:800; margin-bottom:.25rem; letter-spacing:.5px; }
+.page-desc   { color:var(--text-muted); font-size:.9rem; margin-bottom:1.5rem; }
+
+/* Controls card */
+.controls-card { background:var(--bg-card); border:1px solid var(--border-color);
+                 border-radius:8px; padding:1.25rem; margin-bottom:1.5rem; }
+.filters-grid  { display:grid; grid-template-columns:2fr 1fr 1fr auto auto; gap:.85rem; align-items:flex-end; }
+@media(max-width:900px){ .filters-grid{ grid-template-columns:1fr 1fr; } }
+.form-group { display:flex; flex-direction:column; gap:.4rem; }
+.form-group label { font-size:.72rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; }
+input, select { background:#080e1c; border:1px solid var(--border-color); color:var(--text-primary);
+                padding:.6rem .8rem; border-radius:6px; font-size:.88rem; outline:none; transition:border-color .2s; }
+input:focus, select:focus { border-color:var(--cyan-accent); }
+.btn { background:var(--cyan-accent); color:#000; font-weight:700; padding:.6rem 1.2rem;
+       border:none; border-radius:6px; cursor:pointer; font-size:.85rem;
+       display:inline-flex; align-items:center; gap:.4rem; transition:all .2s; }
+.btn:hover { background:var(--cyan-hover); box-shadow:0 0 12px var(--cyan-dim); }
+.btn:disabled { opacity:.4; cursor:not-allowed; }
+.btn-secondary { background:transparent; color:var(--text-primary); border:1px solid var(--border-color); }
+.btn-secondary:hover { background:var(--border-color); }
+.btn-danger { background:var(--red-accent); color:#fff; border:none; }
+.btn-danger:hover { background:#dc2626; }
+
+/* Table container */
+.table-container { background:var(--bg-card); border:1px solid var(--border-color);
+                   border-radius:8px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,.3); }
+table { width:100%; border-collapse:collapse; text-align:left; font-size:.85rem; }
+th { background:#091122; padding:1rem .8rem; color:var(--cyan-accent); font-weight:700;
+     text-transform:uppercase; font-size:.75rem; border-bottom:1px solid var(--border-color);
+     letter-spacing:.5px; white-space:nowrap; }
+td { padding:.9rem .8rem; border-bottom:1px solid var(--border-color); color:var(--text-primary);
+     vertical-align:middle; }
+tr:hover td { background:var(--bg-card-hover); }
+
+/* Badges */
+.badge { padding:.25rem .6rem; border-radius:4px; font-size:.7rem; font-weight:800;
+         display:inline-block; text-transform:uppercase; }
+.badge-critical { background:var(--red-dim); color:var(--red-accent); border:1px solid var(--red-accent); }
+.badge-high  { background:rgba(249,115,22,.15); color:var(--orange-accent); border:1px solid var(--orange-accent); }
+.badge-medium{ background:rgba(250,204,21,.15); color:#facc15; border:1px solid #facc15; }
+.badge-low   { background:var(--green-dim); color:var(--green-accent); border:1px solid var(--green-accent); }
+.badge-expiring{ background:rgba(234,179,8,.15); color:#eab308; border:1px solid #eab308; }
+.badge-expired { background:var(--red-dim); color:var(--red-accent); border:1px solid var(--red-accent); }
+.badge-active  { background:var(--green-dim); color:var(--green-accent); border:1px solid var(--green-accent); }
+
+/* Scan status */
+.scan-pill { display:inline-flex; align-items:center; gap:.3rem; padding:.2rem .55rem;
+             border-radius:999px; font-size:.65rem; font-weight:800; text-transform:uppercase;
+             border:1px solid transparent; }
+.sp-complete,.sp-completed,.sp-success { color:var(--green-accent); background:var(--green-dim); border-color:var(--green-accent); }
+.sp-running,.sp-started,.sp-in_progress{ color:var(--cyan-accent); background:var(--cyan-dim); border-color:var(--cyan-accent); animation:sp-pulse 1.8s infinite; }
+.sp-queued  { color:#38bdf8; background:rgba(56,189,248,.12); border-color:rgba(56,189,248,.3); }
+.sp-failed,.sp-error { color:var(--red-accent); background:var(--red-dim); border-color:var(--red-accent); }
+.sp-never   { color:var(--text-muted); background:rgba(100,116,139,.08); border-color:rgba(100,116,139,.2); }
+.dot-pulse  { width:5px; height:5px; border-radius:50%; background:currentColor; animation:blink .9s infinite; }
+@keyframes blink   { 0%,100%{opacity:1}50%{opacity:.15} }
+@keyframes sp-pulse{ 0%,100%{border-color:var(--cyan-accent)}50%{border-color:rgba(0,242,254,.2)} }
+
+/* Action buttons */
+.action-group { display:grid; grid-template-columns:1fr 1fr; gap:.35rem; min-width:180px; }
+.btn-action { padding:.35rem .5rem; font-size:.72rem; border-radius:4px;
+              border:1px solid var(--border-color); background:#111d33;
+              color:var(--text-primary); cursor:pointer; font-weight:600;
+              display:inline-flex; align-items:center; justify-content:center; gap:.25rem; transition:all .2s; }
+.btn-action:hover { border-color:var(--cyan-accent); color:var(--cyan-accent); background:#162645; }
+.btn-action:disabled { opacity:.4; cursor:not-allowed; }
+.btn-action.run-scan { color:#34d399; border-color:rgba(52,211,153,.3); background:rgba(16,185,129,.08); }
+.btn-action.run-scan:hover { background:rgba(16,185,129,.2); border-color:#34d399; }
+.btn-action.bin { color:#f87171; border-color:rgba(248,113,113,.3); background:rgba(239,68,68,.08); }
+.btn-action.bin:hover { background:rgba(239,68,68,.2); border-color:#f87171; }
+
+/* Pagination */
+.pagination-bar { padding:.8rem 1.2rem; background:#091122; display:flex;
+                  justify-content:space-between; align-items:center; font-size:.8rem; color:var(--text-muted); flex-wrap:wrap; gap:.5rem; }
+.pg-pages { display:flex; gap:.4rem; align-items:center; }
+.pg-btn { padding:.3rem .65rem; border-radius:4px; border:1px solid var(--border-color);
+          background:transparent; color:var(--text-primary); font-size:.78rem; cursor:pointer; transition:all .2s; }
+.pg-btn:hover,.pg-btn.active { background:var(--cyan-accent); color:#000; border-color:var(--cyan-accent); }
+.pg-btn:disabled { opacity:.3; cursor:not-allowed; }
+
+/* Modal */
+.modal-backdrop { position:fixed; top:0; left:0; width:100vw; height:100vh;
+                  background:rgba(3,7,18,.88); backdrop-filter:blur(8px);
+                  display:flex; align-items:center; justify-content:center;
+                  z-index:10000; opacity:0; pointer-events:none; transition:opacity .25s; }
+.modal-backdrop.active { opacity:1; pointer-events:auto; }
+.modal-card { background:var(--bg-card); border:1px solid var(--border-color);
+              border-radius:12px; width:90%; max-width:600px;
+              box-shadow:0 20px 50px rgba(0,0,0,.6),0 0 20px rgba(0,242,254,.08);
+              transform:scale(.93); transition:transform .25s; overflow:hidden; display:flex; flex-direction:column; }
+.modal-backdrop.active .modal-card { transform:scale(1); }
+.modal-card.modal-lg { max-width:900px; max-height:80vh; }
+.modal-header { padding:1.25rem 1.5rem; border-bottom:1px solid var(--border-color);
+                display:flex; justify-content:space-between; align-items:center; background:#0a1122; }
+.modal-title-wrap { display:flex; align-items:center; gap:.6rem; }
+.modal-title    { font-size:1.1rem; font-weight:700; }
+.modal-subtitle { font-size:.8rem; color:var(--text-muted); margin-top:.15rem; }
+.close-btn { background:transparent; border:none; color:var(--text-muted);
+             font-size:1.25rem; cursor:pointer; border-radius:4px; padding:.2rem; transition:color .2s; }
+.close-btn:hover { color:var(--cyan-accent); }
+.modal-body { padding:1.5rem; overflow-y:auto; flex:1; }
+.modal-footer { padding:1rem 1.5rem; border-top:1px solid var(--border-color);
+                display:flex; justify-content:flex-end; gap:.75rem; background:#0a1122; }
+.form-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+.form-mb { margin-bottom:1rem; }
+
+/* Toast */
+.inv-toast { position:fixed; bottom:1.5rem; right:1.5rem; z-index:99999;
+             background:var(--bg-card); border:1px solid var(--border-color);
+             border-radius:10px; padding:.8rem 1.2rem; font-size:.85rem; max-width:340px;
+             box-shadow:0 8px 32px rgba(0,0,0,.5); opacity:0;
+             transform:translateY(12px); transition:all .3s; pointer-events:none; }
+.inv-toast.show { opacity:1; transform:translateY(0); pointer-events:auto; }
+
+/* Empty state */
+.inv-empty { text-align:center; padding:3.5rem 2rem; color:var(--text-muted); }
+.inv-empty p { margin-top:.75rem; font-size:.9rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="inv-main">
+    <div class="page-title">ASSET INVENTORY</div>
+    <div class="page-desc">Unified management of certificates, PQC posture, and cryptographic discoveries.</div>
+
+    <!-- Controls -->
+    <div class="controls-card">
+        <div class="filters-grid">
+            <div class="form-group">
+                <label>Search Assets</label>
+                <input type="text" id="searchInput" placeholder="Search assets, endpoints, domains…">
+            </div>
+            <div class="form-group">
+                <label>Asset Type</label>
+                <select id="typeFilter">
+                    <option value="">All Types</option>
+                    <option>Web App</option><option>API</option>
+                    <option>Server</option><option>VPN/Gateway</option>
+                    <option>Internet Banking</option><option>API Gateway</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Risk Level</label>
+                <select id="riskFilter">
+                    <option value="">All Risks</option>
+                    <option value="Critical">Critical</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                </select>
+            </div>
+            <div style="align-self:flex-end;">
+                <button class="btn" onclick="applyFilters()">FILTER</button>
+            </div>
+            <div style="align-self:flex-end;">
+                <button class="btn btn-secondary" onclick="resetFilters()">RESET</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:30px;"><input type="checkbox" id="selectAll"></th>
+                    <th>Asset Name</th>
+                    <th>URL</th>
+                    <th>Type</th>
+                    <th>Owner</th>
+                    <th>Risk</th>
+                    <th>Cert Status</th>
+                    <th>Key Length</th>
+                    <th>Last Scan</th>
+                    <th>Scan Status</th>
+                    <th style="text-align:center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="inventoryTbody">
+                <tr><td colspan="11"><div class="inv-empty"><p>Loading inventory…</p></div></td></tr>
+            </tbody>
+        </table>
+        <div class="pagination-bar">
+            <div>Showing <span id="showCount">0</span> of <span id="totalCount">0</span> assets</div>
+            <div class="pg-pages" id="pgPages"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Overlay -->
+<div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal-card" id="modalCard"><!-- dynamically hydrated --></div>
+</div>
+
+<!-- Toast -->
+<div class="inv-toast" id="invToast"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+'use strict';
+
+/* ── State ── */
+const S = { page:1, pageSize:25, sort:'name', order:'asc', search:'', assetType:'', risk:'',
+            totalPages:1, total:0, items:[], polling:null };
+
+/* ── Helpers ── */
+const CSRF = () => document.querySelector('meta[name="csrf-token"]')?.content
+                || document.querySelector('input[name="csrf_token"]')?.value || '';
+
+function fmtDate(v){ if(!v) return '—'; try{ return new Date(v).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }catch{return v;} }
+
+function riskCls(r){ return {critical:'badge-critical',high:'badge-high',medium:'badge-medium',low:'badge-low'}[(r||'').toLowerCase()]||'badge-medium'; }
+
+function scanCls(s){
+    const v=(s||'').toLowerCase().replace(/[\s-]/g,'_');
+    if(['complete','completed','success'].includes(v)) return 'sp-complete';
+    if(['running','in_progress','started'].includes(v)) return 'sp-running';
+    if(v==='queued') return 'sp-queued';
+    if(['failed','error'].includes(v)) return 'sp-failed';
+    return 'sp-never';
+}
+
+function isActive(s){ return ['queued','running','in_progress','started'].includes((s||'').toLowerCase()); }
+
+function toast(msg,type='info'){
+    const el=document.getElementById('invToast');
+    const c={success:'#10b981',error:'#ef4444',info:'#00f2fe',warning:'#f97316'};
+    el.style.borderColor=c[type]||c.info;
+    el.textContent=msg;
+    el.classList.add('show');
+    setTimeout(()=>el.classList.remove('show'),3500);
+}
+
+/* ── API ── */
+async function api(url,opts={}){
+    const r=await fetch(url,{headers:{'Accept':'application/json',...(opts.headers||{})},...opts});
+    return {ok:r.ok,status:r.status,data:await r.json().catch(()=>({}))};
+}
+
+/* ── Load inventory ── */
+async function load(silent=false){
+    const q=new URLSearchParams({page:S.page,page_size:S.pageSize,sort:S.sort,order:S.order,q:S.search,asset_type:S.assetType});
+    if(S.risk) q.set('risk_min',{critical:76,high:51,medium:26,low:0}[S.risk.toLowerCase()]||0);
+    try{
+        const {ok,data}=await api(`/api/v1/assets?${q}`);
+        if(!ok) throw new Error(data?.message||'API error');
+        const d=data.data||data;
+        S.total=d.total||0; S.totalPages=d.total_pages||1; S.items=d.items||[];
+        render(S.items,silent);
+        renderPagination();
+        if(S.items.some(i=>isActive(i.scan_status||i.last_scan_status))) startPolling();
+    }catch(e){
+        if(!silent) document.getElementById('inventoryTbody').innerHTML=
+            `<tr><td colspan="11"><div class="inv-empty"><p style="color:#ef4444;">Error: ${e.message}</p></div></td></tr>`;
+    }
+}
+
+/* ── Render table ── */
+function render(items,silent=false){
+    const tbody=document.getElementById('inventoryTbody');
+    document.getElementById('showCount').textContent=items.length;
+    document.getElementById('totalCount').textContent=S.total;
+    if(!items.length){
+        tbody.innerHTML=`<tr><td colspan="11"><div class="inv-empty"><p>No assets found. Run a scan to populate your inventory.</p></div></td></tr>`;
+        return;
+    }
+    tbody.innerHTML=items.map(a=>{
+        const id=a.id||'',name=a.name||a.target||'—',url=a.url||'',
+              atype=a.asset_type||a.type||'Web App',owner=a.owner||'Unassigned',
+              risk=a.risk_level||a.risk||'Medium',lastScan=fmtDate(a.last_scan||a.last_scanned_at),
+              scanSt=a.scan_status||a.last_scan_status||'Never',certSt=a.cert_status||'—',
+              keyLen=a.key_length||'—',sc=scanCls(scanSt),pulse=isActive(scanSt)?'<span class="dot-pulse"></span>':'';
+        return `<tr data-asset-id="${id}">
+            <td><input type="checkbox" class="row-chk" value="${id}"></td>
+            <td style="font-weight:700;color:var(--cyan-accent);">${name}</td>
+            <td style="color:var(--text-muted);font-size:.8rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${url||'—'}</td>
+            <td>${atype}</td>
+            <td>${owner}</td>
+            <td><span class="badge ${riskCls(risk)}">${risk}</span></td>
+            <td>${certSt!=='—'?`<span class="badge badge-${certSt.toLowerCase().includes('expir')?'expiring':certSt.toLowerCase().includes('active')?'active':'high'}">${certSt}</span>`:certSt}</td>
+            <td>${keyLen}</td>
+            <td style="font-size:.8rem;color:var(--text-muted);">${lastScan}</td>
+            <td><span class="scan-pill ${sc}">${pulse}${scanSt}</span></td>
+            <td>
+                <div class="action-group">
+                    <button class="btn-action" data-action="edit"
+                        data-id="${id}" data-name="${name}" data-url="${url}"
+                        data-owner="${owner}" data-risk="${risk}" data-type="${atype}">📝 EDIT</button>
+                    <button class="btn-action" data-action="view-scan" data-id="${id}" data-name="${name}">📊 VIEW SCAN</button>
+                    <button class="btn-action run-scan" data-action="run-scan" data-id="${id}" data-name="${name}">⚡ RUN SCAN</button>
+                    <button class="btn-action bin" data-action="bin" data-id="${id}" data-name="${name}">🗑 BIN</button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+/* ── Pagination ── */
+function renderPagination(){
+    const el=document.getElementById('pgPages');
+    if(S.totalPages<=1){el.innerHTML='';return;}
+    let h=`<button class="pg-btn" onclick="goPage(${S.page-1})" ${S.page===1?'disabled':''}>‹</button>`;
+    for(let i=Math.max(1,S.page-2);i<=Math.min(S.totalPages,S.page+2);i++)
+        h+=`<button class="pg-btn${i===S.page?' active':''}" onclick="goPage(${i})">${i}</button>`;
+    h+=`<button class="pg-btn" onclick="goPage(${S.page+1})" ${S.page===S.totalPages?'disabled':''}>›</button>`;
+    el.innerHTML=h;
+}
+window.goPage=function(p){if(p<1||p>S.totalPages)return;S.page=p;load();}
+
+/* ── Filters ── */
+window.applyFilters=function(){
+    S.search=document.getElementById('searchInput').value.trim();
+    S.assetType=document.getElementById('typeFilter').value;
+    S.risk=document.getElementById('riskFilter').value;
+    S.page=1; load();
+};
+window.resetFilters=function(){
+    document.getElementById('searchInput').value='';
+    document.getElementById('typeFilter').value='';
+    document.getElementById('riskFilter').value='';
+    S.search='';S.assetType='';S.risk='';S.page=1;load();
+};
+document.getElementById('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')applyFilters();});
+
+/* ── Row actions (delegated) ── */
+document.getElementById('inventoryTbody').addEventListener('click',e=>{
+    const btn=e.target.closest('[data-action]');
+    if(!btn) return;
+    const ds=btn.dataset,a=ds.action;
+    if(a==='edit')     openEditModal(ds);
+    if(a==='view-scan')openViewScanModal(ds);
+    if(a==='run-scan') openRunScanModal(ds);
+    if(a==='bin')      openBinModal(ds);
+});
+
+/* ── Select all ── */
+document.getElementById('selectAll').addEventListener('change',e=>{
+    document.querySelectorAll('.row-chk').forEach(c=>c.checked=e.target.checked);
+});
+
+/* ── Modal system ── */
+const backdrop=document.getElementById('modalBackdrop'),card=document.getElementById('modalCard');
+function showModal(html,large=false){
+    card.className='modal-card'+(large?' modal-lg':'');
+    card.innerHTML=html;
+    backdrop.classList.add('active');
+    document.body.style.overflow='hidden';
+}
+window.closeModal=function(){
+    backdrop.classList.remove('active');
+    document.body.style.overflow='';
+};
+backdrop.addEventListener('click',e=>{if(e.target===backdrop)closeModal();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&backdrop.classList.contains('active'))closeModal();});
+
+/* ── EDIT modal ── */
+function openEditModal(ds){
+    showModal(`
+        <div class="modal-header">
+            <div class="modal-title-wrap"><span>📝</span>
+                <div><div class="modal-title">Edit Asset</div>
+                <div class="modal-subtitle">Update owner and risk classification for ${ds.name||'asset'}.</div></div>
+            </div>
+            <button class="close-btn" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <form id="editForm" onsubmit="saveEdit(event,'${ds.id}')">
+                <div class="form-group form-mb"><label>Asset Name / Target</label>
+                    <input id="eName" value="${ds.name||''}"></div>
+                <div class="form-group form-mb"><label>URL</label>
+                    <input id="eUrl" value="${ds.url||''}"></div>
+                <div class="form-grid-2">
+                    <div class="form-group"><label>Owner / Team</label>
+                        <input id="eOwner" value="${ds.owner||''}"></div>
+                    <div class="form-group"><label>Risk Classification</label>
+                        <select id="eRisk">
+                            <option ${ds.risk==='Critical'?'selected':''}>Critical</option>
+                            <option ${ds.risk==='High'?'selected':''}>High</option>
+                            <option ${ds.risk==='Medium'?'selected':''}>Medium</option>
+                            <option ${ds.risk==='Low'?'selected':''}>Low</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="editFb" style="margin-top:.75rem;display:none;padding:.6rem;border-radius:6px;font-size:.82rem;"></div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal()">CANCEL</button>
+            <button class="btn" form="editForm" type="submit">💾 SAVE CHANGES</button>
+        </div>`);
+}
+window.saveEdit=async function(e,id){
+    e.preventDefault();
+    const owner=document.getElementById('eOwner').value;
+    const risk=document.getElementById('eRisk').value;
+    const fb=document.getElementById('editFb');
+    try{
+        const r=await api(`/api/assets/${id}/edit`,{method:'POST',
+            headers:{'Content-Type':'application/json','X-CSRFToken':CSRF()},
+            body:JSON.stringify({owner,risk_level:risk,csrf_token:CSRF()})});
+        if(r.ok&&(r.data?.status==='success'||r.data?.success)){
+            toast('Asset updated.','success'); closeModal(); load(true);
+        } else throw new Error(r.data?.message||'Update failed');
+    }catch(err){
+        fb.style.cssText='display:block;background:rgba(239,68,68,.1);color:#ef4444;border:1px solid #ef4444;';
+        fb.textContent=err.message;
+    }
+};
+
+/* ── VIEW SCAN modal ── */
+async function openViewScanModal(ds){
+    showModal(`
+        <div class="modal-header">
+            <div class="modal-title-wrap"><span>📊</span>
+                <div><div class="modal-title">Scan History: ${ds.name||'Asset'}</div>
+                <div class="modal-subtitle">Asset ID: ${ds.id}</div></div>
+            </div>
+            <button class="close-btn" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body" id="scanHistBody"><p style="color:var(--text-muted);">Loading…</p></div>
+        <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal()">CLOSE</button></div>`,true);
+    try{
+        const r=await api(`/api/assets/${ds.id}/scans?page=1&page_size=10`);
+        const scans=r.data?.data?.scans||r.data?.data?.items||[];
+        const body=document.getElementById('scanHistBody');
+        if(!body) return;
+        if(!scans.length){body.innerHTML='<p style="color:var(--text-muted);text-align:center;padding:2rem;">No scans recorded yet.</p>';return;}
+        body.innerHTML=`<div style="overflow-x:auto;">
+            <table><thead><tr><th>Scan ID</th><th>Status</th><th>Started</th><th>Completed</th><th>PQC Score</th><th>Services</th><th>CBOM</th></tr></thead>
+            <tbody>${scans.map(s=>`<tr>
+                <td style="font-family:monospace;font-size:.75rem;color:var(--cyan-accent);">${(s.scan_id||'').slice(0,12)}</td>
+                <td><span class="scan-pill ${scanCls(s.status)}">${s.status||'—'}</span></td>
+                <td style="font-size:.78rem;">${fmtDate(s.started_at)}</td>
+                <td style="font-size:.78rem;">${fmtDate(s.completed_at)}</td>
+                <td style="font-weight:700;color:var(--cyan-accent);">${s.pqc_score!=null?parseFloat(s.pqc_score).toFixed(1):'—'}</td>
+                <td>${s.services_discovered||0}</td>
+                <td>${s.cbom_components||0}</td>
+            </tr>`).join('')}</tbody></table></div>`;
+    }catch(e){
+        const b=document.getElementById('scanHistBody');
+        if(b) b.innerHTML=`<p style="color:var(--red-accent);padding:1rem;">Error: ${e.message}</p>`;
+    }
+}
+
+/* ── RUN SCAN modal ── */
+function openRunScanModal(ds){
+    showModal(`
+        <div class="modal-header">
+            <div class="modal-title-wrap"><span>⚡</span>
+                <div><div class="modal-title">Initiate Cryptographic Scan</div>
+                <div class="modal-subtitle">Target: ${ds.name||ds.id}</div></div>
+            </div>
+            <button class="close-btn" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body" id="scanRunBody">
+            <p style="font-size:.9rem;color:var(--text-muted);margin-bottom:1rem;">
+                This performs a non-disruptive TLS handshake probe to enumerate cipher suites and X.509 certificate chains.
+            </p>
+            <div style="background:#080e1c;padding:1rem;border-radius:6px;border:1px solid var(--border-color);font-size:.85rem;line-height:1.7;">
+                <div>• Active Cipher Probe: <strong>ENABLED</strong></div>
+                <div>• CERT-In CBOM Parsing: <strong>ENABLED</strong></div>
+                <div>• Post-Quantum Vulnerability Check: <strong>ENABLED</strong></div>
+            </div>
+        </div>
+        <div class="modal-footer" id="scanRunFooter">
+            <button class="btn btn-secondary" onclick="closeModal()">CANCEL</button>
+            <button class="btn" onclick="executeScan('${ds.id}','${ds.name||ds.id}')">START SCAN NOW</button>
+        </div>`);
+}
+window.executeScan=async function(id,name){
+    const body=document.getElementById('scanRunBody'),footer=document.getElementById('scanRunFooter');
+    if(!body) return;
+    body.innerHTML=`<div style="text-align:center;padding:2rem 0;">
+        <div style="font-size:2rem;animation:spin 1s linear infinite;display:inline-block;">⚙️</div>
+        <div style="font-weight:700;color:var(--cyan-accent);font-size:1.1rem;margin-top:.75rem;">Scanning Endpoint...</div>
+        <div style="font-size:.85rem;color:var(--text-muted);margin-top:.5rem;">Executing TLS cipher inspection</div>
+    </div><style>@keyframes spin{100%{transform:rotate(360deg)}}</style>`;
+    if(footer) footer.style.display='none';
+    try{
+        const r=await api('/assets/scan',{method:'POST',
+            headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':CSRF()},
+            body:new URLSearchParams({asset_id:id,csrf_token:CSRF()})});
+        if(r.ok){
+            toast(`Scan started for ${name}.`,'success');
+            closeModal(); load(true); startPolling();
+        } else throw new Error(r.data?.message||'Scan failed');
+    }catch(e){
+        if(body) body.innerHTML=`<p style="color:var(--red-accent);padding:1rem;text-align:center;">Error: ${e.message}</p>`;
+        if(footer) footer.style.display='';
+    }
+};
+
+/* ── BIN modal ── */
+function openBinModal(ds){
+    showModal(`
+        <div class="modal-header">
+            <div class="modal-title-wrap"><span style="color:var(--red-accent);">🗑</span>
+                <div><div class="modal-title">Move Asset to Recycle Bin</div>
+                <div class="modal-subtitle">Are you sure you want to archive this target?</div></div>
+            </div>
+            <button class="close-btn" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div style="background:rgba(239,68,68,.1);border:1px solid var(--red-accent);padding:1rem;border-radius:6px;color:#fca5a5;font-size:.88rem;line-height:1.5;">
+                <strong>Warning:</strong> Moving <strong>${ds.name}</strong> to the recycle bin will suspend automated scans and telemetry monitoring for this endpoint.
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal()">CANCEL</button>
+            <button class="btn btn-danger" onclick="confirmDelete('${ds.id}','${ds.name}')">CONFIRM REMOVAL</button>
+        </div>`);
+}
+window.confirmDelete=async function(id,name){
+    try{
+        const r=await api(`/api/assets/${id}/delete`,{method:'POST',
+            headers:{'Content-Type':'application/json','X-CSRFToken':CSRF()},
+            body:JSON.stringify({csrf_token:CSRF()})});
+        if(r.ok&&(r.data?.status==='success'||r.data?.success)){
+            toast(`"${name}" moved to Recycle Bin.`,'success'); closeModal(); load();
+        } else throw new Error(r.data?.message||'Delete failed');
+    }catch(e){ toast(e.message,'error'); closeModal(); }
+};
+
+/* ── Real-time polling (flicker-free) ── */
+function startPolling(){
+    if(S.polling) return;
+    S.polling=setInterval(async()=>{
+        const hasActive=document.querySelectorAll('.sp-running,.sp-queued').length>0;
+        if(!hasActive){stopPolling();return;}
+        await load(true);
+    },7000);
+}
+function stopPolling(){ if(S.polling){clearInterval(S.polling);S.polling=null;} }
+
+/* ── Boot ── */
+load();
+})();
+</script>
+{% endblock %}

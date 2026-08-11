@@ -101,6 +101,9 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
         "domains": {
             "table": "discovery_domains",
             "value_col": "domain",
+            "asset_id_col": "asset_id",
+            "status_expr": "d.status",
+            "date_expr": "COALESCE(d.updated_at, d.created_at)",
             "name_expr": "d.domain",
             "search_cols": ["d.domain", "a.target", "a.owner"],
             "sort_map": {
@@ -113,6 +116,9 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
         "ips": {
             "table": "discovery_ips",
             "value_col": "ip_address",
+            "asset_id_col": "asset_id",
+            "status_expr": "d.status",
+            "date_expr": "COALESCE(d.updated_at, d.created_at)",
             "name_expr": "d.ip_address",
             "search_cols": ["d.ip_address", "d.location", "a.target", "a.owner"],
             "sort_map": {
@@ -125,6 +131,9 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
         "software": {
             "table": "discovery_software",
             "value_col": "product",
+            "asset_id_col": "asset_id",
+            "status_expr": "d.status",
+            "date_expr": "COALESCE(d.updated_at, d.created_at)",
             "name_expr": "CONCAT(COALESCE(d.product, ''), CASE WHEN COALESCE(d.version, '') = '' THEN '' ELSE CONCAT(' ', d.version) END)",
             "search_cols": ["d.product", "d.version", "d.category", "a.target", "a.owner"],
             "sort_map": {
@@ -137,21 +146,35 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
         "subdomains": {
             "table": "subdomains",
             "value_col": "subdomain",
+            # asset join is done via target match (subdomain gets its own Asset row when inventoried)
+            "asset_id_col": None,
+            "status_expr": "CASE WHEN COALESCE(d.is_inventoried, 0) = 1 THEN 'confirmed' ELSE 'new' END",
+            "date_expr": "COALESCE(d.discovered_at, d.created_at)",
             "name_expr": "d.subdomain",
-            "search_cols": ["d.subdomain", "a.target", "a.owner"],
+            "search_cols": ["d.subdomain"],
             "sort_map": {
                 "id": "d.id",
                 "name": "d.subdomain",
-                "detection_date": "d.discovered_at",
-                "status": "''", # Subdomains don't have a status column yet in the schema provided
+                "detection_date": "COALESCE(d.discovered_at, d.created_at)",
+                "status": "COALESCE(d.is_inventoried, 0)",
             },
         },
     }.get(tab)
     if not config or not _table_exists(config["table"]):
         return [], 0
 
+    vc = config["value_col"]
+    asset_id_col = config["asset_id_col"]  # None for subdomains
+    status_expr = config["status_expr"]
+    date_expr = config["date_expr"]
+
     like = f"%{params['search']}%" if params.get("search") else None
-    where_parts = ["COALESCE(d.is_deleted, 0) = 0"]
+    where_parts = [
+        "COALESCE(d.is_deleted, 0) = 0",
+        f"d.{vc} IS NOT NULL",
+        f"TRIM(d.{vc}) != ''",
+        f"TRIM(LOWER(d.{vc})) != '--'",
+    ]
     sql_params: dict[str, Any] = {
         "limit": params["page_size"],
         "offset": (params["page"] - 1) * params["page_size"],
@@ -167,24 +190,52 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
     where_sql = " AND ".join(where_parts)
     sort_sql = config["sort_map"].get(params.get("sort") or "", config["sort_map"]["detection_date"])
     order_sql = "DESC" if str(params.get("order", "asc")).lower() == "desc" else "ASC"
+
+    # Dedup inner join: only latest row per unique identifier
+    dedup_join = f"""
+        INNER JOIN (
+            SELECT MAX(id) AS max_id
+            FROM {config["table"]}
+            WHERE COALESCE(is_deleted, 0) = 0
+              AND {vc} IS NOT NULL
+              AND TRIM({vc}) != ''
+              AND TRIM(LOWER({vc})) != '--'
+            GROUP BY TRIM(LOWER({vc}))
+        ) d_latest ON d.id = d_latest.max_id
+    """
+
+    # For subdomains: join to the subdomain's own asset record (created when inventoried)
+    # For others: join via the stored asset_id foreign key
+    if asset_id_col is None:
+        asset_join = "LEFT JOIN assets a ON LOWER(a.target) = LOWER(d.subdomain) AND COALESCE(a.is_deleted, 0) = 0"
+        count_asset_join = "LEFT JOIN assets a ON LOWER(a.target) = LOWER(d.subdomain) AND COALESCE(a.is_deleted, 0) = 0"
+    else:
+        asset_join = f"LEFT JOIN assets a ON a.id = d.{asset_id_col} AND COALESCE(a.is_deleted, 0) = 0"
+        count_asset_join = f"LEFT JOIN assets a ON a.id = d.{asset_id_col} AND COALESCE(a.is_deleted, 0) = 0"
+
     query_sql = f"""
         SELECT
             d.id,
             {config["name_expr"]} AS name,
-            d.status,
-            COALESCE(d.updated_at, d.created_at) AS detection_date,
+            {status_expr} AS status,
+            {date_expr} AS detection_date,
             a.id AS asset_id,
             a.target AS asset_name,
             a.owner AS owner
         FROM {config["table"]} d
-        LEFT JOIN assets a
-            ON a.id = d.asset_id
-           AND COALESCE(a.is_deleted, 0) = 0
+        {dedup_join}
+        {asset_join}
         WHERE {where_sql}
         ORDER BY {sort_sql} {order_sql}, d.id DESC
         LIMIT :limit OFFSET :offset
     """
-    count_sql = f"SELECT COUNT(*) FROM {config['table']} d LEFT JOIN assets a ON a.id = d.asset_id AND COALESCE(a.is_deleted, 0) = 0 WHERE {where_sql}"
+    count_sql = f"""
+        SELECT COUNT(*)
+        FROM {config['table']} d
+        {dedup_join}
+        {count_asset_join}
+        WHERE {where_sql}
+    """
 
     rows = db_session.execute(text(query_sql), sql_params).mappings().all()
     total = int(db_session.execute(text(count_sql), sql_params).scalar() or 0)
@@ -964,12 +1015,19 @@ def api_assets():
     from web.routes.assets import build_assets_api_response
 
     params = parse_paging_args(default_sort="name")
+    asset_type = request.args.get("asset_type", default="", type=str)
+    risk_min = request.args.get("risk_min", default=None, type=int)
+    risk_max = request.args.get("risk_max", default=None, type=int)
+
     data, filters = build_assets_api_response(
         page=params["page"],
         page_size=params["page_size"],
         sort=params["sort"] or "name",
         order=params["order"],
         search=params["search"],
+        asset_type=asset_type,
+        risk_min=risk_min,
+        risk_max=risk_max,
     )
     payload = {
         "success": True,

@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}Scan Center // QuantumShield{% endblock %}
+
+{% block head %}
+<style>
+    .scan-container { padding: 1.5rem 0; }
+    .scan-hero { margin-bottom: 2rem; }
+    .scan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+    .tab-nav { display: flex; gap: 0.5rem; padding: 0.25rem; background: rgba(255, 255, 255, 0.03); border-radius: 12px; border: 1px solid var(--border-subtle); width: fit-content; margin-bottom: 1.5rem; }
+    .tab-btn { padding: 0.6rem 1.25rem; border-radius: 10px; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); cursor: pointer; transition: all 0.2s ease; border: none; background: transparent; text-transform: uppercase; letter-spacing: 0.05em; }
+    .tab-btn.active { background: var(--accent); color: var(--bg-primary); box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 30%, transparent); }
+    .scan-input { width: 100%; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 0.75rem 1rem; color: var(--text-primary); font-size: 0.85rem; outline: none; transition: border-color 0.2s; }
+    .scan-input:focus { border-color: var(--accent); }
+    .history-table-container { margin-bottom: 2rem; }
+    @media (max-width: 1000px) { .scan-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="scan-container">
+    <div class="scan-hero">
+        <h1 style="font-size: 2.5rem; font-weight: 900; letter-spacing: -0.02em; margin: 0;">SCAN CENTER</h1>
+        <p style="color: var(--text-secondary); margin-top: 0.5rem;">Dedicated workflow for cryptographic discovery and CBOM generation.</p>
+    </div>
+
+    <!-- Active & Initialization Section -->
+    <div class="scan-grid">
+        <div class="glass-card" style="padding: 1.5rem;">
+            <div class="metric-title" style="margin-bottom: 1.5rem;"><i class="fa-solid fa-play" style="margin-right:8px; color:var(--accent);"></i> Initialize New Discovery</div>
+            
+            <div class="tab-nav">
+                <button class="tab-btn active" onclick="switchMode(this, 'single')">Single Target</button>
+                <button class="tab-btn" onclick="switchMode(this, 'bulk')">Bulk Process</button>
+            </div>
+
+            <form action="/scan" method="POST" id="scanForm" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <div id="modeSingle">
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.4rem; display: block;">Target Host / URL</label>
+                        <input name="target" type="text" class="scan-input" placeholder="e.g. quantum-safe-api.com" required>
+                    </div>
+                </div>
+
+                <div id="modeBulk" style="display:none;">
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.4rem; display: block;">Target List (Newline separated)</label>
+                        <textarea name="target_list" class="scan-input" style="height:120px;" placeholder="app1.com&#10;app2.com"></textarea>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem;">
+                    <label class="glass-card" style="padding:0.75rem; cursor:pointer; display:flex; align-items:center; gap:0.5rem;">
+                        <input type="checkbox" name="autodiscovery" style="accent-color:var(--accent);">
+                        <span style="font-size:0.8rem; font-weight:600;">Full Autodiscovery</span>
+                    </label>
+                    <label class="glass-card" style="padding:0.75rem; cursor:pointer; display:flex; align-items:center; gap:0.5rem;">
+                        <input type="checkbox" name="add_to_inventory" checked style="accent-color:var(--accent);">
+                        <span style="font-size:0.8rem; font-weight:600;">Track in Inventory</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="button" style="width: 100%;">Execute Scanning Workflow</button>
+            </form>
+        </div>
+
+        <div class="glass-card" style="padding: 1.5rem;">
+            <div class="metric-title" style="margin-bottom:1.5rem;"><i class="fa-solid fa-clock-rotate-left" style="margin-right:8px;"></i> Active Progress</div>
+            <div id="scanProgress" style="display:flex; flex-direction:column; gap:0.75rem;">
+                <div style="text-align:center; padding:2rem; color:var(--text-secondary); font-size:0.85rem;">No scans currently active.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scan History Table -->
+    <div class="glass-card history-table-container" style="padding: 1.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <div class="metric-title">Recent Discoveries</div>
+            <div style="display:flex; gap:0.5rem;">
+                <input type="text" id="historySearch" class="scan-input" style="width:200px; padding:0.5rem;" placeholder="Search results..." oninput="fetchHistory()">
+                <button class="button secondary" style="padding:0.5rem 1rem;" onclick="fetchHistory()">Refresh</button>
+            </div>
+        </div>
+        
+        <div class="table-scroll">
+            <table class="scans-table">
+                <thead>
+                    <tr>
+                        <th>Scan ID</th>
+                        <th>Target</th>
+                        <th>Status</th>
+                        <th>Complexity</th>
+                        <th>Completion</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="historyBody">
+                    <!-- Hydrated via JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    /* ── Tab mode switch ── */
+    function switchMode(btn, mode) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('modeSingle').style.display = mode === 'single' ? 'block' : 'none';
+        document.getElementById('modeBulk').style.display = mode === 'bulk' ? 'block' : 'none';
+    }
+
+    /* ── Scan history fetch ── */
+    async function fetchHistory() {
+        const query = document.getElementById('historySearch').value || '';
+        const body = document.getElementById('historyBody');
+        body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading…</td></tr>`;
+        try {
+            const resp = await fetch(`/api/scans?q=${encodeURIComponent(query)}&page=1&page_size=50&order=desc`);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const result = await resp.json();
+
+            /* Handle both legacy (array) and paginated (object) responses */
+            let items = [];
+            if (Array.isArray(result)) {
+                items = result;
+            } else if (result.items) {
+                items = result.items;
+            } else if (result.data && result.data.items) {
+                items = result.data.items;
+            }
+
+            if (!items.length) {
+                body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fa-solid fa-inbox"></i> No scans recorded yet.</td></tr>`;
+                return;
+            }
+
+            body.innerHTML = items.map(s => `
+                <tr>
+                    <td style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--accent);">${(s.scan_id||'N/A').slice(0,14)}</td>
+                    <td style="font-weight:600;">${s.target || '--'}</td>
+                    <td><span class="status-pill" style="border-color:${getStatusColor(s.status)};color:${getStatusColor(s.status)}">${(s.status||'unknown').toUpperCase()}</span></td>
+                    <td style="font-size:0.75rem;">${s.scan_type || 'Standard'}</td>
+                    <td style="font-size:0.75rem;">${s.completed_at ? new Date(s.completed_at).toLocaleString() : (s.date || 'In Progress')}</td>
+                    <td>
+                        <div style="display:flex;gap:0.4rem;">
+                            ${s.actions ? `<a href="${s.actions}" class="button secondary" style="padding:0.3rem 0.6rem;font-size:0.7rem;">View</a>` : ''}
+                            <a href="/cbom/${s.scan_id || ''}" class="button secondary" style="padding:0.3rem 0.6rem;font-size:0.7rem;">CBOM</a>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            body.innerHTML = `<tr><td colspan="6" style="color:var(--danger);padding:1rem;text-align:center;">Error loading scan history: ${err.message}</td></tr>`;
+        }
+    }
+
+    function getStatusColor(status) {
+        switch((status||'').toLowerCase()) {
+            case 'completed': return 'var(--pqc-safe, #34c759)';
+            case 'running': return 'var(--accent, #00ffcc)';
+            case 'failed':
+            case 'error': return 'var(--risk-critical, #ff453a)';
+            default: return 'var(--text-secondary)';
+        }
+    }
+
+    /* ── Scan Form Submit ── */
+    document.getElementById('scanForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const progressPanel = document.getElementById('scanProgress');
+        const csrf = form.querySelector('[name="csrf_token"]')?.value || 
+                     document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+        /* Collect form data */
+        const isBulk = document.getElementById('modeBulk').style.display !== 'none';
+        const autodiscovery = form.querySelector('[name="autodiscovery"]')?.checked || false;
+        const addToInventory = form.querySelector('[name="add_to_inventory"]')?.checked || false;
+
+        let targets = [];
+        if (isBulk) {
+            const raw = (form.querySelector('[name="target_list"]')?.value || '').trim();
+            targets = raw.split(/[\n,]+/).map(t => t.trim()).filter(Boolean);
+        } else {
+            const t = (form.querySelector('[name="target"]')?.value || '').trim();
+            if (t) targets = [t];
+        }
+
+        if (!targets.length) {
+            showScanFeedback('⚠ Enter at least one target.', 'warn', progressPanel);
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Queuing…';
+        showScanFeedback(`<i class="fa-solid fa-circle-notch fa-spin"></i> Starting scan for ${targets.length} target(s)…`, 'info', progressPanel);
+
+        try {
+            const endpoint = targets.length > 1 ? '/api/scans/bulk' : '/api/scans';
+            const payload = targets.length > 1 
+                ? { targets, autodiscovery, add_to_inventory: addToInventory }
+                : { target: targets[0], autodiscovery, add_to_inventory: addToInventory };
+
+            const resp = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrf
+                },
+                body: JSON.stringify(payload)
+            });
+            const result = await resp.json();
+
+            if (resp.ok) {
+                const jobId = result.job_id;
+                showScanFeedback(
+                    `<i class="fa-solid fa-check-circle" style="color:var(--pqc-safe)"></i> Scan queued (Job: ${jobId||'–'}). Refreshing history…`,
+                    'success', progressPanel
+                );
+                /* Refresh history table */
+                await fetchHistory();
+                /* Poll job status if jobId present */
+                if (jobId) pollJobStatus(jobId, progressPanel);
+            } else {
+                showScanFeedback(`<i class="fa-solid fa-xmark-circle"></i> Error: ${result.message || JSON.stringify(result)}`, 'error', progressPanel);
+            }
+        } catch (err) {
+            showScanFeedback(`<i class="fa-solid fa-xmark-circle"></i> Network Error: ${err.message}`, 'error', progressPanel);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Execute Scanning Workflow';
+        }
+    });
+
+    function showScanFeedback(html, type, container) {
+        const colors = { info: 'rgba(0,255,204,0.08)', success: 'rgba(52,199,89,0.1)', warn: 'rgba(255,170,0,0.1)', error: 'rgba(255,51,102,0.1)' };
+        const borders = { info: 'rgba(0,255,204,0.2)', success: 'rgba(52,199,89,0.3)', warn: 'rgba(255,170,0,0.3)', error: 'rgba(255,51,102,0.3)' };
+        container.innerHTML = `
+            <div style="padding:1rem 1.25rem;background:${colors[type]||colors.info};border:1px solid ${borders[type]||borders.info};border-radius:10px;font-size:0.85rem;">
+                ${html}
+            </div>`;
+    }
+
+    async function pollJobStatus(jobId, container) {
+        let attempts = 0;
+        const interval = setInterval(async () => {
+            attempts++;
+            if (attempts > 30) { clearInterval(interval); return; }
+            try {
+                const resp = await fetch(`/api/scans/jobs/${jobId}`);
+                if (!resp.ok) return;
+                const job = await resp.json();
+                const status = job.status || 'unknown';
+                const completed = job.completed || 0;
+                const total = job.total || 1;
+                showScanFeedback(
+                    `<i class="fa-solid fa-circle-notch fa-spin"></i> Job ${jobId}: ${status} – ${completed}/${total} complete`,
+                    'info', container
+                );
+                if (['completed','completed_with_errors','failed'].includes(status)) {
+                    clearInterval(interval);
+                    await fetchHistory();
+                    const label = status === 'completed' ? `<i class="fa-solid fa-check-circle" style="color:var(--pqc-safe)"></i> All scans complete.` : `<i class="fa-solid fa-triangle-exclamation" style="color:var(--warn)"></i> Job ${status}.`;
+                    showScanFeedback(label, status === 'completed' ? 'success' : 'warn', container);
+                }
+            } catch(_) {}
+        }, 3000);
+    }
+
+    document.addEventListener('DOMContentLoaded', fetchHistory);
+</script>
+{% endblock %}
+

@@ -34,10 +34,16 @@ class _FakeSession:
         self._first_values = first_values
         self.fail_on_flush = fail_on_flush
         self.added = []
+        self.new = self.added
         self.savepoint = _FakeSavepoint()
 
     def query(self, *_args, **_kwargs):
         return _FakeQuery(self._first_values)
+
+    def get(self, entity_class, ident, **kwargs):
+        if self._first_values:
+            return self._first_values.pop(0)
+        return None
 
     def begin_nested(self):
         return self.savepoint

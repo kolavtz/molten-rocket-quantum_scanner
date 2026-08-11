@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCAN_REPORT // PNB.BANK.IN // QUANTUMSHIELD</title>
+
+    <!-- External Dependencies[cite: 5] -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <style>
+        :root {
+            --bg-main: #060b17;
+            --bg-card: #0a1122;
+            --border-color: #1e2d4a;
+            --text-primary: #f1f5f9;
+            --text-muted: #64748b;
+            --cyan-accent: #00f2fe;
+            --safe: #10b981;
+            --warn: #f59e0b;
+            --danger: #ef4444;
+            --danger-bg: rgba(239, 68, 68, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            padding: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .btn-back {
+            display: inline-block;
+            padding: 0.4rem 0.8rem;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.2s;
+        }
+
+        .btn-back:hover {
+            border-color: var(--cyan-accent);
+            color: var(--cyan-accent);
+        }
+
+        .hero-title {
+            font-size: 2.8rem;
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+        }
+
+        .gradient-text {
+            color: var(--cyan-accent);
+        }
+
+        .results-meta {
+            display: flex;
+            gap: 2rem;
+            border-top: 1px solid var(--border-color);
+            padding-top: 1rem;
+            font-size: 0.8rem;
+            font-family: monospace;
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+        }
+
+        .status-badge {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--safe);
+            border: 1px solid var(--safe);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+
+        /* HNDL Banner */
+        .hndl-banner {
+            background: var(--danger-bg);
+            border: 1px solid var(--danger);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        .hndl-title {
+            color: var(--danger);
+            font-size: 1.1rem;
+            font-weight: 900;
+            margin-bottom: 0.5rem;
+        }
+
+        .hndl-text {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            margin-bottom: 1rem;
+            color: #fca5a5;
+        }
+
+        .hndl-meta {
+            display: flex;
+            gap: 2rem;
+            font-size: 0.75rem;
+            color: #f87171;
+            font-family: monospace;
+        }
+
+        /* Grid Layouts */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .glass-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .kpi-value {
+            font-size: 2.2rem;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 0.25rem;
+        }
+
+        .kpi-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .viz-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .section-header {
+            font-size: 0.9rem;
+            font-weight: 800;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+            letter-spacing: 1px;
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-bottom: 2rem;
+        }
+
+        th {
+            background: #091122;
+            padding: 1rem;
+            text-align: left;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 700;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* JSON Block */
+        .code-block {
+            background: #040811;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: #a5b4fc;
+            height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-bottom: 2rem;
+        }
+
+        /* Buttons */
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .btn-action {
+            background: var(--cyan-accent);
+            color: #000;
+            border: none;
+            padding: 1rem;
+            border-radius: 6px;
+            font-weight: 800;
+            text-align: center;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.85rem;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+
+<body>
+
+    <a href="#" class="btn-back">BACK TO CONSOLE</a>
+    <div class="hero-title">SCAN_RESULTS:<br><span class="gradient-text">PNB.BANK.IN</span></div>
+
+    <div class="results-meta">
+        <span>ID: 5dea31ad</span>
+        <span>TS: 2026-08-10 12:45:00</span>
+        <span>STATUS: <span class="status-badge">COMPLETE</span></span>
+    </div>
+
+    <!-- HNDL Warning Banner[cite: 5] -->
+    <div class="hndl-banner">
+        <div class="hndl-title">CRITICAL_THREAT: HARVEST NOW, DECRYPT LATER (HNDL)</div>
+        <div class="hndl-text">1 endpoint utilizing quantum-vulnerable cryptography. Data intercepted today is subject
+            to decryption upon availability of CRQCs (est. 2029-2035). SYSTEMIC RISK: PII / AUTH_TOKENS /
+            TRANSACTION_DATA.</div>
+        <div class="hndl-meta">
+            <span>[ WINDOW ]: 5-10 YEAR DATA PERSISTENCE</span>
+            <span>[ PRIORITY ]: IMMEDIATE_MIGRATION_REQUIRED</span>
+            <span>[ MANDATE ]: NIST PQC COMPLIANCE BY 2030</span>
+        </div>
+    </div>
+
+    <!-- KPIs[cite: 5] -->
+    <div class="kpi-grid">
+        <div class="glass-card">
+            <div class="kpi-value">1</div>
+            <div class="kpi-label">CRYPTO_ASSETS</div>
+        </div>
+        <div class="glass-card" style="border-top: 3px solid var(--safe);">
+            <div class="kpi-value" style="color:var(--safe);">0</div>
+            <div class="kpi-label">PQC_SAFE</div>
+        </div>
+        <div class="glass-card" style="border-top: 3px solid var(--danger);">
+            <div class="kpi-value" style="color:var(--danger);">1</div>
+            <div class="kpi-label">VULNERABLE</div>
+        </div>
+        <div class="glass-card">
+            <div class="kpi-value" style="color:var(--danger);">33%</div>
+            <div class="kpi-label">COMPLIANCE</div>
+        </div>
+        <div class="glass-card">
+            <div class="kpi-value">1</div>
+            <div class="kpi-label">OPEN_PORTS</div>
+        </div>
+        <div class="glass-card">
+            <div class="kpi-value">4</div>
+            <div class="kpi-label">CBOM_COMPONENTS</div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="charts-grid">
+        <div class="glass-card">
+            <div class="section-header">PQC_READINESS_DISTRIBUTION</div>
+            <canvas id="pqcChart" height="200"></canvas>
+        </div>
+        <div class="glass-card">
+            <div class="section-header">FINDING_SEVERITY_ANALYSIS</div>
+            <canvas id="sevChart" height="200"></canvas>
+        </div>
+        <div class="glass-card">
+            <div class="section-header">HNDL_RISK_MAP</div>
+            <canvas id="hndlChart" height="200"></canvas>
+        </div>
+    </div>
+
+    <!-- Map and Bubble Chart -->
+    <div class="viz-grid">
+        <div class="glass-card">
+            <div class="section-header">ASSET_LOCATION_MAP</div>
+            <div id="map" style="height: 300px; border-radius: 6px; z-index: 1;"></div>
+        </div>
+        <div class="glass-card">
+            <div class="section-header">CERTIFICATE_BUBBLE</div>
+            <canvas id="bubbleChart" height="300"></canvas>
+        </div>
+    </div>
+
+    <!-- Crypto Inventory Table -->
+    <div class="section-header" style="border-left: 3px solid var(--cyan-accent); padding-left: 10px;">CRYPTO_INVENTORY
+    </div>
+    <div class="glass-card" style="padding: 0; overflow: hidden;">
+        <table>
+            <thead>
+                <tr>
+                    <th>HOST</th>
+                    <th>PORT</th>
+                    <th>SERVICE</th>
+                    <th>ENC</th>
+                    <th>BANNER</th>
+                    <th>RISK</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="font-family:monospace;">49.50.72.104</td>
+                    <td style="font-weight:900;">443</td>
+                    <td>HTTPS</td>
+                    <td><span class="status-badge">TLS_ACTIVE</span></td>
+                    <td style="font-family:monospace; color:var(--text-muted);">nginx</td>
+                    <td><span class="status-badge"
+                            style="color:var(--danger); border-color:var(--danger); background:rgba(239,68,68,0.1);">HNDL_EXPOSURE</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Raw CBOM JSON output -->
+    <div class="section-header" style="border-left: 3px solid var(--cyan-accent); padding-left: 10px;">DOWNLOAD //
+        FULL_CBOM_JSON</div>
+    <div class="code-block">
+        {
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.4",
+        "serialNumber": "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79",
+        "version": 1,
+        "metadata": {
+        "timestamp": "2026-08-10T12:45:00Z",
+        "component": {
+        "type": "application",
+        "name": "pnb.bank.in",
+        "version": "latest"
+        }
+        },
+        "components": [
+        {
+        "type": "cryptographic-asset",
+        "name": "TLS 1.2",
+        "properties": [
+        { "name": "crypto:protocol", "value": "tls" },
+        { "name": "crypto:version", "value": "1.2" }
+        ]
+        },
+        {
+        "type": "cryptographic-asset",
+        "name": "ECDHE-RSA-AES256-GCM-SHA384",
+        "properties": [
+        { "name": "crypto:key_exchange", "value": "ecdhe" },
+        { "name": "crypto:vulnerability", "value": "Shor's Algorithm (HNDL)" }
+        ]
+        }
+        ]
+        }
+    </div>
+
+    <!-- Action Buttons[cite: 5] -->
+    <div class="actions-grid">
+        <button class="btn-action">DOWNLOAD_CBOM_JSON</button>
+        <button class="btn-action">DOWNLOAD_PDF_SERVER</button>
+        <button class="btn-action btn-outline">GENERATE_PDF_EXP</button>
+        <button class="btn-action btn-outline">NULL_AND_RESET</button>
+    </div>
+
+    <script>
+        // Set Chart defaults
+        Chart.defaults.color = '#f1f5f9';
+        Chart.defaults.font.family = 'monospace';
+
+        // PQC Doughnut
+        new Chart(document.getElementById('pqcChart'), {
+            type: 'doughnut',
+            data: { labels: ['VULN'], datasets: [{ data: [100], backgroundColor: ['#ef4444'], borderWidth: 0 }] },
+            options: { cutout: '80%', plugins: { legend: { position: 'bottom' } } }
+        });
+
+        // Severity Bar
+        new Chart(document.getElementById('sevChart'), {
+            type: 'bar',
+            data: { labels: ['CRIT', 'HIGH', 'MED', 'LOW'], datasets: [{ data: [1, 1, 0, 0], backgroundColor: '#00f2fe' }] },
+            options: { scales: { y: { beginAtZero: true, grid: { color: '#1e2d4a' } }, x: { grid: { display: false } } }, plugins: { legend: { display: false } } }
+        });
+
+        // HNDL Risk Map Doughnut
+        new Chart(document.getElementById('hndlChart'), {
+            type: 'doughnut',
+            data: { labels: ['HIGH_RISK'], datasets: [{ data: [100], backgroundColor: ['#ef4444'], borderWidth: 0 }] },
+            options: { cutout: '0%', plugins: { legend: { position: 'bottom' } } }
+        });
+
+        // Certificate Bubble Chart
+        new Chart(document.getElementById('bubbleChart'), {
+            type: 'bubble',
+            data: { datasets: [{ label: 'Certs', data: [{ x: 2048, y: 120, r: 15 }], backgroundColor: '#f59e0b' }] },
+            options: {
+                scales: {
+                    x: { title: { display: true, text: 'Key Length (bits)' }, grid: { color: '#1e2d4a' }, min: 0, max: 4096 },
+                    y: { title: { display: true, text: 'Days to Expiry' }, grid: { color: '#1e2d4a' }, min: 0, max: 365 }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // Initialize Map
+        const map = L.map('map').setView([28.6139, 77.2090], 4); // Centered on India
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+        L.circleMarker([28.6139, 77.2090], { radius: 8, fillColor: '#00f2fe', color: '#fff', weight: 1, opacity: 1, fillOpacity: 0.9 })
+            .addTo(map).bindPopup("<b>49.50.72.104</b><br>New Delhi, IN");
+    </script>
+</body>
+
+</html>

@@ -69,13 +69,12 @@
           <input id="singleOwner" class="scan-input" type="text" placeholder="Security Team" style="padding-left:0.8rem;" />
         </div>
         <div>
-          <label for="singleRisk">Risk Level</label>
-          <select id="singleRisk" class="scan-input" style="padding-left:0.8rem;">
-            <option value="Low">Low</option>
-            <option value="Medium" selected>Medium</option>
-            <option value="High">High</option>
-            <option value="Critical">Critical</option>
-          </select>
+          <label style="display:block; margin-bottom:0.3rem;">Risk Level</label>
+          <div id="singleRiskDisplay" style="display:flex; align-items:center; gap:0.5rem; padding:0.45rem 0.8rem; background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:6px; min-height:2.2rem;">
+            <span id="singleRiskBadge" class="status-pill" style="border-color:var(--warn); color:var(--warn);">AUTO</span>
+            <span style="font-size:0.72rem; color:var(--text-muted);">Calculated after scan</span>
+          </div>
+          <input type="hidden" id="singleRiskValue" value="Medium" />
         </div>
       </div>
       <div style="margin-top:0.7rem;">
@@ -143,13 +142,12 @@
           <input id="bulkOwner" class="scan-input" type="text" placeholder="Infrastructure Team" style="padding-left:0.8rem;" />
         </div>
         <div>
-          <label for="bulkRisk">Risk Level</label>
-          <select id="bulkRisk" class="scan-input" style="padding-left:0.8rem;">
-            <option value="Low">Low</option>
-            <option value="Medium" selected>Medium</option>
-            <option value="High">High</option>
-            <option value="Critical">Critical</option>
-          </select>
+          <label style="display:block; margin-bottom:0.3rem;">Risk Level</label>
+          <div id="bulkRiskDisplay" style="display:flex; align-items:center; gap:0.5rem; padding:0.45rem 0.8rem; background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:6px; min-height:2.2rem;">
+            <span id="bulkRiskBadge" class="status-pill" style="border-color:var(--warn); color:var(--warn);">AUTO</span>
+            <span style="font-size:0.72rem; color:var(--text-muted);">Calculated after scan</span>
+          </div>
+          <input type="hidden" id="bulkRiskValue" value="Medium" />
         </div>
       </div>
       <div style="margin-top:0.7rem;">
@@ -196,6 +194,7 @@
       <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Status</div><div id="scanDetailStatus" style="font-weight:700;"></div></div>
       <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Assets Found</div><div id="scanDetailAssets" style="font-weight:700;"></div></div>
       <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">PQC Score</div><div id="scanDetailScore" style="font-weight:700;"></div></div>
+      <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Risk Level</div><div id="scanDetailRisk" style="font-weight:700;">Auto</div></div>
       <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Result Scan</div><div id="scanDetailResultId" style="font-weight:700;"></div></div>
     </div>
 
@@ -215,6 +214,50 @@
       <div class="glass-card" style="padding:0.8rem;">
         <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Job</div>
         <div id="scanDetailJob" style="font-weight:700;"></div>
+      </div>
+    </div>
+
+    <!-- Automated Risk Profile Panel -->
+    <div id="scanRiskProfilePanel" class="glass-card" style="padding:0.9rem; margin-bottom:0.8rem; border-left:3px solid var(--accent);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.7rem; flex-wrap:wrap; gap:0.5rem;">
+        <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">
+          ⚡ Automated Risk Profile
+        </div>
+        <span id="scanRiskProfileLabel" class="status-pill" style="border-color:var(--text-muted); color:var(--text-muted); font-size:0.7rem;">Pending</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:0.55rem; margin-bottom:0.7rem;">
+        <div class="glass-card" style="padding:0.65rem; text-align:center;">
+          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">Risk Level</div>
+          <div id="scanRiskLevel" style="font-size:1.1rem; font-weight:800; color:var(--warn);">—</div>
+        </div>
+        <div class="glass-card" style="padding:0.65rem; text-align:center;">
+          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">HNDL Risk</div>
+          <div id="scanHndlRisk" style="font-size:1.1rem; font-weight:800; color:var(--text-secondary);">—</div>
+        </div>
+        <div class="glass-card" style="padding:0.65rem; text-align:center;">
+          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">Compliance</div>
+          <div id="scanComplianceScore" style="font-size:1.1rem; font-weight:800; color:var(--text-secondary);">—</div>
+        </div>
+        <div class="glass-card" style="padding:0.65rem; text-align:center;">
+          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">PQC Status</div>
+          <div id="scanPqcStatus" style="font-size:0.85rem; font-weight:700; color:var(--text-secondary);">—</div>
+        </div>
+        <div class="glass-card" style="padding:0.65rem; text-align:center;">
+          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">Critical Findings</div>
+          <div id="scanCriticalFindings" style="font-size:1.1rem; font-weight:800; color:var(--text-secondary);">—</div>
+        </div>
+        <div class="glass-card" style="padding:0.65rem; text-align:center;">
+          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">High Findings</div>
+          <div id="scanHighFindings" style="font-size:1.1rem; font-weight:800; color:var(--text-secondary);">—</div>
+        </div>
+      </div>
+
+      <div id="scanRiskFindings" style="display:grid; gap:0.35rem; margin-bottom:0.6rem;"></div>
+
+      <div id="scanRiskRecommendations" style="display:none;">
+        <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.35rem;">Recommendations</div>
+        <div id="scanRiskRecommendationsList" style="display:grid; gap:0.3rem;"></div>
       </div>
     </div>
 
@@ -371,6 +414,198 @@
     return '<span class="status-pill" style="border-color:' + color + '; color:' + color + ';">' + state.toUpperCase() + '</span>';
   }
 
+  function scanRiskBadge(value) {
+    const risk = String(value || 'Medium').toLowerCase();
+    let color = 'var(--text-secondary)';
+    if (risk === 'critical' || risk === 'high') color = 'var(--danger)';
+    else if (risk === 'medium') color = 'var(--warn)';
+    else if (risk === 'low') color = 'var(--safe)';
+    return '<span class="status-pill" style="border-color:' + color + '; color:' + color + ';">' + String(value || 'Medium').toUpperCase() + '</span>';
+  }
+
+  /* ── Automated Risk Profile Renderer ── */
+  function renderRiskProfile(result) {
+    var panel = document.getElementById('scanRiskProfilePanel');
+    if (!panel) return;
+
+    var report = (result && typeof result === 'object') ? result : {};
+    var overview = (report.overview && typeof report.overview === 'object') ? report.overview : {};
+
+    // ── Derive risk level from scan data (mirrors backend _calculate_risk_level) ──
+    var rawStr = JSON.stringify(report).toUpperCase();
+    var hasSha1 = rawStr.indexOf('SHA1') >= 0 || rawStr.indexOf('SHA-1') >= 0;
+    var hasUnencrypted = rawStr.indexOf('UNENCRYPTED') >= 0 || rawStr.indexOf('PLAINTEXT') >= 0;
+    var hasMlKem = rawStr.indexOf('ML-KEM') >= 0 || rawStr.indexOf('MLKEM') >= 0 || rawStr.indexOf('KYBER') >= 0;
+    var hasHybrid = rawStr.indexOf('HYBRID') >= 0;
+
+    var riskLevel = 'Medium';
+    if (hasUnencrypted) riskLevel = 'Critical';
+    else if (hasSha1) riskLevel = 'High';
+    else if (hasMlKem || hasHybrid) riskLevel = 'Low';
+    else {
+      var pqcScore = overview.average_compliance_score != null ? overview.average_compliance_score : report.overall_pqc_score;
+      if (typeof pqcScore === 'number') {
+        if (pqcScore >= 700) riskLevel = 'Low';
+        else if (pqcScore >= 400) riskLevel = 'Medium';
+        else if (pqcScore >= 200) riskLevel = 'High';
+        else riskLevel = 'Critical';
+      }
+    }
+
+    var riskColor = 'var(--warn)';
+    if (riskLevel === 'Critical' || riskLevel === 'High') riskColor = 'var(--danger)';
+    else if (riskLevel === 'Low') riskColor = 'var(--safe)';
+
+    // ── Derive HNDL risk from validation results ──
+    var hndlRisk = 'HIGH';
+    var hndlScore = null;
+    var complianceScore = null;
+    var pqcStatusText = 'Non-Compliant';
+    var criticalCount = 0;
+    var highCount = 0;
+    var findings = [];
+    var recommendations = [];
+
+    // Walk discovered_services for validation data
+    var services = Array.isArray(report.discovered_services) ? report.discovered_services : [];
+    services.forEach(function(svc) {
+      if (!svc || typeof svc !== 'object') return;
+      var validation = svc.validation || svc.quantum_safe_check || {};
+      if (validation.hndl_risk_level) hndlRisk = String(validation.hndl_risk_level).toUpperCase();
+      if (typeof validation.hndl_risk_score === 'number') hndlScore = validation.hndl_risk_score;
+      if (typeof validation.compliance_score === 'number') complianceScore = validation.compliance_score;
+      if (validation.label) pqcStatusText = String(validation.label);
+      if (typeof validation.critical_findings === 'number') criticalCount += validation.critical_findings;
+      if (typeof validation.high_findings === 'number') highCount += validation.high_findings;
+      if (Array.isArray(validation.findings)) findings = findings.concat(validation.findings);
+      if (Array.isArray(validation.recommendations)) recommendations = recommendations.concat(validation.recommendations);
+    });
+
+    // Fallback: use overview fields
+    if (complianceScore === null && typeof overview.average_compliance_score === 'number') {
+      complianceScore = overview.average_compliance_score;
+    }
+
+    // ── Update DOM ──
+    var labelEl = document.getElementById('scanRiskProfileLabel');
+    if (labelEl) {
+      labelEl.textContent = riskLevel.toUpperCase();
+      labelEl.style.borderColor = riskColor;
+      labelEl.style.color = riskColor;
+    }
+
+    var riskLevelEl = document.getElementById('scanRiskLevel');
+    if (riskLevelEl) {
+      riskLevelEl.textContent = riskLevel;
+      riskLevelEl.style.color = riskColor;
+    }
+
+    var hndlEl = document.getElementById('scanHndlRisk');
+    if (hndlEl) {
+      var hndlColor = hndlRisk === 'HIGH' ? 'var(--danger)' : (hndlRisk === 'MEDIUM' ? 'var(--warn)' : 'var(--safe)');
+      hndlEl.textContent = hndlRisk + (hndlScore !== null ? ' (' + hndlScore + '/10)' : '');
+      hndlEl.style.color = hndlColor;
+    }
+
+    var compEl = document.getElementById('scanComplianceScore');
+    if (compEl) {
+      compEl.textContent = complianceScore !== null ? complianceScore + '%' : '—';
+      var compColor = 'var(--text-secondary)';
+      if (complianceScore !== null) {
+        if (complianceScore >= 70) compColor = 'var(--safe)';
+        else if (complianceScore >= 40) compColor = 'var(--warn)';
+        else compColor = 'var(--danger)';
+      }
+      compEl.style.color = compColor;
+    }
+
+    var pqcEl = document.getElementById('scanPqcStatus');
+    if (pqcEl) {
+      pqcEl.textContent = pqcStatusText;
+      var pqcColor = pqcStatusText === 'PQC Ready' ? 'var(--safe)' : (pqcStatusText === 'Partial' ? 'var(--warn)' : 'var(--danger)');
+      pqcEl.style.color = pqcColor;
+    }
+
+    var critEl = document.getElementById('scanCriticalFindings');
+    if (critEl) {
+      critEl.textContent = criticalCount > 0 ? criticalCount : '0';
+      critEl.style.color = criticalCount > 0 ? 'var(--danger)' : 'var(--safe)';
+    }
+
+    var highEl = document.getElementById('scanHighFindings');
+    if (highEl) {
+      highEl.textContent = highCount > 0 ? highCount : '0';
+      highEl.style.color = highCount > 0 ? 'var(--warn)' : 'var(--safe)';
+    }
+
+    // ── Render findings list ──
+    var findingsEl = document.getElementById('scanRiskFindings');
+    if (findingsEl) {
+      var topFindings = findings.slice(0, 6);
+      if (topFindings.length) {
+        findingsEl.innerHTML = topFindings.map(function(f) {
+          var sev = String(f.severity || 'INFO').toUpperCase();
+          var sevColor = sev === 'CRITICAL' ? 'var(--danger)' : (sev === 'HIGH' ? 'var(--danger)' : (sev === 'MEDIUM' ? 'var(--warn)' : 'var(--safe)'));
+          return (
+            '<div style="display:flex; gap:0.5rem; align-items:flex-start; padding:0.4rem 0.6rem; background:rgba(255,255,255,0.02); border-radius:4px; border-left:2px solid ' + sevColor + ';">' +
+            '<span style="font-size:0.68rem; font-weight:700; color:' + sevColor + '; min-width:60px; text-transform:uppercase;">' + sev + '</span>' +
+            '<div style="flex:1;">' +
+              '<div style="font-size:0.8rem; font-weight:600; color:var(--text-primary);">' + escapeHtml(String(f.title || '')) + '</div>' +
+              (f.description ? '<div style="font-size:0.72rem; color:var(--text-secondary); margin-top:0.1rem;">' + escapeHtml(String(f.description || '')) + '</div>' : '') +
+              (f.nist_reference ? '<div style="font-size:0.68rem; color:var(--accent); margin-top:0.1rem;">Ref: ' + escapeHtml(String(f.nist_reference)) + '</div>' : '') +
+            '</div>' +
+            '</div>'
+          );
+        }).join('');
+      } else {
+        findingsEl.innerHTML = '<div style="font-size:0.8rem; color:var(--text-secondary); padding:0.3rem 0;">No detailed findings available yet. Run a scan to populate risk data.</div>';
+      }
+    }
+
+    // ── Render recommendations ──
+    var recsPanel = document.getElementById('scanRiskRecommendations');
+    var recsList = document.getElementById('scanRiskRecommendationsList');
+    if (recsPanel && recsList) {
+      var uniqueRecs = recommendations.filter(function(r, i, a) { return a.indexOf(r) === i; }).slice(0, 5);
+      if (uniqueRecs.length) {
+        recsPanel.style.display = 'block';
+        recsList.innerHTML = uniqueRecs.map(function(rec) {
+          return '<div style="display:flex; gap:0.5rem; align-items:flex-start; font-size:0.78rem; color:var(--text-secondary);"><span style="color:var(--accent); font-weight:700;">→</span><span>' + escapeHtml(String(rec)) + '</span></div>';
+        }).join('');
+      } else {
+        recsPanel.style.display = 'none';
+      }
+    }
+
+    // ── Update inventory risk badge ──
+    var singleBadge = document.getElementById('singleRiskBadge');
+    if (singleBadge) {
+      singleBadge.textContent = riskLevel.toUpperCase();
+      singleBadge.style.borderColor = riskColor;
+      singleBadge.style.color = riskColor;
+    }
+    var bulkBadge = document.getElementById('bulkRiskBadge');
+    if (bulkBadge) {
+      bulkBadge.textContent = riskLevel.toUpperCase();
+      bulkBadge.style.borderColor = riskColor;
+      bulkBadge.style.color = riskColor;
+    }
+    // Update hidden risk value inputs for form submission
+    var singleRiskVal = document.getElementById('singleRiskValue');
+    if (singleRiskVal) singleRiskVal.value = riskLevel;
+    var bulkRiskVal = document.getElementById('bulkRiskValue');
+    if (bulkRiskVal) bulkRiskVal.value = riskLevel;
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function scanDateDisplay(value) {
     if (!value) return '—';
     const parsed = new Date(value);
@@ -418,6 +653,7 @@
       { field: 'status', label: 'Status', render: function(v){ return scanStatusBadge(v); } },
       { field: 'assets_found', label: 'Assets Found' },
       { field: 'pqc_score', label: 'PQC Score' },
+      { field: 'risk_level', label: 'Risk Level', render: function(v){ return scanRiskBadge(v); } },
       { field: 'actions', label: 'Actions', render: scanActionsCell }
     ],
     getExtraParams: function () {
@@ -431,6 +667,10 @@
     onRowClick: function (row) {
       if (window.QuantumShieldScans && typeof window.QuantumShieldScans.showRecordDetails === 'function') {
         window.QuantumShieldScans.showRecordDetails(row);
+      }
+      // Trigger automated risk profile from row data immediately (full result loads async)
+      if (row && typeof renderRiskProfile === 'function') {
+        renderRiskProfile(row);
       }
     }
   });
@@ -504,6 +744,9 @@
       scanPollTimer = null;
     }
   });
+
+  // Expose renderRiskProfile globally so scans.js can call it after async result loads
+  window.renderRiskProfile = renderRiskProfile;
 
   window.QuantumShieldScans.init({
     canBulkScan: {{ 'true' if can_bulk_scan else 'false' }}

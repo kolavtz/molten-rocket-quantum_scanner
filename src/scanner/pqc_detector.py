@@ -159,11 +159,37 @@ class PQCDetector:
                 elif pk_class.status not in ("unknown",):
                     assessment.quantum_vulnerable_algorithms.append(pk_class)
 
+        # Check for unencrypted / sha1 overrides
+        is_sha1 = False
+        sig_alg = ""
+        cert = tls_result.get("certificate")
+        if cert:
+            sig_alg = str(cert.get("signature_algorithm", "") or "").upper()
+        cipher = str(tls_result.get("cipher_suite", "") or "").upper()
+        if "SHA1" in sig_alg or "SHA-1" in sig_alg or "SHA1" in cipher or "SHA-1" in cipher:
+            is_sha1 = True
+
+        is_unencrypted = (tls_result.get("is_tls") is False)
+
         # ── Determine overall status ──
         has_safe = len(assessment.quantum_safe_algorithms) > 0
         has_vuln = len(assessment.quantum_vulnerable_algorithms) > 0
 
-        if has_safe and not has_vuln:
+        if is_unencrypted:
+            assessment.overall_status = "quantum_vulnerable"
+            assessment.risk_level = "HIGH"
+            assessment.details = (
+                "Connection is plaintext / unencrypted. Highly vulnerable to "
+                "interception and active injection."
+            )
+        elif is_sha1:
+            assessment.overall_status = "quantum_vulnerable"
+            assessment.risk_level = "HIGH"
+            assessment.details = (
+                "Endpoint utilizes SHA-1 signature or hashing, which is insecure "
+                "and vulnerable to collisions/quantum attacks."
+            )
+        elif has_safe and not has_vuln:
             assessment.is_quantum_safe = True
             assessment.overall_status = "quantum_safe"
             assessment.risk_level = "LOW"
@@ -173,10 +199,10 @@ class PQCDetector:
         elif has_safe and has_vuln:
             assessment.is_hybrid = True
             assessment.overall_status = "hybrid"
-            assessment.risk_level = "MEDIUM"
+            assessment.risk_level = "LOW"
             assessment.details = (
-                "Endpoint uses a mix of quantum-safe and quantum-vulnerable "
-                "algorithms.  Migration to fully PQC-only is recommended."
+                "Endpoint uses a hybrid PQC configuration (e.g. X25519+ML-KEM-768). "
+                "Risk is Low."
             )
         else:
             assessment.overall_status = "quantum_vulnerable"

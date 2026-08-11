@@ -334,8 +334,8 @@
     var addToInventoryBulk = document.getElementById('addToInventoryBulk');
     var singleOwner = document.getElementById('singleOwner');
     var bulkOwner = document.getElementById('bulkOwner');
-    var singleRisk = document.getElementById('singleRisk');
-    var bulkRisk = document.getElementById('bulkRisk');
+    var singleRisk = document.getElementById('singleRiskValue');
+    var bulkRisk = document.getElementById('bulkRiskValue');
     var singleNotes = document.getElementById('singleNotes');
     var bulkNotes = document.getElementById('bulkNotes');
     var singleAssetClassValue = document.getElementById('singleAssetClassValue');
@@ -399,6 +399,83 @@
       }
     }
 
+    /* ── Automated Risk Profile Calculation ── */
+    /* Risk is automatically determined from scan findings via backend services:
+       HIGH/CRITICAL for SHA1 or unencrypted connections
+       LOW for ML-KEM or ML-KEM-hybrid protocols
+       MEDIUM for other quantum-vulnerable configurations */
+    function calculateRiskFromResult(result) {
+      if (!result || typeof result !== 'object') return 'Medium';
+
+      // Check for SHA1 or unencrypted indicators in the result
+      var rawStr = JSON.stringify(result || {}).toUpperCase();
+      var hasSha1 = rawStr.indexOf('SHA1') >= 0 || rawStr.indexOf('SHA-1') >= 0;
+      var hasUnencrypted = rawStr.indexOf('UNENCRYPTED') >= 0 || rawStr.indexOf('PLAINTEXT') >= 0;
+      var hasMlKem = rawStr.indexOf('ML-KEM') >= 0 || rawStr.indexOf('MLKEM') >= 0 || rawStr.indexOf('KYBER') >= 0;
+      var hasHybrid = rawStr.indexOf('HYBRID') >= 0;
+
+      // High/Critical risk: SHA1 or unencrypted
+      if (hasUnencrypted) return 'Critical';
+      if (hasSha1) return 'High';
+
+      // Low risk: ML-KEM or ML-KEM-hybrid protocols
+      if (hasMlKem || hasHybrid) return 'Low';
+
+      // Fallback: use PQC score if available
+      var pqcScore = result.overall_pqc_score;
+      if (typeof pqcScore === 'number') {
+        if (pqcScore >= 700) return 'Low';
+        if (pqcScore >= 400) return 'Medium';
+        if (pqcScore >= 200) return 'High';
+        return 'Critical';
+      }
+
+      // Fallback: use compliance score if available
+      var overview = result.overview || {};
+      var complianceScore = overview.average_compliance_score;
+      if (typeof complianceScore === 'number') {
+        if (complianceScore >= 70) return 'Low';
+        if (complianceScore >= 40) return 'Medium';
+        if (complianceScore >= 20) return 'High';
+        return 'Critical';
+      }
+
+      return 'Medium';
+    }
+
+    async function updateRiskLevel(scanId, riskInputId) {
+      if (!scanId) return;
+      try {
+        var resultPayload = await fetchApiJson('/scans/' + encodeURIComponent(scanId) + '/result');
+        var result = resultPayload.data || resultPayload || {};
+        var riskLevel = calculateRiskFromResult(result);
+
+        // Update hidden input value
+        var riskInput = document.getElementById(riskInputId);
+        if (riskInput) riskInput.value = riskLevel;
+
+        // Update visible badge (single or bulk)
+        var riskColor = 'var(--warn)';
+        if (riskLevel === 'Critical' || riskLevel === 'High') riskColor = 'var(--danger)';
+        else if (riskLevel === 'Low') riskColor = 'var(--safe)';
+
+        var badgeId = riskInputId === 'singleRiskValue' ? 'singleRiskBadge' : 'bulkRiskBadge';
+        var badge = document.getElementById(badgeId);
+        if (badge) {
+          badge.textContent = riskLevel.toUpperCase();
+          badge.style.borderColor = riskColor;
+          badge.style.color = riskColor;
+        }
+
+        // Trigger full risk profile render with the fetched result
+        if (typeof window.renderRiskProfile === 'function') {
+          window.renderRiskProfile(result);
+        }
+      } catch (_err) {
+        // Keep default risk level if result fetch fails
+      }
+    }
+
     async function loadCertificatesForScan(scanId, page) {
       if (!scanId) return;
       var activePage = Number(page || detailState.certPage || 1);
@@ -436,6 +513,19 @@
       setDetailText('scanDetailSource', report.scan_kind || report.source || live.scan_kind || 'scan center');
       setDetailText('scanDetailJob', live.job_id || report.job_id || '—');
 
+      // Automatically calculate and display risk level from scan results
+      var riskLevel = calculateRiskFromResult(report);
+      var riskDisplay = document.getElementById('scanDetailRisk');
+      if (riskDisplay) {
+        riskDisplay.textContent = riskLevel;
+        var riskColor = 'var(--text-secondary)';
+        if (riskLevel === 'Critical' || riskLevel === 'High') riskColor = 'var(--danger)';
+        else if (riskLevel === 'Medium') riskColor = 'var(--warn)';
+        else if (riskLevel === 'Low') riskColor = 'var(--safe)';
+        riskDisplay.style.color = riskColor;
+        riskDisplay.style.fontWeight = '700';
+      }
+
       var lines = [];
       if (report.overview && typeof report.overview === 'object') {
         if (report.overview.summary) lines.push(String(report.overview.summary));
@@ -470,6 +560,11 @@
       }
 
       renderRawResult({ live: live, result: result });
+
+      // Automated risk profile — call template-level renderer with full result data
+      if (typeof window.renderRiskProfile === 'function') {
+        window.renderRiskProfile(Object.keys(result).length ? result : live);
+      }
     }
 
     async function loadDetail(scanId) {
@@ -496,6 +591,16 @@
         }
 
         await loadCertificatesForScan(resultScanId, 1);
+
+        // Automatically calculate and update risk level from scan results
+        var riskLevel = calculateRiskFromResult(detailState.result);
+        var riskInput = document.getElementById('singleRiskValue');
+        if (riskInput) riskInput.value = riskLevel;
+
+        // Render automated risk profile panel immediately
+        if (typeof window.renderRiskProfile === 'function') {
+          window.renderRiskProfile(Object.keys(detailState.result).length ? detailState.result : detailState.live || {});
+        }
 
         syncDetailView();
         setActionMessage('Showing details for ' + scanId + '.');
@@ -554,6 +659,18 @@
         if (allDone) {
           clearInterval(pollTimer);
           pollTimer = null;
+          // Automatically calculate and update risk levels for completed scans
+          for (var j = 0; j < ids.length; j += 1) {
+            var completedId = ids[j];
+            var completedStatus = String((scanMap[completedId] || {}).status || '').toLowerCase();
+            if (completedStatus === 'completed') {
+              if (ids.length === 1) {
+                updateRiskLevel(completedId, 'singleRiskValue');
+              } else {
+                updateRiskLevel(completedId, 'bulkRiskValue');
+              }
+            }
+          }
           setActionMessage('All scans completed. Refreshing table...');
           if (window.QuantumShieldApiTable && window.QuantumShieldApiTable.fetchDashboardPage) {
             // trigger table refresh by simulating search button click

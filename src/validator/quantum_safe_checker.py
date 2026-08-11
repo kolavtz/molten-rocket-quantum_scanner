@@ -389,16 +389,31 @@ class QuantumSafeChecker:
             # Longer-lived certs increase HNDL value for adversaries.
             score += 1
 
-        # Clamp final score to 1-10.
-        score = max(1, min(10, int(score)))
+        # Check for unencrypted or SHA-1
+        is_sha1 = False
+        cipher = str(tls.get("cipher_suite", "") or "").upper()
+        if "SHA1" in sig_alg or "SHA-1" in sig_alg or "SHA1" in cipher or "SHA-1" in cipher:
+            is_sha1 = True
 
-        # 3) Final level mapping (HIGH / MEDIUM / LOW only).
-        if score >= 8:
+        is_unencrypted = (tls.get("is_tls") is False)
+
+        if is_unencrypted or is_sha1:
+            score = 10
             level = "HIGH"
-        elif score >= 5:
-            level = "MEDIUM"
-        else:
+        elif pqc_kex:
+            # mlkem or mlkem-hybrid -> low risk
+            score = max(1, min(4, int(score - 2)))
             level = "LOW"
+        else:
+            # Clamp final score to 1-10.
+            score = max(1, min(10, int(score)))
+            # 3) Final level mapping (HIGH / MEDIUM / LOW only).
+            if score >= 8:
+                level = "HIGH"
+            elif score >= 5:
+                level = "MEDIUM"
+            else:
+                level = "LOW"
 
         return level, score
 

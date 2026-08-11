@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuantumShield | Security Console - Asset Inventory</title>
+    <style>
+        /* ==========================================================================
+           1. CORE STYLES & THEME CONSTANTS
+           ========================================================================== */
+        :root {
+            --bg-main: #060b17;
+            --bg-card: #0d1527;
+            --bg-card-hover: #131f38;
+            --border-color: #1e2d4a;
+            --text-primary: #f1f5f9;
+            --text-muted: #64748b;
+            --cyan-accent: #00f2fe;
+            --cyan-hover: #02c5cf;
+            --cyan-dim: rgba(0, 242, 254, 0.1);
+            --red-accent: #ef4444;
+            --red-dim: rgba(239, 68, 68, 0.15);
+            --orange-accent: #f97316;
+            --green-accent: #10b981;
+            --green-dim: rgba(16, 185, 129, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* ==========================================================================
+           2. HEADER & NAVIGATION
+           ========================================================================== */
+        header {
+            background-color: #091020;
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 1.5rem;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .brand span {
+            color: var(--cyan-accent);
+        }
+
+        .brand-subtitle {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-weight: 400;
+            border-left: 1px solid var(--border-color);
+            padding-left: 0.75rem;
+        }
+
+        nav {
+            display: flex;
+            gap: 1rem;
+        }
+
+        nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.5rem 0.75rem;
+            border-radius: 4px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        nav a:hover, nav a.active {
+            color: var(--cyan-accent);
+            background: var(--cyan-dim);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            background: #111c33;
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        /* ==========================================================================
+           3. MAIN CONTAINER & CONTROLS
+           ========================================================================== */
+        main {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .page-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin-bottom: 0.25rem;
+            letter-spacing: 0.5px;
+        }
+
+        .page-description {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .controls-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr auto;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .form-group label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        input, select {
+            background-color: #080e1c;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.6rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--cyan-accent);
+        }
+
+        .btn {
+            background-color: var(--cyan-accent);
+            color: #000;
+            font-weight: 700;
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+        }
+
+        .btn:hover {
+            background-color: var(--cyan-hover);
+            box-shadow: 0 0 12px var(--cyan-dim);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--border-color);
+        }
+
+        .btn-danger {
+            background-color: var(--red-accent);
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background-color: #dc2626;
+        }
+
+        /* ==========================================================================
+           4. ASSET INVENTORY TABLE
+           ========================================================================== */
+        .table-container {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.85rem;
+        }
+
+        th {
+            background-color: #091122;
+            padding: 1rem 0.8rem;
+            color: var(--cyan-accent);
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 0.9rem 0.8rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+            vertical-align: middle;
+        }
+
+        tr:hover {
+            background-color: var(--bg-card-hover);
+        }
+
+        /* Badges */
+        .badge {
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            display: inline-block;
+            text-transform: uppercase;
+        }
+
+        .badge-critical { background: var(--red-dim); color: var(--red-accent); border: 1px solid var(--red-accent); }
+        .badge-high { background: rgba(249, 115, 22, 0.15); color: var(--orange-accent); border: 1px solid var(--orange-accent); }
+        .badge-expiring { background: rgba(234, 179, 8, 0.15); color: #eab308; border: 1px solid #eab308; }
+        .badge-expired { background: var(--red-dim); color: var(--red-accent); border: 1px solid var(--red-accent); }
+
+        /* Row Action Buttons */
+        .action-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.4rem;
+            min-width: 190px;
+        }
+
+        .btn-action {
+            padding: 0.35rem 0.5rem;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background: #111d33;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            transition: all 0.2s;
+        }
+
+        .btn-action:hover {
+            border-color: var(--cyan-accent);
+            color: var(--cyan-accent);
+            background: #162645;
+        }
+
+        .btn-action.run-scan {
+            color: #34d399;
+            border-color: rgba(52, 211, 153, 0.3);
+            background: rgba(16, 185, 129, 0.08);
+        }
+
+        .btn-action.run-scan:hover {
+            background: rgba(16, 185, 129, 0.2);
+            border-color: #34d399;
+        }
+
+        .btn-action.bin {
+            color: #f87171;
+            border-color: rgba(248, 113, 113, 0.3);
+            background: rgba(239, 68, 68, 0.08);
+        }
+
+        .btn-action.bin:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #f87171;
+        }
+
+        /* Pagination Bar */
+        .pagination-bar {
+            padding: 0.8rem 1.2rem;
+            background: #091122;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* ==========================================================================
+           5. CENTERED MODAL OVERLAY ARCHITECTURE (REF-MATCHED)
+           ========================================================================== */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(3, 7, 18, 0.85);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease-in-out;
+        }
+
+        .modal-backdrop.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 242, 254, 0.1);
+            transform: scale(0.92);
+            transition: transform 0.25s ease-in-out;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-backdrop.active .modal-card {
+            transform: scale(1);
+        }
+
+        .modal-card.modal-large {
+            max-width: 950px;
+            height: 80vh;
+        }
+
+        .modal-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #0a1122;
+        }
+
+        .modal-title-container {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .modal-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .modal-subtitle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.2rem;
+        }
+
+        .close-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.25rem;
+            cursor: pointer;
+            padding: 0.2rem;
+            border-radius: 4px;
+            transition: color 0.2s;
+        }
+
+        .close-btn:hover {
+            color: var(--cyan-accent);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            background: #0a1122;
+        }
+
+        .form-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        /* ==========================================================================
+           6. PERSISTENT 62x62px AI FLOATING WIDGET
+           ========================================================================== */
+        .ai-widget-icon {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 62px;
+            height: 62px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+            box-shadow: 0 0 20px rgba(0, 242, 254, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 9999;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 2px solid #ffffff;
+        }
+
+        .ai-widget-icon:hover {
+            transform: scale(1.08);
+            box-shadow: 0 0 30px rgba(0, 242, 254, 0.7);
+        }
+
+        .ai-chat-popup {
+            position: fixed;
+            bottom: 96px;
+            right: 24px;
+            width: 380px;
+            height: 520px;
+            background-color: var(--bg-card);
+            border: 1px solid var(--cyan-accent);
+            border-radius: 12px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            z-index: 9998;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(20px);
+            transition: all 0.25s ease-in-out;
+            overflow: hidden;
+        }
+
+        .ai-chat-popup.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+
+        .ai-chat-header {
+            padding: 0.9rem 1.2rem;
+            background: #091122;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .ai-chat-messages {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            font-size: 0.85rem;
+        }
+
+        .chat-msg {
+            padding: 0.6rem 0.8rem;
+            border-radius: 8px;
+            max-width: 85%;
+            line-height: 1.4;
+        }
+
+        .chat-msg.system {
+            background: #13223f;
+            color: var(--text-primary);
+            align-self: flex-start;
+            border-left: 3px solid var(--cyan-accent);
+        }
+
+        .chat-msg.user {
+            background: var(--cyan-accent);
+            color: #000;
+            align-self: flex-end;
+            font-weight: 600;
+        }
+
+        .ai-chat-input {
+            padding: 0.8rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 0.5rem;
+            background: #091122;
+        }
+
+        .ai-chat-input input {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ==========================================================================
+         NAVIGATION HEADER
+         ========================================================================== -->
+    <header>
+        <div class="brand">
+            <span>QuantumShield</span>
+            <span class="brand-subtitle">Security Console</span>
+        </div>
+        <nav>
+            <a href="#">🏠 HOME</a>
+            <a href="#">⚡ SCANS</a>
+            <a href="#" class="active">📦 INVENTORY</a>
+            <a href="#">🔍 DISCOVERY</a>
+            <a href="#">📜 CBOM</a>
+            <a href="#">🛡️ POSTURE</a>
+            <a href="#">📊 RATING</a>
+            <a href="#">📄 REPORTS</a>
+        </nav>
+        <div class="user-profile">
+            👤 <span>ADMIN</span>
+        </div>
+    </header>
+
+    <!-- ==========================================================================
+         MAIN CONTENT CONTAINER
+         ========================================================================== -->
+    <main>
+        <div class="page-title">ASSET INVENTORY</div>
+        <div class="page-description">Unified management of certificates, PQC posture, and cryptographic discoveries.</div>
+
+        <!-- Controls Filter Card -->
+        <div class="controls-card">
+            <div class="filters-grid">
+                <div class="form-group">
+                    <label>Search Assets</label>
+                    <input type="text" id="search-input" placeholder="Search assets, endpoints, ciphers, domains...">
+                </div>
+                <div class="form-group">
+                    <label>Asset Type</label>
+                    <select id="type-filter">
+                        <option value="ALL">All Types</option>
+                        <option value="Internet Banking">Internet Banking</option>
+                        <option value="Web App">Web App</option>
+                        <option value="API Gateway">API Gateway</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Risk Level</label>
+                    <select id="risk-filter">
+                        <option value="ALL">All Risks</option>
+                        <option value="CRITICAL">Critical</option>
+                        <option value="HIGH">High</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn" onclick="applyFilters()">FILTER</button>
+                    <button class="btn btn-secondary" onclick="resetFilters()">RESET</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Asset Inventory Table -->
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 30px;"><input type="checkbox"></th>
+                        <th>Asset Name</th>
+                        <th>URL</th>
+                        <th>Type</th>
+                        <th>Owner</th>
+                        <th>Risk</th>
+                        <th>Cert Status</th>
+                        <th>Cert Expiry</th>
+                        <th>Key Length</th>
+                        <th>Last Scan</th>
+                        <th style="text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="inventory-tbody">
+                    <!-- Dynamic Rows Rendered via JS -->
+                </tbody>
+            </table>
+            
+            <div class="pagination-bar">
+                <div>Showing <span id="displayed-count">2</span> of 2 telemetry entries</div>
+                <div>
+                    <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">&lt; PREV</button>
+                    <span style="margin: 0 0.5rem; color: var(--text-primary);">PAGE 1 of 1</span>
+                    <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">NEXT &gt;</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ==========================================================================
+         CENTRALIZED MODAL OVERLAY CONTAINER
+         ========================================================================== -->
+    <div class="modal-backdrop" id="modal-backdrop">
+        <div class="modal-card" id="modal-card">
+            <!-- Dynamic Modal Content Hydrated via JavaScript -->
+        </div>
+    </div>
+
+    <!-- ==========================================================================
+         PERSISTENT FLOATING 62x62px AI WIDGET
+         ========================================================================== -->
+    <div class="ai-widget-icon" onclick="toggleAIChat()" title="Quantum AI Assistant">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a10 10 0 1 0 10 10H12V2z"></path>
+            <path d="M12 12L2.5 2.5"></path>
+            <path d="M12 12v10"></path>
+        </svg>
+    </div>
+
+    <!-- AI Chat Popup Panel -->
+    <div class="ai-chat-popup" id="ai-chat-popup">
+        <div class="ai-chat-header">
+            <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.9rem;">
+                <span style="color: var(--cyan-accent);">🤖 Quantum AI Assistant</span>
+            </div>
+            <button class="close-btn" onclick="toggleAIChat()">✕</button>
+        </div>
+        <div class="ai-chat-messages" id="chat-messages">
+            <div class="chat-msg system">
+                Hello Administrator! I am monitoring your 2 public banking endpoints. 1 asset requires immediate PQC certificate migration.
+            </div>
+        </div>
+        <div class="ai-chat-input">
+            <input type="text" id="chat-input-field" placeholder="Ask about vulnerabilities or CBOM..." onkeypress="handleChatSubmit(event)">
+            <button class="btn" onclick="sendChatMessage()">SEND</button>
+        </div>
+    </div>
+
+    <!-- ==========================================================================
+         JAVASCRIPT LOGIC & MODAL CONTROLLERS
+         ========================================================================== -->
+    <script>
+        // ----------------------------------------------------------------------
+        // 1. SAMPLE DATA (Derived from standard security dashboard telemetry)
+        // ----------------------------------------------------------------------
+        let mockAssets = [
+            {
+                id: "asset-101",
+                name: "manipurrural.bank.in",
+                url: "https://manipurrural.bank.in",
+                type: "Internet Banking",
+                owner: "admin",
+                risk: "HIGH",
+                certStatus: "EXPIRING",
+                certExpiry: "2026-09-08",
+                keyLength: "2048",
+                lastScan: "2026-08-10 20:52:24",
+                scanId: "5dea31ad"
+            },
+            {
+                id: "asset-102",
+                name: "pnb.bank.in",
+                url: "https://pnb.bank.in",
+                type: "Internet Banking",
+                owner: "admin",
+                risk: "CRITICAL",
+                certStatus: "EXPIRED",
+                certExpiry: "2026-08-10",
+                keyLength: "2048",
+                lastScan: "2026-08-10 20:52:00",
+                scanId: "7f90c2eb"
+            }
+        ];
+
+        // ----------------------------------------------------------------------
+        // 2. RENDER TABLE WITH DOM DIFFING / ZERO-FLICKER LOGIC
+        // ----------------------------------------------------------------------
+        function renderTable(dataToRender = mockAssets) {
+            const tbody = document.getElementById('inventory-tbody');
+            tbody.innerHTML = '';
+
+            dataToRender.forEach(asset => {
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-asset-id', asset.id);
+
+                const riskBadgeClass = asset.risk === 'CRITICAL' ? 'badge-critical' : 'badge-high';
+                const certBadgeClass = asset.certStatus === 'EXPIRED' ? 'badge-expired' : 'badge-expiring';
+
+                tr.innerHTML = `
+                    <td><input type="checkbox"></td>
+                    <td style="font-weight: 700; color: var(--cyan-accent);">${asset.name}</td>
+                    <td style="color: var(--text-muted); font-size: 0.8rem;">${asset.url}</td>
+                    <td>${asset.type}</td>
+                    <td>${asset.owner}</td>
+                    <td><span class="badge ${riskBadgeClass}">${asset.risk}</span></td>
+                    <td><span class="badge ${certBadgeClass}">${asset.certStatus}</span></td>
+                    <td style="font-size: 0.8rem;">${asset.certExpiry}</td>
+                    <td>${asset.keyLength}</td>
+                    <td style="font-size: 0.8rem; color: var(--text-muted);">${asset.lastScan}</td>
+                    <td>
+                        <div class="action-group">
+                            <button class="btn-action" data-action="edit">📝 EDIT</button>
+                            <button class="btn-action" data-action="view-scan">📊 View Scan</button>
+                            <button class="btn-action run-scan" data-action="run-scan">⚡ RUN SCAN</button>
+                            <button class="btn-action bin" data-action="bin">🗑 BIN</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('displayed-count').textContent = dataToRender.length;
+        }
+
+        // Initialize Table
+        renderTable();
+
+        // ----------------------------------------------------------------------
+        // 3. EVENT DELEGATION FOR TABLE ACTION BUTTONS
+        // ----------------------------------------------------------------------
+        document.getElementById('inventory-tbody').addEventListener('click', (event) => {
+            const btn = event.target.closest('[data-action]');
+            if (!btn) return;
+
+            const action = btn.dataset.action;
+            const assetId = btn.closest('tr').getAttribute('data-asset-id');
+            const targetAsset = mockAssets.find(a => a.id === assetId);
+
+            if (!targetAsset) return;
+
+            switch (action) {
+                case 'edit':
+                    openEditModal(targetAsset);
+                    break;
+                case 'view-scan':
+                    openViewScanModal(targetAsset);
+                    break;
+                case 'run-scan':
+                    openRunScanModal(targetAsset);
+                    break;
+                case 'bin':
+                    openBinModal(targetAsset);
+                    break;
+            }
+        });
+
+        // ----------------------------------------------------------------------
+        // 4. MODAL CONTROLLER & BACKDROP LOGIC
+        // ----------------------------------------------------------------------
+        const modalBackdrop = document.getElementById('modal-backdrop');
+        const modalCard = document.getElementById('modal-card');
+
+        function showModal(contentHtml, isLarge = false) {
+            modalCard.className = 'modal-card' + (isLarge ? ' modal-large' : '');
+            modalCard.innerHTML = contentHtml;
+            modalBackdrop.classList.add('active');
+            document.body.style.overflow = 'hidden'; // Retain background scroll position
+        }
+
+        function closeModal() {
+            modalBackdrop.classList.remove('active');
+            document.body.style.overflow = ''; // Restore background scroll
+        }
+
+        // Close when clicking outside modal-card or pressing Escape
+        modalBackdrop.addEventListener('click', (e) => {
+            if (e.target === modalBackdrop) closeModal();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modalBackdrop.classList.contains('active')) closeModal();
+        });
+
+        // ----------------------------------------------------------------------
+        // 5. POPUP 1: EDIT ASSET MODAL (EXACT STRUCTURE FROM REFERENCE IMAGE)
+        // ----------------------------------------------------------------------
+        function openEditModal(asset) {
+            const html = `
+                <div class="modal-header">
+                    <div class="modal-title-container">
+                        <span style="font-size: 1.2rem;">📝</span>
+                        <div>
+                            <div class="modal-title">Edit Asset</div>
+                            <div class="modal-subtitle">Update asset owner and risk classification.</div>
+                        </div>
+                    </div>
+                    <button class="close-btn" onclick="closeModal()">✕</button>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-asset-form" onsubmit="saveAssetChanges(event, '${asset.id}')">
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label>Asset Name / Target</label>
+                            <input type="text" id="edit-name" value="${asset.name}" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label>URL</label>
+                            <input type="text" id="edit-url" value="${asset.url}" required>
+                        </div>
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label>Owner / Team</label>
+                                <input type="text" id="edit-owner" value="${asset.owner}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Risk Classification</label>
+                                <select id="edit-risk">
+                                    <option value="CRITICAL" ${asset.risk === 'CRITICAL' ? 'selected' : ''}>Critical</option>
+                                    <option value="HIGH" ${asset.risk === 'HIGH' ? 'selected' : ''}>High</option>
+                                    <option value="MEDIUM" ${asset.risk === 'MEDIUM' ? 'selected' : ''}>Medium</option>
+                                    <option value="LOW" ${asset.risk === 'LOW' ? 'selected' : ''}>Low</option>
+                                </select>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeModal()">CANCEL</button>
+                    <button class="btn" form="edit-asset-form" type="submit">💾 SAVE CHANGES</button>
+                </div>
+            `;
+            showModal(html);
+        }
+
+        function saveAssetChanges(event, assetId) {
+            event.preventDefault();
+            const asset = mockAssets.find(a => a.id === assetId);
+            if (asset) {
+                asset.name = document.getElementById('edit-name').value;
+                asset.url = document.getElementById('edit-url').value;
+                asset.owner = document.getElementById('edit-owner').value;
+                asset.risk = document.getElementById('edit-risk').value;
+                renderTable();
+            }
+            closeModal();
+        }
+
+        // ----------------------------------------------------------------------
+        // 6. POPUP 2: VIEW SCAN MODAL (MOCK RESULT VIEW)
+        // ----------------------------------------------------------------------
+        function openViewScanModal(asset) {
+            const html = `
+                <div class="modal-header">
+                    <div class="modal-title-container">
+                        <span style="font-size: 1.2rem;">📊</span>
+                        <div>
+                            <div class="modal-title">Scan Results: ${asset.name}</div>
+                            <div class="modal-subtitle">Target Scan ID: ${asset.scanId} | Completed: ${asset.lastScan}</div>
+                        </div>
+                    </div>
+                    <button class="close-btn" onclick="closeModal()">✕</button>
+                </div>
+                <div class="modal-body" style="padding: 0;">
+                    <div style="padding: 1rem 1.5rem; background: #09101f; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.85rem; color: var(--text-muted);">Endpoint Source: <code style="color: var(--cyan-accent);">https://localhost:5000/results/${asset.scanId}</code></span>
+                        <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="window.open('${asset.url}', '_blank')">🔗 Open Target</button>
+                    </div>
+                    <div style="padding: 1.5rem; font-size: 0.9rem; line-height: 1.6;">
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                            <div style="background: #080e1c; padding: 1rem; border-radius: 6px; border: 1px solid var(--border-color);">
+                                <div style="color: var(--text-muted); font-size: 0.75rem;">TLS PROTOCOL</div>
+                                <div style="font-size: 1.2rem; font-weight: 700; color: #38bdf8;">TLS 1.2 (Legacy)</div>
+                            </div>
+                            <div style="background: #080e1c; padding: 1rem; border-radius: 6px; border: 1px solid var(--border-color);">
+                                <div style="color: var(--text-muted); font-size: 0.75rem;">KEY EXCHANGE</div>
+                                <div style="font-size: 1.2rem; font-weight: 700; color: var(--red-accent);">ECDHE (RSA 2048)</div>
+                            </div>
+                            <div style="background: #080e1c; padding: 1rem; border-radius: 6px; border: 1px solid var(--border-color);">
+                                <div style="color: var(--text-muted); font-size: 0.75rem;">PQC POSTURE</div>
+                                <div style="font-size: 1.2rem; font-weight: 700; color: var(--red-accent);">Non-PQC Ready</div>
+                            </div>
+                        </div>
+                        <div style="background: #080e1c; padding: 1rem; border-radius: 6px; border: 1px solid var(--border-color);">
+                            <div style="font-weight: 700; color: var(--cyan-accent); margin-bottom: 0.5rem;">HNDL Risk Analysis (Harvest Now, Decrypt Later)</div>
+                            <p style="color: var(--text-muted); font-size: 0.85rem;">This endpoint uses standard classical RSA-2048 key transport. Captured ciphertext packets can be retroactively decrypted once Shor's algorithm runs on quantum hardware. Upgrade recommended to ML-KEM-768 hybrid key exchange.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeModal()">CLOSE</button>
+                </div>
+            `;
+            showModal(html, true);
+        }
+
+        // ----------------------------------------------------------------------
+        // 7. POPUP 3: RUN SCAN MODAL
+        // ----------------------------------------------------------------------
+        function openRunScanModal(asset) {
+            const html = `
+                <div class="modal-header">
+                    <div class="modal-title-container">
+                        <span style="font-size: 1.2rem;">⚡</span>
+                        <div>
+                            <div class="modal-title">Initiate Cryptographic Scan</div>
+                            <div class="modal-subtitle">Target: ${asset.name}</div>
+                        </div>
+                    </div>
+                    <button class="close-btn" onclick="closeModal()">✕</button>
+                </div>
+                <div class="modal-body" id="scan-modal-body">
+                    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">
+                        This operation will perform a non-disruptive TLS handshake probing cycle to enumerate key exchange cipher suites and X.509 certificate chains.
+                    </p>
+                    <div style="background: #080e1c; padding: 1rem; border-radius: 6px; border: 1px solid var(--border-color); font-size: 0.85rem;">
+                        <div>• Active Cipher Probe: <strong>ENABLED</strong></div>
+                        <div>• CERT-In CBOM Parsing: <strong>ENABLED</strong></div>
+                        <div>• Post-Quantum Vulnerability Check: <strong>ENABLED</strong></div>
+                    </div>
+                </div>
+                <div class="modal-footer" id="scan-modal-footer">
+                    <button class="btn btn-secondary" onclick="closeModal()">CANCEL</button>
+                    <button class="btn" onclick="triggerScanExecution('${asset.id}')">START SCAN NOW</button>
+                </div>
+            `;
+            showModal(html);
+        }
+
+        function triggerScanExecution(assetId) {
+            const body = document.getElementById('scan-modal-body');
+            const footer = document.getElementById('scan-modal-footer');
+
+            body.innerHTML = `
+                <div style="text-align: center; padding: 2rem 0;">
+                    <div style="font-size: 2rem; margin-bottom: 1rem; animation: spin 1s linear infinite; display: inline-block;">⚙️</div>
+                    <div style="font-weight: 700; color: var(--cyan-accent); font-size: 1.1rem;">Scanning Endpoint...</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">Executing non-disruptive TLS cipher inspection</div>
+                </div>
+                <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
+            `;
+            footer.style.display = 'none';
+
+            // Simulate Async Flask API Call
+            setTimeout(() => {
+                const asset = mockAssets.find(a => a.id === assetId);
+                if (asset) {
+                    const now = new Date();
+                    asset.lastScan = now.toISOString().replace('T', ' ').substring(0, 19);
+                    renderTable();
+                }
+                closeModal();
+            }, 1800);
+        }
+
+        // ----------------------------------------------------------------------
+        // 8. POPUP 4: MOVE TO BIN (DELETE) MODAL
+        // ----------------------------------------------------------------------
+        function openBinModal(asset) {
+            const html = `
+                <div class="modal-header">
+                    <div class="modal-title-container">
+                        <span style="font-size: 1.2rem; color: var(--red-accent);">🗑</span>
+                        <div>
+                            <div class="modal-title">Move Asset to Recycle Bin</div>
+                            <div class="modal-subtitle">Are you sure you want to archive this target?</div>
+                        </div>
+                    </div>
+                    <button class="close-btn" onclick="closeModal()">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--red-accent); padding: 1rem; border-radius: 6px; color: #fca5a5; font-size: 0.85rem; line-height: 1.5;">
+                        <strong>Warning:</strong> Moving <strong>${asset.name}</strong> to the recycle bin will suspend automated scheduled scans and telemetry monitoring for this endpoint.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeModal()">CANCEL</button>
+                    <button class="btn btn-danger" onclick="confirmDeleteAsset('${asset.id}')">CONFIRM REMOVAL</button>
+                </div>
+            `;
+            showModal(html);
+        }
+
+        function confirmDeleteAsset(assetId) {
+            mockAssets = mockAssets.filter(a => a.id !== assetId);
+            renderTable();
+            closeModal();
+        }
+
+        // ----------------------------------------------------------------------
+        // 9. FILTER & SEARCH HANDLERS
+        // ----------------------------------------------------------------------
+        function applyFilters() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const typeVal = document.getElementById('type-filter').value;
+            const riskVal = document.getElementById('risk-filter').value;
+
+            const filtered = mockAssets.filter(asset => {
+                const matchesQuery = asset.name.toLowerCase().includes(query) || asset.url.toLowerCase().includes(query);
+                const matchesType = typeVal === 'ALL' || asset.type === typeVal;
+                const matchesRisk = riskVal === 'ALL' || asset.risk === riskVal;
+                return matchesQuery && matchesType && matchesRisk;
+            });
+
+            renderTable(filtered);
+        }
+
+        function resetFilters() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('type-filter').value = 'ALL';
+            document.getElementById('risk-filter').value = 'ALL';
+            renderTable(mockAssets);
+        }
+
+        // ----------------------------------------------------------------------
+        // 10. AI CHAT WIDGET TOGGLE HANDLER
+        // ----------------------------------------------------------------------
+        function toggleAIChat() {
+            const chatPopup = document.getElementById('ai-chat-popup');
+            chatPopup.classList.toggle('active');
+        }
+
+        function handleChatSubmit(e) {
+            if (e.key === 'Enter') sendChatMessage();
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input-field');
+            const messagesContainer = document.getElementById('chat-messages');
+            const text = input.value.trim();
+
+            if (!text) return;
+
+            // Render User Message
+            const userMsg = document.createElement('div');
+            userMsg.className = 'chat-msg user';
+            userMsg.textContent = text;
+            messagesContainer.appendChild(userMsg);
+
+            input.value = '';
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            // Simulated AI Response
+            setTimeout(() => {
+                const aiMsg = document.createElement('div');
+                aiMsg.className = 'chat-msg system';
+                aiMsg.textContent = `Analyzing asset query for "${text}"... All asymmetric algorithms (RSA/ECDH) currently flagged as Non-PQC Ready.`;
+                messagesContainer.appendChild(aiMsg);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }, 800);
+        }
+    </script>
+</body>
+</html>

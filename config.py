@@ -10,6 +10,10 @@ from dotenv import load_dotenv  # type: ignore
 
 # Load user's .env file if present
 load_dotenv()
+# Override with .env.local if present
+if os.path.exists(".env.local"):
+    load_dotenv(".env.local", override=True)
+
 
 # ---------------------------------------------------------------------------
 # Application
@@ -509,6 +513,8 @@ MAX_LOGIN_ATTEMPTS = int(
 LOGIN_LOCKOUT_MINUTES = int(os.environ.get("QSS_LOGIN_LOCKOUT_MINUTES", "15"))
 # REQUIRE_2FA: when True, all users are required to configure 2FA on next login
 REQUIRE_2FA = os.environ.get("QSS_REQUIRE_2FA", "false").lower() == "true"
+# TOTP_VALID_WINDOW: number of 30-second TOTP windows to accept before/after current (0 = strict, 1 = ±30s tolerance)
+TOTP_VALID_WINDOW = int(os.environ.get("QSS_TOTP_VALID_WINDOW", "1"))
 
 # ---------------------------------------------------------------------------
 # SMTP / Email
@@ -683,7 +689,7 @@ FINDING_SEVERITY_MAP = {
     'expired_certificate': 'critical',      # Already expired
     'self_signed_cert': 'medium',           # Public endpoint with self-signed cert
     'mismatched_hostname': 'high',          # Cert CN doesn't match domain
-    'weak_signature_algorithm': 'medium',   # MD5, SHA1 signatures
+    'weak_signature_algorithm': 'high',     # MD5, SHA1 signatures
 }
 
 # ---------------------------------------------------------------------------

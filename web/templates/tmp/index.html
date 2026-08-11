@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | QuantumShield{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero">
+    <div class="hero-content">
+        <h1 class="hero-title">
+            QUANTUM-SAFE<br>
+            <span class="gradient-text">TLS SCANNER</span>
+        </h1>
+        <p class="hero-subtitle">
+            pqc readiness // cryptovulnerability analysis // nist compliance
+        </p>
+    </div>
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1.2rem;">
+    <h3 style="margin-bottom:0.7rem;text-transform:uppercase;">Module Quick Access</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.7rem;">
+        <a href="/asset-inventory" class="glass-card" style="padding:0.8rem;display:block;"><i class="fa-solid fa-boxes-stacked" style="margin-right:0.35rem;"></i>Asset Inventory</a>
+        <a href="/asset-discovery" class="glass-card" style="padding:0.8rem;display:block;"><i class="fa-solid fa-satellite-dish" style="margin-right:0.35rem;"></i>Asset Discovery</a>
+        <a href="/cbom-dashboard" class="glass-card" style="padding:0.8rem;display:block;"><i class="fa-solid fa-cubes" style="margin-right:0.35rem;"></i>CBOM</a>
+        <a href="/pqc-posture" class="glass-card" style="padding:0.8rem;display:block;"><i class="fa-solid fa-shield-halved" style="margin-right:0.35rem;"></i>Posture of PQC</a>
+        <a href="/cyber-rating" class="glass-card" style="padding:0.8rem;display:block;"><i class="fa-solid fa-chart-line" style="margin-right:0.35rem;"></i>Cyber Rating</a>
+        <a href="/reporting" class="glass-card" style="padding:0.8rem;display:block;"><i class="fa-solid fa-file-waveform" style="margin-right:0.35rem;"></i>Reporting</a>
+    </div>
+</section>
+
+{% if enterprise_metrics and enterprise_metrics.scan_count > 0 %}
+<!-- Enterprise Metrics Dashboard -->
+<section class="overview-section" style="margin-bottom: 2rem;">
+    <h2 class="section-title" style="text-align: center; margin-bottom: 1.5rem; text-transform: uppercase;">
+        OPERATIONS_CONSOLE
+    </h2>
+    <div class="overview-grid">
+        <div class="overview-card glass-card">
+            <div class="overview-value">{{ enterprise_metrics.total_assets }}</div>
+            <div class="overview-label">TOTAL ASSETS</div>
+        </div>
+        <div class="overview-card glass-card" style="border-top: 4px solid var(--safe);">
+            <div class="overview-value">
+                {% if enterprise_metrics.total_assets > 0 %}
+                {{ ((enterprise_metrics.quantum_safe / enterprise_metrics.total_assets) * 100)|round|int }}%
+                {% else %}
+                0%
+                {% endif %}
+            </div>
+            <div class="overview-label">PQC_READY</div>
+        </div>
+        <div class="overview-card glass-card" style="border-top: 4px solid var(--danger);">
+            <div class="overview-value">{{ enterprise_metrics.quantum_vulnerable }}</div>
+            <div class="overview-label">VULNERABLE</div>
+        </div>
+        <div class="overview-card glass-card">
+            <div class="overview-value">
+                <span class="{% if enterprise_metrics.critical_findings > 0 %}text-vuln{% else %}text-safe{% endif %}">
+                    {{ enterprise_metrics.critical_findings }}
+                </span>
+            </div>
+            <div class="overview-label">CRIT_FINDINGS</div>
+        </div>
+        <div class="overview-card glass-card">
+            <div class="overview-value">{{ enterprise_metrics.avg_score }}%</div>
+            <div class="overview-label">AVG_COMPLIANCE</div>
+        </div>
+        <div class="overview-card glass-card">
+            <div class="overview-value">{{ enterprise_metrics.dns_records_total }}</div>
+            <div class="overview-label">DNS_RECORDS</div>
+        </div>
+        <div class="overview-card glass-card">
+            <div class="overview-value" style="font-size:1rem;">
+                {{ enterprise_metrics.latest_scan[:16] if enterprise_metrics.latest_scan else 'N/A' }}
+            </div>
+            <div class="overview-label">LATEST_SCAN</div>
+        </div>
+    </div>
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1.2rem;">
+    <h3 style="margin-bottom:0.8rem; text-transform:uppercase;">Crypto_Security_Overview</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;">
+        <div>
+            <div style="font-size:0.78rem;margin-bottom:0.55rem;">ASSET CLASS DISTRIBUTION</div>
+            {% for k,v in enterprise_metrics.asset_class_distribution.items() %}
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
+                <span style="width:130px;font-size:0.72rem;color:var(--text-secondary);">{{ k }}</span>
+                <div style="height:8px;flex:1;background:var(--bg-secondary);border-radius:999px;overflow:hidden;"><div class="metric-bar" data-width="{{ (v * 12)|int }}"></div></div>
+                <span style="font-size:0.72rem;">{{ v }}</span>
+            </div>
+            {% else %}
+            <div style="font-size:0.75rem;color:var(--text-secondary);">No class telemetry yet.</div>
+            {% endfor %}
+        </div>
+        <div>
+            <div style="font-size:0.78rem;margin-bottom:0.55rem;">API SERVICE TOTALS</div>
+            <div class="overview-card glass-card" style="padding:0.9rem;">
+                <div class="overview-value">{{ enterprise_metrics.api_services }}</div>
+                <div class="overview-label">API_TOUCHPOINTS</div>
+            </div>
+            <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:0.5rem;">Counts API-like services discovered across scan inventory.</div>
+        </div>
+        <div>
+            <div style="font-size:0.78rem;margin-bottom:0.55rem;">SSL EXPIRY TIMELINE</div>
+            {% for bucket,v in enterprise_metrics.ssl_expiry.items() %}
+            <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-subtle);padding:0.35rem 0;font-size:0.74rem;">
+                <span>{{ bucket }} DAYS</span>
+                <strong>{{ v }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+        <div>
+            <div style="font-size:0.78rem;margin-bottom:0.55rem;">IP BREAKDOWN (ASSET-WISE)</div>
+            <div style="height:14px;background:var(--bg-secondary);border-radius:999px;overflow:hidden;display:flex;">
+                <div class="metric-bar" data-width="{{ enterprise_metrics.ip_breakdown['IPv4'] }}"></div>
+                <div class="metric-bar metric-bar-safe" data-width="{{ enterprise_metrics.ip_breakdown['IPv6'] }}"></div>
+            </div>
+            <div style="margin-top:0.45rem;font-size:0.74rem;color:var(--text-secondary);">IPv4 {{ enterprise_metrics.ip_breakdown['IPv4'] }}% | IPv6 {{ enterprise_metrics.ip_breakdown['IPv6'] }}%</div>
+        </div>
+    </div>
+    <div style="margin-top:1rem;">
+        <div style="font-size:0.78rem;margin-bottom:0.5rem;">TOP CRYPTO TELEMETRY</div>
+        <div class="scans-table-wrapper">
+            <table class="scans-table">
+                <thead><tr><th>ASSET</th><th>KEY</th><th>CIPHER</th><th>TLS</th><th>CA</th></tr></thead>
+                <tbody>
+                    {% for row in enterprise_metrics.crypto_overview[:8] %}
+                    <tr><td>{{ row.asset }}</td><td>{{ row.key_length }}</td><td>{{ row.cipher_suite }}</td><td>{{ row.tls_version }}</td><td>{{ row.ca }}</td></tr>
+                    {% else %}
+                    <tr><td colspan="5" style="text-align:center;color:var(--text-secondary);">No crypto overview rows yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1.2rem;">
+    <h3 style="margin-bottom:0.75rem; text-transform:uppercase;">SSL Certificate Intelligence</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.8rem;margin-bottom:0.9rem;">
+        {% for bucket, value in enterprise_metrics.ssl_expiry_extended.items() %}
+        <div style="padding:0.65rem;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-secondary);">
+            <div style="font-size:0.72rem;color:var(--text-secondary);">{{ bucket }} DAYS</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.7rem;margin-top:0.35rem;">
+                <strong style="font-size:1.05rem;">{{ value }}</strong>
+                <div style="height:8px;flex:1;background:var(--bg-card);border-radius:999px;overflow:hidden;"><div class="metric-bar cert-bar" data-width="{{ value * 12 }}"></div></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="scans-table-wrapper">
+        <table class="scans-table">
+            <thead>
+                <tr>
+                    <th>ASSET</th><th>COMMON NAME</th><th>ISSUER</th><th>KEY</th><th>TLS</th><th>SIG ALG</th><th>VALID TO</th><th>DAYS LEFT</th><th>STATUS</th><th>CERTIFICATE DETAILS</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cert in enterprise_metrics.certificate_inventory[:12] %}
+                {% set details = cert.certificate_details if cert.certificate_details is mapping else {} %}
+                {% set validity = details.get('validity', {}) if details else {} %}
+                <tr>
+                    <td>{{ cert.asset }}</td>
+                    <td>{{ cert.common_name }}</td>
+                    <td>{{ cert.issuer }}</td>
+                    <td>{{ cert.key_length }}</td>
+                    <td>{{ cert.tls_version }}</td>
+                    <td>{{ cert.signature_algorithm }}</td>
+                    <td>{{ cert.valid_to or '-' }}</td>
+                    <td>{{ cert.days_remaining if cert.days_remaining is not none else '-' }}</td>
+                    <td>
+                        <span style="color:{% if cert.status == 'Expired' %}var(--danger){% elif cert.status == 'Expiring' %}var(--warn){% else %}var(--safe){% endif %};font-weight:700;">
+                            {{ cert.status }}
+                        </span>
+                    </td>
+                    <td style="max-width:320px;">
+                        <details>
+                            <summary style="cursor:pointer; font-size:0.68rem; color:var(--text-secondary);">Show X.509 details</summary>
+                            <div style="display:grid; gap:0.2rem; margin-top:0.35rem; font-size:0.68rem;">
+                                <div><strong>Version:</strong> {{ details.get('certificate_version', '-') }}</div>
+                                <div><strong>Serial:</strong> {{ details.get('serial_number', '-') }}</div>
+                                <div><strong>Signature Algorithm:</strong> {{ details.get('certificate_signature_algorithm', cert.signature_algorithm or '-') }}</div>
+                                <div><strong>Issuer:</strong> {{ details.get('issuer', cert.issuer or '-') }}</div>
+                                <div><strong>Not Before:</strong> {{ validity.get('not_before', '-') }}</div>
+                                <div><strong>Not After:</strong> {{ validity.get('not_after', cert.valid_to or '-') }}</div>
+                                <div><strong>Subject SAN:</strong> {{ details.get('certificate_subject_alternative_name', []) }}</div>
+                                <div><strong>Key Usage:</strong> {{ details.get('certificate_key_usage', []) }}</div>
+                                <div><strong>Extended Key Usage:</strong> {{ details.get('extended_key_usage', []) }}</div>
+                                <div><strong>Policies:</strong> {{ details.get('certificate_policies', []) }}</div>
+                            </div>
+                        </details>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="10" style="text-align:center;color:var(--text-secondary);">No certificate telemetry available yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1.2rem;display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap;">
+    <div>
+        <h3 style="text-transform:uppercase;margin-bottom:0.35rem;">Scan Operations</h3>
+        <div style="font-size:0.8rem;color:var(--text-secondary);">Dashboard remains analytics-first. Start scans from dedicated workflow page.</div>
+    </div>
+    {% if current_user.role in ['Admin', 'Manager', 'SingleScan'] %}
+    <a href="/scans" class="scan-button" style="padding:0.6rem 1rem;"><i class="fa-solid fa-radar" style="margin-right:0.35rem;"></i>Open Scan Center</a>
+    {% else %}
+    <div style="font-size:0.8rem;color:var(--text-secondary);">Read-only role</div>
+    {% endif %}
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;">
+    <h3 style="margin-bottom:0.8rem;">Asset Inventory Snapshot</h3>
+    <div class="scans-table-wrapper">
+        <table class="scans-table">
+            <thead>
+                <tr>
+                    <th>Asset</th><th>URL</th><th>IPv4</th><th>IPv6</th><th>Type</th><th>Class</th><th>Owner</th><th>Risk</th><th>Cert</th><th>Key</th><th>Last Scan</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in inventory_vm.assets[:12] %}
+                <tr>
+                    <td>{{ row.asset_name }}</td><td>{{ row.url }}</td><td>{{ row.ipv4 or '-' }}</td><td>{{ row.ipv6 or '-' }}</td><td>{{ row.type }}</td><td>{{ row.asset_class or 'Other' }}</td><td>{{ row.owner }}</td><td>{{ row.risk }}</td><td>{{ row.cert_status }}</td><td>{{ row.key_length }}</td><td>{{ row.last_scan }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="11" style="text-align:center;color:var(--text-secondary);">No inventory rows yet. Run scans from Scan Center.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="glass-card" style="padding:1rem;margin-bottom:1rem;display:grid;grid-template-columns:1.2fr 1fr;gap:1rem;">
+    <div>
+        <h3 style="margin-bottom:0.6rem;">Asset Geo Map</h3>
+        {% if inventory_vm.asset_locations %}
+        <div id="dashboardAssetMap" style="height:280px;border:1px solid var(--border-subtle);border-radius:8px;"></div>
+        <script id="dashboardLocationPayload" type="application/json">{{ inventory_vm.asset_locations|tojson }}</script>
+        {% else %}
+        <div style="font-size:0.8rem;color:var(--text-secondary);">Location points will appear after successful host geolocation.</div>
+        {% endif %}
+    </div>
+    <div>
+        <h3 style="margin-bottom:0.6rem;">DNS Records</h3>
+        <table class="scans-table">
+            <thead><tr><th>Host</th><th>Type</th><th>Value</th><th>TTL</th></tr></thead>
+            <tbody>
+                {% for row in inventory_vm.nameserver_records[:8] %}
+                <tr><td>{{ row.hostname }}</td><td>{{ row.type }}</td><td>{{ row.ip or row.ipv6 or '-' }}</td><td>{{ row.ttl }}</td></tr>
+                {% else %}
+                <tr><td colspan="4" style="text-align:center;color:var(--text-secondary);">No DNS records captured yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Recent Scans -->
+{% if recent_scans %}
+<section class="recent-section">
+    <h2 class="section-title" style="text-transform: uppercase;">SCAN_CACHE</h2>
+    <div class="scans-table-wrapper glass-card">
+        <table class="scans-table">
+            <thead>
+                <tr>
+                    <th>SCAN_ID</th>
+                    <th>TARGET</th>
+                    <th>STATUS</th>
+                    <th>NODES</th>
+                    <th>PQC_SCORE</th>
+                    <th>TIMESTAMP</th>
+                    <th>CTRL</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for scan in recent_scans %}
+                <tr class="scan-row">
+                    <td class="time-cell">{{ scan.scan_id }}</td>
+                    <td class="target-cell">{{ scan.target }}</td>
+                    <td>
+                        <span class="status-badge" style="color: {% if scan.status == 'complete' %}var(--safe){% else %}var(--danger){% endif %};">
+                            {{ scan.status|upper }}
+                        </span>
+                    </td>
+                    <td>{{ scan.overview.total_assets if scan.overview else 0 }}</td>
+                    <td>
+                        {% set score = scan.overview.average_compliance_score if scan.overview else 0 %}
+                        <span style="color: {% if score >= 80 %}var(--safe){% elif score >= 50 %}var(--warn){% else %}var(--danger){% endif %}; font-weight: 800;">
+                            {{ score }}%
+                        </span>
+                    </td>
+                    <td class="time-cell">{{ scan.generated_at[:16] if scan.generated_at else '' }}</td>
+                    <td>
+                        <a href="/results/{{ scan.scan_id }}" class="scan-button" style="padding: 0.3rem 0.6rem; font-size: 0.7rem;">DECRYPT</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+    document.querySelectorAll('.metric-bar').forEach((el) => {
+        const w = Number(el.getAttribute('data-width') || '0');
+        el.style.width = Math.max(0, Math.min(100, w)) + '%';
+    });
+
+    const payloadNode = document.getElementById('dashboardLocationPayload');
+    if (payloadNode && typeof L !== 'undefined') {
+        let points = [];
+        try {
+            points = JSON.parse(payloadNode.textContent || '[]');
+        } catch (e) {
+            points = [];
+        }
+        if (Array.isArray(points) && points.length) {
+            const map = L.map('dashboardAssetMap', { scrollWheelZoom: false }).setView([20.5937, 78.9629], 4);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 18,
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+            const bounds = [];
+            points.forEach((pt) => {
+                const lat = Number(pt.lat);
+                const lon = Number(pt.lon);
+                if (Number.isFinite(lat) && Number.isFinite(lon)) {
+                    const marker = L.circleMarker([lat, lon], {
+                        radius: 6,
+                        color: 'var(--accent)',
+                        fillColor: 'var(--accent)',
+                        fillOpacity: 0.85
+                    }).addTo(map);
+                    marker.bindPopup((pt.asset || pt.ip || 'asset') + ' :: ' + (pt.city || '') + ' ' + (pt.country || ''));
+                    bounds.push([lat, lon]);
+                }
+            });
+            if (bounds.length) {
+                map.fitBounds(bounds, { padding: [24, 24] });
+            }
+        }
+    }
+</script>
+
+<style>
+    .metric-bar {
+        height: 100%;
+        background: var(--accent);
+        transition: width 180ms ease;
+    }
+    .metric-bar-safe {
+        background: var(--safe);
+    }
+</style>
+{% endblock %}

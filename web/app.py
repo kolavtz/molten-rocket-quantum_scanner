@@ -27,6 +27,7 @@ import io
 import pyotp
 import qrcode
 import secrets
+import math
 
 import os
 import uuid
@@ -51,6 +52,7 @@ from flask import (
     Response,
     flash,
     session,
+    make_response,
 )
 from flask_login import (
     LoginManager,
@@ -129,6 +131,7 @@ from config import (
     HSTS_SECONDS,
     MAX_LOGIN_ATTEMPTS,
     LOGIN_LOCKOUT_MINUTES,
+    TOTP_VALID_WINDOW,
     REQUIRE_2FA,
     SESSION_COOKIE_NAME,
     SESSION_IDLE_TIMEOUT_SECONDS,
@@ -1739,40 +1742,62 @@ def run_scan_pipeline(
         scan_pk = getattr(db_scan, "id", None) or getattr(db_scan, "scan_id", None)
         
         # Resolve Asset for relational sync across discovery/certificates/PQC/CBOM.
+        # Rules:
+        #   - If asset exists and is active: always update last_scan_id + risk_level (fresh data)
+        #   - If asset is soft-deleted: restore ONLY when add_to_inventory=True, else keep asset_id=None
+        #   - If asset doesn't exist: create ONLY when add_to_inventory=True
         asset_id = None
+        score_risk = "Critical"
+        if overall_score >= 80:
+            score_risk = "Low"
+        elif overall_score >= 60:
+            score_risk = "Medium"
+        elif overall_score >= 40:
+            score_risk = "High"
+
         inventory_asset = (
             db_session.query(Asset)
             .filter(func.lower(Asset.name) == canonical_target)
             .first()
         )
-        if inventory_asset and getattr(inventory_asset, "is_deleted", False):
-            inventory_asset.is_deleted = False
-        if not inventory_asset:
-            score_risk = "Critical"
-            if overall_score >= 80:
-                score_risk = "Low"
-            elif overall_score >= 60:
-                score_risk = "Medium"
-            elif overall_score >= 40:
-                score_risk = "High"
-            inventory_asset = Asset(
-                target=canonical_target,
-                url=f"https://{canonical_target}" if canonical_target and not canonical_target.startswith(("http://", "https://")) else canonical_target,
-                asset_type="Web App",
-                owner=str(scanned_by or "Unassigned"),
-                risk_level=score_risk,
-                notes="Auto-created from scan pipeline",
-                is_deleted=False,
-            )
-            db_session.add(inventory_asset)
+
+        is_soft_deleted = inventory_asset and getattr(inventory_asset, "is_deleted", False)
+
+        if inventory_asset and not is_soft_deleted:
+            # Active asset: always refresh scan data
+            inventory_asset.last_scan_id = int(getattr(db_scan, "id", 0) or 0)
+            inventory_asset.risk_level = score_risk
+            if not str(getattr(inventory_asset, "url", "") or "") and canonical_target:
+                inventory_asset.url = f"https://{canonical_target}"
+            if not str(getattr(inventory_asset, "owner", "") or "").strip() and scanned_by:
+                inventory_asset.owner = str(scanned_by)
+            asset_id = int(getattr(inventory_asset, "id", 0) or 0)
+        elif add_to_inventory:
+            if is_soft_deleted:
+                # Restore previously-deleted asset and update it
+                inventory_asset.is_deleted = False
+                inventory_asset.last_scan_id = int(getattr(db_scan, "id", 0) or 0)
+                inventory_asset.risk_level = score_risk
+                if not str(getattr(inventory_asset, "url", "") or "") and canonical_target:
+                    inventory_asset.url = f"https://{canonical_target}"
+            else:
+                # Create brand-new asset
+                inventory_asset = Asset(
+                    target=canonical_target,
+                    url=f"https://{canonical_target}" if canonical_target and not canonical_target.startswith(("http://", "https://")) else canonical_target,
+                    asset_type="Web App",
+                    owner=str(scanned_by or "Unassigned"),
+                    risk_level=score_risk,
+                    notes="Created from Scan Center (add to inventory)",
+                    is_deleted=False,
+                )
+                db_session.add(inventory_asset)
             db_session.flush()
-        asset_id = int(getattr(inventory_asset, "id", 0) or 0)
-        inventory_asset.last_scan_id = int(getattr(db_scan, "id", 0) or 0)
-        if not str(getattr(inventory_asset, "url", "") or "") and canonical_target:
-            inventory_asset.url = f"https://{canonical_target}"
-        if not str(getattr(inventory_asset, "owner", "") or "").strip() and scanned_by:
-            inventory_asset.owner = str(scanned_by)
-        
+            asset_id = int(getattr(inventory_asset, "id", 0) or 0)
+        else:
+            # add_to_inventory=False, asset is deleted or missing: no asset context
+            inventory_asset = None
+
         if inventory_asset is not None:
             for svc in discovered_services:
                 host = str(svc.get("host") or "").strip()
@@ -2328,6 +2353,37 @@ def root_index():
 
 
 
+def _check_and_clean_user_lockout(user_data: dict | None) -> tuple[dict | None, bool, str]:
+    if not user_data:
+        return None, False, ""
+
+    lockout_until = user_data.get("lockout_until")
+    if not lockout_until:
+        return user_data, False, ""
+
+    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+    if isinstance(lockout_until, str):
+        try:
+            lockout_until = datetime.fromisoformat(lockout_until.replace("Z", "+00:00")).replace(tzinfo=None)
+        except Exception:
+            return user_data, False, ""
+
+    if getattr(lockout_until, "tzinfo", None) is not None:
+        lockout_until = lockout_until.astimezone(timezone.utc).replace(tzinfo=None)
+
+    if now_utc >= lockout_until:
+        # Lockout expired — lift it using mark_login_success (resets attempts + lockout_until)
+        db.mark_login_success(user_data["id"])
+        user_data["failed_login_attempts"] = 0
+        user_data["lockout_until"] = None
+        return user_data, False, ""
+
+    diff_sec = int((lockout_until - now_utc).total_seconds())
+    rem_mins = max(1, -(-diff_sec // 60))  # integer ceiling without math module
+    msg = f"Account is temporarily locked due to repeated failed login attempts. Lockout will automatically lift in {rem_mins} minute(s)."
+    return user_data, True, msg
+
+
 @app.route("/login", methods=["GET", "POST"])
 @limiter.limit("100 per minute")
 def login():
@@ -2340,31 +2396,38 @@ def login():
     if request.method == "POST":
         username = (request.form.get("username") or "").strip()
         password = request.form.get("password") or ""
+        # Guard: blank credential submissions must never trigger lockouts or audit spam
+        if not username:
+            flash("Please enter your username.", "error")
+            resp = make_response(render_template("login.html", locked=False))
+            resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            resp.headers["Pragma"] = "no-cache"
+            return resp
         remember = bool(request.form.get("remember"))
         request_ip = _get_request_ip()
 
         user_data = db.get_user_by_username(username)
+        user_data, is_locked, lock_msg = _check_and_clean_user_lockout(user_data)
 
         # ── Lockout check ─────────────────────────────────────────
-        if user_data and user_data.get("lockout_until") and datetime.now(timezone.utc).replace(tzinfo=None) < user_data["lockout_until"]:
+        if is_locked:
             db.append_audit_log(
                 event_category="auth",
                 event_type="login_blocked_locked_account",
                 status="denied",
-                actor_user_id=user_data.get("id"),
+                actor_user_id=user_data.get("id") if user_data else None,
                 actor_username=username,
                 ip_address=request_ip,
                 user_agent=request.headers.get("User-Agent", "")[:512],
                 request_method=request.method,
                 request_path=request.path,
                 details={
-                    "lockout_until": user_data.get("lockout_until").isoformat() if user_data.get("lockout_until") else None,
+                    "lockout_until": user_data.get("lockout_until").isoformat() if (user_data and user_data.get("lockout_until")) else None,
                     "login_ip": request_ip,
                 },
             )
-            flash("Account temporarily locked due to repeated failed login attempts. Please try again later or use Forgot Password.", "error")
-            locked = True
-            return render_template("login.html", locked=locked)
+            flash(lock_msg, "error")
+            return render_template("login.html", locked=True)
 
         # ── Credential check ──────────────────────────────────────
         if user_data and check_password_hash(user_data["password_hash"], password):
@@ -2415,7 +2478,8 @@ def login():
 
             return redirect(url_for('quantumshield_dashboard.dashboard_home'))
         else:
-            if user_data:
+            # Only count failed login against an existing account (never against blank/unknown users)
+            if user_data and username:
                 db.mark_login_failure(user_data["id"], MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_MINUTES)
             db.append_audit_log(
                 event_category="auth",
@@ -2431,7 +2495,10 @@ def login():
             )
             flash("Invalid credentials. Access denied.", "error")
 
-    return render_template("login.html", locked=locked)
+    resp = make_response(render_template("login.html", locked=locked))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 
 @app.route("/2fa/setup", methods=["GET", "POST"])
@@ -2446,8 +2513,10 @@ def two_factor_setup():
         return redirect(url_for("login"))
 
     user = db.get_user_by_id(pre_id)
-    if not user:
-        flash("User not found. Please log in again.", "error")
+    user, is_locked, lock_msg = _check_and_clean_user_lockout(user)
+    if is_locked or not user:
+        flash(lock_msg if is_locked else "User not found. Please log in again.", "error")
+        session.pop("pre_2fa_user_id", None)
         return redirect(url_for("login"))
 
     if request.method == "GET":
@@ -2466,14 +2535,15 @@ def two_factor_setup():
         return render_template("setup_2fa.html", qr_image=f"data:image/png;base64,{png_b64}", secret=secret, user=user)
 
     # POST: verify the token and persist
-    code = (request.form.get("otp") or (request.get_json(silent=True) or {}).get("otp"))
+    raw_code = (request.form.get("otp") or request.form.get("code") or (request.get_json(silent=True) or {}).get("otp") or (request.get_json(silent=True) or {}).get("code"))
+    code = re.sub(r'[\s\-]', '', str(raw_code or "")).strip()
     secret = session.get("pre_2fa_secret")
     if not secret:
         flash("Setup session expired. Start setup again.", "error")
         return redirect(url_for("login"))
 
     totp = pyotp.TOTP(secret)
-    if totp.verify(str(code or "").strip(), valid_window=1):
+    if totp.verify(code, valid_window=TOTP_VALID_WINDOW):
         # Create backup codes (show once)
         backup_plain = [secrets.token_hex(4) for _ in range(10)]
         hashed_entries = []
@@ -2487,12 +2557,10 @@ def two_factor_setup():
             # complete login
             db.mark_login_success(pre_id)
             user_data = db.get_user_by_id(pre_id)
-            remember = bool(session.get("pre_2fa_remember", False))
+            remember = bool(session.pop("pre_2fa_remember", False))
             session.pop("pre_2fa_secret", None)
             session.pop("pre_2fa_user_id", None)
-            session.pop("pre_2fa_remember", None)
             session.pop("pre_2fa_request_ip", None)
-            session.clear()
             login_user(User(user_data), remember=remember)
             _audit("auth", "2fa_enabled", "success", target_user_id=pre_id)
             # Show backup codes to user once
@@ -2515,30 +2583,35 @@ def two_factor_login():
         return redirect(url_for("login"))
 
     user = db.get_user_by_id(pre_id)
-    if not user:
-        flash("User not found. Please log in again.", "error")
+    user, is_locked, lock_msg = _check_and_clean_user_lockout(user)
+    if is_locked or not user:
+        flash(lock_msg if is_locked else "User not found. Please log in again.", "error")
+        session.pop("pre_2fa_user_id", None)
         return redirect(url_for("login"))
 
     if request.method == "GET":
-        return render_template("two_factor_login.html", user=user)
+        resp = make_response(render_template("two_factor_login.html", user=user))
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        return resp
 
-    code = (request.form.get("otp") or (request.get_json(silent=True) or {}).get("otp"))
+    raw_code = (request.form.get("otp") or request.form.get("code") or (request.get_json(silent=True) or {}).get("otp") or (request.get_json(silent=True) or {}).get("code"))
+    code = re.sub(r'[\s\-]', '', str(raw_code or "")).strip()
+
     # Attempt TOTP verification
     enc_secret = user.get("two_factor_secret")
     secret = db._decrypt_data(enc_secret) if enc_secret else None
     ok = False
     if secret:
         totp = pyotp.TOTP(secret)
-        ok = totp.verify(str(code or "").strip(), valid_window=1)
+        ok = totp.verify(code, valid_window=TOTP_VALID_WINDOW)
 
     if ok:
         db.mark_login_success(pre_id)
         user_data = db.get_user_by_id(pre_id)
-        remember = bool(session.get("pre_2fa_remember", False))
+        remember = bool(session.pop("pre_2fa_remember", False))
         session.pop("pre_2fa_user_id", None)
-        session.pop("pre_2fa_remember", None)
         session.pop("pre_2fa_request_ip", None)
-        session.clear()
         login_user(User(user_data), remember=remember)
         _audit("auth", "login_success_2fa", "success", target_user_id=pre_id)
         return redirect(url_for('quantumshield_dashboard.dashboard_home'))
@@ -2550,7 +2623,7 @@ def two_factor_login():
         try:
             dec = db._decrypt_data(enc_backup)
             backup_list = json.loads(dec or "[]")
-            provided_hash = hashlib.sha256(str(code or "").encode()).hexdigest()
+            provided_hash = hashlib.sha256(code.encode()).hexdigest()
             for entry in backup_list:
                 if isinstance(entry, dict) and entry.get("code_hash") == provided_hash and not entry.get("used"):
                     # mark used and persist
@@ -2563,11 +2636,9 @@ def two_factor_login():
     if used_backup:
         db.mark_login_success(pre_id)
         user_data = db.get_user_by_id(pre_id)
-        remember = bool(session.get("pre_2fa_remember", False))
+        remember = bool(session.pop("pre_2fa_remember", False))
         session.pop("pre_2fa_user_id", None)
-        session.pop("pre_2fa_remember", None)
         session.pop("pre_2fa_request_ip", None)
-        session.clear()
         login_user(User(user_data), remember=remember)
         _audit("auth", "login_success_backup_code", "success", target_user_id=pre_id)
         flash("Logged in using backup code. That code is now invalid.", "warning")
@@ -3521,6 +3592,12 @@ def _build_asset_discovery_view(
             }
         )
 
+    try:
+        all_assets = db_session.query(Asset).filter(Asset.is_deleted == False).order_by(Asset.target).all()
+        assets_list = [{"id": a.id, "target": str(a.target or "")} for a in all_assets]
+    except Exception:
+        assets_list = []
+
     return {
         "empty": not (domains or ssl or ip_subnets or software),
         "overview": {
@@ -3540,6 +3617,7 @@ def _build_asset_discovery_view(
         "ip_subnets": ip_subnets,
         "software": software,
         "asset_locations": asset_locations,
+        "assets": assets_list,
         "graph_payload": {
             "nodes": nodes,
             "edges": edges,
@@ -3605,6 +3683,7 @@ def asset_discovery():
             "ssl": [],
             "ip_subnets": [],
             "software": [],
+            "assets": [],
             "graph_payload": {"nodes": [], "edges": []}
         }
 
@@ -5688,7 +5767,8 @@ def recycle_bin():
     """
     from src.db import db_session
     from src.models import Asset, Scan, Certificate, PQCClassification, CBOMEntry, ComplianceScore, CBOMSummary, CyberRating, \
-        DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, Subdomain
+        DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, Subdomain, \
+        DomainCurrentState, AssetSSLProfile, DomainEvent, AssetMetric, TLSComplianceScore, DigitalLabel, Finding
     
     # Check admin/manager permission for destructive actions
     ALLOWED_RESTORE_ROLES = {"Admin", "Manager"}
@@ -5765,45 +5845,44 @@ def recycle_bin():
                         for model in (DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, Certificate, PQCClassification, CBOMEntry, ComplianceScore, Subdomain):
                             try:
                                 rows = db_session.query(model).filter(model.asset_id == asset.id, model.is_deleted == True).all()
+                                for row in rows:
+                                    row.is_deleted = False
+                                    row.deleted_at = None
+                                    row.deleted_by_user_id = None
                             except Exception:
-                                rows = []
-                            for row in rows:
-                                row.is_deleted = False
-                                row.deleted_at = None
-                                row.deleted_by_user_id = None
+                                pass
 
                         # Restore scans linked by target and scan-bound child tables.
-                        asset_target = str(getattr(asset, "name", "") or "").strip().lower()
+                        asset_target = str(getattr(asset, "target", "") or getattr(asset, "name", "") or "").strip().lower()
                         if asset_target:
-                            related_scans = db_session.query(Scan).filter(Scan.target.ilike(asset_target)).all()
+                            try:
+                                related_scans = db_session.query(Scan).filter(Scan.target.ilike(asset_target)).all()
+                            except Exception:
+                                related_scans = []
                             for scan in related_scans:
                                 if getattr(scan, "is_deleted", False):
                                     scan.is_deleted = False
                                     scan.deleted_at = None
                                     scan.deleted_by_user_id = None
 
-                                for s_model in (Certificate, PQCClassification, CBOMEntry):
+                                for s_model in (Certificate, PQCClassification, CBOMEntry, DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, ComplianceScore, CyberRating, Subdomain):
                                     try:
                                         s_rows = db_session.query(s_model).filter(s_model.scan_id == scan.id, s_model.is_deleted == True).all()
+                                        for s_row in s_rows:
+                                            s_row.is_deleted = False
+                                            s_row.deleted_at = None
+                                            s_row.deleted_by_user_id = None
                                     except Exception:
-                                        s_rows = []
-                                    for s_row in s_rows:
-                                        s_row.is_deleted = False
-                                        s_row.deleted_at = None
-                                        s_row.deleted_by_user_id = None
+                                        pass
 
-                                for s_model in (DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, ComplianceScore, CyberRating, Subdomain):
-                                    s_rows = db_session.query(s_model).filter(s_model.scan_id == scan.id, s_model.is_deleted == True).all()
-                                    for s_row in s_rows:
-                                        s_row.is_deleted = False
-                                        s_row.deleted_at = None
-                                        s_row.deleted_by_user_id = None
-
-                                s_summary = db_session.query(CBOMSummary).filter(CBOMSummary.scan_id == scan.id, CBOMSummary.is_deleted == True).first()
-                                if s_summary:
-                                    s_summary.is_deleted = False
-                                    s_summary.deleted_at = None
-                                    s_summary.deleted_by_user_id = None
+                                try:
+                                    s_summary = db_session.query(CBOMSummary).filter(CBOMSummary.scan_id == scan.id, CBOMSummary.is_deleted == True).first()
+                                    if s_summary:
+                                        s_summary.is_deleted = False
+                                        s_summary.deleted_at = None
+                                        s_summary.deleted_by_user_id = None
+                                except Exception:
+                                    pass
                     db_session.commit()
                     _audit("recycle_bin", "restore_assets", "success", details={"count": len(assets_to_restore)})
                     if wants_json:
@@ -5869,24 +5948,50 @@ def recycle_bin():
                     deleted_count = 0
                     for asset in assets_to_delete:
                         try:
-                            # Explicitly purge scan-linked rows that are not FK-constrained by asset_id.
+                            # 1. Null out any foreign keys pointing to scans/certificates on asset or state tables
+                            asset.last_scan_id = None
+                            db_session.flush()
+
+                            # 2. Hard-delete DomainCurrentState, AssetSSLProfile, DomainEvent, Subdomain, AssetMetric, TLSComplianceScore, DigitalLabel, Finding for this asset
+                            for cls in (DomainCurrentState, AssetSSLProfile, DomainEvent, Subdomain, AssetMetric, TLSComplianceScore, DigitalLabel, Finding):
+                                try:
+                                    db_session.query(cls).filter(cls.asset_id == asset.id).delete(synchronize_session=False)
+                                except Exception as err:
+                                    logger.warning(f"Failed to clear dependent table {cls.__name__} for asset {asset.id}: {err}")
+
+                            # 3. Explicitly purge scan-linked rows and the scans themselves
                             asset_target = str(getattr(asset, "name", "") or "").strip().lower()
                             if asset_target:
-                                related_scans = db_session.query(Scan).filter(Scan.target.ilike(asset_target), Scan.is_deleted == True).all()
+                                related_scans = db_session.query(Scan).filter(Scan.target.ilike(asset_target)).all()
                                 for scan in related_scans:
-                                    db_session.query(DiscoveryDomain).filter(DiscoveryDomain.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(DiscoverySSL).filter(DiscoverySSL.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(DiscoveryIP).filter(DiscoveryIP.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(DiscoverySoftware).filter(DiscoverySoftware.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(Certificate).filter(Certificate.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(PQCClassification).filter(PQCClassification.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(CBOMEntry).filter(CBOMEntry.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(ComplianceScore).filter(ComplianceScore.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(CyberRating).filter(CyberRating.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.query(CBOMSummary).filter(CBOMSummary.scan_id == scan.id).delete(synchronize_session=False)
-                                    db_session.delete(scan)
+                                    # Set any current state pointers to None first to break cycles
+                                    try:
+                                        db_session.query(DomainCurrentState).filter(DomainCurrentState.latest_scan_id == scan.id).update(
+                                            {DomainCurrentState.latest_scan_id: None, DomainCurrentState.current_ssl_certificate_id: None},
+                                            synchronize_session=False
+                                        )
+                                    except Exception:
+                                        pass
 
-                            # Hard delete the asset (ORM cascade will handle related entities via ON DELETE CASCADE)
+                                    # Null out scan_id on any Finding rows before deleting scan/certificate
+                                    try:
+                                        db_session.query(Finding).filter(Finding.scan_id == scan.id).update({Finding.scan_id: None}, synchronize_session=False)
+                                    except Exception:
+                                        pass
+
+                                    # Now delete other scan-bound records
+                                    for cls in (DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, Certificate, PQCClassification, CBOMEntry, ComplianceScore, CyberRating, CBOMSummary, Finding, AssetSSLProfile):
+                                        try:
+                                            db_session.query(cls).filter(cls.scan_id == scan.id).delete(synchronize_session=False)
+                                        except Exception as err:
+                                            logger.warning(f"Failed to clear scan-bound dependent table {cls.__name__} for scan {scan.id}: {err}")
+
+                                    try:
+                                        db_session.delete(scan)
+                                    except Exception as err:
+                                        logger.warning(f"Failed to delete scan {scan.id}: {err}")
+
+                            # 4. Finally hard delete the asset itself
                             db_session.delete(asset)
                             deleted_count += 1
                         except Exception as e:
@@ -5915,7 +6020,23 @@ def recycle_bin():
                     deleted_count = 0
                     for scan in scans_to_delete:
                         try:
-                            # Hard delete the scan (ORM cascade will handle related entities)
+                            # Null out any references to scan in other tables first
+                            db_session.query(Asset).filter(Asset.last_scan_id == scan.id).update({Asset.last_scan_id: None}, synchronize_session=False)
+                            db_session.query(DomainCurrentState).filter(DomainCurrentState.latest_scan_id == scan.id).update(
+                                {DomainCurrentState.latest_scan_id: None, DomainCurrentState.current_ssl_certificate_id: None},
+                                synchronize_session=False
+                            )
+                            db_session.query(Finding).filter(Finding.scan_id == scan.id).update({Finding.scan_id: None}, synchronize_session=False)
+                            db_session.flush()
+
+                            # Now delete all scan-bound records
+                            for cls in (DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, Certificate, PQCClassification, CBOMEntry, ComplianceScore, CyberRating, CBOMSummary, Finding, AssetSSLProfile):
+                                try:
+                                    db_session.query(cls).filter(cls.scan_id == scan.id).delete(synchronize_session=False)
+                                except Exception as err:
+                                    logger.warning(f"Failed to clear scan-bound dependent table {cls.__name__} for scan {scan.id}: {err}")
+
+                            # Hard delete the scan
                             db_session.delete(scan)
                             deleted_count += 1
                         except Exception as e:

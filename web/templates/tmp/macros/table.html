@@ -1,0 +1,144 @@
+{% macro search_form(endpoint, current_q, current_page_size, custom_params={}) %}
+<div class="search-container glass-card">
+  <form action="{{ url_for(endpoint, **custom_params) }}" method="get" class="table-search-form" data-table-search>
+    <input type="hidden" name="page" value="1">
+    {% for key, value in request.args.items() %}
+      {% if key not in ['page', 'q', 'page_size'] %}
+      <input type="hidden" name="{{ key }}" value="{{ value }}">
+      {% endif %}
+    {% endfor %}
+    {% if request.args.get('sort') %}
+    <input type="hidden" name="sort" value="{{ request.args.get('sort') }}">
+    <input type="hidden" name="order" value="{{ request.args.get('order', 'asc') }}">
+    {% endif %}
+    <div class="search-field">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input
+        type="text"
+        name="q"
+        class="search-input"
+        placeholder="Search assets, owners, URLs..."
+        value="{{ current_q }}"
+        autocomplete="off"
+      >
+    </div>
+    <div class="search-controls">
+      <label class="table-control-label" for="pageSizeSelect">Entries</label>
+      <select id="pageSizeSelect" name="page_size" class="table-control-select" data-page-size>
+        {% for size in [10, 25, 50, 100] %}
+        <option value="{{ size }}" {% if current_page_size|string == size|string %}selected{% endif %}>{{ size }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="scan-button table-action-button">Apply</button>
+    </div>
+  </form>
+</div>
+{% endmacro %}
+
+{% macro sortable_th(label, field_name, endpoint, current_sort, current_order, base_params={}, server_side=False) %}
+{% set params = request.args.to_dict(flat=True) %}
+{% for key, value in base_params.items() %}
+  {% set _ = params.update({key: value}) %}
+{% endfor %}
+{% set _ = params.pop('page', None) %}
+{% set is_active = current_sort == field_name %}
+{% set next_order = 'desc' if is_active and (current_order or 'asc')|lower == 'asc' else 'asc' %}
+{% set icon = '↑' if is_active and (current_order or 'asc')|lower == 'asc' else '↓' if is_active else '↕' %}
+{% set link_params = params.copy() %}
+{% set _ = link_params.update({'sort': field_name, 'order': next_order}) %}
+<th class="sortable{% if is_active %} sort-active sort-{{ (current_order or 'asc')|lower }}{% endif %}" data-sort-field="{{ field_name }}" data-sort-order="{{ next_order }}">
+  <a class="table-sort-link" href="{{ url_for(endpoint, **link_params) }}">
+    <span class="table-sort-label">{{ label }}</span>
+    <span class="table-sort-indicator" aria-hidden="true">{{ icon }}</span>
+  </a>
+</th>
+{% endmacro %}
+
+{% macro pagination_controls(endpoint, page_data, base_params={}) %}
+<div class="pagination-controls glass-card" data-pagination-controls>
+  <div class="pagination-meta">
+    Showing {{ page_data.start_index }}-{{ page_data.end_index }} of {{ page_data.total_count }} total entries
+  </div>
+  <div class="pagination-actions">
+    {% set params = request.args.to_dict(flat=True) %}
+    {% for key, value in base_params.items() %}
+      {% set _ = params.update({key: value}) %}
+    {% endfor %}
+    {% set prev_params = params.copy() %}
+    {% set _ = prev_params.update({'page': page_data.page - 1}) %}
+    {% set next_params = params.copy() %}
+    {% set _ = next_params.update({'page': page_data.page + 1}) %}
+    <a href="{{ url_for(endpoint, **prev_params) }}" class="scan-button pagination-button{% if not page_data.has_prev %} disabled-link{% endif %}">Prev</a>
+    <form action="{{ url_for(endpoint, **params) }}" method="get" class="goto-page-form">
+      {% for key, value in request.args.items() %}
+        {% if key != 'page' %}
+        <input type="hidden" name="{{ key }}" value="{{ value }}">
+        {% endif %}
+      {% endfor %}
+      {% if request.args.get('page_size') is none %}
+      <input type="hidden" name="page_size" value="{{ page_data.page_size }}">
+      {% endif %}
+      <label class="table-control-label" for="gotoPageInput">Go to</label>
+      <input id="gotoPageInput" type="number" name="page" min="1" max="{{ page_data.total_pages }}" value="{{ page_data.page }}" class="goto-page-input">
+      <button type="submit" class="scan-button pagination-button">Go</button>
+    </form>
+    <a href="{{ url_for(endpoint, **next_params) }}" class="scan-button pagination-button{% if not page_data.has_next %} disabled-link{% endif %}">Next</a>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro empty_state(message="No records found. Run a scan to get started.") %}
+<div class="empty-state glass-card">
+  <div class="empty-state-icon"><i class="fa-solid fa-inbox"></i></div>
+  <h3>{{ message }}</h3>
+</div>
+{% endmacro %}
+
+{% macro paginated_table(items, headers, total, page, page_size, search='', sort='', order='asc', endpoint=None, base_params={}, empty_message='No records found. Run a scan to get started.') %}
+<div class="table-component" data-table-component>
+  {% if endpoint %}
+    {{ search_form(endpoint, search, page_size, base_params) }}
+  {% endif %}
+  <div class="table-summary">Showing {{ total }} total entries</div>
+  <div class="table-scroll glass-card">
+    <table class="scans-table asset-table" data-table-mode="server">
+      <thead>
+        <tr>
+          {% for header in headers %}
+            {% if header.sortable and endpoint %}
+              {{ sortable_th(header.label, header.field, endpoint, sort, order, base_params, true) }}
+            {% else %}
+              <th class="{% if header.class_name %}{{ header.class_name }}{% endif %}">{% if header.safe_label %}{{ header.label|safe }}{% else %}{{ header.label }}{% endif %}</th>
+            {% endif %}
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          {% for header in headers %}
+            {% set value = item[header.field] if item is mapping and header.field in item else item|attr(header.field) %}
+            <td class="{% if header.class_name %}{{ header.class_name }}{% endif %}">
+              {% if header.safe %}
+                {{ value|default('')|safe }}
+              {% else %}
+                {{ value|default('-') }}
+              {% endif %}
+            </td>
+          {% endfor %}
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="{{ headers|length }}" class="empty-table-cell">
+            {{ empty_state(empty_message) }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if endpoint %}
+    {{ pagination_controls(endpoint, namespace(items=items, total_count=total, page=page, page_size=page_size, total_pages=((total + page_size - 1) // page_size) if page_size else 1, has_next=(page * page_size) < total, has_prev=page > 1, start_index=((page - 1) * page_size + 1) if total else 0, end_index=((page - 1) * page_size + items|length) if total else 0), base_params) }}
+  {% endif %}
+</div>
+{% endmacro %}

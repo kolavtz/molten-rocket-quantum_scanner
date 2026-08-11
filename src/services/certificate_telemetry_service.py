@@ -63,6 +63,16 @@ class CertificateTelemetryService:
         from src.db import db_session
         return db_session
 
+    def _active_asset_ids_subquery(self):
+        """
+        Returns a subquery of asset IDs that are NOT soft-deleted.
+        Use as: Certificate.asset_id.in_(self._active_asset_ids_subquery())
+        This ensures certificates for deleted assets are hidden everywhere
+        except the Recycle Bin.
+        """
+        db = self._get_db_session()
+        return db.query(Asset.id).filter(Asset.is_deleted == False).subquery()
+
     def _certificate_details_from_row(self, cert: Certificate) -> Dict:
         base = {
             "certificate_version": "",
@@ -166,6 +176,7 @@ class CertificateTelemetryService:
         
         count = db.query(func.count(Certificate.id)).filter(
             Certificate.is_deleted == False,
+            Certificate.asset_id.in_(self._active_asset_ids_subquery()),
             Certificate.valid_until > now,
             Certificate.valid_until <= threshold_date
         ).scalar() or 0
@@ -185,6 +196,7 @@ class CertificateTelemetryService:
         
         count = db.query(func.count(Certificate.id)).filter(
             Certificate.is_deleted == False,
+            Certificate.asset_id.in_(self._active_asset_ids_subquery()),
             Certificate.valid_until < now
         ).scalar() or 0
         
@@ -214,6 +226,7 @@ class CertificateTelemetryService:
         # Get all valid certificates (not expired, not deleted)
         certs = db.query(Certificate).filter(
             Certificate.is_deleted == False,
+            Certificate.asset_id.in_(self._active_asset_ids_subquery()),
             Certificate.valid_until > now
         ).all()
         
@@ -261,7 +274,8 @@ class CertificateTelemetryService:
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         
         certs = db.query(Certificate).filter(
-            Certificate.is_deleted == False
+            Certificate.is_deleted == False,
+            Certificate.asset_id.in_(self._active_asset_ids_subquery()),
         ).order_by(Certificate.valid_until.asc()).limit(limit).all()
         
         inventory = []
@@ -356,11 +370,11 @@ class CertificateTelemetryService:
         db = self._get_db_session()
         
         certs = db.query(Certificate).filter(
-            Certificate.is_deleted == False
+            Certificate.is_deleted == False,
+            Certificate.asset_id.in_(self._active_asset_ids_subquery()),
         ).all()
-        
         distribution = Counter()
-        
+
         for cert in certs:
             key_len_raw = cert.key_length
             key_len = int(key_len_raw) if key_len_raw is not None else 0
@@ -393,9 +407,9 @@ class CertificateTelemetryService:
         db = self._get_db_session()
         
         certs = db.query(Certificate).filter(
-            Certificate.is_deleted == False
+            Certificate.is_deleted == False,
+            Certificate.asset_id.in_(self._active_asset_ids_subquery()),
         ).all()
-        
         cipher_counts = Counter(
             cert.cipher_suite for cert in certs
             if cert.cipher_suite is not None

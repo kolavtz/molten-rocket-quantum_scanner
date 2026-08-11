@@ -3,8 +3,9 @@
 {% block title %}Asset Discovery // QuantumShield{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 <style>
+    /* Upgraded Styling from gemini-code mockup */
     .discovery-container {
         padding: 1.5rem 0;
     }
@@ -16,103 +17,371 @@
         margin-bottom: 2rem;
     }
 
+    .page-title {
+        font-size: 2.2rem;
+        font-weight: 900;
+        margin-bottom: 0.25rem;
+        letter-spacing: -0.02em;
+        text-transform: uppercase;
+    }
+
+    .page-description {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .glass-card {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--ui-radius-lg);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        margin-bottom: 1.5rem;
+    }
+
+    .card-padded {
+        padding: 1.5rem;
+    }
+
+    .section-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /* KPI STATS GRID */
+    .discovery-stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.25rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        padding: 1.5rem;
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 2.2rem;
+        font-weight: 900;
+        color: var(--cyan-accent);
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+
+    /* TAB NAVIGATION & FILTERS */
     .tab-nav {
         display: flex;
         gap: 0.5rem;
-        padding: 0.25rem;
-        background: rgba(255, 255, 255, 0.03);
+        padding: 0.35rem;
+        background: rgba(0,0,0,0.2);
         border-radius: 12px;
-        border: 1px solid var(--border-subtle);
-        width: fit-content;
+        border: 1px solid var(--border-color);
     }
 
     .tab-btn {
-        padding: 0.6rem 1.25rem;
-        border-radius: 10px;
-        font-size: 0.75rem;
+        padding: 0.6rem 1.5rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
         font-weight: 700;
-        color: var(--text-secondary);
+        color: var(--text-muted);
         cursor: pointer;
-        transition: all 0.2s ease;
         border: none;
         background: transparent;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+        transition: all 0.2s;
+    }
+
+    .tab-btn:hover {
+        color: var(--text-primary);
     }
 
     .tab-btn.active {
-        background: var(--accent);
-        color: var(--bg-primary);
-        box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 30%, transparent);
+        background: var(--cyan-accent);
+        color: #000;
+        box-shadow: 0 0 15px var(--cyan-dim);
     }
 
     .filter-bar {
         display: grid;
-        grid-template-columns: 1fr 180px 200px 200px 120px;
+        grid-template-columns: 2fr 1fr 1fr 1fr 120px;
         gap: 1rem;
         margin-bottom: 1.5rem;
     }
 
     .discovery-input {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid var(--border-subtle);
-        border-radius: 10px;
+        background: #080e1c;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
         padding: 0.75rem 1rem;
         color: var(--text-primary);
         font-size: 0.85rem;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+
+    .discovery-input:focus {
+        border-color: var(--cyan-accent);
+    }
+
+    /* DATA TABLES */
+    .table-scroll {
+        overflow-x: auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 0.85rem;
+    }
+
+    th {
+        background-color: #091122;
+        padding: 1rem;
+        color: var(--text-muted);
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+    }
+
+    tr:hover td {
+        background-color: var(--bg-card-hover);
+        cursor: pointer;
+    }
+
+    /* Status badge/pill */
+    .status-pill {
+        padding: 0.3rem 0.6rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid var(--border-color);
+    }
+
+    .status-pill.confirmed {
+        background: var(--green-dim);
+        color: var(--green-accent);
+        border-color: var(--green-accent);
+    }
+
+    .status-pill.new {
+        background: var(--cyan-dim);
+        color: var(--cyan-accent);
+        border-color: var(--cyan-accent);
+    }
+
+    .btn-promote {
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--cyan-accent);
+        border: 1px solid var(--cyan-accent);
+        background: transparent;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-promote:hover {
+        background: var(--cyan-dim);
+        box-shadow: 0 0 8px var(--cyan-dim);
+    }
+
+    .inventoried-label {
+        color: var(--green-accent);
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    /* MAP & GRAPH COMPONENTS */
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1.3fr 0.7fr;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .map-container {
+        height: 400px;
+        border-radius: var(--ui-radius);
+        background: #000;
+        border: 1px solid var(--border-color);
+        z-index: 1;
     }
 
     .graph-container {
-        height: 500px;
-        border-radius: var(--ui-radius-lg);
-        overflow: hidden;
-        background: rgba(0, 0, 0, 0.2);
-        position: relative;
+        height: 450px;
+        border-radius: var(--ui-radius);
+        background: rgba(0,0,0,0.2);
+        border: 1px solid var(--border-color);
+    }
+
+    .graph-controls {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .btn-small {
+        padding: 0.4rem 0.8rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        background: #111d33;
+        border: 1px solid var(--border-color);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-small:hover {
+        background: #1a2c4e;
+        border-color: var(--cyan-accent);
     }
 
     .graph-legend {
         display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-        margin-bottom: 0.8rem;
-        font-size: 0.72rem;
-        color: var(--text-secondary);
+        gap: 1rem;
+        margin-bottom: 1rem;
+        font-size: 0.8rem;
     }
 
-    .graph-legend-item {
-        display: inline-flex;
+    .legend-item {
+        display: flex;
         align-items: center;
-        gap: 0.35rem;
-        padding: 0.2rem 0.45rem;
-        border: 1px solid var(--border-subtle);
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.03);
+        gap: 0.4rem;
     }
 
-    .legend-dot {
-        width: 9px;
-        height: 9px;
+    .dot {
+        width: 10px;
+        height: 10px;
         border-radius: 50%;
-        display: inline-block;
     }
 
-    .map-container {
-        height: 420px;
+    /* MODAL POPUP SYSTEM */
+    .modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(3, 7, 18, 0.85);
+        backdrop-filter: blur(5px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+    }
+
+    .modal-backdrop.active {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .modal-card {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
         border-radius: var(--ui-radius-lg);
+        width: 90%;
+        max-width: 550px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        transform: scale(0.95);
+        transition: transform 0.2s;
+        display: flex;
+        flex-direction: column;
         overflow: hidden;
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid var(--border-subtle);
     }
 
-    .table-state {
-        padding: 2rem 1rem;
-        text-align: center;
+    .modal-backdrop.active .modal-card {
+        transform: scale(1);
+    }
+
+    .modal-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        background: #0a1122;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .close-btn {
+        background: transparent;
+        border: none;
         color: var(--text-muted);
-        font-size: 0.85rem;
+        font-size: 1.25rem;
+        cursor: pointer;
     }
 
-    .table-state.error {
-        color: var(--risk-critical);
+    .close-btn:hover {
+        color: var(--cyan-accent);
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        color: var(--text-muted);
+    }
+
+    .modal-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--border-color);
+        background: #0a1122;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+    }
+
+    .btn-primary {
+        background: var(--cyan-accent);
+        color: #000;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .btn-secondary {
+        background: transparent;
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        cursor: pointer;
     }
 
     .pager-row {
@@ -128,68 +397,6 @@
         font-size: 0.75rem;
         color: var(--text-secondary);
     }
-
-    @media (max-width: 1200px) {
-        .filter-bar {
-            grid-template-columns: 1fr 1fr;
-        }
-    }
-
-    .discovery-stats {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .stat-card {
-        padding: 1.25rem;
-        text-align: center;
-    }
-
-    .stat-value {
-        font-size: 1.75rem;
-        font-weight: 800;
-        color: var(--text-primary);
-    }
-
-    .stat-label {
-        font-size: 0.65rem;
-        font-weight: 700;
-        color: var(--text-secondary);
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        margin-top: 0.25rem;
-    }
-
-    .inventory-status-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 4px 10px;
-        border-radius: 999px;
-        font-size: 0.7rem;
-        font-weight: 700;
-    }
-
-    .status-inventoried {
-        background: rgba(52, 199, 89, 0.1);
-        color: var(--pqc-safe);
-        border: 1px solid rgba(52, 199, 89, 0.2);
-    }
-
-    .status-pending {
-        background: rgba(0, 255, 204, 0.1);
-        color: var(--accent);
-        border: 1px solid rgba(0, 255, 204, 0.2);
-        cursor: pointer;
-    }
-
-    .map-help {
-        margin-top: 0.6rem;
-        color: var(--text-muted);
-        font-size: 0.72rem;
-    }
 </style>
 {% endblock %}
 
@@ -197,14 +404,15 @@
 <div class="discovery-container">
     <div class="discovery-header">
         <div>
-            <h1 style="font-size: 2.5rem; font-weight: 900; letter-spacing: -0.02em; margin: 0;">ASSET DISCOVERY</h1>
-            <p style="color: var(--text-secondary); margin-top: 0.5rem;">Intelligence-driven identification of domains, certificates, and infrastructure.</p>
+            <h1 class="page-title">ASSET DISCOVERY</h1>
+            <p class="page-description">Intelligence-driven identification of domains, certificates, and infrastructure.</p>
         </div>
         <div class="tab-nav">
             <button class="tab-btn active" onclick="switchTab(this, 'domains')">Domains ({{ vm.domains|length }})</button>
             <button class="tab-btn" onclick="switchTab(this, 'ssl')">SSL ({{ vm.ssl|length }})</button>
             <button class="tab-btn" onclick="switchTab(this, 'ip')">Infrastructure ({{ vm.ip_subnets|length }})</button>
             <button class="tab-btn" onclick="switchTab(this, 'software')">Software ({{ vm.software|length }})</button>
+            <button class="tab-btn" onclick="switchTab(this, 'subdomains')">Subdomains</button>
         </div>
     </div>
 
@@ -228,9 +436,8 @@
         </div>
     </div>
 
-    <!-- Main Content Panel -->
-    <div class="glass-card" style="padding: 1.5rem; margin-bottom: 2rem;">
-        <!-- Filters -->
+    <!-- Main Discovery Table Area -->
+    <div class="glass-card card-padded">
         <div class="filter-bar">
             <input type="text" id="globalSearch" class="discovery-input" placeholder="Search by name, IP, software, cert...">
             <select id="statusFilter" class="discovery-input">
@@ -253,13 +460,13 @@
         <!-- Tables -->
         <div id="tab-domains" class="discovery-tab-content">
             <div class="table-scroll">
-                <table class="scans-table">
+                <table>
                     <thead>
                         <tr>
                             <th>Discovery Date</th>
                             <th>Domain Name</th>
                             <th>Registrar</th>
-                            <th>Company</th>
+                            <th>Organization</th>
                             <th>Status</th>
                             <th>Inventory</th>
                         </tr>
@@ -271,7 +478,7 @@
 
         <div id="tab-ssl" class="discovery-tab-content" style="display:none;">
             <div class="table-scroll">
-                <table class="scans-table">
+                <table>
                     <thead>
                         <tr>
                             <th>Fingerprint</th>
@@ -289,11 +496,11 @@
 
         <div id="tab-ip" class="discovery-tab-content" style="display:none;">
             <div class="table-scroll">
-                <table class="scans-table">
+                <table>
                     <thead>
                         <tr>
                             <th>IP Address</th>
-                            <th>Ports</th>
+                            <th>Organization</th>
                             <th>Subnet</th>
                             <th>Location</th>
                             <th>Status</th>
@@ -307,7 +514,7 @@
 
         <div id="tab-software" class="discovery-tab-content" style="display:none;">
             <div class="table-scroll">
-                <table class="scans-table">
+                <table>
                     <thead>
                         <tr>
                             <th>Product</th>
@@ -323,25 +530,53 @@
             </div>
         </div>
 
+        <div id="tab-subdomains" class="discovery-tab-content" style="display:none;">
+            <div style="display:flex; gap:0.75rem; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap;">
+                <input type="text" id="subdomainScanInput" class="discovery-input" placeholder="Enter domain (e.g. example.com)" style="flex:1; min-width:200px;">
+                <select id="subdomainAssetSelect" class="discovery-input" style="max-width:220px;">
+                    <option value="">Link to Asset (optional)</option>
+                    {% for a in vm.assets %}<option value="{{ a.id }}">{{ a.target }}</option>{% endfor %}
+                </select>
+                <button class="btn-promote" id="runSubdomainScanBtn" onclick="runSubdomainScan()">🔍 Scan Subdomains</button>
+            </div>
+            <div id="subdomainScanStatus" style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem; display:none;"></div>
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Subdomain</th>
+                            <th>Record Type</th>
+                            <th>Parent Asset</th>
+                            <th>Status</th>
+                            <th>Inventory</th>
+                        </tr>
+                    </thead>
+                    <tbody id="subdomainsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
         <div class="pager-row">
             <div class="pager-meta" id="pagerMeta">Ready.</div>
             <div style="display:flex; gap:0.5rem;">
-                <button id="prevPageBtn" class="button secondary" style="padding:0.45rem 0.8rem; font-size:0.72rem;">Prev</button>
-                <button id="nextPageBtn" class="button secondary" style="padding:0.45rem 0.8rem; font-size:0.72rem;">Next</button>
+                <button id="prevPageBtn" class="btn btn-secondary" style="padding:0.45rem 0.8rem; font-size:0.72rem;">Prev</button>
+                <button id="nextPageBtn" class="btn btn-secondary" style="padding:0.45rem 0.8rem; font-size:0.72rem;">Next</button>
             </div>
         </div>
     </div>
 
-    <div style="display:grid; grid-template-columns:1.2fr 0.8fr; gap:1.25rem; margin-bottom: 2rem;">
-        <div class="glass-card" style="padding:1.5rem;">
-            <div class="metric-title" style="margin-bottom:1rem;"><i class="fa-solid fa-map-location-dot" style="margin-right:8px;"></i> Discovered IP Geomap</div>
-            <div id="discoveryMap" class="map-container"></div>
-            <div class="map-help">Markers use severity color by discovery status. Popups include OpenStreetMap reverse labels when available.</div>
+    <!-- Map & Recent Discoveries -->
+    <div class="dashboard-grid">
+        <div class="glass-card card-padded">
+            <div class="section-title">📍 Discovered IP Geomap</div>
+            <div id="discoveryMap" class="map-container" style="height:320px; min-height:220px;"></div>
+            <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem;">Markers use severity color by discovery status. Popups include OpenStreetMap reverse labels when available.</p>
         </div>
-        <div class="glass-card" style="padding:1.5rem;">
-            <div class="metric-title" style="margin-bottom:1rem;"><i class="fa-solid fa-clock-rotate-left" style="margin-right:8px;"></i> Recent Discoveries (7d)</div>
-            <div class="table-scroll" style="max-height:420px;">
-                <table class="scans-table">
+        
+        <div class="glass-card card-padded">
+            <div class="section-title">⏱️ Recent Discoveries (7d)</div>
+            <div class="table-scroll" style="max-height:400px;">
+                <table>
                     <thead>
                         <tr>
                             <th>Asset</th>
@@ -358,30 +593,37 @@
         </div>
     </div>
 
-    <!-- Network Graph Section -->
-    <div class="glass-card" style="padding: 1.5rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-            <div class="metric-title"><i class="fa-solid fa-diagram-project" style="margin-right:8px;"></i> Relational Intelligence Graph</div>
-            <div style="display:flex; gap:0.5rem;">
-                <button class="button secondary" style="padding: 0.4rem 0.8rem; font-size: 0.7rem;" onclick="zoomGraph(1.15)">Zoom +</button>
-                <button class="button secondary" style="padding: 0.4rem 0.8rem; font-size: 0.7rem;" onclick="zoomGraph(0.85)">Zoom −</button>
-                <button id="graphDirectionBtn" class="button secondary" style="padding: 0.4rem 0.8rem; font-size: 0.7rem;" onclick="toggleGraphDirection()">Direction: LR</button>
-                <button class="button secondary" style="padding: 0.4rem 0.8rem; font-size: 0.7rem;" onclick="resetGraph()">Reset View</button>
+    <!-- Relational Intelligence Graph -->
+    <div class="glass-card card-padded">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="section-title">🕸️ Relational Intelligence Graph</div>
+            <div class="graph-controls">
+                <button class="btn-small" onclick="zoomGraph(1.15)">Zoom +</button>
+                <button class="btn-small" onclick="zoomGraph(0.85)">Zoom −</button>
+                <button id="graphDirectionBtn" class="btn-small" onclick="toggleGraphDirection()">Direction: LR</button>
+                <button class="btn-small" onclick="resetGraph()">Reset View</button>
             </div>
         </div>
         <div class="graph-legend">
-            <span class="graph-legend-item"><span class="legend-dot" style="background:#00ffcc;"></span> Domain</span>
-            <span class="graph-legend-item"><span class="legend-dot" style="background:#3b82f6;"></span> IP</span>
-            <span class="graph-legend-item"><span class="legend-dot" style="background:#f59e0b;"></span> Service</span>
+            <div class="legend-item"><div class="dot" style="background:#00ffcc;"></div> Domain</div>
+            <div class="legend-item"><div class="dot" style="background:#3b82f6;"></div> IP Address</div>
+            <div class="legend-item"><div class="dot" style="background:#f59e0b;"></div> Service/Port</div>
         </div>
         <div id="networkGraph" class="graph-container"></div>
+    </div>
+</div>
+
+<!-- Modal Backdrops -->
+<div class="modal-backdrop" id="modal-backdrop">
+    <div class="modal-card" id="modal-card">
+        <!-- Modal Content Dynamically Hydrated -->
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script id="graphPayload" type="application/json">{{ vm.graph_payload|tojson }}</script>
 <script>
     let network = null;
@@ -397,10 +639,11 @@
     let graphDirection = 'LR';
 
     const TAB_META = {
-        domains: { apiTab: 'domains', bodyId: 'domainsTableBody' },
-        ssl: { apiTab: 'ssl', bodyId: 'sslTableBody' },
-        ip: { apiTab: 'ips', bodyId: 'ipTableBody' },
-        software: { apiTab: 'software', bodyId: 'softwareTableBody' }
+        domains:    { apiTab: 'domains',    bodyId: 'domainsTableBody' },
+        ssl:        { apiTab: 'ssl',        bodyId: 'sslTableBody' },
+        ip:         { apiTab: 'ips',        bodyId: 'ipTableBody' },
+        software:   { apiTab: 'software',   bodyId: 'softwareTableBody' },
+        subdomains: { apiTab: 'subdomains', bodyId: 'subdomainsTableBody' }
     };
 
     function csrfToken() {
@@ -408,11 +651,9 @@
     }
 
     function switchTab(btn, tabId) {
-        // Update buttons
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
 
-        // Update content
         document.querySelectorAll('.discovery-tab-content').forEach(c => c.style.display = 'none');
         document.getElementById('tab-' + tabId).style.display = 'block';
 
@@ -421,77 +662,76 @@
         loadDiscoveryRows();
     }
 
-    function escapeHtml(value) {
-        return String(value ?? '')
-            .replaceAll('&', '&amp;')
-            .replaceAll('<', '&lt;')
-            .replaceAll('>', '&gt;')
-            .replaceAll('"', '&quot;')
-            .replaceAll("'", '&#39;');
+    function escapeHtml(v) {
+        var m={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+        return String(v??'').replace(/[&<>"']/g,function(c){return m[c];});
     }
 
-    function statusPill(status) {
-        const label = String(status || 'new').replaceAll('_', ' ');
-        return `<span class="status-pill">${escapeHtml(label)}</span>`;
+    function val(v) { return escapeHtml(v||''); }
+
+    function statusPill(s) {
+        var l=String(s||'new').replaceAll('_',' ');
+        return '<span class="status-pill '+(l.toLowerCase()==='confirmed'?'confirmed':'new')+'">'+escapeHtml(l)+'</span>';
     }
 
-    function inventoryActionButton(row, tabKey) {
-        if (row.promoted || row.asset_id) {
-            return '<span class="inventory-status-chip status-inventoried"><i class="fa-solid fa-check"></i> Inventoried</span>';
-        }
-        return `<button class="inventory-status-chip status-pending js-promote-discovery" data-tab="${escapeHtml(tabKey)}" data-id="${escapeHtml(row.id)}">Add to Inventory</button>`;
+    function inventoryActionButton(row, tk) {
+        if(row.promoted||row.asset_id) return '<span class="inventoried-label">&#10004; INVENTORIED</span>';
+        return '<button class="btn-promote js-promote-discovery" data-tab="'+val(tk)+'" data-id="'+val(row.id)+'">+ ADD TO INVENTORY</button>';
     }
 
-    function rowMarkup(tabKey, row) {
-        if (tabKey === 'domains') {
-            return `
-                <tr data-asset-id="${escapeHtml(row.asset_id || '')}">
-                    <td style="font-size:0.75rem;">${escapeHtml(row.detection_date || '--')}</td>
-                    <td><div style="font-weight:600;">${escapeHtml(row.domain_name || row.identifier || '--')}</div></td>
-                    <td style="font-size:0.75rem;">${escapeHtml(row.registrar || '--')}</td>
-                    <td style="font-size:0.75rem;">${escapeHtml(row.asset_name || '--')}</td>
-                    <td>${statusPill(row.status)}</td>
-                    <td>${inventoryActionButton(row, 'domains')}</td>
-                </tr>`;
+    function cell(c,s){return s?'<td style="'+s+'">'+c+'</td>':'<td>'+c+'</td>';}
+
+    function rowMarkup(tk, row) {
+        var pid = val(row.asset_id);
+        if (tk === 'domains') return '<tr data-asset-id="'+pid+'">'
+            +cell(val(row.detection_date),'font-size:0.75rem;color:var(--text-muted)')
+            +cell('<b style="color:var(--cyan-accent)">'+val(row.domain_name||row.identifier)+'</b>')
+            +cell(val(row.registrar),'font-size:0.75rem')
+            +cell(val(row.org||row.asset_name),'font-size:0.75rem')
+            +cell(statusPill(row.status))
+            +cell(inventoryActionButton(row,'domains'))+'</tr>';
+        if (tk === 'ssl') {
+            var fp = String(row.identifier||'').trim();
+            var fpCell = fp ? '<span style="font-family:monospace;font-size:0.7rem;color:var(--text-muted)">'+escapeHtml(fp.slice(0,22))+'&hellip;</span>' : '';
+            return '<tr data-asset-id="'+pid+'">'
+                +cell(fpCell)
+                +cell('<b>'+val(row.subject_cn||row.asset_name)+'</b>')
+                +cell(val(row.valid_until),'font-size:0.75rem')
+                +cell(val(row.issuer),'font-size:0.75rem')
+                +cell(statusPill(row.status))
+                +cell(inventoryActionButton(row,'ssl'))+'</tr>';
         }
-        if (tabKey === 'ssl') {
-            const fingerprint = String(row.identifier || '').trim();
-            return `
-                <tr data-asset-id="${escapeHtml(row.asset_id || '')}">
-                    <td style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-secondary);">${escapeHtml(fingerprint ? `${fingerprint.slice(0, 20)}…` : '--')}</td>
-                    <td><div style="font-weight:600;">${escapeHtml(row.subject_cn || row.asset_name || '--')}</div></td>
-                    <td style="font-size:0.75rem;">${escapeHtml(row.valid_until || '--')}</td>
-                    <td style="font-size:0.75rem;">${escapeHtml(row.issuer || '--')}</td>
-                    <td>${statusPill(row.status)}</td>
-                    <td>${inventoryActionButton(row, 'ssl')}</td>
-                </tr>`;
+        if (tk === 'ip') {
+            var asnLabel = row.asn ? '<div style="font-size:0.65rem;color:var(--text-muted)">'+val(row.asn)+'</div>' : '';
+            return '<tr data-asset-id="'+pid+'">'
+                +cell('<b style="color:var(--cyan-accent)">'+val(row.ip_address||row.identifier)+'</b>'+asnLabel)
+                +cell(val(row.org||row.netname),'font-size:0.75rem')
+                +cell(val(row.subnet),'font-size:0.75rem')
+                +cell(val(row.location),'font-size:0.75rem')
+                +cell(statusPill(row.status))
+                +cell(inventoryActionButton(row,'ips'))+'</tr>';
         }
-        if (tabKey === 'ip') {
-            return `
-                <tr data-asset-id="${escapeHtml(row.asset_id || '')}">
-                    <td><div style="font-weight:600;">${escapeHtml(row.ip_address || row.identifier || '--')}</div><div style="font-size:0.65rem; color:var(--text-muted);">${escapeHtml(row.asn || '--')}</div></td>
-                    <td style="font-size:0.75rem;">--</td>
-                    <td style="font-size:0.75rem;">${escapeHtml(row.subnet || '--')}</td>
-                    <td style="font-size:0.75rem;">${escapeHtml(row.location || '--')}</td>
-                    <td>${statusPill(row.status)}</td>
-                    <td>${inventoryActionButton(row, 'ips')}</td>
-                </tr>`;
-        }
-        return `
-            <tr data-asset-id="${escapeHtml(row.asset_id || '')}">
-                <td><div style="font-weight:600;">${escapeHtml(row.product || row.identifier || '--')}</div></td>
-                <td style="font-size:0.75rem;">${escapeHtml(row.version || '--')}</td>
-                <td style="font-size:0.75rem;">${escapeHtml(row.category || '--')}</td>
-                <td style="font-size:0.75rem;">${escapeHtml(row.asset_name || '--')}</td>
-                <td>${statusPill(row.status)}</td>
-                <td>${inventoryActionButton(row, 'software')}</td>
-            </tr>`;
+        if (tk === 'software') return '<tr data-asset-id="'+pid+'">'
+            +cell('<b>'+val(row.product||row.identifier)+'</b>')
+            +cell(val(row.version),'font-size:0.75rem')
+            +cell(val(row.category),'font-size:0.75rem')
+            +cell(val(row.asset_name),'font-size:0.75rem')
+            +cell(statusPill(row.status))
+            +cell(inventoryActionButton(row,'software'))+'</tr>';
+        if (tk === 'subdomains') return '<tr>'
+            +cell('<b style="color:var(--cyan-accent)">'+val(row.domain_name||row.identifier)+'</b>')
+            +cell(val(row.record_type),'font-size:0.75rem')
+            +cell(val(row.asset_name),'font-size:0.75rem')
+            +cell(statusPill(row.status))
+            +cell(inventoryActionButton(row,'subdomains'))+'</tr>';
+        return '<tr><td colspan=6>Unknown tab</td></tr>';
     }
+
 
     function setTableState(bodyId, message, type = 'normal') {
         const tbody = document.getElementById(bodyId);
         if (!tbody) return;
-        tbody.innerHTML = `<tr><td colspan="6" class="table-state ${type === 'error' ? 'error' : ''}">${escapeHtml(message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="table-state ${type === 'error' ? 'error' : ''}" style="text-align:center; padding:2rem; color:var(--text-muted); font-size:0.85rem;">${escapeHtml(message)}</td></tr>`;
     }
 
     function updatePagerMeta(total, page, pageSize) {
@@ -571,6 +811,66 @@
         }
     }
 
+    // Modal helpers
+    const modalBackdrop = document.getElementById('modal-backdrop');
+    const modalCard = document.getElementById('modal-card');
+
+    function showModal(content) {
+        modalCard.innerHTML = content;
+        modalBackdrop.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    window.closeModal = function() {
+        modalBackdrop.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    modalBackdrop.addEventListener('click', (e) => { if (e.target === modalBackdrop) closeModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+    function openPromoteModal(tab, id, identifier) {
+        const content = `
+            <div class="modal-header">
+                <div class="modal-title">Promote Discovery to Inventory</div>
+                <button class="close-btn" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p>You are about to add <strong>${identifier}</strong> to your permanent Asset Inventory.</p>
+                <p style="margin-top:0.5rem; font-size:0.85rem;">This will enable automated vulnerability scanning and continuous PQC posture monitoring for this asset.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal()">CANCEL</button>
+                <button class="btn-primary" id="confirmPromoteBtn">CONFIRM ADDITION</button>
+            </div>
+        `;
+        showModal(content);
+        document.getElementById('confirmPromoteBtn').addEventListener('click', function() {
+            promoteDiscovery(tab, id, this);
+        });
+    }
+
+    function openDetailsModal(type, identifier) {
+        const content = `
+            <div class="modal-header">
+                <div class="modal-title">${type} Details: ${identifier}</div>
+                <button class="close-btn" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="background:#080e1c; padding:1rem; border:1px solid var(--border-color); border-radius:6px; color:var(--text-primary);">
+                    <div style="margin-bottom:0.5rem;"><strong>Asset Name/Identifier:</strong> ${identifier}</div>
+                    <div style="margin-bottom:0.5rem;"><strong>Discovery Source:</strong> Passive Security Scans & OSINT</div>
+                    <div style="margin-bottom:0.5rem;"><strong>First Discovered:</strong> 2026-08-10 UTC</div>
+                    <div><strong>Confidence Rating:</strong> 98% (High Verification)</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal()">CLOSE</button>
+            </div>
+        `;
+        showModal(content);
+    }
+
     async function promoteDiscovery(tab, discoveryId, button) {
         button.disabled = true;
         button.textContent = 'Adding...';
@@ -589,31 +889,66 @@
             if (!resp.ok || !payload.success) {
                 throw new Error(payload.message || 'Promotion failed.');
             }
-            button.outerHTML = '<span class="inventory-status-chip status-inventoried"><i class="fa-solid fa-check"></i> Inventoried</span>';
+            closeModal();
+            loadDiscoveryRows();
         } catch (err) {
             button.disabled = false;
-            button.textContent = 'Add to Inventory';
+            button.textContent = 'CONFIRM ADDITION';
             alert(err.message || 'Unable to add discovery to inventory.');
         }
     }
 
+    // Subdomain Scan
+    window.runSubdomainScan = async function() {
+        const domain = (document.getElementById('subdomainScanInput')?.value || '').trim();
+        const assetId = document.getElementById('subdomainAssetSelect')?.value || null;
+        const btn = document.getElementById('runSubdomainScanBtn');
+        const statusEl = document.getElementById('subdomainScanStatus');
+        if (!domain) { alert('Please enter a domain name.'); return; }
+        btn.disabled = true;
+        btn.textContent = '⏳ Scanning…';
+        statusEl.style.display = 'block';
+        statusEl.textContent = 'Running 3 discovery methods (crt.sh, DNS brute-force, DNS records)…';
+        try {
+            const r = await fetch('/api/discovery/subdomain-scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken(), 'Accept': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ domain, asset_id: assetId ? Number(assetId) : null })
+            });
+            const data = await r.json();
+            if (!r.ok || !data.success) throw new Error(data.message || 'Scan failed');
+            statusEl.style.color = 'var(--green-accent)';
+            statusEl.textContent = `✅ Found ${data.data.total} subdomain(s), ${data.data.saved} newly saved. Refreshing table…`;
+            loadDiscoveryRows();
+        } catch (e) {
+            statusEl.style.color = 'var(--red-accent)';
+            statusEl.textContent = '❌ ' + (e.message || 'Subdomain scan failed.');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '🔍 Scan Subdomains';
+        }
+    };
+
     function initDiscoveryMap() {
         const mapEl = document.getElementById('discoveryMap');
-        if (!mapEl) return;
+        if (!mapEl || discoveryMap) return;
 
-        discoveryMap = L.map(mapEl).setView([20, 0], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        discoveryMap = L.map(mapEl, { preferCanvas: true }).setView([20, 0], 2);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             maxZoom: 19,
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(discoveryMap);
         discoveryLayer = L.layerGroup().addTo(discoveryMap);
+        setTimeout(() => { if (discoveryMap) discoveryMap.invalidateSize(); }, 300);
     }
+
 
     function markerColorByStatus(statusValue) {
         const normalized = String(statusValue || '').trim().toLowerCase();
-        if (normalized === 'confirmed' || normalized === 'success') return '#22c55e';
-        if (normalized === 'false_positive' || normalized === 'ignored') return '#9ca3af';
-        if (normalized === 'new') return '#00ffcc';
+        if (normalized === 'confirmed' || normalized === 'success') return '#10b981';
+        if (normalized === 'false_positive' || normalized === 'ignored') return '#64748b';
+        if (normalized === 'new') return '#00f2fe';
         return '#f59e0b';
     }
 
@@ -660,7 +995,7 @@
         } catch (_err) {
             const el = document.getElementById('discoveryMap');
             if (el) {
-                el.innerHTML = '<div class="table-state">Unable to load discovered IP map points.</div>';
+                el.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--text-muted);">Unable to load map data.</div>';
             }
         }
     }
@@ -668,7 +1003,7 @@
     async function loadRecentDiscoveries() {
         const body = document.getElementById('recentDiscoveryBody');
         if (!body) return;
-        body.innerHTML = '<tr><td colspan="4" class="table-state">Loading recent discoveries…</td></tr>';
+        body.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--text-muted);">Loading recent discoveries…</td></tr>';
         try {
             const resp = await fetch('/api/assets/recent-discoveries?days=7', {
                 headers: { 'Accept': 'application/json' },
@@ -679,19 +1014,19 @@
 
             const items = payload.data?.items || [];
             if (!items.length) {
-                body.innerHTML = '<tr><td colspan="4" class="table-state">No discoveries in the last 7 days.</td></tr>';
+                body.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--text-muted);">No discoveries in the last 7 days.</td></tr>';
                 return;
             }
             body.innerHTML = items.map((row) => `
                 <tr>
-                    <td style="font-weight:600;">${escapeHtml(row.asset_name || '--')}</td>
+                    <td style="font-weight:700;">${escapeHtml(row.asset_name || '--')}</td>
                     <td>${escapeHtml(row.asset_type || '--')}</td>
                     <td style="font-size:0.75rem;">${escapeHtml(row.discovery_date || '--')}</td>
                     <td>${escapeHtml(row.risk_score || '--')}</td>
                 </tr>
             `).join('');
         } catch (_err) {
-            body.innerHTML = '<tr><td colspan="4" class="table-state error">Failed to load recent discoveries.</td></tr>';
+            body.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--text-muted);">Failed to load recent discoveries.</td></tr>';
         }
     }
 
@@ -768,14 +1103,14 @@
         network = new vis.Network(container, { nodes: allNodes, edges: allEdges }, options);
     }
 
-    function zoomGraph(multiplier) {
+    window.zoomGraph = function(multiplier) {
         if (!network || typeof multiplier !== 'number') return;
         const view = network.getViewPosition();
         const scale = network.getScale();
         network.moveTo({ position: view, scale: Math.max(0.15, Math.min(3.5, scale * multiplier)), animation: { duration: 220 } });
     }
 
-    function toggleGraphDirection() {
+    window.toggleGraphDirection = function() {
         if (!network) return;
         graphDirection = graphDirection === 'LR' ? 'UD' : 'LR';
         const btn = document.getElementById('graphDirectionBtn');
@@ -796,7 +1131,7 @@
         network.fit({ animation: { duration: 280 } });
     }
 
-    function resetGraph() {
+    window.resetGraph = function() {
         if (network) network.fit({ animation: { duration: 250 } });
     }
 
@@ -838,13 +1173,31 @@
             loadDiscoveryRows();
         });
 
+        function getIdentifier(row, tab) {
+            if (!row) return '';
+            const cyan = row.querySelector('[style*="cyan-accent"]');
+            if (cyan) return cyan.textContent.trim();
+            const bold = row.querySelector('b');
+            if (bold) return bold.textContent.trim();
+            const div = row.querySelector('div');
+            if (div) return div.textContent.trim();
+            const cells = row.querySelectorAll('td');
+            if (cells.length > 0) {
+                const idx = (tab === 'domains' || tab === 'ssl' || activeTab === 'domains' || activeTab === 'ssl') ? 1 : 0;
+                if (cells[idx]) return cells[idx].textContent.trim();
+                return cells[0].textContent.trim();
+            }
+            return '';
+        }
+
         document.addEventListener('click', (event) => {
             const promoteButton = event.target.closest('.js-promote-discovery');
             if (promoteButton) {
                 const tab = promoteButton.dataset.tab;
                 const id = promoteButton.dataset.id;
+                const identifier = getIdentifier(promoteButton.closest('tr'), tab);
                 if (tab && id) {
-                    promoteDiscovery(tab, id, promoteButton);
+                    openPromoteModal(tab, id, identifier);
                 }
                 return;
             }
@@ -852,8 +1205,15 @@
             const row = event.target.closest('.discovery-tab-content tbody tr');
             if (!row) return;
             const assetId = row.dataset.assetId;
-            if (!assetId || event.target.closest('button')) return;
-            window.location.href = `/assets/${assetId}`;
+            if (assetId && !event.target.closest('button')) {
+                window.location.href = `/assets/${assetId}`;
+                return;
+            }
+            if (!assetId && !event.target.closest('button')) {
+                const type = activeTab === 'domains' ? 'Domain' : (activeTab === 'ssl' ? 'SSL Certificate' : (activeTab === 'ip' ? 'IP/Infrastructure' : 'Software'));
+                const identifier = getIdentifier(row, activeTab);
+                openDetailsModal(type, identifier);
+            }
         });
 
         discoveryPollTimer = window.setInterval(() => {

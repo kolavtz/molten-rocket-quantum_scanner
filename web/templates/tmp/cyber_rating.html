@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% import "macros/table.html" as tb %}
+
+{% block title %}Cyber Rating // QuantumShield{% endblock %}
+
+{% block head %}
+<style>
+    .cyber-container { padding: 1.5rem 0; }
+    .cyber-hero { margin-bottom: 2rem; }
+    .cyber-score-card { display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 2rem; border-left: 4px solid var(--accent); }
+    .cyber-score-card .value { font-size: 3.5rem; font-weight: 900; color: var(--accent); line-height: 1; }
+    .cyber-score-card .label { font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-top: 0.5rem; letter-spacing: 0.1em; }
+
+    .cyber-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-top: 1rem; }
+    .cyber-kpi { text-align: center; padding: 1rem; }
+    .cyber-kpi .val { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); }
+    .cyber-kpi .lbl { font-size: 0.6rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; }
+
+    .cyber-main-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 1.5rem; margin-top: 2rem; }
+    
+    .rating-row { display: grid; grid-template-columns: 1fr 100px 80px; gap: 1rem; padding: 0.75rem; border-bottom: 1px solid var(--border-subtle); align-items: center; }
+    .tier-badge { padding: 4px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; border: 1px solid transparent; }
+    
+    @media (max-width: 1000px) {
+        .cyber-main-grid { grid-template-columns: 1fr; }
+        .cyber-kpi-grid { grid-template-columns: 1fr 1fr; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cyber-container">
+    <div class="cyber-hero">
+        <h1 style="font-size: 2.5rem; font-weight: 900; letter-spacing: -0.02em; margin: 0;">CYBER RATING</h1>
+        <p style="color: var(--text-secondary); margin-top: 0.5rem;">Enterprise security posture score (0-1000) based on PQC readiness and cryptographic strength.</p>
+    </div>
+
+    <!-- Sync status -->
+    <div id="cyberApiState" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 1rem; text-transform: uppercase;">Syncing enterprise intelligence...</div>
+
+    <!-- Top Score Section -->
+    <div style="display: grid; grid-template-columns: 0.8fr 2fr; gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="glass-card cyber-score-card">
+            <div class="value" id="cyberScoreMain">{{ vm.overall_score or 0 }}</div>
+            <div class="label" id="cyberTierMain">{{ vm.label or 'Unknown' }}</div>
+            <div style="font-size:0.7rem; color:var(--text-muted); margin-top:0.35rem;">Scale: 0-1000</div>
+        </div>
+        <div class="glass-card" style="padding: 1.5rem;">
+            <div class="metric-title">Compliance Statistics</div>
+            <div class="cyber-kpi-grid">
+                <div class="glass-card cyber-kpi">
+                    <div class="val" id="kpiUrls">{{ page_data.total_count or 0 }}</div>
+                    <div class="lbl">Total Domains</div>
+                </div>
+                <div class="glass-card cyber-kpi">
+                    <div class="val" id="kpiElitePct" style="color:var(--pqc-safe);">0%</div>
+                    <div class="lbl">Elite Tier</div>
+                </div>
+                <div class="glass-card cyber-kpi">
+                    <div class="val" id="kpiLegacyPct" style="color:var(--risk-high);">0%</div>
+                    <div class="lbl">Legacy Tier</div>
+                </div>
+                <div class="glass-card cyber-kpi">
+                    <div class="val" id="kpiCriticalCount" style="color:var(--risk-critical);">{{ vm.tier_counts.Critical or 0 }}</div>
+                    <div class="lbl">Critical Tier Assets</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search & Filter Section -->
+    <div class="glass-card" style="padding:1rem; margin-bottom:1rem; display:grid; grid-template-columns: 1fr 180px 120px; gap:0.7rem;">
+        <input id="cyberSearch" class="discovery-input" type="text" placeholder="Search domain/URL/tier..." />
+        <select id="cyberTierFilter" class="discovery-input">
+            <option value="">All Tiers</option>
+            <option value="elite">Elite</option>
+            <option value="standard">Standard</option>
+            <option value="legacy">Legacy</option>
+            <option value="critical">Critical</option>
+        </select>
+        <button id="cyberSearchBtn" class="button secondary" type="button">Apply</button>
+    </div>
+
+    <!-- Main Content Section -->
+    <div class="cyber-main-grid">
+        <div class="glass-card" style="padding: 1.5rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.5rem;">
+                <div class="metric-title" style="margin:0;">Individual Asset Ratings</div>
+                <div style="font-size:0.7rem; color:var(--text-secondary);"><span id="cyberTableMeta">Page 1/1</span></div>
+            </div>
+            <div id="cyberTableBody">
+                {% for row in page_data['items'] %}
+                <div class="rating-row">
+                    <div style="font-weight: 600;">{{ row.target }}</div>
+                    <div><span class="tier-badge" style="border-color: var(--accent); color: var(--accent);">{{ row.tier or 'Unknown' }}</span></div>
+                    <div style="text-align: right; font-weight: 800;">{{ (row.score or 0)|int }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem; gap:1rem;">
+                <div id="cyberPagerMeta" style="font-size:0.75rem; color:var(--text-secondary);">Ready.</div>
+                <div style="display:flex; gap:0.5rem;">
+                    <button id="cyberPrevBtn" class="button secondary" style="padding:0.45rem 0.75rem;">Prev</button>
+                    <button id="cyberNextBtn" class="button secondary" style="padding:0.45rem 0.75rem;">Next</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card" style="padding: 1.5rem;">
+            <div class="metric-title" style="margin-bottom: 1.5rem;">Security Remediation Priority</div>
+            <div style="display:flex; flex-direction:column; gap:0.75rem;">
+                {% for rec in vm.recommendations %}
+                <div class="glass-card" style="padding:0.8rem; background:rgba(255,255,255,0.02); display:flex; gap:0.75rem;">
+                    <i class="fa-solid fa-shield-halved" style="color:var(--accent); margin-top:3px;"></i>
+                    <div style="font-size:0.8rem; line-height:1.4;">{{ rec }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div style="margin-top:2rem;">
+                <div class="metric-title" style="margin-bottom:1rem; font-size:0.75rem;">Compliance Tier Matrix</div>
+                <div style="font-size:0.67rem; display:grid; gap:0.5rem;">
+                    <div style="display:grid; grid-template-columns: 55px 1fr; gap:0.6rem;"><strong style="color:var(--pqc-safe);">Elite</strong><span>700-1000 · TLS 1.2/1.3 strong ciphers, FS, >=2048-bit certs, no weak protocols.</span></div>
+                    <div style="display:grid; grid-template-columns: 55px 1fr; gap:0.6rem;"><strong style="color:var(--accent);">Standard</strong><span>400-699 · Acceptable enterprise baseline with phased legacy removal.</span></div>
+                    <div style="display:grid; grid-template-columns: 55px 1fr; gap:0.6rem;"><strong style="color:var(--risk-high);">Legacy</strong><span>200-399 · Weak/aging crypto posture requiring prioritized remediation.</span></div>
+                    <div style="display:grid; grid-template-columns: 55px 1fr; gap:0.6rem;"><strong style="color:var(--risk-critical);">Critical</strong><span>0-199 · Insecure/exploitable baseline; immediate containment + upgrade required.</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
+    }
+
+    function tierStyle(tier) {
+        const t = String(tier || '').toLowerCase();
+        if (t === 'elite') return 'border-color: var(--pqc-safe); color: var(--pqc-safe);';
+        if (t === 'standard') return 'border-color: var(--accent); color: var(--accent);';
+        if (t === 'legacy') return 'border-color: var(--risk-high); color: var(--risk-high);';
+        return 'border-color: var(--risk-critical); color: var(--risk-critical);';
+    }
+
+    function renderCyberRows(items) {
+        const body = document.getElementById('cyberTableBody');
+        if (!body) return;
+
+        if (!Array.isArray(items) || items.length === 0) {
+            body.innerHTML = '<div class="rating-row"><div style="grid-column:1 / -1; text-align:center; color:var(--text-muted);">Cyber rating data not available. Please run scans to generate data.</div></div>';
+            return;
+        }
+
+        body.innerHTML = items.map((row) => {
+            const score = Number(row.enterprise_score || 0).toFixed(1);
+            const tier = row.tier || 'Critical';
+            return `
+                <div class="rating-row">
+                    <div style="font-weight:600;">${escapeHtml(row.url || '--')}</div>
+                    <div><span class="tier-badge" style="${tierStyle(tier)}">${escapeHtml(tier)}</span></div>
+                    <div style="text-align:right; font-weight:800;">${score}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    let cyberPage = 1;
+    let cyberHasNext = false;
+    let cyberHasPrev = false;
+    const cyberPageSize = 25;
+    let cyberPollTimer = null;
+
+    function setCyberState(message, error = false) {
+        const stateEl = document.getElementById('cyberApiState');
+        if (!stateEl) return;
+        stateEl.textContent = message;
+        stateEl.style.color = error ? 'var(--risk-critical)' : 'var(--text-muted)';
+    }
+
+    function updateCyberPager(total, page) {
+        cyberHasPrev = page > 1;
+        cyberHasNext = page * cyberPageSize < total;
+        const meta = document.getElementById('cyberPagerMeta');
+        if (meta) {
+            const start = total ? ((page - 1) * cyberPageSize + 1) : 0;
+            const end = Math.min(page * cyberPageSize, total);
+            meta.textContent = `Showing ${start}-${end} of ${total} assets`;
+        }
+        const tableMeta = document.getElementById('cyberTableMeta');
+        if (tableMeta) {
+            const totalPages = Math.ceil(total / cyberPageSize);
+            tableMeta.textContent = `Page ${page}/${Math.max(1, totalPages)}`;
+        }
+        document.getElementById('cyberPrevBtn').disabled = !cyberHasPrev;
+        document.getElementById('cyberNextBtn').disabled = !cyberHasNext;
+    }
+
+    async function syncCyber() {
+        const search = document.getElementById('cyberSearch')?.value || '';
+        const tier = (document.getElementById('cyberTierFilter')?.value || '').toLowerCase();
+        setCyberState('Syncing cyber ratings...');
+        try {
+            const params = new URLSearchParams({
+                page: String(cyberPage),
+                page_size: String(cyberPageSize),
+                search: search,
+                tier: tier,
+                sort: 'generated_at',
+                order: 'desc'
+            });
+            const resp = await fetch('/api/cyber-rating?' + params.toString(), {
+                headers: { Accept: 'application/json' },
+                credentials: 'same-origin'
+            });
+            if (!resp.ok) {
+                throw new Error('Cyber rating API error');
+            }
+            const result = await resp.json();
+            if (!result.success) {
+                throw new Error(result.message || 'API sync failed');
+            }
+            const kpis = result.data.kpis || {};
+            document.getElementById('cyberScoreMain').textContent = Number(kpis.enterprise_score || 0).toFixed(1);
+            document.getElementById('cyberTierMain').textContent = String(kpis.tier || 'Critical');
+            document.getElementById('kpiUrls').textContent = Number(kpis.total_urls || 0).toLocaleString();
+            document.getElementById('kpiElitePct').textContent = Number(kpis.elite_pct || 0).toFixed(1) + '%';
+            document.getElementById('kpiLegacyPct').textContent = Number(kpis.legacy_pct || 0).toFixed(1) + '%';
+            document.getElementById('kpiCriticalCount').textContent = Number(kpis.critical_count || 0);
+
+            const items = result.data.items || [];
+            renderCyberRows(items);
+            updateCyberPager(Number(result.data.total || 0), Number(result.data.page || cyberPage));
+            setCyberState('Cyber ratings synced successfully.');
+        } catch (e) {
+            setCyberState('Cyber rating sync failed. Showing cached data.', true);
+        }
+    }
+
+    document.getElementById('cyberSearchBtn')?.addEventListener('click', () => {
+        cyberPage = 1;
+        syncCyber();
+    });
+    document.getElementById('cyberSearch')?.addEventListener('input', () => {
+        cyberPage = 1;
+    });
+    document.getElementById('cyberTierFilter')?.addEventListener('change', () => {
+        cyberPage = 1;
+    });
+    document.getElementById('cyberPrevBtn')?.addEventListener('click', () => {
+        if (!cyberHasPrev) return;
+        cyberPage = Math.max(1, cyberPage - 1);
+        syncCyber();
+    });
+    document.getElementById('cyberNextBtn')?.addEventListener('click', () => {
+        if (!cyberHasNext) return;
+        cyberPage += 1;
+        syncCyber();
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        syncCyber();
+        cyberPollTimer = window.setInterval(() => {
+            if (!document.hidden) {
+                syncCyber();
+            }
+        }, 30000);
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            syncCyber();
+        }
+    });
+
+    window.addEventListener('beforeunload', () => {
+        if (cyberPollTimer) {
+            window.clearInterval(cyberPollTimer);
+            cyberPollTimer = null;
+        }
+    });
+</script>
+{% endblock %}

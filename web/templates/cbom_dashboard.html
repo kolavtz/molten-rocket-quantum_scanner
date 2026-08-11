@@ -1,897 +1,431 @@
 {% extends "base.html" %}
 {% block title %}CBOM Intelligence | QuantumShield{% endblock %}
 
-{% block content %}
-<div class="cbom-page">
-  <!-- ── Page Header ─────────────────────────────────────── -->
-  <div class="cbom-page-header">
-    <div class="cbom-header-left">
-      <h1 class="cbom-title">CBOM Intelligence</h1>
-      <p class="cbom-subtitle">Cryptographic Bill of Materials · Live Inventory</p>
-    </div>
-    <div class="cbom-header-right">
-      <span id="cbomFreshnessBar" class="freshness-badge freshness-unknown">Syncing…</span>
-      <button id="cbomExportBtn" class="btn-ghost" onclick="exportCbom()">&#8595; Export JSON</button>
-    </div>
-  </div>
-
-  <!-- ── Tab Bar ────────────────────────────────────────── -->
-  <nav class="cbom-tabs" role="tablist">
-    <button class="cbom-tab active" data-tab="overview"    onclick="switchTab('overview')"    role="tab">Overview</button>
-    <button class="cbom-tab"        data-tab="ssltls"      onclick="switchTab('ssltls')"      role="tab">SSL / TLS</button>
-    <button class="cbom-tab"        data-tab="findings"    onclick="switchTab('findings')"    role="tab">Findings</button>
-    <button class="cbom-tab"        data-tab="history"     onclick="switchTab('history')"     role="tab">History</button>
-    <button class="cbom-tab"        data-tab="diagnostics" onclick="switchTab('diagnostics')" role="tab">Diagnostics</button>
-  </nav>
-
-  <!-- ════════════════════════════════════════════════════ -->
-  <!--  TAB: OVERVIEW                                       -->
-  <!-- ════════════════════════════════════════════════════ -->
-  <section id="tab-overview" class="cbom-tab-panel active">
-    <!-- KPIs -->
-    <div class="kpi-grid" id="kpiGrid">
-      {% for kpi in [
-        {'id':'kpiApps',   'label':'Applications',     'icon':'🗂'},
-        {'id':'kpiSites',  'label':'Sites Surveyed',   'icon':'🌐'},
-        {'id':'kpiCerts',  'label':'Active Certs',     'icon':'📜'},
-        {'id':'kpiWeak',   'label':'Weak Crypto',      'icon':'⚠️'},
-        {'id':'kpiIssues', 'label':'Issues',           'icon':'🛑'}
-      ] %}
-      <div class="kpi-card skeleton" id="{{ kpi.id }}Card">
-        <span class="kpi-icon">{{ kpi.icon }}</span>
-        <span class="kpi-value" id="{{ kpi.id }}Val">—</span>
-        <span class="kpi-label">{{ kpi.label }}</span>
-      </div>
-      {% endfor %}
-    </div>
-
-    <!-- Charts Row -->
-    <div class="charts-row">
-      <div class="chart-card skeleton" id="chartKeyLen">
-        <h3 class="chart-title">Key Length Distribution</h3>
-        <div id="keyLenBars" class="bar-chart-inner"></div>
-      </div>
-      <div class="chart-card skeleton" id="chartProtocol">
-        <h3 class="chart-title">Protocol Health</h3>
-        <div id="protocolDonut" class="donut-wrap">
-          <div class="donut-hole"><span id="donutPct">—</span></div>
-        </div>
-        <div id="protocolLegend" class="donut-legend"></div>
-      </div>
-      <div class="chart-card skeleton" id="chartCiphers">
-        <h3 class="chart-title">Top Cipher Suites</h3>
-        <ol id="cipherList" class="cipher-list"></ol>
-      </div>
-    </div>
-
-    <!-- Search + Table Controls -->
-    <div class="table-toolbar">
-      <input type="text" id="cbomSearchInput" class="cbom-search" placeholder="Search asset, CA, cipher…" onkeydown="if(event.key==='Enter')doSearch()">
-      <button class="btn-primary" onclick="doSearch()">Search</button>
-      <span class="table-meta" id="tableMeta"></span>
-    </div>
-
-    <!-- Inventory Table -->
-    <div class="table-wrap">
-      <table class="cbom-table" aria-label="CBOM inventory">
-        <thead>
-          <tr>
-            <th>Asset</th><th>Status</th><th>Key Len</th><th>Protocol</th>
-            <th>Cipher Suite</th><th>CA / Issuer</th><th>Expires</th><th>Details</th>
-          </tr>
-        </thead>
-        <tbody id="cbomTableBody">
-          <tr><td colspan="8" class="table-loading">Loading inventory…</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="pager" id="pagerRow">
-      <button id="prevBtn" class="btn-ghost" onclick="changePage(-1)" disabled>&#8592; Prev</button>
-      <span id="pagerInfo" class="pager-info"></span>
-      <button id="nextBtn" class="btn-ghost" onclick="changePage(1)"  disabled>Next &#8594;</button>
-    </div>
-  </section>
-
-  <!-- ════════════════════════════════════════════════════ -->
-  <!--  TAB: SSL / TLS                                      -->
-  <!-- ════════════════════════════════════════════════════ -->
-  <section id="tab-ssltls" class="cbom-tab-panel" hidden>
-    <div class="asset-selector-row">
-      <label for="assetSelect" class="asset-select-label">Asset:</label>
-      <select id="assetSelect" class="asset-select" onchange="loadAssetSSL()">
-        <option value="">— Select asset —</option>
-      </select>
-      <span id="sslFreshness" class="freshness-badge freshness-unknown" hidden></span>
-    </div>
-
-    <div id="sslCurrentCard" class="ssl-card skeleton">
-      <div class="ssl-card-header">
-        <span class="ssl-cn" id="sslCN">—</span>
-        <span id="sslStatusBadge" class="cert-badge">—</span>
-      </div>
-      <div class="ssl-meta-grid">
-        <div class="ssl-meta-item"><span class="ssl-meta-key">Issuer</span><span id="sslIssuer">—</span></div>
-        <div class="ssl-meta-item"><span class="ssl-meta-key">Valid From</span><span id="sslFrom">—</span></div>
-        <div class="ssl-meta-item"><span class="ssl-meta-key">Valid Until</span><span id="sslUntil">—</span></div>
-        <div class="ssl-meta-item"><span class="ssl-meta-key">Days Left</span><span id="sslDays">—</span></div>
-        <div class="ssl-meta-item"><span class="ssl-meta-key">Key</span><span id="sslKey">—</span></div>
-        <div class="ssl-meta-item"><span class="ssl-meta-key">Chain</span><span id="sslChain">—</span></div>
-        <div class="ssl-meta-item"><span class="ssl-meta-key">HSTS</span><span id="sslHSTS">—</span></div>
-        <div class="ssl-meta-item"><span class="ssl-meta-key">Fingerprint</span><span id="sslFP" class="mono-sm">—</span></div>
-      </div>
-      <div class="tls-version-row" id="tlsVRow"></div>
-      <div class="san-row">
-        <span class="ssl-meta-key">SANs:</span>
-        <span id="sslSANs">—</span>
-      </div>
-    </div>
-
-    <!-- Cert History Table -->
-    <h2 class="section-title">Certificate History</h2>
-    <div class="table-wrap">
-      <table class="cbom-table" aria-label="Certificate history">
-        <thead>
-          <tr><th>First Seen</th><th>Last Seen</th><th>CN</th><th>Issuer</th><th>Valid Until</th><th>Status</th><th>Current</th></tr>
-        </thead>
-        <tbody id="certHistBody">
-          <tr><td colspan="7" class="table-loading">Select an asset above</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- ════════════════════════════════════════════════════ -->
-  <!--  TAB: FINDINGS                                       -->
-  <!-- ════════════════════════════════════════════════════ -->
-  <section id="tab-findings" class="cbom-tab-panel" hidden>
-    <div class="table-wrap">
-      <table class="cbom-table" aria-label="Findings">
-        <thead>
-          <tr><th>Asset</th><th>Type</th><th>Severity</th><th>Detail</th><th>Detected</th></tr>
-        </thead>
-        <tbody id="findingsBody">
-          <tr><td colspan="5" class="table-loading">Loading findings…</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- ════════════════════════════════════════════════════ -->
-  <!--  TAB: HISTORY                                        -->
-  <!-- ════════════════════════════════════════════════════ -->
-  <section id="tab-history" class="cbom-tab-panel" hidden>
-    <div class="asset-selector-row">
-      <label for="histAssetSelect">Asset:</label>
-      <select id="histAssetSelect" class="asset-select" onchange="loadHistory()">
-        <option value="">— Select asset —</option>
-      </select>
-    </div>
-    <div id="histTimeline" class="timeline">
-      <p class="empty-state">Select an asset to see its event timeline.</p>
-    </div>
-  </section>
-
-  <!-- ════════════════════════════════════════════════════ -->
-  <!--  TAB: DIAGNOSTICS                                    -->
-  <!-- ════════════════════════════════════════════════════ -->
-  <section id="tab-diagnostics" class="cbom-tab-panel" hidden>
-    <div class="asset-selector-row">
-      <label for="diagAssetSelect">Asset:</label>
-      <select id="diagAssetSelect" class="asset-select" onchange="loadDiagnostics()">
-        <option value="">— Select asset —</option>
-      </select>
-    </div>
-    <pre id="diagOut" class="diag-pre">Select an asset to view diagnostics.</pre>
-  </section>
-  </div><!-- /.cbom-page -->
-
-  <!-- Certificate Details Modal (accessible) -->
-  <div id="certModalOverlay" class="modal-overlay" hidden aria-hidden="true">
-    <div id="certModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="certModalTitle" tabindex="-1">
-      <button id="certModalClose" class="modal-close" aria-label="Close certificate details">×</button>
-      <h3 id="certModalTitle">Certificate details</h3>
-      <div id="certModalContent" class="modal-content"></div>
-      <h4 style="margin-top:1rem;color:var(--c-muted);font-size:.9rem">Certificate history</h4>
-      <div id="certModalHistory" class="modal-history">
-        <table class="cbom-table" aria-label="Certificate history">
-          <thead>
-            <tr><th>First Seen</th><th>Last Seen</th><th>CN</th><th>Issuer</th><th>Valid Until</th><th>Status</th><th>Current</th></tr>
-          </thead>
-          <tbody id="certModalHistoryBody"><tr><td colspan="7" class="table-loading">No history loaded.</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-<!-- ─── Styles ──────────────────────────────────────────── -->
+{% block head %}
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
 <style>
 :root {
-  --c-bg:       #0b0f1a;
-  --c-surface:  rgba(15,23,42,.62);
-  --c-border:   rgba(148,163,184,.28);
-  --c-text:     #f1f5f9;
-  --c-muted:    #cbd5e1;
-  --c-accent:   #38bdf8;
-  --c-success:  #34d399;
-  --c-warning:  #fbbf24;
-  --c-danger:   #f87171;
-  --radius:     12px;
-  --glass:      blur(16px) saturate(1.4);
+    --bg-main:#060b17; --bg-card:#0d1527; --bg-card-hover:#131f38;
+    --border-color:#1e2d4a; --text-primary:#f1f5f9; --text-muted:#64748b;
+    --cyan-accent:#00f2fe; --cyan-hover:#02c5cf; --cyan-dim:rgba(0,242,254,0.1);
+    --red-accent:#ef4444; --red-dim:rgba(239,68,68,0.15);
+    --orange-accent:#f97316; --green-accent:#10b981; --green-dim:rgba(16,185,129,0.15);
+    --yellow-accent:#facc15;
 }
-.cbom-page { padding: 1.5rem 2rem; max-width: 1600px; margin: 0 auto; color: var(--c-text); }
-.cbom-page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; }
-.cbom-title { font-size:1.75rem; font-weight:700; margin:0; }
-.cbom-subtitle { font-size:.85rem; color:var(--c-muted); margin:.25rem 0 0; }
-.cbom-header-right { display:flex; gap:.75rem; align-items:center; }
-
-/* Tabs */
-.cbom-tabs { display:flex; gap:.25rem; margin-bottom:1.5rem; border-bottom:1px solid var(--c-border); }
-.cbom-tab { background:none; border:none; color:var(--c-muted); padding:.6rem 1.2rem; cursor:pointer;
-  font-size:.9rem; border-bottom:2px solid transparent; transition:all .2s; }
-.cbom-tab:hover { color:var(--c-text); }
-.cbom-tab.active { color:var(--c-accent); border-bottom-color:var(--c-accent); font-weight:600; }
-.cbom-tab-panel { animation:fadeIn .2s ease; }
-@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
-
-/* KPI */
-.kpi-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:1rem; margin-bottom:1.5rem; }
-.kpi-card { background:var(--c-surface); backdrop-filter:var(--glass); border:1px solid var(--c-border);
-  border-radius:var(--radius); padding:1.25rem; display:flex; flex-direction:column;
-  align-items:flex-start; gap:.35rem; transition:transform .2s; }
-.kpi-card:hover { transform:translateY(-2px); }
-.kpi-icon { font-size:1.4rem; }
-.kpi-value { font-size:2rem; font-weight:700; font-variant-numeric:tabular-nums; }
-.kpi-label { font-size:.78rem; color:var(--c-muted); text-transform:uppercase; letter-spacing:.05em; }
-
-/* Charts */
-.charts-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem; margin-bottom:1.5rem; }
-.chart-card { background:var(--c-surface); backdrop-filter:var(--glass); border:1px solid var(--c-border);
-  border-radius:var(--radius); padding:1.25rem; min-height:200px; }
-.chart-title { font-size:.9rem; font-weight:600; margin:0 0 1rem; color:var(--c-muted);
-  text-transform:uppercase; letter-spacing:.06em; }
-
-/* Bar chart */
-.bar-chart-inner { display:flex; flex-direction:column; gap:.5rem; }
-.bar-row { display:flex; align-items:center; gap:.75rem; font-size:.82rem; }
-.bar-label { width:60px; color:var(--c-muted); text-align:right; flex-shrink:0; }
-.bar-track { flex:1; background:rgba(255,255,255,.06); border-radius:4px; height:8px; overflow:hidden; }
-.bar-fill  { height:100%; border-radius:4px; background:linear-gradient(90deg,var(--c-accent),#818cf8);
-  transition:width .5s ease; }
-.bar-count { width:32px; color:var(--c-muted); font-size:.78rem; }
-
-/* Donut */
-.donut-wrap { display:flex; flex-direction:column; align-items:center; gap:1rem; }
-.donut { width:120px; height:120px; border-radius:50%; position:relative;
-  background:conic-gradient(var(--c-accent) 0% 0%); }
-.donut-hole { position:absolute; inset:24px; border-radius:50%;
-  background:var(--c-bg); display:flex; align-items:center; justify-content:center;
-  font-size:1.1rem; font-weight:700; }
-.donut-legend { display:flex; flex-wrap:wrap; gap:.5rem; justify-content:center; }
-.legend-item { display:flex; align-items:center; gap:.35rem; font-size:.78rem; color:var(--c-muted); }
-.legend-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-
-/* Cipher list */
-.cipher-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.5rem; }
-.cipher-item { display:flex; align-items:center; justify-content:space-between; padding:.5rem .75rem;
-  background:rgba(148,163,184,.12); border-radius:6px; font-size:.8rem; }
-.cipher-name { color:var(--c-text); font-family:monospace; }
-.cipher-count { background:var(--c-accent); color:#000; border-radius:999px;
-  padding:.1rem .5rem; font-size:.72rem; font-weight:700; }
-
-/* Table */
-.table-toolbar { display:flex; gap:.75rem; align-items:center; margin-bottom:.75rem; }
-.cbom-search { flex:1; max-width:360px; background:var(--c-surface); border:1px solid var(--c-border);
-  color:var(--c-text); border-radius:8px; padding:.5rem .9rem; font-size:.88rem; outline:none; }
-.cbom-search:focus { border-color:var(--c-accent); }
-.table-meta { font-size:.8rem; color:var(--c-muted); margin-left:auto; }
-.table-wrap { overflow-x:auto; border-radius:var(--radius); border:1px solid var(--c-border); }
-.cbom-table { width:100%; border-collapse:collapse; font-size:.85rem; }
-.cbom-table thead { background:rgba(255,255,255,.04); }
-.cbom-table th { padding:.75rem 1rem; text-align:left; color:var(--c-muted); font-weight:600;
-  font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; }
-.cbom-table td { padding:.7rem 1rem; border-top:1px solid var(--c-border); vertical-align:top; color:var(--c-text); }
-.cbom-table tbody tr:hover { background:rgba(255,255,255,.03); }
-.table-loading { text-align:center; color:var(--c-muted); padding:2rem; }
-.empty-state-row td { text-align:center; color:var(--c-muted); padding:3rem; }
-
-/* Pager */
-.pager { display:flex; align-items:center; gap:1rem; justify-content:center; margin-top:1rem; }
-.pager-info { font-size:.83rem; color:var(--c-muted); }
-
-/* Buttons */
-.btn-primary { background:var(--c-accent); color:#000; border:none; border-radius:8px;
-  padding:.5rem 1.1rem; cursor:pointer; font-weight:600; font-size:.88rem; transition:opacity .2s; }
-.btn-primary:hover { opacity:.85; }
-.btn-ghost { background:transparent; border:1px solid var(--c-border); color:var(--c-text);
-  border-radius:8px; padding:.45rem 1rem; cursor:pointer; font-size:.85rem; transition:all .2s; }
-.btn-ghost:hover { border-color:var(--c-accent); color:var(--c-accent); }
-.btn-ghost:disabled { opacity:.4; cursor:not-allowed; }
-
-/* Badges */
-.freshness-badge { padding:.25rem .65rem; border-radius:999px; font-size:.75rem; font-weight:600; }
-.freshness-fresh    { background:rgba(52,211,153,.15); color:var(--c-success); }
-.freshness-stale    { background:rgba(251,191,36,.15);  color:var(--c-warning); }
-.freshness-degraded { background:rgba(248,113,113,.15); color:var(--c-danger); }
-.freshness-unknown  { background:rgba(148,163,184,.1);  color:var(--c-muted); }
-
-.cert-badge { padding:.2rem .6rem; border-radius:6px; font-size:.75rem; font-weight:700; }
-.cert-valid    { background:rgba(52,211,153,.15); color:var(--c-success); }
-.cert-expiring { background:rgba(251,191,36,.15);  color:var(--c-warning); }
-.cert-expired  { background:rgba(248,113,113,.15); color:var(--c-danger); }
-.cert-selfsigned { background:rgba(148,163,184,.12); color:var(--c-muted); }
-
-/* SSL Card */
-.asset-selector-row { display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem; }
-.asset-select { background:var(--c-surface); border:1px solid var(--c-border); color:var(--c-text);
-  border-radius:8px; padding:.5rem .9rem; font-size:.88rem; min-width:280px; }
-.ssl-card { background:var(--c-surface); backdrop-filter:var(--glass); border:1px solid var(--c-border);
-  border-radius:var(--radius); padding:1.5rem; margin-bottom:1.5rem; }
-.ssl-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
-.ssl-cn { font-size:1.1rem; font-weight:700; }
-.ssl-meta-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:.75rem 1rem; margin-bottom:1rem; }
-.ssl-meta-item { display:flex; flex-direction:column; gap:.2rem; }
-.ssl-meta-key { font-size:.72rem; color:var(--c-muted); text-transform:uppercase; letter-spacing:.05em; }
-.mono-sm { font-family:monospace; font-size:.72rem; word-break:break-all; }
-.tls-version-row { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:.75rem; }
-.tls-badge { padding:.2rem .65rem; border-radius:6px; font-size:.78rem; font-weight:600; }
-.tls-ok   { background:rgba(52,211,153,.15); color:var(--c-success); }
-.tls-warn { background:rgba(251,191,36,.15);  color:var(--c-warning); }
-.tls-bad  { background:rgba(248,113,113,.15); color:var(--c-danger); }
-.san-row  { font-size:.8rem; color:var(--c-muted); word-break:break-all; }
-.section-title { font-size:1rem; font-weight:600; margin:1.5rem 0 .75rem; color:var(--c-muted);
-  text-transform:uppercase; letter-spacing:.06em; }
-
-/* Timeline */
-.timeline { display:flex; flex-direction:column; gap:.75rem; margin-top:.5rem; }
-.timeline-event { display:flex; gap:1rem; align-items:flex-start; padding:1rem;
-  background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--radius); }
-.evt-icon { font-size:1.2rem; flex-shrink:0; }
-.evt-body h4 { margin:0 0 .2rem; font-size:.9rem; }
-.evt-body p  { margin:0; font-size:.8rem; color:var(--c-muted); }
-.evt-time { font-size:.75rem; color:var(--c-muted); margin-left:auto; white-space:nowrap; }
-
-/* Diagnostics */
-.diag-pre { background:rgba(0,0,0,.4); border:1px solid var(--c-border); border-radius:var(--radius);
-  padding:1.25rem; font-size:.8rem; color:var(--c-text); overflow-x:auto;
-  max-height:600px; overflow-y:auto; white-space:pre-wrap; word-break:break-all; }
-
-/* Modal */
-.modal-overlay { position:fixed; inset:0; background:rgba(2,6,23,0.6); display:flex; align-items:center; justify-content:center; z-index:1000; padding:1rem; }
-.modal { background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--radius); width:min(880px,96%); max-height:90vh; overflow:auto; padding:1rem 1.25rem; box-shadow:0 10px 30px rgba(2,6,23,.6); position:relative; }
-.modal-close { position:absolute; right:12px; top:8px; background:transparent; border:none; color:var(--c-muted); font-size:1.25rem; cursor:pointer; padding:.25rem .5rem; }
-.modal-content { margin-top:.5rem; font-size:.9rem; color:var(--c-text); }
-.modal-history { margin-top:.5rem; }
-.modal[tabindex="-1"]:focus { outline:none; }
-
-/* Ensure overlay respects hidden / aria-hidden to avoid showing unintentionally */
-.modal-overlay[hidden],
-.modal-overlay[aria-hidden="true"] {
-  display: none !important;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-/* Skeleton shimmer */
-.skeleton { position:relative; overflow:hidden; }
-.skeleton::after { content:""; position:absolute; inset:0;
-  background:linear-gradient(90deg,transparent,rgba(255,255,255,.04),transparent);
-  animation:shimmer 1.5s infinite; }
-@keyframes shimmer { from{transform:translateX(-100%)} to{transform:translateX(100%)} }
-
-/* X.509 Details panel */
-.x509-panel { font-size:.78rem; color:var(--c-muted); padding:.5rem 0 0; }
-.x509-row { display:flex; gap:.5rem; padding:.2rem 0; border-bottom:1px solid var(--c-border); }
-.x509-key { width:200px; flex-shrink:0; color:var(--c-muted); }
-.x509-val { color:var(--c-text); word-break:break-all; font-family:monospace; }
-
-@media(max-width:1024px){
-  .kpi-grid   { grid-template-columns:repeat(3,1fr); }
-  .charts-row { grid-template-columns:1fr 1fr; }
-  .ssl-meta-grid { grid-template-columns:repeat(2,1fr); }
-}
-@media(max-width:640px){
-  .kpi-grid   { grid-template-columns:1fr 1fr; }
-  .charts-row { grid-template-columns:1fr; }
-  .cbom-page  { padding:1rem; }
-}
+.inv-main{padding:1.75rem;max-width:1600px;margin:0 auto;}
+.page-title{font-size:1.6rem;font-weight:800;margin-bottom:.25rem;letter-spacing:.5px;}
+.page-desc{color:var(--text-muted);font-size:.9rem;margin-bottom:1.5rem;}
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:1.5rem;}
+@media(max-width:1000px){.kpi-grid{grid-template-columns:repeat(3,1fr);}}
+.kpi-card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;
+          padding:1.25rem 1rem;display:flex;flex-direction:column;gap:.35rem;transition:border-color .2s;}
+.kpi-card:hover{border-color:var(--cyan-accent);}
+.kpi-icon{font-size:1.5rem;} .kpi-value{font-size:2rem;font-weight:900;color:var(--cyan-accent);line-height:1;}
+.kpi-label{font-size:.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;}
+.charts-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.5rem;}
+@media(max-width:900px){.charts-row{grid-template-columns:1fr;}}
+.chart-card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;padding:1.25rem;}
+.chart-title{font-size:.8rem;font-weight:700;color:var(--cyan-accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;}
+.bar-item{display:flex;align-items:center;gap:.6rem;margin-bottom:.55rem;font-size:.78rem;}
+.bar-label{width:80px;color:var(--text-muted);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bar-track{flex:1;background:rgba(255,255,255,.05);border-radius:4px;height:10px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--cyan-accent),#0ff);transition:width .6s ease;}
+.bar-count{width:30px;text-align:right;color:var(--text-primary);font-weight:700;font-size:.75rem;}
+.ranked-item{display:flex;justify-content:space-between;align-items:center;
+             padding:.4rem 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.78rem;}
+.ranked-item:last-child{border-bottom:none;}
+.ranked-name{color:var(--text-primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:.5rem;}
+.ranked-val{color:var(--cyan-accent);font-weight:800;white-space:nowrap;}
+.controls-card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;padding:1.25rem;margin-bottom:1.5rem;}
+.filters-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto auto;gap:.85rem;align-items:flex-end;}
+@media(max-width:900px){.filters-grid{grid-template-columns:1fr 1fr;}}
+.form-group{display:flex;flex-direction:column;gap:.4rem;}
+.form-group label{font-size:.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;}
+input,select{background:#080e1c;border:1px solid var(--border-color);color:var(--text-primary);
+             padding:.6rem .8rem;border-radius:6px;font-size:.88rem;outline:none;transition:border-color .2s;}
+input:focus,select:focus{border-color:var(--cyan-accent);}
+.btn{background:var(--cyan-accent);color:#000;font-weight:700;padding:.6rem 1.2rem;border:none;border-radius:6px;
+     cursor:pointer;font-size:.85rem;display:inline-flex;align-items:center;gap:.4rem;transition:all .2s;}
+.btn:hover{background:var(--cyan-hover);box-shadow:0 0 12px var(--cyan-dim);}
+.btn-secondary{background:transparent;color:var(--text-primary);border:1px solid var(--border-color);}
+.btn-secondary:hover{background:var(--border-color);}
+.btn-action{padding:.35rem .65rem;font-size:.72rem;border-radius:4px;border:1px solid var(--border-color);
+            background:#111d33;color:var(--text-primary);cursor:pointer;font-weight:600;
+            display:inline-flex;align-items:center;gap:.25rem;transition:all .2s;}
+.btn-action:hover{border-color:var(--cyan-accent);color:var(--cyan-accent);background:#162645;}
+.table-container{background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.3);}
+table{width:100%;border-collapse:collapse;text-align:left;font-size:.85rem;}
+th{background:#091122;padding:1rem .8rem;color:var(--cyan-accent);font-weight:700;text-transform:uppercase;
+   font-size:.75rem;border-bottom:1px solid var(--border-color);letter-spacing:.5px;white-space:nowrap;cursor:pointer;}
+th:hover{color:var(--cyan-hover);}
+td{padding:.9rem .8rem;border-bottom:1px solid var(--border-color);color:var(--text-primary);vertical-align:middle;}
+tr:hover td{background:var(--bg-card-hover);}
+.badge{padding:.25rem .6rem;border-radius:4px;font-size:.7rem;font-weight:800;display:inline-block;text-transform:uppercase;}
+.badge-critical{background:var(--red-dim);color:var(--red-accent);border:1px solid var(--red-accent);}
+.badge-medium{background:rgba(250,204,21,.15);color:var(--yellow-accent);border:1px solid var(--yellow-accent);}
+.badge-expired{background:var(--red-dim);color:var(--red-accent);border:1px solid var(--red-accent);}
+.badge-expiring{background:rgba(234,179,8,.15);color:#eab308;border:1px solid #eab308;}
+.badge-active{background:var(--green-dim);color:var(--green-accent);border:1px solid var(--green-accent);}
+.badge-weak{background:var(--red-dim);color:var(--red-accent);border:1px solid var(--red-accent);}
+.badge-ok{background:var(--green-dim);color:var(--green-accent);border:1px solid var(--green-accent);}
+.pagination-bar{padding:.8rem 1.2rem;background:#091122;display:flex;justify-content:space-between;align-items:center;
+                font-size:.8rem;color:var(--text-muted);flex-wrap:wrap;gap:.5rem;}
+.pg-pages{display:flex;gap:.4rem;align-items:center;}
+.pg-btn{padding:.3rem .65rem;border-radius:4px;border:1px solid var(--border-color);background:transparent;
+        color:var(--text-primary);font-size:.78rem;cursor:pointer;transition:all .2s;}
+.pg-btn:hover,.pg-btn.active{background:var(--cyan-accent);color:#000;border-color:var(--cyan-accent);}
+.pg-btn:disabled{opacity:.3;cursor:not-allowed;}
+.modal-backdrop{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(3,7,18,.88);backdrop-filter:blur(8px);
+                display:flex;align-items:center;justify-content:center;z-index:10000;opacity:0;pointer-events:none;transition:opacity .25s;}
+.modal-backdrop.active{opacity:1;pointer-events:auto;}
+.modal-card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;width:90%;max-width:720px;
+            box-shadow:0 20px 50px rgba(0,0,0,.6),0 0 20px rgba(0,242,254,.08);transform:scale(.93);transition:transform .25s;
+            overflow:hidden;display:flex;flex-direction:column;max-height:90vh;}
+.modal-backdrop.active .modal-card{transform:scale(1);}
+.modal-header{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;background:#0a1122;flex-shrink:0;}
+.modal-title-wrap{display:flex;align-items:center;gap:.6rem;}
+.modal-title{font-size:1.1rem;font-weight:700;}
+.modal-subtitle{font-size:.8rem;color:var(--text-muted);margin-top:.15rem;}
+.close-btn{background:transparent;border:none;color:var(--text-muted);font-size:1.25rem;cursor:pointer;border-radius:4px;padding:.2rem;transition:color .2s;}
+.close-btn:hover{color:var(--cyan-accent);}
+.modal-body{padding:1.5rem;overflow-y:auto;flex:1;}
+.modal-footer{padding:1rem 1.5rem;border-top:1px solid var(--border-color);display:flex;justify-content:flex-end;gap:.75rem;background:#0a1122;flex-shrink:0;}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:.85rem;}
+.detail-field{display:flex;flex-direction:column;gap:.25rem;}
+.detail-field label{font-size:.68rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;}
+.detail-field span{font-size:.85rem;color:var(--text-primary);word-break:break-all;}
+.detail-section{margin-bottom:1rem;}
+.detail-section-title{font-size:.72rem;font-weight:800;color:var(--cyan-accent);text-transform:uppercase;letter-spacing:.5px;
+                      border-bottom:1px solid var(--border-color);padding-bottom:.5rem;margin-bottom:.75rem;}
+.inv-toast{position:fixed;bottom:1.5rem;right:1.5rem;z-index:99999;background:var(--bg-card);border:1px solid var(--border-color);
+           border-radius:10px;padding:.8rem 1.2rem;font-size:.85rem;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,.5);
+           opacity:0;transform:translateY(12px);transition:all .3s;pointer-events:none;}
+.inv-toast.show{opacity:1;transform:translateY(0);pointer-events:auto;}
+.inv-empty{text-align:center;padding:3.5rem 2rem;color:var(--text-muted);}
+.inv-empty p{margin-top:.75rem;font-size:.9rem;}
+.section-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem;}
+.count-info{font-size:.8rem;color:var(--text-muted);}
+.count-info strong{color:var(--text-primary);}
+.algo-tag{display:inline-block;padding:.15rem .45rem;border-radius:3px;font-size:.65rem;font-weight:700;
+          background:rgba(0,242,254,.1);color:var(--cyan-accent);border:1px solid rgba(0,242,254,.2);margin:.1rem;}
 </style>
+{% endblock %}
 
-<!-- ─── Script ───────────────────────────────────────────── -->
-<script>
-'use strict';
+{% block content %}
+<div class="inv-main">
+    <div class="page-title">&#x1F510; CBOM INTELLIGENCE</div>
+    <div class="page-desc">Cryptographic Bill of Materials &middot; Live inventory from database &middot; No cached data.</div>
 
-// ── State ────────────────────────────────────────────────
-let cbomPage = 1;
-let cbomSearch = '';
-let cbomHasNext = false;
-let cbomHasPrev = false;
-
-// ── Utilities ─────────────────────────────────────────────
-const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-const fmtDate = s => { if(!s) return '—'; try{ return new Date(s).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }catch{return s;} };
-const fmtNum  = n => (n ?? 0).toLocaleString();
-
-function certBadgeHtml(status) {
-  const map = { 'Valid':'cert-valid', 'Expiring Soon':'cert-expiring', 'Expired':'cert-expired', 'Self-Signed':'cert-selfsigned' };
-  return `<span class="cert-badge ${map[status]||'cert-selfsigned'}">${esc(status||'Unknown')}</span>`;
-}
-
-function freshnessBadgeHtml(f) {
-  return `<span class="freshness-badge freshness-${f||'unknown'}">${(f||'unknown').toUpperCase()}</span>`;
-}
-
-// ── Tab switching ─────────────────────────────────────────
-function switchTab(name) {
-  document.querySelectorAll('.cbom-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.cbom-tab-panel').forEach(p => p.hidden = true);
-  document.querySelector(`[data-tab="${name}"]`).classList.add('active');
-  const panel = document.getElementById('tab-' + name);
-  panel.hidden = false;
-
-  if (name === 'ssltls')      populateAssetSelects();
-  if (name === 'history')     populateAssetSelects();
-  if (name === 'diagnostics') populateAssetSelects();
-  if (name === 'findings')    loadFindings();
-}
-
-// ── Overview: sync all widgets ────────────────────────────
-async function syncCbom() {
-  removeSkeleton();
-
-  // Bug fix: Promise.allSettled (not Promise.all) — one failure won't abort the rest
-  const [metricsRes, chartsRes, entriesRes] = await Promise.allSettled([
-    fetch(`/api/cbom/metrics`),
-    // Bug fix: /api/cbom/charts now exists as a standalone route
-    fetch(`/api/cbom/charts`),
-    fetch(`/api/cbom/entries?page=${cbomPage}&page_size=25&search=${encodeURIComponent(cbomSearch)}`),
-  ]);
-
-  if (metricsRes.status === 'fulfilled') {
-    const r = await metricsRes.value.json().catch(()=>({}));
-    if (r.success) updateKpis(r.data?.kpis || {});
-    const f = r.meta?.freshness || 'unknown';
-    document.getElementById('cbomFreshnessBar').className = `freshness-badge freshness-${f}`;
-    document.getElementById('cbomFreshnessBar').textContent = (f.charAt(0).toUpperCase()+f.slice(1)) + ' · ' + new Date().toLocaleTimeString();
-  }
-
-  if (chartsRes.status === 'fulfilled') {
-    const r = await chartsRes.value.json().catch(()=>({}));
-    if (r.success) {
-      renderKeyLengths(r.data?.key_length_distribution || {});
-      renderProtocolDonut(r.data?.protocol_versions || {});
-      renderCiphers(r.data?.cipher_suite_usage || {});
-    }
-  }
-
-  if (entriesRes.status === 'fulfilled') {
-    const r = await entriesRes.value.json().catch(()=>({}));
-    if (r.success) {
-      renderEntries(r.data?.items || []);
-      updatePager(r.data?.total || 0, cbomPage, 25);
-    }
-  } else {
-    document.getElementById('cbomTableBody').innerHTML =
-      '<tr><td colspan="8" class="table-loading">No data — run a scan to populate CBOM.</td></tr>';
-  }
-}
-
-function removeSkeleton() {
-  document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
-}
-
-// ── KPI updater ───────────────────────────────────────────
-function updateKpis(k) {
-  document.getElementById('kpiAppsVal').textContent   = fmtNum(k.total_applications ?? k.total_apps);
-  document.getElementById('kpiSitesVal').textContent  = fmtNum(k.sites_surveyed);
-  document.getElementById('kpiCertsVal').textContent  = fmtNum(k.active_certificates ?? k.total_certs);
-  document.getElementById('kpiWeakVal').textContent   = fmtNum(k.weak_crypto_count);
-  document.getElementById('kpiIssuesVal').textContent = fmtNum(k.cert_issues);
-}
-
-// ── Key Length Bar Chart ──────────────────────────────────
-function renderKeyLengths(dist) {
-  const container = document.getElementById('keyLenBars');
-  const total = Object.values(dist).reduce((a,b)=>a+b, 0);
-  if (!total) { container.innerHTML = '<p style="color:var(--c-muted);font-size:.82rem">No key-length data yet.</p>'; return; }
-  // Sort numerically
-  const entries = Object.entries(dist).sort((a,b)=>{ const na=parseInt(a[0])||0,nb=parseInt(b[0])||0; return na-nb; });
-  container.innerHTML = entries.map(([k,v]) => {
-    const pct = total > 0 ? Math.round((v/total)*100) : 0;
-    return `<div class="bar-row">
-      <span class="bar-label">${esc(k)}</span>
-      <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-      <span class="bar-count">${v}</span>
-    </div>`;
-  }).join('');
-  // If a deep-link requested a cert to open, attempt now
-  if (window._cbom_pending_open) tryOpenPendingCert();
-}
-
-// ── Protocol Donut ────────────────────────────────────────
-function renderProtocolDonut(protocols) {
-  const colors = {'TLSv1.3':'#38bdf8','TLSv1.2':'#818cf8','TLSv1.1':'#fbbf24','TLSv1.0':'#f87171','Unknown':'#475569'};
-  const total = Object.values(protocols).reduce((a,b)=>a+b,0);
-  if (!total) {
-    document.getElementById('protocolDonut').innerHTML = '<p style="color:var(--c-muted);font-size:.82rem">No protocol data yet.</p>';
-    return;
-  }
-  let angle = 0;
-  const segments = Object.entries(protocols).map(([k,v]) => {
-    const pct = (v/total)*100;
-    const start = angle; angle += pct;
-    return { label: k, pct, color: colors[k] || '#475569', start };
-  });
-  const gradient = segments.map(s => `${s.color} ${s.start.toFixed(1)}% ${(s.start+s.pct).toFixed(1)}%`).join(', ');
-  const donut = document.getElementById('protocolDonut');
-  const tls13 = protocols['TLSv1.3'] || 0;
-  const tls13pct = total > 0 ? Math.round((tls13/total)*100) : 0;
-  donut.innerHTML = `
-    <div class="donut" style="background:conic-gradient(${gradient})">
-      <div class="donut-hole"><span id="donutPct">${tls13pct}%<br><small style="font-size:.6rem;color:var(--c-muted)">TLS 1.3</small></span></div>
+    <div class="kpi-grid">
+        <div class="kpi-card"><span class="kpi-icon">&#x1F5C2;</span><span class="kpi-value" id="kpiApps">&mdash;</span><span class="kpi-label">Applications</span></div>
+        <div class="kpi-card"><span class="kpi-icon">&#x1F310;</span><span class="kpi-value" id="kpiSites">&mdash;</span><span class="kpi-label">Sites Surveyed</span></div>
+        <div class="kpi-card"><span class="kpi-icon">&#x1F4DC;</span><span class="kpi-value" id="kpiCerts">&mdash;</span><span class="kpi-label">Active Certs</span></div>
+        <div class="kpi-card"><span class="kpi-icon">&#x26A0;</span><span class="kpi-value" id="kpiWeak" style="color:#ef4444;">&mdash;</span><span class="kpi-label">Weak Crypto</span></div>
+        <div class="kpi-card"><span class="kpi-icon">&#x1F6D1;</span><span class="kpi-value" id="kpiIssues" style="color:#f97316;">&mdash;</span><span class="kpi-label">Cert Issues</span></div>
     </div>
-    <div class="donut-legend">${segments.map(s=>`
-      <div class="legend-item"><div class="legend-dot" style="background:${s.color}"></div>${esc(s.label)} (${Math.round(s.pct)}%)</div>
-    `).join('')}</div>`;
+
+    <div class="charts-row">
+        <div class="chart-card">
+            <div class="chart-title">&#x1F511; Key Length Distribution</div>
+            <div id="keyLenChart"><div class="inv-empty" style="padding:1rem;"><p>Loading&hellip;</p></div></div>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">&#x1F512; Protocol Versions</div>
+            <div id="protocolChart"><div class="inv-empty" style="padding:1rem;"><p>Loading&hellip;</p></div></div>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">&#x1F3DB; Top Certificate Authorities</div>
+            <div id="caChart"><div class="inv-empty" style="padding:1rem;"><p>Loading&hellip;</p></div></div>
+        </div>
+    </div>
+
+    <div class="controls-card">
+        <div class="filters-grid">
+            <div class="form-group">
+                <label>Search Certificates</label>
+                <input type="text" id="searchInput" placeholder="Domain, issuer, cipher, algorithm...">
+            </div>
+            <div class="form-group">
+                <label>TLS Version</label>
+                <select id="tlsFilter">
+                    <option value="">All Versions</option>
+                    <option>TLS 1.3</option>
+                    <option>TLS 1.2</option>
+                    <option>TLS 1.1</option>
+                    <option>TLS 1.0</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Key Strength</label>
+                <select id="strengthFilter">
+                    <option value="">All</option>
+                    <option value="weak">Weak (&lt;2048)</option>
+                    <option value="ok">OK (2048+)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Sort By</label>
+                <select id="sortFilter">
+                    <option value="key_length">Key Length</option>
+                    <option value="asset_name">Asset Name</option>
+                    <option value="valid_until">Expiry</option>
+                    <option value="tls_version">TLS Version</option>
+                </select>
+            </div>
+            <div style="align-self:flex-end;">
+                <button class="btn" onclick="applyFilters()">FILTER</button>
+            </div>
+            <div style="align-self:flex-end;display:flex;gap:.5rem;">
+                <button class="btn btn-secondary" onclick="resetFilters()">RESET</button>
+                <button class="btn-action" onclick="exportCBOM()" style="color:var(--cyan-accent);border-color:var(--cyan-accent);">&#x2B07; EXPORT</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-hdr">
+        <div class="count-info">Showing <strong id="showCount">0</strong> of <strong id="totalCount">0</strong> entries</div>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th onclick="sortBy('asset_name')">Asset / Domain &#x2195;</th>
+                    <th onclick="sortBy('tls_version')">TLS Version &#x2195;</th>
+                    <th>Cipher Suite</th>
+                    <th onclick="sortBy('key_length')">Key Length &#x2195;</th>
+                    <th>Key Type</th>
+                    <th>Cert Status</th>
+                    <th onclick="sortBy('valid_until')">Expires &#x2195;</th>
+                    <th>Issuer / CA</th>
+                    <th>Algorithms</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="cbomTbody">
+                <tr><td colspan="10"><div class="inv-empty"><p>Loading CBOM data&hellip;</p></div></td></tr>
+            </tbody>
+        </table>
+        <div class="pagination-bar">
+            <div class="count-info" id="pgInfo">Page 1</div>
+            <div class="pg-pages" id="pgPages"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal-card" id="modalCard"></div>
+</div>
+<div class="inv-toast" id="invToast"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+'use strict';
+var S={page:1,pageSize:25,sort:'key_length',order:'asc',search:'',tls:'',strength:'',totalPages:1,total:0};
+
+function fmtDate(v){
+    if(!v)return '\u2014';
+    try{return new Date(v).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});}catch(e){return v;}
 }
-
-// ── Cipher List ───────────────────────────────────────────
-function renderCiphers(usage) {
-  const list = document.getElementById('cipherList');
-  const entries = Object.entries(usage).slice(0,5);
-  if (!entries.length) { list.innerHTML = '<li style="color:var(--c-muted);font-size:.82rem">No cipher data yet.</li>'; return; }
-  list.innerHTML = entries.map(([k,v]) =>
-    `<li class="cipher-item"><span class="cipher-name">${esc(k)}</span><span class="cipher-count">${v}</span></li>`
-  ).join('');
+function certBadge(item){
+    if(!item.valid_until)return '<span class="badge badge-medium">Unknown</span>';
+    var days=Math.floor((new Date(item.valid_until)-Date.now())/86400000);
+    if(days<0)return '<span class="badge badge-expired">Expired</span>';
+    if(days<30)return '<span class="badge badge-expiring">Expiring '+days+'d</span>';
+    return '<span class="badge badge-active">Valid</span>';
 }
-
-// ── Entries Table ─────────────────────────────────────────
-function renderEntries(items) {
-  const tbody = document.getElementById('cbomTableBody');
-  if (!items.length) {
-    tbody.innerHTML = '<tr class="empty-state-row"><td colspan="8">No CBOM entries found. Run a scan to populate inventory.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = items.map((row, i) => {
-    const detailsId = `x509-${i}`;
-    const cd = row.certificate_details || {};
-    const spki = cd.subject_public_key_info || {};
-    const validity = cd.validity || {};
-    const x509rows = [
-      ['Version', cd.certificate_version],
-      ['Serial', cd.serial_number],
-      ['Signature Algorithm', cd.certificate_signature_algorithm],
-      ['Issuer', cd.issuer],
-      ['Valid From', validity.not_before],
-      ['Valid Until', validity.not_after],
-      ['Subject', cd.subject],
-      ['Key Algorithm', spki.subject_public_key_algorithm],
-      ['Key Bits', spki.subject_public_key_bits],
-      ['Key Fingerprint SHA-256', spki.public_key_fingerprint_sha256],
-      ['Cert Fingerprint SHA-256', cd.fingerprint_sha256],
-      ['Format', cd.certificate_format],
-      ['Key Usage', (cd.certificate_key_usage||[]).join(', ')],
-      ['Extended Key Usage', (cd.extended_key_usage||[]).join(', ')],
-      ['SANs', (cd.certificate_subject_alternative_name||[]).join(', ')],
-      ['Extensions', (cd.extensions||[]).join(', ')],
-      ['OCSP/CA Issuers', (cd.authority_information_access||[]).join(', ')],
-    ].filter(([,v]) => v && String(v).trim());
-
-    const x509Html = x509rows.length
-      ? `<div class="x509-panel">${x509rows.map(([k,v])=>`
-          <div class="x509-row"><span class="x509-key">${esc(k)}</span><span class="x509-val">${esc(v)}</span></div>`).join('')}
-        </div>`
-      : '<span style="color:var(--c-muted);font-size:.78rem">No X.509 details stored yet.</span>';
-
-    return `<tr>
-      <td>${esc(row.asset_name || '—')}</td>
-      <td>${certBadgeHtml(row.cert_status)}</td>
-      <td>${row.key_length ? row.key_length + ' bit' : '—'}</td>
-      <td>${esc(row.tls_version || '—')}</td>
-      <td style="font-family:monospace;font-size:.78rem">${esc((row.cipher_suite||'').slice(0,36))}</td>
-      <td>${esc(row.ca || row.issuer_cn || '—')}</td>
-      <td>${fmtDate(row.valid_until)}</td>
-      <td>
-        <button class="btn-ghost view-x509-btn" data-asset-id="${row.asset_id||''}" data-cert-fp="${esc(cd.fingerprint_sha256)}" onclick="openCertModal('${detailsId}', this.dataset.assetId, this.dataset.certFp)" style="cursor:pointer;color:var(--c-accent);font-size:.78rem">View X.509</button>
-        <div id="${detailsId}-wrap" class="x509-wrap" style="display:none">${x509Html}</div>
-      </td>
-    </tr>`;
-  }).join('');
+function keyBadge(kl){
+    if(!kl)return '\u2014';
+    return parseInt(kl)<2048?'<span class="badge badge-weak">'+kl+' \u26a0</span>':'<span class="badge badge-ok">'+kl+'</span>';
 }
-
-// ── Pager ─────────────────────────────────────────────────
-function updatePager(total, page, pageSize) {
-  const start = total ? (page - 1) * pageSize + 1 : 0;
-  const end   = Math.min(page * pageSize, total);
-  cbomHasPrev = page > 1;
-  cbomHasNext = end < total;
-  document.getElementById('pagerInfo').textContent = total
-    ? `Showing ${start}–${end} of ${fmtNum(total)}`
-    : 'No results';
-  document.getElementById('prevBtn').disabled = !cbomHasPrev;
-  document.getElementById('nextBtn').disabled = !cbomHasNext;
-  document.getElementById('tableMeta').textContent = total ? `${fmtNum(total)} total` : '';
+function tlsBadge(tls){
+    if(!tls)return '\u2014';
+    if(['TLS 1.0','TLS 1.1','SSLv3','SSLv2'].indexOf(tls)>=0)return '<span class="badge badge-critical">'+tls+'</span>';
+    if(tls==='TLS 1.2')return '<span class="badge badge-medium">'+tls+'</span>';
+    return '<span class="badge badge-active">'+tls+'</span>';
 }
-
-function changePage(dir) { cbomPage = Math.max(1, cbomPage + dir); syncCbom(); }
-function doSearch() { cbomSearch = document.getElementById('cbomSearchInput').value; cbomPage = 1; syncCbom(); }
-
-// ── Export ────────────────────────────────────────────────
-async function exportCbom() {
-  const btn = document.getElementById('cbomExportBtn');
-  btn.disabled = true; btn.textContent = 'Preparing…';
-  try {
-    const resp = await fetch('/api/cbom/export?page_size=250&search=' + encodeURIComponent(cbomSearch));
-    if (!resp.ok) throw new Error(await resp.text());
-    const blob = await resp.blob();
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = 'cbom_export.json'; a.click();
-    URL.revokeObjectURL(url);
-  } catch(e) { alert('Export failed: ' + e.message); }
-  finally { btn.disabled = false; btn.textContent = '↓ Export JSON'; }
+function algoTags(item){
+    var algos=[];
+    if(item.cipher_suite){item.cipher_suite.split(/[\s_-]+/).forEach(function(p){if(p.length>2&&algos.indexOf(p)<0)algos.push(p);});}
+    if(item.public_key_type&&algos.indexOf(item.public_key_type)<0)algos.push(item.public_key_type);
+    return algos.slice(0,3).map(function(a){return '<span class="algo-tag">'+a+'</span>';}).join('')||'\u2014';
 }
-
-// ── SSL / TLS Tab ─────────────────────────────────────────
-async function populateAssetSelects() {
-  try {
-    const r = await fetch('/api/cbom/dashboard/summary?page_size=100');
-    const d = await r.json();
-    if (!d.success) return;
-    const opts = d.data.items.map(a =>
-      `<option value="${a.asset_id}">${esc(a.hostname)}</option>`
-    ).join('');
-    ['assetSelect','histAssetSelect','diagAssetSelect'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el && el.options.length <= 1) el.innerHTML = '<option value="">— Select asset —</option>' + opts;
-    });
-  } catch {}
+function toast(msg,type){
+    var el=document.getElementById('invToast');
+    var c={success:'#10b981',error:'#ef4444',info:'#00f2fe'};
+    el.style.borderColor=c[type]||c.info;
+    el.textContent=msg;
+    el.classList.add('show');
+    setTimeout(function(){el.classList.remove('show');},3500);
 }
-
-async function loadAssetSSL() {
-  const assetId = document.getElementById('assetSelect').value;
-  if (!assetId) return;
-
-  // Current state
-  const badge = document.getElementById('sslFreshness');
-  badge.hidden = false;
-  badge.className = 'freshness-badge freshness-unknown';
-  badge.textContent = 'Loading…';
-
-  try {
-    const r  = await fetch(`/api/cbom/asset/${assetId}/current`);
-    const d  = await r.json();
-    const st = d.data || {};
-    const cert = st.current_certificate || {};
-    const prof = st.ssl_profile || {};
-
-    badge.className = 'freshness-badge freshness-' + (st.freshness_status || 'unknown');
-    badge.textContent = (st.freshness_status || 'unknown').toUpperCase();
-
-    document.getElementById('sslCN').textContent    = cert.subject_cn || st.hostname || '—';
-    document.getElementById('sslIssuer').textContent = cert.issuer_cn || cert.issuer_o || '—';
-    document.getElementById('sslFrom').textContent  = fmtDate(cert.valid_from);
-    document.getElementById('sslUntil').textContent = fmtDate(cert.valid_until);
-    document.getElementById('sslDays').textContent  = cert.expiry_days != null ? cert.expiry_days + 'd' : '—';
-    document.getElementById('sslKey').textContent   = cert.key_length ? `${cert.public_key_type || 'RSA'} ${cert.key_length}-bit` : '—';
-    document.getElementById('sslChain').textContent = cert.cert_chain_length != null ? cert.cert_chain_length + ' certs' : '—';
-    document.getElementById('sslHSTS').textContent  = prof.hsts_enabled ? `✓ ${prof.hsts_max_age ? prof.hsts_max_age+'s' : ''}` : '✗ None';
-    document.getElementById('sslFP').textContent    = cert.fingerprint_sha256 || '—';
-
-    const statusBadge = document.getElementById('sslStatusBadge');
-    statusBadge.textContent  = cert.cert_status || '—';
-    const cls = {'Valid':'cert-valid','Expiring Soon':'cert-expiring','Expired':'cert-expired','Self-Signed':'cert-selfsigned'};
-    statusBadge.className = 'cert-badge ' + (cls[cert.cert_status] || 'cert-selfsigned');
-
-    // TLS version pills
-    const versions = [
-      { name:'TLS 1.3', key:'supports_tls_1_3', cls:'tls-ok' },
-      { name:'TLS 1.2', key:'supports_tls_1_2', cls:'tls-ok' },
-      { name:'TLS 1.1', key:'supports_tls_1_1', cls:'tls-warn' },
-      { name:'TLS 1.0', key:'supports_tls_1_0', cls:'tls-bad' },
-    ];
-    document.getElementById('tlsVRow').innerHTML = versions.map(v => {
-      const ok = prof[v.key];
-      return `<span class="tls-badge ${ok ? v.cls : 'tls-bad'}">${v.name} ${ok ? '✓' : '✗'}</span>`;
+async function get(url){
+    var r=await fetch(url,{headers:{'Accept':'application/json','Cache-Control':'no-cache'}});
+    return r.json();
+}
+async function loadKPIs(){
+    try{
+        var d=await get('/api/cbom/metrics');
+        var k=(d.data&&d.data.kpis)||{};
+        document.getElementById('kpiApps').textContent=k.total_applications!=null?k.total_applications:'0';
+        document.getElementById('kpiSites').textContent=k.sites_surveyed!=null?k.sites_surveyed:'0';
+        document.getElementById('kpiCerts').textContent=k.active_certificates!=null?k.active_certificates:'0';
+        document.getElementById('kpiWeak').textContent=k.weak_crypto_count!=null?k.weak_crypto_count:'0';
+        document.getElementById('kpiIssues').textContent=k.cert_issues!=null?k.cert_issues:'0';
+    }catch(e){console.warn('KPIs failed',e);}
+}
+async function loadCharts(){
+    try{
+        var d=await get('/api/cbom/charts');
+        var cd=d.data||{};
+        renderBars('keyLenChart',cd.key_length_distribution||{});
+        renderBars('protocolChart',cd.protocol_versions||{},['TLS 1.0','TLS 1.1','SSLv3','SSLv2']);
+        renderRanked('caChart',cd.top_cas||{});
+    }catch(e){console.warn('Charts failed',e);}
+}
+function renderBars(id,data,dangerKeys){
+    var el=document.getElementById(id);
+    var entries=Object.entries(data).sort(function(a,b){return b[1]-a[1];});
+    if(!entries.length){el.innerHTML='<p style="color:var(--text-muted);font-size:.8rem;text-align:center;padding:.5rem;">No data yet</p>';return;}
+    var mx=Math.max.apply(null,entries.map(function(e){return e[1];}))||1;
+    el.innerHTML=entries.map(function(e){
+        var k=e[0],v=e[1];
+        var pct=Math.round(v/mx*100);
+        var danger=dangerKeys&&dangerKeys.indexOf(k)>=0;
+        var bg=danger?'linear-gradient(90deg,#ef4444,#f87171)':'linear-gradient(90deg,var(--cyan-accent),#0ff)';
+        return '<div class="bar-item"><span class="bar-label" title="'+k+'">'+k+'</span><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;background:'+bg+';"></div></div><span class="bar-count">'+v+'</span></div>';
     }).join('');
-
-    document.getElementById('sslSANs').textContent = (cert.san_domains || []).join(', ') || '—';
-  } catch(e) {
-    badge.className = 'freshness-badge freshness-degraded';
-    badge.textContent = 'Error';
-  }
-
-  // History table
-  try {
-    const r2 = await fetch(`/api/cbom/asset/${assetId}/ssl/history?include_all=true&page_size=20`);
-    const d2 = await r2.json();
-    const items = d2.data?.items || [];
-    document.getElementById('certHistBody').innerHTML = items.length
-      ? items.map(c => `<tr>
-          <td>${fmtDate(c.first_seen_at)}</td>
-          <td>${fmtDate(c.last_seen_at)}</td>
-          <td>${esc(c.subject_cn || '—')}</td>
-          <td>${esc(c.issuer_cn || '—')}</td>
-          <td>${fmtDate(c.valid_until)}</td>
-          <td>${certBadgeHtml(c.cert_status)}</td>
-          <td>${c.is_current ? '✓' : ''}</td>
-        </tr>`).join('')
-      : '<tr><td colspan="7" class="table-loading">No certificate history yet.</td></tr>';
-  } catch {}
 }
-
-// ── History Tab ───────────────────────────────────────────
-async function loadHistory() {
-  const assetId = document.getElementById('histAssetSelect').value;
-  if (!assetId) return;
-  const tl = document.getElementById('histTimeline');
-  tl.innerHTML = '<p style="color:var(--c-muted)">Loading events…</p>';
-  try {
-    const r = await fetch(`/api/cbom/asset/${assetId}/events?page_size=30`);
-    const d = await r.json();
-    const events = d.data?.items || [];
-    const icons = { cert_renewed:'📋', cert_expired:'🛑', issuer_changed:'🔄',
-      tls_version_added:'✅', tls_version_removed:'❌', scan_failed:'⚠️',
-      scan_succeeded:'✔️', weak_cipher_detected:'⚠️' };
-    tl.innerHTML = events.length
-      ? events.map(e => `<div class="timeline-event">
-          <span class="evt-icon">${icons[e.event_type] || '📌'}</span>
-          <div class="evt-body">
-            <h4>${esc(e.event_title)}</h4>
-            <p>${esc(e.event_description || '')}</p>
-          </div>
-          <span class="evt-time">${fmtDate(e.created_at)}</span>
-        </div>`).join('')
-      : '<p class="empty-state" style="color:var(--c-muted)">No events recorded yet. Events populate after scans complete.</p>';
-  } catch(err) {
-    tl.innerHTML = `<p style="color:var(--c-danger)">Error loading events: ${esc(err.message)}</p>`;
-  }
+function renderRanked(id,data){
+    var el=document.getElementById(id);
+    var entries=Object.entries(data).sort(function(a,b){return b[1]-a[1];}).slice(0,7);
+    if(!entries.length){el.innerHTML='<p style="color:var(--text-muted);font-size:.8rem;text-align:center;padding:.5rem;">No data yet</p>';return;}
+    el.innerHTML=entries.map(function(e){return '<div class="ranked-item"><span class="ranked-name" title="'+e[0]+'">'+e[0]+'</span><span class="ranked-val">'+e[1]+'</span></div>';}).join('');
 }
-
-// ── Findings Tab ──────────────────────────────────────────
-async function loadFindings() {
-  const tbody = document.getElementById('findingsBody');
-  tbody.innerHTML = '<tr><td colspan="5" class="table-loading">Loading findings…</td></tr>';
-  try {
-    const r = await fetch('/api/cbom/entries?page_size=50&sort=key_length&order=asc');
-    const d = await r.json();
-    const items = (d.data?.items || []).filter(i =>
-      i.cert_status !== 'Valid' || (i.key_length && i.key_length < 2048)
+async function load(){
+    var q=new URLSearchParams({page:S.page,page_size:S.pageSize,sort:S.sort,order:S.order,q:S.search});
+    if(S.tls)q.set('tls_version',S.tls);
+    try{
+        var d=await get('/api/cbom/entries?'+q);
+        if(!d.success)throw new Error((d.errors&&d.errors[0])||'API error');
+        var data=d.data||{};
+        S.total=data.total||0;
+        S.totalPages=Math.max(1,Math.ceil(S.total/S.pageSize));
+        var items=data.items||[];
+        if(S.strength==='weak')items=items.filter(function(i){return i.key_length&&parseInt(i.key_length)<2048;});
+        if(S.strength==='ok')items=items.filter(function(i){return !i.key_length||parseInt(i.key_length)>=2048;});
+        render(items);
+        renderPagination();
+    }catch(e){
+        document.getElementById('cbomTbody').innerHTML='<tr><td colspan="10"><div class="inv-empty"><p style="color:#ef4444;">Error: '+e.message+'</p></div></td></tr>';
+    }
+}
+function render(items){
+    document.getElementById('showCount').textContent=items.length;
+    document.getElementById('totalCount').textContent=S.total;
+    var tbody=document.getElementById('cbomTbody');
+    if(!items.length){tbody.innerHTML='<tr><td colspan="10"><div class="inv-empty"><p>No CBOM entries found. Run a scan to populate data.</p></div></td></tr>';return;}
+    tbody.innerHTML=items.map(function(item){
+        var enc=encodeURIComponent(JSON.stringify(item));
+        var name=(item.asset_name||'\u2014');
+        var sub=(item.subject_cn||'');
+        var cipher=(item.cipher_suite||'\u2014');
+        var issuer=(item.issuer_cn||item.ca||'\u2014');
+        return '<tr>'+
+            '<td style="font-weight:700;color:var(--cyan-accent);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+name+'<br><small style="color:var(--text-muted);font-weight:400;font-size:.72rem;">'+sub+'</small></td>'+
+            '<td>'+tlsBadge(item.tls_version)+'</td>'+
+            '<td style="font-size:.75rem;color:var(--text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+cipher+'</td>'+
+            '<td>'+keyBadge(item.key_length)+'</td>'+
+            '<td><span class="badge badge-medium" style="font-size:.65rem;">'+(item.public_key_type||'\u2014')+'</span></td>'+
+            '<td>'+certBadge(item)+'</td>'+
+            '<td style="font-size:.8rem;white-space:nowrap;">'+fmtDate(item.valid_until)+'</td>'+
+            '<td style="font-size:.78rem;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+issuer+'</td>'+
+            '<td>'+algoTags(item)+'</td>'+
+            '<td><button class="btn-action" data-item="'+enc+'" onclick="openDetail(decodeURIComponent(this.dataset.item))">&#x1F50D; Details</button></td>'+
+        '</tr>';
+    }).join('');
+}
+window.openDetail=function(itemJson){
+    var item;
+    try{item=JSON.parse(itemJson);}catch(e){return;}
+    var cd=item.certificate_details||{};
+    var validDays=item.valid_until?Math.floor((new Date(item.valid_until)-Date.now())/86400000):null;
+    var expiryLabel=fmtDate(item.valid_until)+(validDays!==null?' <small style="color:'+(validDays<30?'#ef4444':'#64748b')+'">('+validDays+'d)</small>':'');
+    var algos=[];
+    if(item.cipher_suite){item.cipher_suite.split(/[\s_-]+/).forEach(function(p){if(p.length>2&&algos.indexOf(p)<0)algos.push(p);});}
+    if(item.public_key_type&&algos.indexOf(item.public_key_type)<0)algos.push(item.public_key_type);
+    var sanHtml='';
+    if(cd.san){var sanArr=Array.isArray(cd.san)?cd.san:[cd.san];sanHtml='<div class="detail-section"><div class="detail-section-title">&#x1F310; Subject Alternative Names</div><div style="font-size:.78rem;color:var(--text-muted);line-height:1.8;">'+sanArr.join(', ')+'</div></div>';}
+    showModal(
+        '<div class="modal-header">'+
+        '<div class="modal-title-wrap"><span>&#x1F510;</span>'+
+        '<div><div class="modal-title">'+(item.asset_name||'Certificate Detail')+'</div>'+
+        '<div class="modal-subtitle">'+(item.subject_cn||item.asset_name||'\u2014')+'</div></div></div>'+
+        '<button class="close-btn" onclick="closeModal()">\u2715</button></div>'+
+        '<div class="modal-body">'+
+        '<div class="detail-section"><div class="detail-section-title">&#x1F4DC; Certificate Information</div><div class="detail-grid">'+
+        '<div class="detail-field"><label>Subject CN</label><span>'+(item.subject_cn||'\u2014')+'</span></div>'+
+        '<div class="detail-field"><label>Issuer / CA</label><span>'+(item.issuer_cn||item.ca||'\u2014')+'</span></div>'+
+        '<div class="detail-field"><label>Valid From</label><span>'+fmtDate(item.valid_from)+'</span></div>'+
+        '<div class="detail-field"><label>Valid Until</label><span>'+expiryLabel+'</span></div>'+
+        '<div class="detail-field"><label>Status</label><span>'+certBadge(item)+'</span></div>'+
+        '<div class="detail-field"><label>SHA256 Fingerprint</label><span style="font-size:.7rem;font-family:monospace;word-break:break-all;">'+(item.fingerprint_sha256||'\u2014')+'</span></div>'+
+        '<div class="detail-field"><label>First Seen</label><span>'+fmtDate(item.first_seen_at)+'</span></div>'+
+        '<div class="detail-field"><label>Last Seen</label><span>'+fmtDate(item.last_seen_at)+'</span></div>'+
+        '</div></div>'+
+        '<div class="detail-section"><div class="detail-section-title">&#x1F511; Cryptographic Profile</div><div class="detail-grid">'+
+        '<div class="detail-field"><label>TLS Version</label><span>'+tlsBadge(item.tls_version)+'</span></div>'+
+        '<div class="detail-field"><label>Cipher Suite</label><span style="font-size:.78rem;font-family:monospace;">'+(item.cipher_suite||'\u2014')+'</span></div>'+
+        '<div class="detail-field"><label>Key Length (bits)</label><span>'+keyBadge(item.key_length)+'</span></div>'+
+        '<div class="detail-field"><label>Key Algorithm</label><span>'+(item.public_key_type||'\u2014')+'</span></div>'+
+        '<div class="detail-field"><label>Signature Algorithm</label><span style="font-size:.78rem;">'+(cd.signature_algorithm||item.signature_algorithm||'\u2014')+'</span></div>'+
+        '<div class="detail-field"><label>Active / Current</label><span>'+(item.is_current?'<span class="badge badge-active">Active</span>':'<span class="badge badge-medium">Historical</span>')+'</span></div>'+
+        '</div></div>'+
+        '<div class="detail-section"><div class="detail-section-title">&#x2699; Detected Algorithms</div>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:.35rem;">'+
+        (algos.length?algos.map(function(a){return '<span class="algo-tag" style="font-size:.75rem;padding:.2rem .6rem;">'+a+'</span>';}).join(''):'<span style="color:var(--text-muted);font-size:.82rem;">No algorithm data</span>')+
+        '</div></div>'+
+        sanHtml+
+        '</div>'+
+        '<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal()">CLOSE</button></div>'
     );
-    tbody.innerHTML = items.length
-      ? items.map(i => {
-          const sev = i.cert_status === 'Expired' ? '🔴 Critical'
-            : i.cert_status === 'Expiring Soon' ? '🟡 High'
-            : (i.key_length && i.key_length < 2048) ? '🟠 Medium' : '🟢 Low';
-          return `<tr>
-            <td>${esc(i.asset_name)}</td>
-            <td>${esc(i.cert_status)}</td>
-            <td>${sev}</td>
-            <td>${esc(i.key_length ? 'Key: '+i.key_length+' bit' : i.cipher_suite || '—')}</td>
-            <td>${fmtDate(i.last_seen_at || i.valid_until)}</td>
-          </tr>`;
-        }).join('')
-      : '<tr class="empty-state-row"><td colspan="5">No findings — all assets healthy or no scans run yet.</td></tr>';
-  } catch(err) {
-    tbody.innerHTML = `<tr><td colspan="5" class="table-loading" style="color:var(--c-danger)">Error: ${esc(err.message)}</td></tr>`;
-  }
+};
+var backdrop=document.getElementById('modalBackdrop'),card=document.getElementById('modalCard');
+function showModal(html){card.innerHTML=html;backdrop.classList.add('active');document.body.style.overflow='hidden';}
+window.closeModal=function(){backdrop.classList.remove('active');document.body.style.overflow='';};
+backdrop.addEventListener('click',function(e){if(e.target===backdrop)closeModal();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&backdrop.classList.contains('active'))closeModal();});
+function renderPagination(){
+    var el=document.getElementById('pgPages');
+    document.getElementById('pgInfo').textContent='Page '+S.page+' of '+S.totalPages;
+    if(S.totalPages<=1){el.innerHTML='';return;}
+    var h='<button class="pg-btn" onclick="goPage('+(S.page-1)+')" '+(S.page===1?'disabled':'')+'>&#x2039;</button>';
+    for(var i=Math.max(1,S.page-2);i<=Math.min(S.totalPages,S.page+2);i++)
+        h+='<button class="pg-btn'+(i===S.page?' active':'')+'" onclick="goPage('+i+')">'+i+'</button>';
+    h+='<button class="pg-btn" onclick="goPage('+(S.page+1)+')" '+(S.page===S.totalPages?'disabled':'')+'>&#x203A;</button>';
+    el.innerHTML=h;
 }
-
-// ── Diagnostics Tab ───────────────────────────────────────
-async function loadDiagnostics() {
-  const assetId = document.getElementById('diagAssetSelect').value;
-  const pre = document.getElementById('diagOut');
-  if (!assetId) { pre.textContent = 'Select an asset to view diagnostics.'; return; }
-  pre.textContent = 'Loading…';
-  try {
-    const r = await fetch(`/api/cbom/asset/${assetId}/diagnostics`);
-    const d = await r.json();
-    pre.textContent = JSON.stringify(d, null, 2);
-  } catch(err) {
-    pre.textContent = 'Error: ' + err.message;
-  }
-}
-
-// ── Certificate modal helper functions ───────────────────
-function openCertModal(detailsId, assetId, certFp) {
-  const overlay = document.getElementById('certModalOverlay');
-  const content = document.getElementById('certModalContent');
-  const historyBody = document.getElementById('certModalHistoryBody');
-  const hidden = document.getElementById(detailsId + '-wrap');
-
-  content.innerHTML = hidden && hidden.innerHTML ? hidden.innerHTML : '<span style="color:var(--c-muted);font-size:.78rem">No X.509 details stored yet.</span>';
-  historyBody.innerHTML = '<tr><td colspan="7" class="table-loading">Loading history…</td></tr>';
-
-  overlay.hidden = false;
-  overlay.setAttribute('aria-hidden','false');
-  document.body.style.overflow = 'hidden';
-  window._last_focused = document.activeElement;
-  document.getElementById('certModalClose').focus();
-
-  // Push deep-link params (non-destructive)
-  try {
-    const u = new URL(window.location);
-    if (certFp) u.searchParams.set('cert_fp', certFp);
-    if (assetId) u.searchParams.set('asset_id', assetId);
-    window.history.replaceState({}, '', u);
-  } catch(e) {}
-
-  // Fetch history (reuse existing endpoint)
-  if (assetId) {
-    fetch(`/api/cbom/asset/${assetId}/ssl/history?include_all=true&page_size=50`).then(r=>r.json()).then(d=>{
-      const items = (d.data?.items || []).filter(c =>
-        (c.fingerprint_sha256 && c.fingerprint_sha256 === certFp) ||
-        (c.public_key_fingerprint_sha256 && c.public_key_fingerprint_sha256 === certFp) ||
-        (c.spki && c.spki.public_key_fingerprint_sha256 && c.spki.public_key_fingerprint_sha256 === certFp)
-      );
-      historyBody.innerHTML = items.length ? items.map(c => `
-        <tr>
-          <td>${fmtDate(c.first_seen_at)}</td>
-          <td>${fmtDate(c.last_seen_at)}</td>
-          <td>${esc(c.subject_cn || '—')}</td>
-          <td>${esc(c.issuer_cn || '—')}</td>
-          <td>${fmtDate(c.valid_until)}</td>
-          <td>${certBadgeHtml(c.cert_status)}</td>
-          <td>${c.is_current ? '✓' : ''}</td>
-        </tr>`).join('') : '<tr><td colspan="7" class="table-loading">No certificate history found.</td></tr>';
-    }).catch(()=>{ historyBody.innerHTML = '<tr><td colspan="7" class="table-loading">Error loading history.</td></tr>'; });
-  } else {
-    historyBody.innerHTML = '<tr><td colspan="7" class="table-loading">No history for unlinked certificate.</td></tr>';
-  }
-}
-
-function closeCertModal() {
-  const overlay = document.getElementById('certModalOverlay');
-  overlay.hidden = true;
-  overlay.setAttribute('aria-hidden','true');
-  document.body.style.overflow = '';
-  if (window._last_focused) try { window._last_focused.focus(); } catch(e) {}
-  try {
-    const u = new URL(window.location);
-    u.searchParams.delete('cert_fp');
-    u.searchParams.delete('asset_id');
-    window.history.replaceState({}, '', u.pathname + u.search + u.hash);
-  } catch(e) {}
-}
-
-// Focus trap and close behavior
-document.addEventListener('click', function(e){
-  const overlay = document.getElementById('certModalOverlay');
-  if (!overlay) return;
-  if (!overlay.hidden && e.target === overlay) closeCertModal();
-});
-document.getElementById('certModalClose').addEventListener('click', closeCertModal);
-document.addEventListener('keydown', function(e){
-  const overlay = document.getElementById('certModalOverlay');
-  if (!overlay || overlay.hidden) return;
-  if (e.key === 'Escape') { e.preventDefault(); closeCertModal(); return; }
-  if (e.key === 'Tab') {
-    const focusable = overlay.querySelectorAll('a,button,input,select,textarea,[tabindex]:not([tabindex="-1"])');
-    if (!focusable.length) { e.preventDefault(); return; }
-    const first = focusable[0], last = focusable[focusable.length-1];
-    if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
-    else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
-  }
-});
-
-function tryOpenPendingCert() {
-  if (!window._cbom_pending_open) return;
-  const p = window._cbom_pending_open;
-  const selector = `[data-cert-fp="${p.certFp}"][data-asset-id="${p.assetId}"]`;
-  const btn = document.querySelector(selector);
-  if (btn) { btn.focus(); btn.click(); window._cbom_pending_open = null; }
-}
-
-// ── Boot ─────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  // Deep-link support: ?cert_fp=<fp>&asset_id=<id>
-  try {
-    const p = new URL(window.location).searchParams;
-    const certFp = p.get('cert_fp');
-    const assetId = p.get('asset_id');
-    if (certFp) window._cbom_pending_open = { certFp, assetId: assetId || '' };
-  } catch(e) {}
-
-  syncCbom();
-});
+window.goPage=function(p){if(p<1||p>S.totalPages)return;S.page=p;load();};
+window.sortBy=function(f){if(S.sort===f)S.order=S.order==='asc'?'desc':'asc';else{S.sort=f;S.order='asc';}S.page=1;load();};
+window.applyFilters=function(){
+    S.search=document.getElementById('searchInput').value.trim();
+    S.tls=document.getElementById('tlsFilter').value;
+    S.strength=document.getElementById('strengthFilter').value;
+    S.sort=document.getElementById('sortFilter').value;
+    S.page=1;load();
+};
+window.resetFilters=function(){
+    document.getElementById('searchInput').value='';
+    ['tlsFilter','strengthFilter','sortFilter'].forEach(function(id){document.getElementById(id).selectedIndex=0;});
+    Object.assign(S,{search:'',tls:'',strength:'',sort:'key_length',order:'asc',page:1});
+    load();
+};
+document.getElementById('searchInput').addEventListener('keydown',function(e){if(e.key==='Enter')applyFilters();});
+window.exportCBOM=function(){window.open('/api/cbom/export','_blank');toast('Downloading CBOM export\u2026','info');};
+loadKPIs();
+loadCharts();
+load();
+})();
 </script>
 {% endblock %}

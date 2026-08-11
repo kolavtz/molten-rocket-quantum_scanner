@@ -425,6 +425,7 @@ def _serialize_asset_api_row(row: dict[str, Any]) -> dict[str, Any]:
         "cipher_suite": str(row.get("cipher_suite") or "Unknown"),
         "ca": str(row.get("ca") or "Unknown"),
         "cert_days": row.get("cert_days"),
+        "cert_valid_until": str(row.get("cert_valid_until") or ""),
         "certificate_details": row.get("certificate_details") if isinstance(row.get("certificate_details"), dict) else {},
         "notes": str(row.get("notes") or ""),
     }

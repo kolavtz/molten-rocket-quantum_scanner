@@ -39,10 +39,18 @@ class RiskCalculationService:
             if isinstance(m, AssetMetric) and getattr(m, 'asset_id', None) == asset_id:
                 return m
 
-        # 3. Create and add defensively
-        metric = AssetMetric(asset_id=asset_id)
-        db_session.add(metric)
-        return metric
+        # 3. Create and add defensively using a nested transaction (savepoint)
+        # to handle potential race conditions safely without poisoning the session.
+        sp = db_session.begin_nested()
+        try:
+            metric = AssetMetric(asset_id=asset_id)
+            db_session.add(metric)
+            db_session.flush()
+            sp.commit()
+            return metric
+        except IntegrityError:
+            sp.rollback()
+            return db_session.get(AssetMetric, asset_id)
 
     @staticmethod
     def calculate_finding_severity_weight(severity: str) -> float:
@@ -360,12 +368,12 @@ class RiskCalculationService:
                 if not any(pfs in cipher for pfs in ("ECDHE", "DHE")):
                     if any(hint in cipher for hint in _NO_PFS_HINT):
                         is_critical = True
+                if "SHA1" in sig_algo or "SHA-1" in sig_algo:
+                    is_critical = True
 
                 # ── Medium conditions (only if not already critical) ────────
                 if not is_critical:
                     if tls_ver in ("TLSv1.2", "TLS 1.2", "1.2"):
-                        is_medium = True
-                    if "SHA1" in sig_algo or "SHA-1" in sig_algo:
                         is_medium = True
                     if valid_until:
                         days_remaining = (valid_until - datetime.now(timezone.utc)).days

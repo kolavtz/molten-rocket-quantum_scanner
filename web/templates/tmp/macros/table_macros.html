@@ -1,0 +1,6 @@
+{% import "macros/table.html" as table %}
+
+{% macro search_form(endpoint, current_q, current_page_size, custom_params={}) %}{{ table.search_form(endpoint, current_q, current_page_size, custom_params) }}{% endmacro %}
+{% macro sortable_th(label, field_name, endpoint, current_sort, current_order, base_params={}, server_side=False) %}{{ table.sortable_th(label, field_name, endpoint, current_sort, current_order, base_params, server_side) }}{% endmacro %}
+{% macro pagination_controls(endpoint, page_data, base_params={}) %}{{ table.pagination_controls(endpoint, page_data, base_params) }}{% endmacro %}
+{% macro empty_state(message="No data yet. Run a scan.") %}{{ table.empty_state(message) }}{% endmacro %}

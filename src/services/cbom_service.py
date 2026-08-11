@@ -482,9 +482,36 @@ class CbomService:
                     "issuer_name": str(getattr(entry, "issuer_name", "") or ""),
                     "not_valid_after": (
                         getattr(entry, "not_valid_after", None).isoformat()
-                        if getattr(getattr(entry, "not_valid_after", None), "isoformat", None)
+                        if getattr(entry, "not_valid_after", None) and hasattr(getattr(entry, "not_valid_after", None), "isoformat")
                         else None
                     ),
+                    "not_valid_before": (
+                        getattr(entry, "not_valid_before", None).isoformat()
+                        if getattr(entry, "not_valid_before", None) and hasattr(getattr(entry, "not_valid_before", None), "isoformat")
+                        else None
+                    ),
+                    "key_id": str(getattr(entry, "key_id", "") or ""),
+                    "key_state": str(getattr(entry, "key_state", "") or ""),
+                    "key_creation_date": (
+                        getattr(entry, "key_creation_date", None).isoformat()
+                        if getattr(entry, "key_creation_date", None) and hasattr(getattr(entry, "key_creation_date", None), "isoformat")
+                        else None
+                    ),
+                    "key_activation_date": (
+                        getattr(entry, "key_activation_date", None).isoformat()
+                        if getattr(entry, "key_activation_date", None) and hasattr(getattr(entry, "key_activation_date", None), "isoformat")
+                        else None
+                    ),
+                    "protocol_name": str(getattr(entry, "protocol_name", "") or ""),
+                    "cipher_suites": str(getattr(entry, "cipher_suites", "") or ""),
+                    "crypto_functions": str(getattr(entry, "crypto_functions", "") or ""),
+                    "classical_security_level": getattr(entry, "classical_security_level", None),
+                    "signature_algorithm_reference": str(getattr(entry, "signature_algorithm_reference", "") or ""),
+                    "subject_public_key_reference": str(getattr(entry, "subject_public_key_reference", "") or ""),
+                    "certificate_format": str(getattr(entry, "certificate_format", "") or ""),
+                    "certificate_extension": str(getattr(entry, "certificate_extension", "") or ""),
+                    "nist_status": str(getattr(entry, "nist_status", "") or ""),
+                    "quantum_safe_flag": bool(getattr(entry, "quantum_safe_flag", False)),
                 }
             )
 
@@ -829,6 +856,14 @@ class CbomService:
             # Keep top lists bounded and ordered for chart payloads
             cipher_dist = dict(sorted(cipher_dist.items(), key=lambda kv: int(kv[1] or 0), reverse=True)[:10])
             ca_dist = dict(sorted(ca_dist.items(), key=lambda kv: int(kv[1] or 0), reverse=True)[:10])
+            if len(key_length_dist) > 1 and "No Data" in key_length_dist:
+                key_length_dist.pop("No Data", None)
+            if len(cipher_dist) > 1 and "No Data" in cipher_dist:
+                cipher_dist.pop("No Data", None)
+            if len(ca_dist) > 1 and "No Data" in ca_dist:
+                ca_dist.pop("No Data", None)
+            if len(tls_dist) > 1 and "No Data" in tls_dist:
+                tls_dist.pop("No Data", None)
 
         app_query = cls._build_applications_query(
             asset_id=asset_id,

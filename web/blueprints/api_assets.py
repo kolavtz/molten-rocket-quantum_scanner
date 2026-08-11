@@ -4,6 +4,9 @@ Paginated, sortable, searchable asset and discovery data.
 """
 
 import json
+import socket
+import dns.resolver
+import requests as http_requests
 from flask import Blueprint, request, jsonify
 from flask_login import login_required
 from src.db import db_session as SessionLocal
@@ -12,6 +15,7 @@ from src.models import (
     DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware
 )
 from src.services.subdomain_service import SubdomainService
+from src.services import rdap_service
 from utils.api_helper import (
     paginated_response, api_response, apply_soft_delete_filter,
     extract_pagination_params, validate_pagination_params,
@@ -20,17 +24,28 @@ from utils.api_helper import (
 from sqlalchemy import func, or_, and_
 from middleware.api_auth import api_guard
 
+_PRIVATE_TLDS = {"example", "local", "test", "internal", "invalid", "localhost", "lan"}
+
+def _is_public_domain(domain: str) -> bool:
+    """Return True if domain looks like a real public domain worth enriching."""
+    tld = str(domain or "").lower().rstrip(".").rsplit(".", 1)[-1]
+    return tld not in _PRIVATE_TLDS and len(tld) >= 2
+
 api_assets = Blueprint("api_assets", __name__, url_prefix="/api")
 
 
 def _discovery_detected_at_expr(model):
-    return func.coalesce(
-        getattr(model, "promoted_at", None),
-        Scan.completed_at,
-        Scan.scanned_at,
-        Scan.started_at,
-        Scan.created_at,
-    )
+    args = []
+    if hasattr(model, "promoted_at"):
+        args.append(model.promoted_at)
+    if hasattr(model, "scan_id"):
+        args.extend([Scan.completed_at, Scan.scanned_at, Scan.started_at, Scan.created_at])
+    if hasattr(model, "discovered_at"):
+        args.append(model.discovered_at)
+    if hasattr(model, "created_at"):
+        args.append(model.created_at)
+    args.append(func.now())
+    return func.coalesce(*args)
 
 
 @api_assets.route("/assets/<int:asset_id>/scans", methods=["GET"])
@@ -119,13 +134,42 @@ def get_discovery():
         params = extract_pagination_params()
         page, page_size = validate_pagination_params(params["page"], params["page_size"])
         
+        # Build deduplication subquery: keep only the latest (MAX id) per unique identifier
+        _dedup_key_map = {
+            "domains": DiscoveryDomain.domain,
+            "ssl": DiscoverySSL.endpoint,
+            "ips": DiscoveryIP.ip_address,
+            "software": DiscoverySoftware.product,
+            "subdomains": Subdomain.subdomain,
+        }
+        dedup_col = _dedup_key_map[tab]
+        normalized_col = func.trim(func.lower(dedup_col))
+
+        dedup_sq = (
+            db.query(func.max(model.id))
+            .filter(model.is_deleted == False)
+            .filter(dedup_col.isnot(None))
+            .filter(normalized_col != "")
+            .filter(normalized_col != "--")
+            .group_by(normalized_col)
+            .scalar_subquery()
+        )
+
         # Build query
         detected_at_expr = _discovery_detected_at_expr(model)
-        query = (
-            db.query(model, detected_at_expr.label("detected_at"))
-            .outerjoin(Scan, model.scan_id == Scan.id)
-            .filter(model.is_deleted == False)
-        )
+        if hasattr(model, "scan_id"):
+            query = (
+                db.query(model, detected_at_expr.label("detected_at"))
+                .outerjoin(Scan, model.scan_id == Scan.id)
+                .filter(model.is_deleted == False)
+                .filter(model.id.in_(dedup_sq))
+            )
+        else:
+            query = (
+                db.query(model, detected_at_expr.label("detected_at"))
+                .filter(model.is_deleted == False)
+                .filter(model.id.in_(dedup_sq))
+            )
         
         # Apply search
         if params["search"]:
@@ -173,7 +217,7 @@ def get_discovery():
         for item, detected_at in items:
             asset_name = getattr(item.asset, 'target', '') if hasattr(item, 'asset') and item.asset else ''
             asset_risk_level = getattr(item.asset, 'risk_level', '') if hasattr(item, 'asset') and item.asset else ''
-            
+
             # Identifier mapping
             identifier = ""
             if isinstance(item, DiscoveryDomain): identifier = item.domain
@@ -196,9 +240,17 @@ def get_discovery():
             }
 
             if isinstance(item, DiscoveryDomain):
+                registrar = str(item.registrar or "").strip()
+                org = ""
+                if _is_public_domain(item.domain):
+                    rdap = rdap_service.enrich_domain(item.domain)
+                    if not registrar:
+                        registrar = rdap.get("registrar", "")
+                    org = rdap.get("org", "")
                 row.update({
                     "domain_name": item.domain,
-                    "registrar": item.registrar,
+                    "registrar": registrar,
+                    "org": org,
                 })
             elif isinstance(item, DiscoverySSL):
                 row.update({
@@ -210,11 +262,20 @@ def get_discovery():
                     "subject_cn": item.subject_cn,
                 })
             elif isinstance(item, DiscoveryIP):
+                netname = str(item.netname or "").strip()
+                asn = str(item.asn or "").strip()
+                org = ""
+                if not netname or not asn:
+                    rdap = rdap_service.enrich_ip(item.ip_address)
+                    netname = netname or rdap.get("netname", "")
+                    asn = asn or rdap.get("asn", "")
+                    org = rdap.get("org", "")
                 row.update({
                     "ip_address": item.ip_address,
                     "subnet": item.subnet,
-                    "asn": item.asn,
-                    "netname": item.netname,
+                    "asn": asn,
+                    "netname": netname,
+                    "org": org,
                     "location": item.location,
                 })
             elif isinstance(item, DiscoverySoftware):
@@ -224,14 +285,13 @@ def get_discovery():
                     "category": item.category,
                     "cpe": item.cpe,
                 })
-
             elif isinstance(item, Subdomain):
                 row.update({
                     "domain_name": item.subdomain,
                     "record_type": item.record_type,
                     "parent_asset_id": item.parent_asset_id,
                 })
-            
+
             items_data.append(row)
         
         db.close()
@@ -375,14 +435,15 @@ def promote_discovery_to_asset():
             "domains": DiscoveryDomain,
             "ssl": DiscoverySSL,
             "ips": DiscoveryIP,
-            "software": DiscoverySoftware
+            "software": DiscoverySoftware,
+            "subdomains": None,  # handled separately below
         }
-        model = tab_model_map.get(tab)
-        if not model:
+        if tab not in tab_model_map:
             db.close()
             return api_response(success=False, message=f"Invalid tab: {tab}", status_code=400)
+        model = tab_model_map.get(tab)
         
-        if tab == "subdomains":
+        if tab == "subdomains" or model is None:
             asset = SubdomainService.promote_to_inventory(discovery_id, owner=payload.get("owner") or getattr(current_user, "username", "System"))
             db.close()
             if asset:
@@ -433,3 +494,99 @@ def promote_discovery_to_asset():
         return api_response(success=True, data={"asset_id": asset.id, "discovery_id": discovery_id})
     except Exception as e:
         return api_response(success=False, message=str(e), status_code=500)
+
+
+@api_assets.route("/discovery/subdomain-scan", methods=["POST"])
+@api_guard
+def subdomain_scan():
+    """
+    POST /api/discovery/subdomain-scan
+    Body: {"domain": "example.com", "asset_id": 1}
+    Runs 3 subdomain discovery methods:
+      1. crt.sh certificate transparency logs
+      2. DNS brute-force with common wordlist
+      3. DNS NS/MX/TXT/CNAME record enumeration
+    Persists discovered subdomains to DB and returns results.
+    """
+    try:
+        payload = request.get_json(silent=True) or {}
+        domain = str(payload.get("domain") or "").strip().lower().rstrip(".")
+        asset_id = payload.get("asset_id")
+        if not domain:
+            return api_response(success=False, message="domain is required", status_code=400)[0], 400
+
+        found = set()
+
+        # --- Method 1: crt.sh certificate transparency ---
+        try:
+            r = http_requests.get(
+                f"https://crt.sh/?q=%25.{domain}&output=json",
+                timeout=10, headers={"User-Agent": "QuantumShield/1.0"}
+            )
+            if r.ok:
+                for entry in r.json():
+                    for name in str(entry.get("name_value", "")).split("\n"):
+                        name = name.strip().lower().lstrip("*.").rstrip(".")
+                        if name.endswith(f".{domain}") and name != domain:
+                            found.add(name)
+        except Exception:
+            pass
+
+        # --- Method 2: DNS brute-force with common prefixes ---
+        wordlist = [
+            "www", "mail", "ftp", "dev", "api", "admin", "vpn", "staging",
+            "test", "beta", "app", "portal", "secure", "remote", "blog",
+            "shop", "auth", "docs", "status", "cdn", "assets", "static",
+            "smtp", "pop", "imap", "webmail", "m", "mobile", "login"
+        ]
+        resolver = dns.resolver.Resolver()
+        resolver.timeout = 1.5
+        resolver.lifetime = 3.0
+        for prefix in wordlist:
+            fqdn = f"{prefix}.{domain}"
+            try:
+                resolver.resolve(fqdn, "A")
+                found.add(fqdn)
+            except Exception:
+                pass
+
+        # --- Method 3: DNS NS/MX/TXT/CNAME record enumeration ---
+        for rtype in ("NS", "MX", "TXT", "CNAME"):
+            try:
+                answers = resolver.resolve(domain, rtype)
+                for rdata in answers:
+                    name = str(rdata.exchange if hasattr(rdata, "exchange") else rdata.target if hasattr(rdata, "target") else "").strip().lower().rstrip(".")
+                    if name.endswith(f".{domain}") and name != domain:
+                        found.add(name)
+            except Exception:
+                pass
+
+        # Persist to DB
+        db = SessionLocal()
+        from datetime import datetime, timezone
+        saved = 0
+        for sub in found:
+            existing = db.query(Subdomain).filter(
+                Subdomain.subdomain == sub
+            ).first()
+            if not existing:
+                db.add(Subdomain(
+                    subdomain=sub,
+                    parent_asset_id=asset_id,
+                    record_type="A",
+                    is_inventoried=False,
+                    is_deleted=False,
+                    discovered_at=datetime.now(timezone.utc).replace(tzinfo=None)
+                ))
+                saved += 1
+        db.commit()
+        db.close()
+
+        return api_response(success=True, data={
+            "domain": domain,
+            "found": sorted(found),
+            "total": len(found),
+            "saved": saved
+        })[0], 200
+    except Exception as e:
+        return api_response(success=False, message=str(e), status_code=500)[0], 500

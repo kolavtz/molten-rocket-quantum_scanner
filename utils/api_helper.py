@@ -297,7 +297,9 @@ def error_response(message: str, status_code: int = 400, hint: str = "") -> Tupl
         "error": {
             "status": status_code,
             "message": message
-        }
+        },
+        "status": "error",
+        "message": message
     }
     
     if hint:

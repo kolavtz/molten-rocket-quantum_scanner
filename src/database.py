@@ -106,7 +106,7 @@ def _encrypt_data(data: str) -> Optional[str]:
     f = _get_fernet()
     if f:
         return f.encrypt(data.encode('utf-8')).decode('utf-8')
-    return None
+    return data
 
 def _decrypt_data(encrypted_data: str) -> str:
     f = _get_fernet()
@@ -2064,7 +2064,7 @@ def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
         return None
     try:
         cur = conn.cursor(pymysql.cursors.DictCursor)
-        cur.execute("SELECT * FROM users WHERE username = %s AND is_active = TRUE", (username,))
+        cur.execute("SELECT * FROM users WHERE LOWER(username) = LOWER(%s) AND is_active = TRUE", (username,))
         user = cur.fetchone()
         if user:
             user["role"] = normalize_role(user.get("role", "Viewer"))

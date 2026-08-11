@@ -192,6 +192,62 @@ def _normalize_scan_type(value: Any) -> str:
     return "single"
 
 
+def _calculate_risk_level(report: dict[str, Any]) -> str:
+    """Automatically calculate risk level from scan findings.
+    
+    Risk profile automation:
+    - HIGH/CRITICAL for SHA1 or unencrypted connections
+    - LOW for ML-KEM or ML-KEM-hybrid protocols
+    - MEDIUM for other quantum-vulnerable configurations
+    """
+    if not isinstance(report, dict):
+        return "Medium"
+
+    # Check for SHA1 or unencrypted indicators in the full report
+    raw_str = str(report).upper()
+    has_sha1 = "SHA1" in raw_str or "SHA-1" in raw_str
+    has_unencrypted = "UNENCRYPTED" in raw_str or "PLAINTEXT" in raw_str
+    has_mlkem = "ML-KEM" in raw_str or "MLKEM" in raw_str or "KYBER" in raw_str
+    has_hybrid = "HYBRID" in raw_str
+
+    # High/Critical risk: SHA1 or unencrypted
+    if has_unencrypted:
+        return "Critical"
+    if has_sha1:
+        return "High"
+
+    # Low risk: ML-KEM or ML-KEM-hybrid protocols
+    if has_mlkem or has_hybrid:
+        return "Low"
+
+    # Fallback: use PQC score if available
+    overview = report.get("overview") if isinstance(report.get("overview"), dict) else {}
+    pqc_score = overview.get("average_compliance_score")
+    if pqc_score is None:
+        pqc_score = report.get("overall_pqc_score")
+    if isinstance(pqc_score, (int, float)):
+        if pqc_score >= 700:
+            return "Low"
+        if pqc_score >= 400:
+            return "Medium"
+        if pqc_score >= 200:
+            return "High"
+        return "Critical"
+
+    # Fallback: use compliance score if available
+    compliance_score = overview.get("average_compliance_score")
+    if isinstance(compliance_score, (int, float)):
+        if compliance_score >= 70:
+            return "Low"
+        if compliance_score >= 40:
+            return "Medium"
+        if compliance_score >= 20:
+            return "High"
+        return "Critical"
+
+    return "Medium"
+
+
 def _build_scan_item_from_report(report: dict[str, Any]) -> dict[str, Any]:
     overview = report.get("overview") if isinstance(report.get("overview"), dict) else {}
     pqc_score = overview.get("average_compliance_score")
@@ -237,6 +293,7 @@ def _build_scan_item_from_report(report: dict[str, Any]) -> dict[str, Any]:
         "total_certificates": int(total_certificates or 0),
         "cbom_components": int(cbom_components or 0),
         "pqc_score": round(float(pqc_score or 0), 2),
+        "risk_level": _calculate_risk_level(report),
         "started_at": started_at,
         "completed_at": completed_at,
         "date": started_at or completed_at or "",
@@ -253,11 +310,14 @@ def _collect_scan_items() -> list[dict[str, Any]]:
     for report in db.list_scans(limit=2000):
         if not isinstance(report, dict):
             continue
-        item = _build_scan_item_from_report(report)
-        sid = item.get("scan_id")
-        if sid:
-            seen.add(sid)
-        items.append(item)
+        try:
+            item = _build_scan_item_from_report(report)
+            sid = item.get("scan_id")
+            if sid:
+                seen.add(sid)
+            items.append(item)
+        except Exception:
+            pass
 
     # in-memory scans fallback / latest
     try:
@@ -266,13 +326,16 @@ def _collect_scan_items() -> list[dict[str, Any]]:
         for report in web_app_module.scan_store.values():
             if not isinstance(report, dict):
                 continue
-            item = _build_scan_item_from_report(report)
-            sid = item.get("scan_id")
-            if sid and sid in seen:
-                continue
-            if sid:
-                seen.add(sid)
-            items.append(item)
+            try:
+                item = _build_scan_item_from_report(report)
+                sid = item.get("scan_id")
+                if sid and sid in seen:
+                    continue
+                if sid:
+                    seen.add(sid)
+                items.append(item)
+            except Exception:
+                pass
     except Exception:
         pass
 
@@ -412,11 +475,14 @@ def _certificate_items_from_report(report: dict[str, Any], scan_id: str) -> list
     tls_rows = report.get("tls_results")
     if not isinstance(tls_rows, list):
         return []
-    return [
-        _normalize_tls_row_from_report(dict(row), scan_id)
-        for row in tls_rows
-        if isinstance(row, dict)
-    ]
+    res = []
+    for row in tls_rows:
+        if isinstance(row, dict):
+            try:
+                res.append(_normalize_tls_row_from_report(dict(row), scan_id))
+            except Exception:
+                pass
+    return res
 
 
 def _status_snapshot(scan_id: str) -> dict[str, Any] | None:
@@ -612,6 +678,7 @@ def _upsert_inventory_asset_from_scan(
     risk_level: str | None,
     notes: str | None,
     asset_type: str | None,
+    scan_pk: int | None = None,
 ) -> None:
     if not add_to_inventory:
         return
@@ -625,10 +692,11 @@ def _upsert_inventory_asset_from_scan(
         if not canonical:
             return
 
-        asset = db_session.query(Asset).filter(func.lower(Asset.name) == canonical).first()
+        # Match by target (synonym: name) regardless of is_deleted state
+        asset = db_session.query(Asset).filter(func.lower(Asset.target) == canonical).first()
         if not asset:
             asset = Asset(
-                name=canonical,
+                target=canonical,
                 url=f"https://{canonical}" if not canonical.startswith(("http://", "https://")) else canonical,
                 asset_type=str(asset_type or "Web App").strip() or "Web App",
                 owner=(str(owner).strip() if owner else None),
@@ -638,27 +706,33 @@ def _upsert_inventory_asset_from_scan(
             )
             db_session.add(asset)
         else:
+            # Restore if soft-deleted (explicit add_to_inventory restores the asset)
             if getattr(asset, "is_deleted", False):
                 asset.is_deleted = False
+            # Always update with fresh data
             if owner:
                 asset.owner = str(owner).strip()
             if risk_level:
                 asset.risk_level = str(risk_level).strip() or asset.risk_level
+            if asset_type:
+                asset.asset_type = str(asset_type).strip() or asset.asset_type
+            if not str(getattr(asset, "url", "") or ""):
+                asset.url = f"https://{canonical}" if not canonical.startswith(("http://", "https://")) else canonical
             if notes:
                 existing = str(getattr(asset, "notes", "") or "").strip()
                 incoming = str(notes).strip()
                 asset.notes = incoming if not existing else f"{existing} | {incoming}"
-            if asset_type:
-                asset.asset_type = str(asset_type).strip() or asset.asset_type
+            if scan_pk:
+                asset.last_scan_id = int(scan_pk)
 
         db_session.commit()
     except Exception:
         try:
             from src.db import db_session
-
             db_session.rollback()
         except Exception:
             pass
+
 
 
 def _process_job(
@@ -733,6 +807,7 @@ def _process_job(
                     risk_level=(str(job_options.get("risk_level") or "").strip() or None),
                     notes=(str(job_options.get("notes") or "").strip() or None),
                     asset_type=(str(job_options.get("asset_type") or "").strip() or None),
+                    scan_pk=(report.get("db_scan_id") or None),
                 )
 
                 with _scan_jobs_lock:

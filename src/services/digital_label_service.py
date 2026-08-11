@@ -37,10 +37,18 @@ class DigitalLabelService:
             if isinstance(m, AssetMetric) and getattr(m, 'asset_id', None) == asset_id:
                 return m
 
-        # 3. Create and add defensively
-        metric = AssetMetric(asset_id=asset_id)
-        db_session.add(metric)
-        return metric
+        # 3. Create and add defensively using a nested transaction (savepoint)
+        # to handle potential race conditions safely without poisoning the session.
+        sp = db_session.begin_nested()
+        try:
+            metric = AssetMetric(asset_id=asset_id)
+            db_session.add(metric)
+            db_session.flush()
+            sp.commit()
+            return metric
+        except IntegrityError:
+            sp.rollback()
+            return db_session.get(AssetMetric, asset_id)
 
     @staticmethod
     def _get_or_create_digital_label_record(asset_id: int) -> DigitalLabel:
