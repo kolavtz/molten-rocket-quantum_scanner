@@ -856,14 +856,37 @@ class CbomService:
             # Keep top lists bounded and ordered for chart payloads
             cipher_dist = dict(sorted(cipher_dist.items(), key=lambda kv: int(kv[1] or 0), reverse=True)[:10])
             ca_dist = dict(sorted(ca_dist.items(), key=lambda kv: int(kv[1] or 0), reverse=True)[:10])
-            if len(key_length_dist) > 1 and "No Data" in key_length_dist:
-                key_length_dist.pop("No Data", None)
-            if len(cipher_dist) > 1 and "No Data" in cipher_dist:
-                cipher_dist.pop("No Data", None)
-            if len(ca_dist) > 1 and "No Data" in ca_dist:
-                ca_dist.pop("No Data", None)
-            if len(tls_dist) > 1 and "No Data" in tls_dist:
-                tls_dist.pop("No Data", None)
+
+        # Comprehensive fallback: aggregate distribution telemetry from active CBOM entries
+        try:
+            cbom_entries = (
+                db_session.query(CBOMEntry)
+                .join(Scan, CBOMEntry.scan_id == Scan.id)
+                .join(Asset, func.lower(Asset.target) == func.lower(Scan.target))
+                .filter(Asset.is_deleted == False, Scan.is_deleted == False, Scan.status == "complete")
+            )
+            if asset_id is not None:
+                cbom_entries = cbom_entries.filter(Asset.id == asset_id)
+
+            for cent in cbom_entries.all():
+                if cent.key_length:
+                    kb = str(int(cent.key_length))
+                    key_length_dist[kb] = int(key_length_dist.get(kb, 0) or 0) + 1
+                if cent.tls_version:
+                    tv = str(cent.tls_version).strip()
+                    tls_dist[tv] = int(tls_dist.get(tv, 0) or 0) + 1
+                if cent.algorithm_name:
+                    cs = str(cent.algorithm_name).strip()[:40]
+                    cipher_dist[cs] = int(cipher_dist.get(cs, 0) or 0) + 1
+        except Exception:
+            pass
+
+        # Clean out "No Data" placeholder keys if real data entries exist
+        for ddict in (key_length_dist, cipher_dist, ca_dist, tls_dist):
+            if len(ddict) > 1 and "No Data" in ddict:
+                ddict.pop("No Data", None)
+            if len(ddict) > 1 and "Unknown" in ddict and ddict.get("Unknown") == 0:
+                ddict.pop("Unknown", None)
 
         app_query = cls._build_applications_query(
             asset_id=asset_id,

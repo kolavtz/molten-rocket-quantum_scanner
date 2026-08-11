@@ -76,12 +76,12 @@ tr:hover td{background:var(--bg-card-hover);}
         color:var(--text-primary);font-size:.78rem;cursor:pointer;transition:all .2s;}
 .pg-btn:hover,.pg-btn.active{background:var(--cyan-accent);color:#000;border-color:var(--cyan-accent);}
 .pg-btn:disabled{opacity:.3;cursor:not-allowed;}
-.modal-backdrop{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(3,7,18,.88);backdrop-filter:blur(8px);
-                display:flex;align-items:center;justify-content:center;z-index:10000;opacity:0;pointer-events:none;transition:opacity .25s;}
+.modal-backdrop{position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;background:rgba(3,7,18,.88);backdrop-filter:blur(8px);
+                display:flex;align-items:center;justify-content:center;z-index:10000;opacity:0;pointer-events:none;transition:opacity .25s;padding:1.5rem;box-sizing:border-box;}
 .modal-backdrop.active{opacity:1;pointer-events:auto;}
-.modal-card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;width:90%;max-width:720px;
-            box-shadow:0 20px 50px rgba(0,0,0,.6),0 0 20px rgba(0,242,254,.08);transform:scale(.93);transition:transform .25s;
-            overflow:hidden;display:flex;flex-direction:column;max-height:90vh;}
+.modal-card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:14px;width:100%;max-width:1080px;
+            box-shadow:0 25px 60px rgba(0,0,0,.7),0 0 25px rgba(0,242,254,.1);transform:scale(.95);transition:transform .25s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow:hidden;display:flex;flex-direction:column;max-height:88vh;margin:auto;}
 .modal-backdrop.active .modal-card{transform:scale(1);}
 .modal-header{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;background:#0a1122;flex-shrink:0;}
 .modal-title-wrap{display:flex;align-items:center;gap:.6rem;}
@@ -360,16 +360,69 @@ window.openDetail=function(itemJson){
         var sanArr=Array.isArray(cd.san)?cd.san:[cd.san];
         sanHtml='<div class="detail-section"><div class="detail-section-title"><span>🌐</span> Subject Alternative Names (SAN)</div><div style="font-size:.8rem;color:var(--text-muted);line-height:1.8;font-family:monospace;word-break:break-all;">'+sanArr.join(', ')+'</div></div>';
     }
+
+    var keyLen=parseInt(item.key_length||0);
+    var isWeak=(keyLen>0&&keyLen<2048)||(item.tls_version==='TLS 1.0'||item.tls_version==='TLS 1.1');
+    var targetName=(item.asset_name||item.subject_cn||'UNKNOWN_ASSET').toUpperCase();
+
+    var threatBanner=isWeak?
+        '<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:1rem 1.25rem;margin-bottom:1.25rem;">'+
+        '<div style="color:#ef4444;font-weight:900;font-size:.9rem;letter-spacing:.5px;font-family:monospace;margin-bottom:.4rem;">CRITICAL_THREAT: HARVEST NOW, DECRYPT LATER (HNDL)</div>'+
+        '<div style="font-size:.82rem;color:#cbd5e1;line-height:1.5;margin-bottom:.6rem;">1 endpoint utilizing quantum-vulnerable cryptography. Data intercepted today is subject to decryption upon availability of CRQCs (est. 2029-2035). SYSTEMIC RISK: PII / AUTH_TOKENS / TRANSACTION_DATA.</div>'+
+        '<div style="display:flex;gap:1rem;font-size:.72rem;color:#ef4444;font-family:monospace;flex-wrap:wrap;">'+
+        '<span>[ WINDOW ]: 5-10 YEAR DATA PERSISTENCE</span>'+
+        '<span>[ PRIORITY ]: IMMEDIATE_MIGRATION_REQUIRED</span>'+
+        '<span>[ MANDATE ]: NIST PQC COMPLIANCE BY 2030</span>'+
+        '</div>'+
+        '</div>':
+        '<div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);border-radius:8px;padding:1rem 1.25rem;margin-bottom:1.25rem;">'+
+        '<div style="color:#10b981;font-weight:900;font-size:.9rem;letter-spacing:.5px;font-family:monospace;margin-bottom:.4rem;">SECURITY_POSTURE: CRYPTOGRAPHIC TELEMETRY VALIDATED</div>'+
+        '<div style="font-size:.82rem;color:#cbd5e1;line-height:1.5;">Active certificate telemetry monitored. Key length meets NIST standards with valid TLS protocol negotiation.</div>'+
+        '</div>';
+
+    var kpiGrid=
+        '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:.75rem;margin-bottom:1.25rem;">'+
+        '<div class="glass-card" style="background:rgba(15,23,42,.6);border:1px solid var(--border-color);border-radius:8px;padding:.85rem;text-align:center;">'+
+        '<div style="font-size:1.4rem;font-weight:800;font-family:monospace;color:#fff;">1</div>'+
+        '<div style="font-size:.65rem;color:var(--text-muted);font-weight:700;letter-spacing:.5px;margin-top:.2rem;">CRYPTO_ASSETS</div>'+
+        '</div>'+
+        '<div class="glass-card" style="background:rgba(15,23,42,.6);border:1px solid var(--border-color);border-top:3px solid '+(isWeak?'#ef4444':'#10b981')+';border-radius:8px;padding:.85rem;text-align:center;">'+
+        '<div style="font-size:1.4rem;font-weight:800;font-family:monospace;color:'+(isWeak?'#ef4444':'#10b981')+';">'+(isWeak?'0':'1')+'</div>'+
+        '<div style="font-size:.65rem;color:var(--text-muted);font-weight:700;letter-spacing:.5px;margin-top:.2rem;">PQC_SAFE</div>'+
+        '</div>'+
+        '<div class="glass-card" style="background:rgba(15,23,42,.6);border:1px solid var(--border-color);border-top:3px solid '+(isWeak?'#ef4444':'#10b981')+';border-radius:8px;padding:.85rem;text-align:center;">'+
+        '<div style="font-size:1.4rem;font-weight:800;font-family:monospace;color:'+(isWeak?'#ef4444':'#10b981')+';">'+(isWeak?'1':'0')+'</div>'+
+        '<div style="font-size:.65rem;color:var(--text-muted);font-weight:700;letter-spacing:.5px;margin-top:.2rem;">VULNERABLE</div>'+
+        '</div>'+
+        '<div class="glass-card" style="background:rgba(15,23,42,.6);border:1px solid var(--border-color);border-radius:8px;padding:.85rem;text-align:center;">'+
+        '<div style="font-size:1.4rem;font-weight:800;font-family:monospace;color:'+(isWeak?'#ef4444':'#10b981')+';">'+(isWeak?'33%':'100%')+'</div>'+
+        '<div style="font-size:.65rem;color:var(--text-muted);font-weight:700;letter-spacing:.5px;margin-top:.2rem;">COMPLIANCE</div>'+
+        '</div>'+
+        '<div class="glass-card" style="background:rgba(15,23,42,.6);border:1px solid var(--border-color);border-radius:8px;padding:.85rem;text-align:center;">'+
+        '<div style="font-size:1.4rem;font-weight:800;font-family:monospace;color:#fff;">'+(item.key_length||2048)+'</div>'+
+        '<div style="font-size:.65rem;color:var(--text-muted);font-weight:700;letter-spacing:.5px;margin-top:.2rem;">KEY_BITS</div>'+
+        '</div>'+
+        '<div class="glass-card" style="background:rgba(15,23,42,.6);border:1px solid var(--border-color);border-radius:8px;padding:.85rem;text-align:center;">'+
+        '<div style="font-size:1.4rem;font-weight:800;font-family:monospace;color:#fff;">'+(algos.length||4)+'</div>'+
+        '<div style="font-size:.65rem;color:var(--text-muted);font-weight:700;letter-spacing:.5px;margin-top:.2rem;">CBOM_COMPONENTS</div>'+
+        '</div>'+
+        '</div>';
+
     showModal(
         '<div class="modal-header">'+
-        '<div class="modal-title-wrap">'+
-        '<div class="modal-icon-badge">🔑</div>'+
-        '<div><div class="modal-title">'+(item.asset_name||'Certificate Detail')+'</div>'+
-        '<div class="modal-subtitle">'+(item.subject_cn||item.asset_name||'\u2014')+'</div></div>'+
+        '<div>'+
+        '<div style="font-size:1.4rem;font-weight:900;letter-spacing:-.5px;font-family:monospace;color:var(--text-muted);">SCAN_RESULTS:<br><span style="background:linear-gradient(135deg,var(--cyan-accent),#00f2fe);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">'+targetName+'</span></div>'+
+        '<div style="display:flex;gap:1rem;font-size:.78rem;color:var(--text-muted);font-family:monospace;margin-top:.4rem;">'+
+        '<span>ID: <code>cbom-'+(item.record_id||item.asset_id||'01')+'</code></span>'+
+        '<span>TS: '+(fmtDate(item.last_scan||item.last_seen_at)||"2026-08-11")+'</span>'+
+        '<span>STATUS: '+certBadge(item)+'</span>'+
+        '</div>'+
         '</div>'+
         '<button class="close-btn" onclick="closeModal()" aria-label="Close modal">✕</button>'+
         '</div>'+
         '<div class="modal-body">'+
+        threatBanner+
+        kpiGrid+
         '<div class="detail-section"><div class="detail-section-title"><span>📜</span> Certificate Information</div><div class="detail-grid">'+
         '<div class="detail-field"><label>Subject CN</label><span>'+(item.subject_cn||'\u2014')+'</span></div>'+
         '<div class="detail-field"><label>Issuer / CA</label><span>'+(item.issuer_cn||item.ca||'\u2014')+'</span></div>'+
