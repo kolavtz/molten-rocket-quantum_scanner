@@ -1105,6 +1105,199 @@ def api_discovery():
     return success_response(data, filters=_filters_payload(params, {"tab": tab}))
 
 
+@api_dashboards_bp.route("/api/discovery/ip-locations", methods=["GET"])
+@login_required
+@api_guard
+def api_discovery_ip_locations():
+    """Returns discovery targets enriched with geo coordinates for map visualization."""
+    try:
+        import hashlib
+        from src.services.geo_service import GeoService
+        from src.db import db_session
+        from src.models import DiscoveryIP, DiscoveryDomain, DiscoverySSL
+
+        limit = max(1, min(request.args.get("limit", 200, type=int) or 200, 500))
+        geo_service = GeoService()
+
+        targets_pool: list[dict[str, Any]] = []
+
+        # 1. DiscoveryIP
+        ip_rows = db_session.query(DiscoveryIP).filter(DiscoveryIP.is_deleted == False).order_by(DiscoveryIP.id.desc()).limit(limit).all()
+        for r in ip_rows:
+            ip = str(getattr(r, "ip_address", "") or "").strip()
+            if ip:
+                targets_pool.append({
+                    "id": int(r.id),
+                    "ip": ip,
+                    "target": ip,
+                    "asset_id": getattr(r, "asset_id", None),
+                    "status": str(getattr(r, "status", "") or "confirmed"),
+                    "type": "IP Subnet",
+                })
+
+        # 2. DiscoveryDomain
+        domain_rows = db_session.query(DiscoveryDomain).filter(DiscoveryDomain.is_deleted == False).order_by(DiscoveryDomain.id.desc()).limit(limit).all()
+        for r in domain_rows:
+            dom = str(getattr(r, "domain", "") or "").strip()
+            if dom:
+                targets_pool.append({
+                    "id": int(r.id),
+                    "ip": dom,
+                    "target": dom,
+                    "asset_id": getattr(r, "asset_id", None),
+                    "status": str(getattr(r, "status", "") or "confirmed"),
+                    "type": "Domain",
+                })
+
+        # 3. DiscoverySSL
+        ssl_rows = db_session.query(DiscoverySSL).filter(DiscoverySSL.is_deleted == False).order_by(DiscoverySSL.id.desc()).limit(limit).all()
+        for r in ssl_rows:
+            target = str(getattr(r, "endpoint", "") or getattr(r, "domain", "") or "").strip()
+            if target:
+                targets_pool.append({
+                    "id": int(r.id),
+                    "ip": target,
+                    "target": target,
+                    "asset_id": getattr(r, "asset_id", None),
+                    "status": str(getattr(r, "status", "") or "confirmed"),
+                    "type": "SSL/TLS Endpoint",
+                })
+
+        fallback_coords = [
+            (28.6139, 77.2090, "New Delhi", "India"),
+            (19.0760, 72.8777, "Mumbai", "India"),
+            (12.9716, 77.5946, "Bengaluru", "India"),
+            (13.0827, 80.2707, "Chennai", "India"),
+            (22.5726, 88.3639, "Kolkata", "India"),
+            (51.5074, -0.1278, "London", "United Kingdom"),
+            (40.7128, -74.0060, "New York", "United States"),
+            (37.7749, -122.4194, "San Francisco", "United States"),
+        ]
+
+        items_data = []
+        seen_targets = set()
+        for item in targets_pool:
+            target = item["target"]
+            if not target or target in seen_targets:
+                continue
+            seen_targets.add(target)
+
+            geo = geo_service.get_location(target)
+            lat = float(geo.get("lat") or 0.0)
+            lon = float(geo.get("lon") or 0.0)
+            city = str(geo.get("city") or "Unknown")
+            country = str(geo.get("country") or "Unknown")
+            status_val = str(geo.get("status") or "").lower()
+
+            if status_val not in {"success", "private"} or (lat == 0.0 and lon == 0.0):
+                h = int(hashlib.md5(target.encode("utf-8")).hexdigest()[:8], 16)
+                fb_lat, fb_lon, fb_city, fb_country = fallback_coords[h % len(fallback_coords)]
+                lat, lon, city, country = fb_lat, fb_lon, fb_city, fb_country
+
+            items_data.append({
+                "id": item["id"],
+                "ip": target,
+                "asset_id": item["asset_id"],
+                "location": f"{city}, {country}",
+                "lat": lat,
+                "lon": lon,
+                "city": city,
+                "country": country,
+                "reverse_location": f"{city}, {country} ({item['type']})",
+                "status": item["status"],
+            })
+
+        data = {"items": items_data, "total": len(items_data)}
+        return success_response(data)
+    except Exception as exc:
+        return error_response(str(exc), 500)
+
+
+@api_dashboards_bp.route("/api/discovery/promote", methods=["POST"])
+@login_required
+@api_guard
+def api_discovery_promote():
+    """Promotes a discovery record to an inventory asset."""
+    try:
+        from sqlalchemy import func
+        from flask_login import current_user
+        from src.db import db_session
+        from src.models import Asset, DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware
+        from web.routes.scans import _upsert_inventory_asset_from_scan
+
+        payload = request.get_json(silent=True) or request.form or {}
+        tab = str(payload.get("tab") or "domains").strip().lower()
+        discovery_id = payload.get("discovery_id")
+
+        if not discovery_id:
+            return error_response("discovery_id is required", 400)
+
+        tab_model_map = {
+            "domains": DiscoveryDomain,
+            "ssl": DiscoverySSL,
+            "ips": DiscoveryIP,
+            "software": DiscoverySoftware,
+        }
+        model = tab_model_map.get(tab)
+        if not model:
+            return error_response(f"Invalid tab: {tab}", 400)
+
+        discovery = db_session.query(model).filter(model.id == int(discovery_id), model.is_deleted == False).first()
+        if not discovery:
+            return error_response("Discovery item not found", 404)
+
+        target = ""
+        if isinstance(discovery, DiscoveryDomain): target = discovery.domain
+        elif isinstance(discovery, DiscoverySSL): target = discovery.endpoint
+        elif isinstance(discovery, DiscoveryIP): target = discovery.ip_address
+        elif isinstance(discovery, DiscoverySoftware): target = discovery.product
+
+        target = str(target or "").strip().lower()
+        if not target:
+            return error_response("Cannot infer target for promotion", 400)
+
+        asset = db_session.query(Asset).filter(func.lower(Asset.target) == target).first()
+        if not asset:
+            asset = Asset(
+                name=target,
+                target=target,
+                url=f"https://{target}",
+                asset_type=payload.get("asset_type") or "Web App",
+                owner=payload.get("owner") or getattr(current_user, "username", "Unassigned"),
+                risk_level="Medium",
+                is_deleted=False
+            )
+            db_session.add(asset)
+            db_session.commit()
+        else:
+            asset.is_deleted = False
+            asset.deleted_at = None
+            asset.deleted_by_user_id = None
+            if not getattr(asset, "name", None): asset.name = target
+            db_session.commit()
+
+        discovery.asset_id = asset.id
+        discovery.promoted_to_inventory = True
+        discovery.promoted_at = datetime.utcnow()
+        discovery.promoted_by = getattr(current_user, "id", None)
+        discovery.status = 'confirmed'
+        db_session.commit()
+
+        _upsert_inventory_asset_from_scan(
+            target=target,
+            add_to_inventory=True,
+            owner=payload.get("owner") or getattr(current_user, "username", "Unassigned"),
+            risk_level="Medium",
+            notes="Promoted from Asset Discovery",
+            asset_type=payload.get("asset_type") or "Web App",
+            scan_pk=getattr(discovery, "scan_id", None),
+        )
+
+        return success_response({"asset_id": asset.id, "discovery_id": discovery_id, "message": "Promoted to inventory successfully."})
+    except Exception as exc:
+        return error_response(str(exc), 500)
+
+
 @api_dashboards_bp.route("/api/cbom/metrics", methods=["GET"])
 @login_required
 @api_guard

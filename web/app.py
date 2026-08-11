@@ -4620,7 +4620,7 @@ def scan():
 def results(scan_id: str):
     """Display scan results (memory → disk → MySQL fallback)."""
     import re as _re
-    if not _re.match(r'^[a-f0-9A-F\-]+$', scan_id):
+    if not _re.match(r'^[a-zA-Z0-9_\-]+$', scan_id):
         return render_template("error.html", error_message="Invalid scan ID."), 404
     report = scan_store.get(scan_id)
     if not report:

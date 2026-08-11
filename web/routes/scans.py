@@ -362,7 +362,7 @@ def _collect_scan_items() -> list[dict[str, Any]]:
                         "started_at": str(st.get("started_at") or job.get("started_at") or ""),
                         "completed_at": str(st.get("completed_at") or job.get("completed_at") or ""),
                         "date": str(st.get("updated_at") or job.get("updated_at") or ""),
-                        "actions": f"/api/scans/{sid}/status",
+                        "actions": f"/results/{st.get('result_scan_id') or sid}",
                     }
                 )
                 seen.add(sid)
@@ -691,29 +691,35 @@ def _upsert_inventory_asset_from_scan(
             DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware
         )
 
-        canonical = str(target or "").strip().lower()
+        raw = str(target or "").strip().lower()
+        if not raw:
+            return
+        canonical = raw.replace("https://", "").replace("http://", "").split("/")[0].split(":")[0].strip()
         if not canonical:
             return
 
-        # Match by target (synonym: name) regardless of is_deleted state
+        # Match by target regardless of is_deleted state
         asset = db_session.query(Asset).filter(func.lower(Asset.target) == canonical).first()
         if not asset:
             asset = Asset(
+                name=canonical,
                 target=canonical,
-                url=f"https://{canonical}" if not canonical.startswith(("http://", "https://")) else canonical,
+                url=f"https://{canonical}",
                 asset_type=str(asset_type or "Web App").strip() or "Web App",
-                owner=(str(owner).strip() if owner else None),
+                owner=(str(owner).strip() if owner else "Unassigned"),
                 risk_level=str(risk_level or "Medium").strip() or "Medium",
-                notes=(str(notes).strip() if notes else None),
+                notes=(str(notes).strip() if notes else "Created from Scan Center (add to inventory)"),
                 is_deleted=False,
             )
             db_session.add(asset)
-            db_session.flush()
+            db_session.commit()
         else:
-            # Restore if soft-deleted (explicit add_to_inventory restores the asset)
-            if getattr(asset, "is_deleted", False):
-                asset.is_deleted = False
-            # Always update with fresh data
+            # Always ensure asset is active in inventory
+            asset.is_deleted = False
+            asset.deleted_at = None
+            asset.deleted_by_user_id = None
+            if not getattr(asset, "name", None):
+                asset.name = canonical
             if owner:
                 asset.owner = str(owner).strip()
             if risk_level:
@@ -721,7 +727,7 @@ def _upsert_inventory_asset_from_scan(
             if asset_type:
                 asset.asset_type = str(asset_type).strip() or asset.asset_type
             if not str(getattr(asset, "url", "") or ""):
-                asset.url = f"https://{canonical}" if not canonical.startswith(("http://", "https://")) else canonical
+                asset.url = f"https://{canonical}"
             if notes:
                 existing = str(getattr(asset, "notes", "") or "").strip()
                 incoming = str(notes).strip()
@@ -730,10 +736,11 @@ def _upsert_inventory_asset_from_scan(
             if scan_pk:
                 asset.last_scan_id = int(scan_pk)
 
-        db_session.flush()
+            db_session.commit()
+
         asset_id = int(asset.id)
 
-        # Relational linking for telemetry saved under scan_pk with missing or outdated asset_id
+        # Relational linking for telemetry saved under scan_pk OR matching canonical target
         if scan_pk:
             db_session.query(Certificate).filter(
                 Certificate.scan_id == scan_pk,
@@ -759,6 +766,46 @@ def _upsert_inventory_asset_from_scan(
                         "promoted_to_inventory": True,
                         "status": "confirmed"
                     }, synchronize_session=False)
+
+        # Domain/endpoint matching fallback for any floating discovery telemetry
+        db_session.query(Certificate).filter(
+            or_(
+                func.lower(Certificate.endpoint).like(f"%{canonical}%"),
+                func.lower(Certificate.subject).like(f"%{canonical}%"),
+                func.lower(Certificate.subject_cn).like(f"%{canonical}%")
+            ),
+            Certificate.asset_id == None
+        ).update({"asset_id": asset_id}, synchronize_session=False)
+
+        db_session.query(DiscoveryDomain).filter(
+            func.lower(DiscoveryDomain.domain) == canonical,
+            DiscoveryDomain.asset_id == None
+        ).update({"asset_id": asset_id, "promoted_to_inventory": True, "status": "confirmed"}, synchronize_session=False)
+
+        db_session.query(DiscoverySSL).filter(
+            func.lower(DiscoverySSL.domain) == canonical,
+            DiscoverySSL.asset_id == None
+        ).update({"asset_id": asset_id, "promoted_to_inventory": True, "status": "confirmed"}, synchronize_session=False)
+
+        # Calculate metrics for new inventory asset
+        if scan_pk:
+            try:
+                from src.services.pqc_calculation_service import PQCCalculationService
+                PQCCalculationService.calculate_and_store_pqc_metrics(asset_id=asset_id, scan_id=scan_pk, auto_commit=False)
+            except Exception:
+                pass
+
+            try:
+                from src.services.risk_calculation_service import RiskCalculationService
+                RiskCalculationService.calculate_and_store_risk_metrics(asset_id=asset_id, scan_id=scan_pk, auto_commit=False)
+            except Exception:
+                pass
+
+            try:
+                from src.services.digital_label_service import DigitalLabelService
+                DigitalLabelService.calculate_and_store_digital_label(asset_id=asset_id, scan_id=scan_pk, auto_commit=False)
+            except Exception:
+                pass
 
         db_session.commit()
     except Exception:
@@ -1273,6 +1320,8 @@ def api_scan_promote(scan_id: str):
         or_(Scan.scan_id == resolved_scan_id, Scan.scan_id == scan_id),
     ).order_by(Scan.id.desc()).first()
 
+    target = str((report or {}).get("target") or getattr(scan_row, "target", "") or getattr(scan_row, "requested_target", "") or getattr(scan_row, "normalized_target", "") or "").strip()
+
     if destination == "cbom":
         if scan_row is None or not bool(getattr(scan_row, "add_to_inventory", False)):
             return jsonify({
@@ -1298,6 +1347,13 @@ def api_scan_promote(scan_id: str):
         asset_type="Web App",
         scan_pk=getattr(scan_row, "id", None),
     )
+
+    try:
+        import web.app as web_app_module
+        if resolved_scan_id in web_app_module.scan_store and isinstance(web_app_module.scan_store[resolved_scan_id], dict):
+            web_app_module.scan_store[resolved_scan_id]["add_to_inventory"] = True
+    except Exception:
+        pass
 
     if scan_row is not None:
         try:

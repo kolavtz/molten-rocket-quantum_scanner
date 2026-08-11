@@ -942,7 +942,7 @@ def create_or_scan_asset_api(payload: dict[str, Any]) -> tuple[dict[str, Any], i
     restored = False
     try:
         asset = db_session.query(Asset).filter(func.lower(Asset.target) == target).first()
-        if asset and getattr(asset, "is_deleted", False):
+        if asset:
             asset.is_deleted = False
             asset.deleted_at = None
             asset.deleted_by_user_id = None
@@ -1108,7 +1108,7 @@ def asset_scan():
                 return redirect(url_for("assets.assets_index"))
 
             asset = db_session.query(Asset).filter(func.lower(Asset.target) == target).first()
-            if asset and getattr(asset, "is_deleted", False):
+            if asset:
                 asset.is_deleted = False
                 asset.deleted_at = None
                 asset.deleted_by_user_id = None

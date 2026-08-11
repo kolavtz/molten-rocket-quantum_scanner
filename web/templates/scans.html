@@ -8,25 +8,31 @@
 {% block content %}
 <section class="hero" style="padding-bottom:1rem;">
   <h2 class="hero-title" style="font-size:2rem;">SCAN CENTER</h2>
-  <p class="hero-subtitle">API-first orchestration with role-aware controls, autodiscovery, and live status telemetry.</p>
-  <div id="scanApiState" style="font-size:0.72rem; color:var(--text-muted); margin-top:0.75rem; text-transform:uppercase;">Ready.</div>
+  <p class="hero-subtitle">API-first orchestration with role-aware controls, autodiscovery, and live status telemetry.
+  </p>
+  <div id="scanApiState"
+    style="font-size:0.72rem; color:var(--text-muted); margin-top:0.75rem; text-transform:uppercase;">Ready.</div>
 </section>
 
 <section class="glass-card" style="padding:1rem; margin-bottom:1rem;">
   <h3 style="margin-bottom:0.8rem; text-transform:uppercase;">Operational Metrics</h3>
-  <div id="scanLiveKpis" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0.6rem; margin-bottom:0.8rem;"></div>
+  <div id="scanLiveKpis"
+    style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0.6rem; margin-bottom:0.8rem;">
+  </div>
 
   <h3 style="margin-bottom:0.8rem; text-transform:uppercase;">Progress</h3>
   <div id="scanProgress" style="display:grid; gap:0.4rem; font-size:0.85rem;"></div>
 </section>
 
 <section id="scanDetailPanel" class="glass-card" style="padding:1rem; margin-bottom:1rem; display:block;">
-  <div style="display:flex; justify-content:space-between; gap:0.8rem; flex-wrap:wrap; margin-bottom:0.8rem; align-items:center;">
+  <div
+    style="display:flex; justify-content:space-between; gap:0.8rem; flex-wrap:wrap; margin-bottom:0.8rem; align-items:center;">
     <h3 style="margin:0; text-transform:uppercase;">Initialize Scan</h3>
     <span id="scanActionMsg" style="color:var(--text-secondary); font-size:0.8rem;" aria-live="polite"></span>
   </div>
 
-  <div role="tablist" style="display:flex; gap:0.8rem; margin-bottom:1rem; border-bottom:1px solid var(--border-subtle); padding-bottom:0.6rem;">
+  <div role="tablist"
+    style="display:flex; gap:0.8rem; margin-bottom:1rem; border-bottom:1px solid var(--border-subtle); padding-bottom:0.6rem;">
     <button id="tabSingle" class="scan-tab scan-tab-active" type="button" aria-selected="true">Single Target</button>
     {% if can_bulk_scan %}
     <button id="tabBulk" class="scan-tab" type="button" aria-selected="false">Bulk Sequential</button>
@@ -37,7 +43,8 @@
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
       <div>
         <label for="singleTarget" style="display:block; margin-bottom:0.3rem;">Single Target</label>
-        <input id="singleTarget" class="scan-input" type="text" placeholder="example.com / 192.168.1.1 / https://api.example.com" style="width:100%;" />
+        <input id="singleTarget" class="scan-input" type="text"
+          placeholder="example.com / 192.168.1.1 / https://api.example.com" style="width:100%;" />
       </div>
       <div>
         <label for="portsInput" style="display:block; margin-bottom:0.3rem;">Ports (optional)</label>
@@ -51,14 +58,16 @@
           <input id="autodiscoverySingle" type="checkbox">
           Autodiscovery
         </label>
-        <p style="margin:0; font-size:0.75rem; color:var(--text-secondary);">Deep port sweep across approved discovery port set.</p>
+        <p style="margin:0; font-size:0.75rem; color:var(--text-secondary);">Deep port sweep across approved discovery
+          port set.</p>
       </div>
       <div class="glass-card" style="padding:0.8rem;">
         <label class="checkbox" style="font-weight:700; color:var(--safe); margin-bottom:0.35rem;">
           <input id="addToInventorySingle" type="checkbox">
           Add to Inventory
         </label>
-        <p style="margin:0; font-size:0.75rem; color:var(--text-secondary);">Persist asset metadata after scan completion.</p>
+        <p style="margin:0; font-size:0.75rem; color:var(--text-secondary);">Persist asset metadata after scan
+          completion.</p>
       </div>
     </div>
 
@@ -66,12 +75,15 @@
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem;">
         <div>
           <label for="singleOwner">Owner / Team</label>
-          <input id="singleOwner" class="scan-input" type="text" placeholder="Security Team" style="padding-left:0.8rem;" />
+          <input id="singleOwner" class="scan-input" type="text" placeholder="Security Team"
+            style="padding-left:0.8rem;" />
         </div>
         <div>
           <label style="display:block; margin-bottom:0.3rem;">Risk Level</label>
-          <div id="singleRiskDisplay" style="display:flex; align-items:center; gap:0.5rem; padding:0.45rem 0.8rem; background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:6px; min-height:2.2rem;">
-            <span id="singleRiskBadge" class="status-pill" style="border-color:var(--warn); color:var(--warn);">AUTO</span>
+          <div id="singleRiskDisplay"
+            style="display:flex; align-items:center; gap:0.5rem; padding:0.45rem 0.8rem; background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:6px; min-height:2.2rem;">
+            <span id="singleRiskBadge" class="status-pill"
+              style="border-color:var(--warn); color:var(--warn);">AUTO</span>
             <span style="font-size:0.72rem; color:var(--text-muted);">Calculated after scan</span>
           </div>
           <input type="hidden" id="singleRiskValue" value="Medium" />
@@ -79,17 +91,20 @@
       </div>
       <div style="margin-top:0.7rem;">
         <label for="singleNotes">Notes</label>
-        <input id="singleNotes" class="scan-input" type="text" placeholder="Optional notes" style="padding-left:0.8rem;" />
+        <input id="singleNotes" class="scan-input" type="text" placeholder="Optional notes"
+          style="padding-left:0.8rem;" />
       </div>
     </div>
 
     <div class="glass-card" style="padding:0.9rem; margin-top:0.8rem;">
       <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:0.6rem;">
-        <label class="radio"><input type="radio" name="singleAssetClassMode" value="auto" checked> Auto detect asset class</label>
+        <label class="radio"><input type="radio" name="singleAssetClassMode" value="auto" checked> Auto detect asset
+          class</label>
         <label class="radio"><input type="radio" name="singleAssetClassMode" value="manual"> Manual asset class</label>
       </div>
       <label for="singleAssetClassValue">Asset Class (manual mode)</label>
-      <input id="singleAssetClassValue" class="scan-input" type="text" placeholder="e.g., Core Banking API" style="padding-left:0.8rem;" />
+      <input id="singleAssetClassValue" class="scan-input" type="text" placeholder="e.g., Core Banking API"
+        style="padding-left:0.8rem;" />
     </div>
 
     <div style="margin-top:0.8rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
@@ -98,8 +113,10 @@
       <button class="quick-btn" type="button" data-target-quick="pnbnet.pnb.bank.in">PNB Net</button>
     </div>
 
-    <div style="margin-top:0.9rem; display:flex; justify-content:flex-end; align-items:center; gap:0.7rem; flex-wrap:wrap;">
-      <span style="font-size:0.75rem; color:var(--text-secondary);">Review selection toggles above, then start scan.</span>
+    <div
+      style="margin-top:0.9rem; display:flex; justify-content:flex-end; align-items:center; gap:0.7rem; flex-wrap:wrap;">
+      <span style="font-size:0.75rem; color:var(--text-secondary);">Review selection toggles above, then start
+        scan.</span>
       <button id="singleScanBtn" class="scan-button" type="button">Run Single Scan</button>
     </div>
   </div>
@@ -108,10 +125,12 @@
   <div id="modeBulk" style="display:none;">
     <div style="margin-top:0.4rem;">
       <label for="bulkTargets" style="display:block; margin-bottom:0.3rem;">Bulk Targets (one per line)</label>
-      <textarea id="bulkTargets" class="scan-input" style="width:100%; min-height:130px; padding-left:0.8rem;" placeholder="example.com&#10;10.10.10.0/24&#10;api.example.com:8443"></textarea>
+      <textarea id="bulkTargets" class="scan-input" style="width:100%; min-height:130px; padding-left:0.8rem;"
+        placeholder="example.com&#10;10.10.10.0/24&#10;api.example.com:8443"></textarea>
       <div style="margin-top:0.65rem;">
         <label for="bulkCsvFile" style="display:block; margin-bottom:0.3rem;">Bulk CSV Upload (optional)</label>
-        <input id="bulkCsvFile" class="scan-input" type="file" accept=".csv,text/csv" style="padding:0.45rem 0.55rem;" />
+        <input id="bulkCsvFile" class="scan-input" type="file" accept=".csv,text/csv"
+          style="padding:0.45rem 0.55rem;" />
         <div id="bulkCsvHint" style="margin-top:0.35rem; font-size:0.75rem; color:var(--text-secondary);">
           CSV format: <code>ip,[ports separated by comma or space]</code>
         </div>
@@ -131,7 +150,8 @@
           <input id="addToInventoryBulk" type="checkbox">
           Add all to Inventory
         </label>
-        <p style="margin:0; font-size:0.75rem; color:var(--text-secondary);">Attach metadata to newly discovered targets.</p>
+        <p style="margin:0; font-size:0.75rem; color:var(--text-secondary);">Attach metadata to newly discovered
+          targets.</p>
       </div>
     </div>
 
@@ -139,12 +159,15 @@
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem;">
         <div>
           <label for="bulkOwner">Owner / Team</label>
-          <input id="bulkOwner" class="scan-input" type="text" placeholder="Infrastructure Team" style="padding-left:0.8rem;" />
+          <input id="bulkOwner" class="scan-input" type="text" placeholder="Infrastructure Team"
+            style="padding-left:0.8rem;" />
         </div>
         <div>
           <label style="display:block; margin-bottom:0.3rem;">Risk Level</label>
-          <div id="bulkRiskDisplay" style="display:flex; align-items:center; gap:0.5rem; padding:0.45rem 0.8rem; background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:6px; min-height:2.2rem;">
-            <span id="bulkRiskBadge" class="status-pill" style="border-color:var(--warn); color:var(--warn);">AUTO</span>
+          <div id="bulkRiskDisplay"
+            style="display:flex; align-items:center; gap:0.5rem; padding:0.45rem 0.8rem; background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:6px; min-height:2.2rem;">
+            <span id="bulkRiskBadge" class="status-pill"
+              style="border-color:var(--warn); color:var(--warn);">AUTO</span>
             <span style="font-size:0.72rem; color:var(--text-muted);">Calculated after scan</span>
           </div>
           <input type="hidden" id="bulkRiskValue" value="Medium" />
@@ -152,21 +175,26 @@
       </div>
       <div style="margin-top:0.7rem;">
         <label for="bulkNotes">Notes</label>
-        <input id="bulkNotes" class="scan-input" type="text" placeholder="Optional notes" style="padding-left:0.8rem;" />
+        <input id="bulkNotes" class="scan-input" type="text" placeholder="Optional notes"
+          style="padding-left:0.8rem;" />
       </div>
     </div>
 
     <div class="glass-card" style="padding:0.9rem; margin-top:0.8rem;">
       <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:0.6rem;">
-        <label class="radio"><input type="radio" name="bulkAssetClassMode" value="auto" checked> Auto detect asset class</label>
+        <label class="radio"><input type="radio" name="bulkAssetClassMode" value="auto" checked> Auto detect asset
+          class</label>
         <label class="radio"><input type="radio" name="bulkAssetClassMode" value="manual"> Manual asset class</label>
       </div>
       <label for="bulkAssetClassValue">Asset Class (manual mode)</label>
-      <input id="bulkAssetClassValue" class="scan-input" type="text" placeholder="e.g., Banking Server" style="padding-left:0.8rem;" />
+      <input id="bulkAssetClassValue" class="scan-input" type="text" placeholder="e.g., Banking Server"
+        style="padding-left:0.8rem;" />
     </div>
 
-    <div style="margin-top:0.9rem; display:flex; justify-content:flex-end; align-items:center; gap:0.7rem; flex-wrap:wrap;">
-      <span style="font-size:0.75rem; color:var(--text-secondary);">After target and option selection, run the bulk queue.</span>
+    <div
+      style="margin-top:0.9rem; display:flex; justify-content:flex-end; align-items:center; gap:0.7rem; flex-wrap:wrap;">
+      <span style="font-size:0.75rem; color:var(--text-secondary);">After target and option selection, run the bulk
+        queue.</span>
       <button id="bulkScanBtn" class="scan-button" type="button">Run Bulk Scan (Sequential)</button>
     </div>
   </div>
@@ -174,31 +202,58 @@
 </section>
 
 <section class="glass-card" style="padding:1rem; margin-bottom:1rem;">
-  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.8rem; flex-wrap:wrap; margin-bottom:0.8rem;">
+  <div
+    style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.8rem; flex-wrap:wrap; margin-bottom:0.8rem;">
     <div>
       <h3 style="margin:0; text-transform:uppercase;">Scan Record Details</h3>
-      <p id="scanDetailSubtitle" style="margin:0.25rem 0 0; color:var(--text-secondary);">Select a scan record to inspect live status and result details.</p>
+      <p id="scanDetailSubtitle" style="margin:0.25rem 0 0; color:var(--text-secondary);">Select a scan record to
+        inspect live status and result details.</p>
     </div>
     <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-      <a id="scanDetailResultLink" class="scan-button scan-button-secondary" href="#" target="_blank" rel="noreferrer">Open Full Result</a>
+      <a id="scanDetailResultLink" class="scan-button scan-button-secondary" href="#" target="_blank"
+        rel="noreferrer">Open Full Result</a>
       <button id="scanDetailRefreshBtn" class="scan-button" type="button">Refresh Details</button>
     </div>
   </div>
 
-  <div id="scanDetailEmpty" style="color:var(--text-secondary); padding:0.6rem 0;">Choose a scan from the table below to view its record, live state, and full report.</div>
+  <div id="scanDetailEmpty" style="color:var(--text-secondary); padding:0.6rem 0;">Choose a scan from the table below to
+    view its record, live state, and full report.</div>
 
   <div id="scanDetailContent" style="display:none;">
-    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:0.6rem; margin-bottom:0.8rem;">
-      <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Scan ID</div><div id="scanDetailId" style="font-weight:700; word-break:break-word;"></div></div>
-      <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Target</div><div id="scanDetailTarget" style="font-weight:700; word-break:break-word;"></div></div>
-      <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Status</div><div id="scanDetailStatus" style="font-weight:700;"></div></div>
-      <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Assets Found</div><div id="scanDetailAssets" style="font-weight:700;"></div></div>
-      <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">PQC Score</div><div id="scanDetailScore" style="font-weight:700;"></div></div>
-      <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Risk Level</div><div id="scanDetailRisk" style="font-weight:700;">Auto</div></div>
-      <div class="glass-card" style="padding:0.8rem;"><div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Result Scan</div><div id="scanDetailResultId" style="font-weight:700;"></div></div>
+    <div
+      style="display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:0.6rem; margin-bottom:0.8rem;">
+      <div class="glass-card" style="padding:0.8rem;">
+        <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Scan ID</div>
+        <div id="scanDetailId" style="font-weight:700; word-break:break-word;"></div>
+      </div>
+      <div class="glass-card" style="padding:0.8rem;">
+        <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Target</div>
+        <div id="scanDetailTarget" style="font-weight:700; word-break:break-word;"></div>
+      </div>
+      <div class="glass-card" style="padding:0.8rem;">
+        <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Status</div>
+        <div id="scanDetailStatus" style="font-weight:700;"></div>
+      </div>
+      <div class="glass-card" style="padding:0.8rem;">
+        <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Assets Found</div>
+        <div id="scanDetailAssets" style="font-weight:700;"></div>
+      </div>
+      <div class="glass-card" style="padding:0.8rem;">
+        <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">PQC Score</div>
+        <div id="scanDetailScore" style="font-weight:700;"></div>
+      </div>
+      <div class="glass-card" style="padding:0.8rem;">
+        <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Risk Level</div>
+        <div id="scanDetailRisk" style="font-weight:700;">Auto</div>
+      </div>
+      <div class="glass-card" style="padding:0.8rem;">
+        <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Result Scan</div>
+        <div id="scanDetailResultId" style="font-weight:700;"></div>
+      </div>
     </div>
 
-    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.8rem; margin-bottom:0.8rem;">
+    <div
+      style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.8rem; margin-bottom:0.8rem;">
       <div class="glass-card" style="padding:0.8rem;">
         <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">Started</div>
         <div id="scanDetailStarted" style="font-weight:700;"></div>
@@ -218,37 +273,47 @@
     </div>
 
     <!-- Automated Risk Profile Panel -->
-    <div id="scanRiskProfilePanel" class="glass-card" style="padding:0.9rem; margin-bottom:0.8rem; border-left:3px solid var(--accent);">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.7rem; flex-wrap:wrap; gap:0.5rem;">
+    <div id="scanRiskProfilePanel" class="glass-card"
+      style="padding:0.9rem; margin-bottom:0.8rem; border-left:3px solid var(--accent);">
+      <div
+        style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.7rem; flex-wrap:wrap; gap:0.5rem;">
         <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">
           ⚡ Automated Risk Profile
         </div>
-        <span id="scanRiskProfileLabel" class="status-pill" style="border-color:var(--text-muted); color:var(--text-muted); font-size:0.7rem;">Pending</span>
+        <span id="scanRiskProfileLabel" class="status-pill"
+          style="border-color:var(--text-muted); color:var(--text-muted); font-size:0.7rem;">Pending</span>
       </div>
 
-      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:0.55rem; margin-bottom:0.7rem;">
+      <div
+        style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:0.55rem; margin-bottom:0.7rem;">
         <div class="glass-card" style="padding:0.65rem; text-align:center;">
-          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">Risk Level</div>
+          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">Risk
+            Level</div>
           <div id="scanRiskLevel" style="font-size:1.1rem; font-weight:800; color:var(--warn);">—</div>
         </div>
         <div class="glass-card" style="padding:0.65rem; text-align:center;">
-          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">HNDL Risk</div>
+          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">HNDL
+            Risk</div>
           <div id="scanHndlRisk" style="font-size:1.1rem; font-weight:800; color:var(--text-secondary);">—</div>
         </div>
         <div class="glass-card" style="padding:0.65rem; text-align:center;">
-          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">Compliance</div>
+          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">
+            Compliance</div>
           <div id="scanComplianceScore" style="font-size:1.1rem; font-weight:800; color:var(--text-secondary);">—</div>
         </div>
         <div class="glass-card" style="padding:0.65rem; text-align:center;">
-          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">PQC Status</div>
+          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">PQC
+            Status</div>
           <div id="scanPqcStatus" style="font-size:0.85rem; font-weight:700; color:var(--text-secondary);">—</div>
         </div>
         <div class="glass-card" style="padding:0.65rem; text-align:center;">
-          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">Critical Findings</div>
+          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">
+            Critical Findings</div>
           <div id="scanCriticalFindings" style="font-size:1.1rem; font-weight:800; color:var(--text-secondary);">—</div>
         </div>
         <div class="glass-card" style="padding:0.65rem; text-align:center;">
-          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">High Findings</div>
+          <div style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.2rem;">High
+            Findings</div>
           <div id="scanHighFindings" style="font-size:1.1rem; font-weight:800; color:var(--text-secondary);">—</div>
         </div>
       </div>
@@ -256,26 +321,27 @@
       <div id="scanRiskFindings" style="display:grid; gap:0.35rem; margin-bottom:0.6rem;"></div>
 
       <div id="scanRiskRecommendations" style="display:none;">
-        <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.35rem;">Recommendations</div>
+        <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.35rem;">
+          Recommendations</div>
         <div id="scanRiskRecommendationsList" style="display:grid; gap:0.3rem;"></div>
       </div>
     </div>
 
     <div class="glass-card" style="padding:0.8rem; margin-bottom:0.8rem;">
-      <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase; margin-bottom:0.5rem;">Summary</div>
+      <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase; margin-bottom:0.5rem;">
+        Summary</div>
       <div id="scanDetailSummary" style="display:grid; gap:0.4rem;"></div>
     </div>
 
-    <div class="glass-card" style="padding:0.8rem;">
-      <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase; margin-bottom:0.5rem;">Raw Result Snapshot</div>
-      <pre id="scanDetailRaw" style="margin:0; white-space:pre-wrap; word-break:break-word; color:var(--text-primary); background:transparent; border:none; padding:0;"></pre>
-    </div>
 
     <div class="glass-card" style="padding:0.8rem; margin-top:0.8rem;">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.6rem; flex-wrap:wrap; margin-bottom:0.6rem;">
+      <div
+        style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.6rem; flex-wrap:wrap; margin-bottom:0.6rem;">
         <div>
-          <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">SSL/TLS Certificate Details</div>
-          <div id="scanCertSummary" style="font-size:0.82rem; color:var(--text-secondary); margin-top:0.25rem;">No certificate telemetry loaded yet.</div>
+          <div style="color:var(--text-secondary); font-size:0.75rem; text-transform:uppercase;">SSL/TLS Certificate
+            Details</div>
+          <div id="scanCertSummary" style="font-size:0.82rem; color:var(--text-secondary); margin-top:0.25rem;">No
+            certificate telemetry loaded yet.</div>
         </div>
         <div style="display:flex; gap:0.5rem; align-items:center;">
           <button id="scanCertPrev" class="scan-button" type="button">Prev</button>
@@ -311,7 +377,8 @@
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem; margin-bottom:0.8rem;">
     <div>
       <label for="scheduleTarget">Target</label>
-      <input id="scheduleTarget" class="scan-input" type="text" placeholder="example.com" style="padding-left:0.8rem;" />
+      <input id="scheduleTarget" class="scan-input" type="text" placeholder="example.com"
+        style="padding-left:0.8rem;" />
     </div>
     <div>
       <label for="scheduleFrequency">Frequency</label>
@@ -352,9 +419,11 @@
     </div>
   </div>
 
-  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:0.6rem; margin-bottom:0.8rem;">
+  <div
+    style="display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:0.6rem; margin-bottom:0.8rem;">
     <div>
-      <label for="scanFilterStatus" style="display:block; margin-bottom:0.2rem; color:var(--text-secondary); font-size:0.75rem;">Status</label>
+      <label for="scanFilterStatus"
+        style="display:block; margin-bottom:0.2rem; color:var(--text-secondary); font-size:0.75rem;">Status</label>
       <select id="scanFilterStatus" class="scan-input" style="padding-left:0.8rem;">
         <option value="">All</option>
         <option value="running">Running</option>
@@ -363,7 +432,8 @@
       </select>
     </div>
     <div>
-      <label for="scanFilterType" style="display:block; margin-bottom:0.2rem; color:var(--text-secondary); font-size:0.75rem;">Scan Type</label>
+      <label for="scanFilterType"
+        style="display:block; margin-bottom:0.2rem; color:var(--text-secondary); font-size:0.75rem;">Scan Type</label>
       <select id="scanFilterType" class="scan-input" style="padding-left:0.8rem;">
         <option value="">All</option>
         <option value="single">Single</option>
@@ -371,11 +441,13 @@
       </select>
     </div>
     <div>
-      <label for="scanFilterFrom" style="display:block; margin-bottom:0.2rem; color:var(--text-secondary); font-size:0.75rem;">Date From</label>
+      <label for="scanFilterFrom"
+        style="display:block; margin-bottom:0.2rem; color:var(--text-secondary); font-size:0.75rem;">Date From</label>
       <input id="scanFilterFrom" class="scan-input" type="date" style="padding-left:0.8rem;" />
     </div>
     <div>
-      <label for="scanFilterTo" style="display:block; margin-bottom:0.2rem; color:var(--text-secondary); font-size:0.75rem;">Date To</label>
+      <label for="scanFilterTo"
+        style="display:block; margin-bottom:0.2rem; color:var(--text-secondary); font-size:0.75rem;">Date To</label>
       <input id="scanFilterTo" class="scan-input" type="date" style="padding-left:0.8rem;" />
     </div>
     <div style="display:flex; align-items:flex-end; gap:0.5rem;">
@@ -384,17 +456,22 @@
     </div>
   </div>
 
-  <div data-api-kpis style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:0.6rem; margin-bottom:0.8rem;"></div>
+  <div data-api-kpis
+    style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:0.6rem; margin-bottom:0.8rem;">
+  </div>
   <div data-api-error style="display:none; color:var(--danger); margin-bottom:0.6rem;"></div>
 
   <table class="scans-table" style="width:100%;">
-    <thead><tr data-api-table-head></tr></thead>
+    <thead>
+      <tr data-api-table-head></tr>
+    </thead>
     <tbody data-api-table-body></tbody>
   </table>
 
   <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.8rem;">
     <div style="color:var(--text-secondary); font-size:0.8rem;">
-      Total: <strong data-api-total>0</strong> | Page <strong data-api-page>1</strong>/<strong data-api-total-pages>1</strong>
+      Total: <strong data-api-total>0</strong> | Page <strong data-api-page>1</strong>/<strong
+        data-api-total-pages>1</strong>
     </div>
     <div style="display:flex; gap:0.6rem;">
       <button data-api-prev class="scan-button" type="button">Prev</button>
@@ -468,7 +545,7 @@
 
     // Walk discovered_services for validation data
     var services = Array.isArray(report.discovered_services) ? report.discovered_services : [];
-    services.forEach(function(svc) {
+    services.forEach(function (svc) {
       if (!svc || typeof svc !== 'object') return;
       var validation = svc.validation || svc.quantum_safe_check || {};
       if (validation.hndl_risk_level) hndlRisk = String(validation.hndl_risk_level).toUpperCase();
@@ -543,16 +620,16 @@
     if (findingsEl) {
       var topFindings = findings.slice(0, 6);
       if (topFindings.length) {
-        findingsEl.innerHTML = topFindings.map(function(f) {
+        findingsEl.innerHTML = topFindings.map(function (f) {
           var sev = String(f.severity || 'INFO').toUpperCase();
           var sevColor = sev === 'CRITICAL' ? 'var(--danger)' : (sev === 'HIGH' ? 'var(--danger)' : (sev === 'MEDIUM' ? 'var(--warn)' : 'var(--safe)'));
           return (
             '<div style="display:flex; gap:0.5rem; align-items:flex-start; padding:0.4rem 0.6rem; background:rgba(255,255,255,0.02); border-radius:4px; border-left:2px solid ' + sevColor + ';">' +
             '<span style="font-size:0.68rem; font-weight:700; color:' + sevColor + '; min-width:60px; text-transform:uppercase;">' + sev + '</span>' +
             '<div style="flex:1;">' +
-              '<div style="font-size:0.8rem; font-weight:600; color:var(--text-primary);">' + escapeHtml(String(f.title || '')) + '</div>' +
-              (f.description ? '<div style="font-size:0.72rem; color:var(--text-secondary); margin-top:0.1rem;">' + escapeHtml(String(f.description || '')) + '</div>' : '') +
-              (f.nist_reference ? '<div style="font-size:0.68rem; color:var(--accent); margin-top:0.1rem;">Ref: ' + escapeHtml(String(f.nist_reference)) + '</div>' : '') +
+            '<div style="font-size:0.8rem; font-weight:600; color:var(--text-primary);">' + escapeHtml(String(f.title || '')) + '</div>' +
+            (f.description ? '<div style="font-size:0.72rem; color:var(--text-secondary); margin-top:0.1rem;">' + escapeHtml(String(f.description || '')) + '</div>' : '') +
+            (f.nist_reference ? '<div style="font-size:0.68rem; color:var(--accent); margin-top:0.1rem;">Ref: ' + escapeHtml(String(f.nist_reference)) + '</div>' : '') +
             '</div>' +
             '</div>'
           );
@@ -566,10 +643,10 @@
     var recsPanel = document.getElementById('scanRiskRecommendations');
     var recsList = document.getElementById('scanRiskRecommendationsList');
     if (recsPanel && recsList) {
-      var uniqueRecs = recommendations.filter(function(r, i, a) { return a.indexOf(r) === i; }).slice(0, 5);
+      var uniqueRecs = recommendations.filter(function (r, i, a) { return a.indexOf(r) === i; }).slice(0, 5);
       if (uniqueRecs.length) {
         recsPanel.style.display = 'block';
-        recsList.innerHTML = uniqueRecs.map(function(rec) {
+        recsList.innerHTML = uniqueRecs.map(function (rec) {
           return '<div style="display:flex; gap:0.5rem; align-items:flex-start; font-size:0.78rem; color:var(--text-secondary);"><span style="color:var(--accent); font-weight:700;">→</span><span>' + escapeHtml(String(rec)) + '</span></div>';
         }).join('');
       } else {
@@ -617,12 +694,21 @@
     const scanId = String((row && row.scan_id) || '').trim();
     if (!scanId) return '—';
     const safeScanId = scanId.replace(/'/g, "\\'");
-    const actions = [];
-    if (row && row.actions) {
-      actions.push('<a class="scan-button scan-button-secondary" href="' + String(row.actions) + '">Open Result</a>');
-    }
-    actions.push('<button class="scan-button" type="button" onclick="window.QuantumShieldScans.promote(\'' + safeScanId + '\', \'inventory\')">Add to Inventory</button>');
-    actions.push('<button class="scan-button scan-button-secondary" type="button" onclick="window.QuantumShieldScans.promote(\'' + safeScanId + '\', \'cbom\')">Enable CBOM</button>');
+    const targetScanId = String((row && (row.result_scan_id || row.scan_id)) || scanId).trim();
+    const resultUrl = (row && row.actions && String(row.actions).startsWith('/results/'))
+      ? String(row.actions)
+      : ('/results/' + encodeURIComponent(targetScanId));
+
+    const isInventoried = !!(row && (row.promoted_to_inventory || row.in_inventory));
+    const invButton = isInventoried
+      ? '<button class="scan-button" type="button" disabled style="background:var(--safe); color:#000; opacity:0.85; cursor:default; font-weight:700;">✓ Inventoried</button>'
+      : '<button class="scan-button" type="button" onclick="window.QuantumShieldScans.promote(\'' + safeScanId + '\', \'inventory\')">+ Add to Inventory</button>';
+
+    const actions = [
+      '<a class="scan-button scan-button-secondary" href="' + resultUrl + '">Open Result</a>',
+      invButton,
+      '<button class="scan-button scan-button-secondary" type="button" onclick="window.QuantumShieldScans.promote(\'' + safeScanId + '\', \'cbom\')">Enable CBOM</button>'
+    ];
     return '<div style="display:flex; gap:0.35rem; flex-wrap:wrap;">' + actions.join('') + '</div>';
   }
 
@@ -648,12 +734,12 @@
       { field: 'scan_id', label: 'Scan ID' },
       { field: 'target', label: 'Target' },
       { field: 'scan_type', label: 'Scan Type' },
-      { field: 'started_at', label: 'Started At', render: function(v){ return scanDateDisplay(v); } },
-      { field: 'completed_at', label: 'Completed At', render: function(v){ return scanDateDisplay(v); } },
-      { field: 'status', label: 'Status', render: function(v){ return scanStatusBadge(v); } },
+      { field: 'started_at', label: 'Started At', render: function (v) { return scanDateDisplay(v); } },
+      { field: 'completed_at', label: 'Completed At', render: function (v) { return scanDateDisplay(v); } },
+      { field: 'status', label: 'Status', render: function (v) { return scanStatusBadge(v); } },
       { field: 'assets_found', label: 'Assets Found' },
       { field: 'pqc_score', label: 'PQC Score' },
-      { field: 'risk_level', label: 'Risk Level', render: function(v){ return scanRiskBadge(v); } },
+      { field: 'risk_level', label: 'Risk Level', render: function (v) { return scanRiskBadge(v); } },
       { field: 'actions', label: 'Actions', render: scanActionsCell }
     ],
     getExtraParams: function () {
@@ -680,22 +766,15 @@
     scanSyncOriginalRefresh = scanTableController.refresh;
     scanTableController.refresh = function () {
       setScanApiState('Syncing scan records...');
-      try {
-        const result = scanSyncOriginalRefresh.call(this);
-        if (result && typeof result.then === 'function') {
-          result
-            .then(() => {
-              setScanApiState('Scan records synced successfully.');
-            })
-            .catch(() => {
-              setScanApiState('Scan sync failed. Showing cached data.', true);
-            });
-        }
-        return result;
-      } catch (e) {
-        setScanApiState('Scan sync error.', true);
-        throw e;
+      const result = scanSyncOriginalRefresh.call(this);
+      if (result && typeof result.then === 'function') {
+        result
+          .then(() => setScanApiState('Sync complete.'))
+          .catch(() => setScanApiState('Sync failed.', true));
+      } else {
+        setScanApiState('Sync complete.');
       }
+      return result;
     };
   }
 
@@ -748,9 +827,7 @@
   // Expose renderRiskProfile globally so scans.js can call it after async result loads
   window.renderRiskProfile = renderRiskProfile;
 
-  window.QuantumShieldScans.init({
-    canBulkScan: {{ 'true' if can_bulk_scan else 'false' }}
-  });
+  window.QuantumShieldScans.init(JSON.parse('{{ {"canBulkScan": can_bulk_scan | default(false)} | tojson }}'));
 </script>
 
 <style>
@@ -764,6 +841,7 @@
     border-bottom: 2px solid transparent;
     cursor: pointer;
   }
+
   .scan-tab.scan-tab-active {
     color: var(--accent);
     border-bottom-color: var(--accent);

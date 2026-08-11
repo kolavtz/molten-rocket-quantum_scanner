@@ -522,12 +522,45 @@
 <pre class="code-block" style="height: 250px;">{{ report.cbom | default({}) | tojson(indent=2) }}</pre>
 
 <!-- Action Buttons -->
-<div class="actions-grid">
+<div class="actions-grid" style="grid-template-columns: repeat(5, 1fr);">
+    <button type="button" class="btn-action" style="background: var(--safe); color: #000;" onclick="promoteScanToInventory('{{ scan_id }}')">+ ADD_TO_INVENTORY</button>
     <a href="/cbom/{{ scan_id }}" class="btn-action" style="text-align: center; display: flex; align-items: center; justify-content: center;" download>DOWNLOAD_CBOM_JSON</a>
     <a href="/results/{{ scan_id }}/export_pdf" class="btn-action" style="text-align: center; display: flex; align-items: center; justify-content: center;">DOWNLOAD_PDF_SERVER</a>
     <button class="btn-action btn-outline" onclick="window.print()">GENERATE_PDF_EXP</button>
     <a href="/" class="btn-action btn-outline" style="text-align: center; display: flex; align-items: center; justify-content: center;">NULL_AND_RESET</a>
 </div>
+<div id="promoteNotice" style="display:none; margin-top:1rem; padding:1rem; border-radius:6px; background:rgba(16,185,129,0.15); border:1px solid var(--safe); color:var(--safe); font-size:0.85rem; font-weight:700;"></div>
+<script>
+async function promoteScanToInventory(scanId) {
+    const notice = document.getElementById('promoteNotice');
+    try {
+        if (notice) {
+            notice.style.display = 'block';
+            notice.style.borderColor = 'var(--cyan-accent)';
+            notice.style.color = 'var(--cyan-accent)';
+            notice.textContent = 'Adding asset and scan telemetry to inventory...';
+        }
+        const resp = await fetch('/api/scans/' + encodeURIComponent(scanId) + '/promote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ destination: 'inventory' })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.message || 'Failed to add to inventory.');
+        if (notice) {
+            notice.style.borderColor = 'var(--safe)';
+            notice.style.color = 'var(--safe)';
+            notice.textContent = '✓ Asset successfully saved to inventory! Linked certificates, PQC metrics, and CBOM components are live.';
+        }
+    } catch (err) {
+        if (notice) {
+            notice.style.borderColor = 'var(--danger)';
+            notice.style.color = 'var(--danger)';
+            notice.textContent = '⚠ ' + (err.message || 'Error promoting scan to inventory.');
+        }
+    }
+}
+</script>
 
 {% else %}
 <section style="margin-top: 4rem; text-align: center;">
