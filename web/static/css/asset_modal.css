@@ -28,7 +28,8 @@
 .qs-modal-shell {
     width: 92%;
     max-width: 1280px;
-    height: 90vh;
+    max-height: 88vh;
+    height: auto;
     background: var(--bg-card, #0a0e14);
     border: 1px solid color-mix(in srgb, var(--border-subtle) 60%, transparent);
     border-radius: 20px;
@@ -37,6 +38,7 @@
     flex-direction: column;
     overflow: hidden;
     position: relative;
+    margin: auto;
     transform: translateY(20px);
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -299,4 +301,86 @@
     .qs-map-container {
         height: 180px;
     }
+}
+
+/* Standardized Inventory Edit Modal Overlay & Shell */
+.inv-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(3, 7, 18, 0.88);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    padding: 1.5rem;
+    box-sizing: border-box;
+    transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out;
+}
+
+.inv-modal-overlay.active,
+.inv-modal-overlay.open {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+
+.inv-modal-shell {
+    background: var(--bg-card, #0a0e14);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+    border-radius: 12px;
+    width: 100%;
+    max-width: 580px;
+    max-height: 85vh;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 25px rgba(0, 242, 254, 0.1);
+    transform: scale(0.95);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    margin: auto;
+}
+
+.inv-modal-overlay.active .inv-modal-shell,
+.inv-modal-overlay.open .inv-modal-shell {
+    transform: scale(1);
+}
+
+.inv-modal-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #0a1122;
+    flex-shrink: 0;
+}
+
+.inv-modal-close {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary, #94a3b8);
+    font-size: 1.3rem;
+    cursor: pointer;
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.inv-modal-close:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.inv-modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
 }

@@ -127,17 +127,42 @@
   </form>
 
   {% if vm.is_admin %}
-  <form method="POST" action="/recycle-bin" style="margin-top:0.75rem;" data-api-recycle="scans" data-action="delete_scans">
+  <form method="POST" action="/recycle-bin" style="margin-top:0.75rem;" data-api-recycle="scans" data-action="delete_scans" id="formDestroyScans">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="delete_scans">
     <div style="display:flex;justify-content:flex-end;">
-      <button type="submit" class="button danger sm" onclick="return confirm('Permanently destroy selected deleted scans? This cannot be undone.');">
+      <button type="button" class="button danger sm" onclick="triggerDestroyModal('scans')">
         <i class="fa-solid fa-skull-crossbones"></i> Destroy Selected Permanently
       </button>
     </div>
     <div id="destroyScansMirror" style="display:none;"></div>
   </form>
   {% endif %}
+</div>
+
+<!-- Centralized Viewport Modal for Recycle Bin Confirmation -->
+<div class="modal-backdrop" id="recycleModalBackdrop">
+    <div class="modal-card" id="recycleModalCard">
+        <div class="modal-header">
+            <div class="modal-title-wrap">
+                <div class="modal-icon-badge">⚠️</div>
+                <div>
+                    <div class="modal-title" id="recycleModalTitle">Permanent Purge Confirmation</div>
+                    <div class="modal-subtitle" id="recycleModalSubtitle">Irreversible Database Operation</div>
+                </div>
+            </div>
+            <button class="close-btn" onclick="closeRecycleModal()" aria-label="Close modal">✕</button>
+        </div>
+        <div class="modal-body" id="recycleModalBody">
+            <div style="background:rgba(239,68,68,.1);border:1px solid var(--danger,#ef4444);padding:1rem 1.25rem;border-radius:8px;color:#fca5a5;font-size:.88rem;line-height:1.6;">
+                <strong>Warning:</strong> You are about to permanently purge <strong id="recycleItemCount">0</strong> selected item(s) from the database. This action cannot be undone.
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeRecycleModal()" type="button">CANCEL</button>
+            <button class="btn btn-danger" id="recycleConfirmBtn" type="button">CONFIRM PURGE</button>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -165,9 +190,95 @@
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
   }
+
+  .modal-backdrop {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh;
+      background: rgba(3, 7, 18, .88); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center; z-index: 10000; opacity: 0; pointer-events: none;
+      transition: opacity .25s ease-in-out; padding: 1.5rem; box-sizing: border-box;
+  }
+  .modal-backdrop.active { opacity: 1; pointer-events: auto; }
+  .modal-card {
+      background: var(--bg-card, #0a0e14); border: 1px solid var(--border-subtle, rgba(255,255,255,0.1));
+      border-radius: 12px; width: 100%; max-width: 580px; max-height: 85vh;
+      box-shadow: 0 20px 50px rgba(0,0,0,.7), 0 0 25px rgba(239,68,68,.15);
+      transform: scale(.93); transition: transform .25s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden; display: flex; flex-direction: column; margin: auto;
+  }
+  .modal-backdrop.active .modal-card { transform: scale(1); }
+  .modal-header {
+      padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.1));
+      display: flex; justify-content: space-between; align-items: center; background: #0a1122; flex-shrink: 0;
+  }
+  .modal-title-wrap { display: flex; align-items: center; gap: .75rem; }
+  .modal-icon-badge {
+      width: 40px; height: 40px; border-radius: 8px; background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.3);
+      display: flex; align-items: center; justify-content: center; font-size: 1.15rem; color: var(--danger, #ef4444); flex-shrink: 0;
+  }
+  .modal-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary, #fff); }
+  .modal-subtitle { font-size: .8rem; color: var(--text-muted, #94a3b8); margin-top: .15rem; }
+  .close-btn {
+      background: transparent; border: none; color: var(--text-muted, #94a3b8); font-size: 1.3rem; cursor: pointer;
+      border-radius: 6px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; transition: all .2s;
+  }
+  .close-btn:hover { color: #fff; background: rgba(255,255,255,0.08); }
+  .modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; }
+  .modal-footer {
+      padding: 1rem 1.5rem; border-top: 1px solid var(--border-subtle, rgba(255,255,255,0.1));
+      display: flex; justify-content: flex-end; gap: .75rem; background: #0a1122; flex-shrink: 0;
+  }
+  .btn {
+      padding: .6rem 1.2rem; border-radius: 6px; font-weight: 700; font-size: .85rem; cursor: pointer; border: none;
+      display: inline-flex; align-items: center; gap: .4rem; transition: all .2s;
+  }
+  .btn-secondary { background: transparent; color: var(--text-primary); border: 1px solid var(--border-subtle, rgba(255,255,255,0.2)); }
+  .btn-secondary:hover { background: rgba(255,255,255,0.1); }
+  .btn-danger { background: var(--danger, #ef4444); color: #fff; }
+  .btn-danger:hover { background: #dc2626; box-shadow: 0 0 12px rgba(239,68,68,.4); }
 </style>
 
 <script>
+  let pendingDestroyTarget = null;
+  const recycleBackdrop = document.getElementById('recycleModalBackdrop');
+
+  function triggerDestroyModal(area) {
+    const idsKey = area === 'assets' ? 'asset_ids' : 'scan_ids';
+    const ids = Array.from(document.querySelectorAll(`input[name="${idsKey}"]:checked`)).map(c => c.value);
+    if (!ids.length) {
+      window.alert(`Please select at least one ${area === 'assets' ? 'asset' : 'scan'} to destroy.`);
+      return;
+    }
+    pendingDestroyTarget = area;
+    document.getElementById('recycleItemCount').textContent = ids.length;
+    document.getElementById('recycleModalSubtitle').textContent = `Permanently purging ${ids.length} selected ${area === 'assets' ? 'asset(s)' : 'scan(s)'}`;
+    recycleBackdrop.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeRecycleModal() {
+    recycleBackdrop.classList.remove('active');
+    document.body.style.overflow = '';
+    pendingDestroyTarget = null;
+  }
+
+  document.getElementById('recycleConfirmBtn').addEventListener('click', () => {
+    if (!pendingDestroyTarget) return;
+    const targetArea = pendingDestroyTarget;
+    closeRecycleModal();
+    const formId = targetArea === 'assets' ? 'formDestroyAssets' : 'formDestroyScans';
+    const form = document.getElementById(formId);
+    if (form) {
+      form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    }
+  });
+
+  recycleBackdrop.addEventListener('click', (e) => {
+    if (e.target === recycleBackdrop) closeRecycleModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && recycleBackdrop.classList.contains('active')) closeRecycleModal();
+  });
+
   function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));

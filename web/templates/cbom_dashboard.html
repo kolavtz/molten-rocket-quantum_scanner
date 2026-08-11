@@ -356,35 +356,41 @@ window.openDetail=function(itemJson){
     if(item.cipher_suite){item.cipher_suite.split(/[\s_-]+/).forEach(function(p){if(p.length>2&&algos.indexOf(p)<0)algos.push(p);});}
     if(item.public_key_type&&algos.indexOf(item.public_key_type)<0)algos.push(item.public_key_type);
     var sanHtml='';
-    if(cd.san){var sanArr=Array.isArray(cd.san)?cd.san:[cd.san];sanHtml='<div class="detail-section"><div class="detail-section-title">&#x1F310; Subject Alternative Names</div><div style="font-size:.78rem;color:var(--text-muted);line-height:1.8;">'+sanArr.join(', ')+'</div></div>';}
+    if(cd.san){
+        var sanArr=Array.isArray(cd.san)?cd.san:[cd.san];
+        sanHtml='<div class="detail-section"><div class="detail-section-title"><span>🌐</span> Subject Alternative Names (SAN)</div><div style="font-size:.8rem;color:var(--text-muted);line-height:1.8;font-family:monospace;word-break:break-all;">'+sanArr.join(', ')+'</div></div>';
+    }
     showModal(
         '<div class="modal-header">'+
-        '<div class="modal-title-wrap"><span>&#x1F510;</span>'+
+        '<div class="modal-title-wrap">'+
+        '<div class="modal-icon-badge">🔑</div>'+
         '<div><div class="modal-title">'+(item.asset_name||'Certificate Detail')+'</div>'+
-        '<div class="modal-subtitle">'+(item.subject_cn||item.asset_name||'\u2014')+'</div></div></div>'+
-        '<button class="close-btn" onclick="closeModal()">\u2715</button></div>'+
+        '<div class="modal-subtitle">'+(item.subject_cn||item.asset_name||'\u2014')+'</div></div>'+
+        '</div>'+
+        '<button class="close-btn" onclick="closeModal()" aria-label="Close modal">✕</button>'+
+        '</div>'+
         '<div class="modal-body">'+
-        '<div class="detail-section"><div class="detail-section-title">&#x1F4DC; Certificate Information</div><div class="detail-grid">'+
+        '<div class="detail-section"><div class="detail-section-title"><span>📜</span> Certificate Information</div><div class="detail-grid">'+
         '<div class="detail-field"><label>Subject CN</label><span>'+(item.subject_cn||'\u2014')+'</span></div>'+
         '<div class="detail-field"><label>Issuer / CA</label><span>'+(item.issuer_cn||item.ca||'\u2014')+'</span></div>'+
         '<div class="detail-field"><label>Valid From</label><span>'+fmtDate(item.valid_from)+'</span></div>'+
         '<div class="detail-field"><label>Valid Until</label><span>'+expiryLabel+'</span></div>'+
         '<div class="detail-field"><label>Status</label><span>'+certBadge(item)+'</span></div>'+
-        '<div class="detail-field"><label>SHA256 Fingerprint</label><span style="font-size:.7rem;font-family:monospace;word-break:break-all;">'+(item.fingerprint_sha256||'\u2014')+'</span></div>'+
+        '<div class="detail-field"><label>SHA256 Fingerprint</label><span style="font-size:.72rem;font-family:monospace;word-break:break-all;">'+(item.fingerprint_sha256||'\u2014')+'</span></div>'+
         '<div class="detail-field"><label>First Seen</label><span>'+fmtDate(item.first_seen_at)+'</span></div>'+
         '<div class="detail-field"><label>Last Seen</label><span>'+fmtDate(item.last_seen_at)+'</span></div>'+
         '</div></div>'+
-        '<div class="detail-section"><div class="detail-section-title">&#x1F511; Cryptographic Profile</div><div class="detail-grid">'+
+        '<div class="detail-section"><div class="detail-section-title"><span>🔐</span> Cryptographic & SSL/TLS Profile</div><div class="detail-grid">'+
         '<div class="detail-field"><label>TLS Version</label><span>'+tlsBadge(item.tls_version)+'</span></div>'+
         '<div class="detail-field"><label>Cipher Suite</label><span style="font-size:.78rem;font-family:monospace;">'+(item.cipher_suite||'\u2014')+'</span></div>'+
         '<div class="detail-field"><label>Key Length (bits)</label><span>'+keyBadge(item.key_length)+'</span></div>'+
         '<div class="detail-field"><label>Key Algorithm</label><span>'+(item.public_key_type||'\u2014')+'</span></div>'+
-        '<div class="detail-field"><label>Signature Algorithm</label><span style="font-size:.78rem;">'+(cd.signature_algorithm||item.signature_algorithm||'\u2014')+'</span></div>'+
+        '<div class="detail-field"><label>Signature Algorithm</label><span style="font-size:.78rem;font-family:monospace;">'+(cd.signature_algorithm||item.signature_algorithm||'\u2014')+'</span></div>'+
         '<div class="detail-field"><label>Active / Current</label><span>'+(item.is_current?'<span class="badge badge-active">Active</span>':'<span class="badge badge-medium">Historical</span>')+'</span></div>'+
         '</div></div>'+
-        '<div class="detail-section"><div class="detail-section-title">&#x2699; Detected Algorithms</div>'+
-        '<div style="display:flex;flex-wrap:wrap;gap:.35rem;">'+
-        (algos.length?algos.map(function(a){return '<span class="algo-tag" style="font-size:.75rem;padding:.2rem .6rem;">'+a+'</span>';}).join(''):'<span style="color:var(--text-muted);font-size:.82rem;">No algorithm data</span>')+
+        '<div class="detail-section"><div class="detail-section-title"><span>⚙️</span> Detected Cryptographic Algorithms</div>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:.4rem;">'+
+        (algos.length?algos.map(function(a){return '<span class="algo-tag">'+a+'</span>';}).join(''):'<span style="color:var(--text-muted);font-size:.82rem;">No algorithm telemetry</span>')+
         '</div></div>'+
         sanHtml+
         '</div>'+
