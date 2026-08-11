@@ -468,7 +468,7 @@
                             <th>Registrar</th>
                             <th>Organization</th>
                             <th>Status</th>
-                            <th>Inventory</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="domainsTableBody"></tbody>
@@ -548,7 +548,7 @@
                             <th>Record Type</th>
                             <th>Parent Asset</th>
                             <th>Status</th>
-                            <th>Inventory</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="subdomainsTableBody"></tbody>
@@ -568,14 +568,20 @@
     <!-- Map & Recent Discoveries -->
     <div class="dashboard-grid">
         <div class="glass-card card-padded">
-            <div class="section-title">📍 Discovered IP Geomap</div>
-            <div id="discoveryMap" class="map-container" style="height:320px; min-height:220px;"></div>
-            <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem;">Markers use severity color by discovery status. Popups include OpenStreetMap reverse labels when available.</p>
+            <div style="font-weight:700; font-size:0.95rem; margin-bottom:0.75rem; color:var(--text-primary); display:flex; align-items:center; gap:0.5rem;">
+                <span style="color:var(--pink-accent)">📍</span> Discovered IP Geomap
+            </div>
+            <div id="discoveryMap" style="height:260px; width:100%; border-radius:8px; overflow:hidden; background:#080e1c; border:1px solid var(--border-color);"></div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-top:0.5rem;">
+                Markers colored by discovery status. Popups include IP/ownership details when available.
+            </div>
         </div>
         
         <div class="glass-card card-padded">
-            <div class="section-title">⏱️ Recent Discoveries (7d)</div>
-            <div class="table-scroll" style="max-height:400px;">
+            <div style="font-weight:700; font-size:0.95rem; margin-bottom:0.75rem; color:var(--text-primary); display:flex; align-items:center; gap:0.5rem;">
+                <span style="color:var(--pink-accent)">🌸</span> Recent Discoveries (7d)
+            </div>
+            <div class="table-scroll" style="max-height:260px;">
                 <table>
                     <thead>
                         <tr>
@@ -585,33 +591,35 @@
                             <th>Risk</th>
                         </tr>
                     </thead>
-                    <tbody id="recentDiscoveryBody">
-                        <tr><td colspan="4" class="table-state">Loading recent discoveries…</td></tr>
-                    </tbody>
+                    <tbody id="recentDiscoveryBody"></tbody>
                 </table>
             </div>
         </div>
     </div>
 
     <!-- Relational Intelligence Graph -->
-    <div class="glass-card card-padded">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div class="section-title">🕸️ Relational Intelligence Graph</div>
-            <div class="graph-controls">
-                <button class="btn-small" onclick="zoomGraph(1.15)">Zoom +</button>
-                <button class="btn-small" onclick="zoomGraph(0.85)">Zoom −</button>
-                <button id="graphDirectionBtn" class="btn-small" onclick="toggleGraphDirection()">Direction: LR</button>
-                <button class="btn-small" onclick="resetGraph()">Reset View</button>
+    <div class="glass-card card-padded" style="margin-top:1.25rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">
+            <div style="font-weight:700; font-size:0.95rem; color:var(--text-primary); display:flex; align-items:center; gap:0.5rem;">
+                <span style="color:var(--cyan-accent)">🕸️</span> Relational Intelligence Graph
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+                <button class="btn btn-secondary" onclick="zoomGraph(1.2)" style="padding:0.35rem 0.6rem; font-size:0.7rem;">Zoom +</button>
+                <button class="btn btn-secondary" onclick="zoomGraph(0.8)" style="padding:0.35rem 0.6rem; font-size:0.7rem;">Zoom -</button>
+                <button class="btn btn-secondary" onclick="toggleGraphDirection()" style="padding:0.35rem 0.6rem; font-size:0.7rem;">Direction: LR</button>
+                <button class="btn btn-secondary" onclick="resetGraph()" style="padding:0.35rem 0.6rem; font-size:0.7rem;">Reset View</button>
             </div>
         </div>
-        <div class="graph-legend">
-            <div class="legend-item"><div class="dot" style="background:#00ffcc;"></div> Domain</div>
-            <div class="legend-item"><div class="dot" style="background:#3b82f6;"></div> IP Address</div>
-            <div class="legend-item"><div class="dot" style="background:#f59e0b;"></div> Service/Port</div>
+        <div style="display:flex; gap:1rem; margin-bottom:0.5rem; font-size:0.75rem;">
+            <span><span style="display:inline-block; width:10px; height:10px; background:#00ffcc; border-radius:50%; margin-right:4px;"></span> Domain</span>
+            <span><span style="display:inline-block; width:10px; height:10px; background:#3b82f6; border-radius:50%; margin-right:4px;"></span> IP Address</span>
+            <span><span style="display:inline-block; width:10px; height:10px; background:#f59e0b; border-radius:50%; margin-right:4px;"></span> Service/Cert</span>
         </div>
-        <div id="networkGraph" class="graph-container"></div>
+        <div id="networkGraph" style="height:320px; width:100%; border-radius:8px; background:#040814; border:1px solid var(--border-color);"></div>
     </div>
 </div>
+
+<script type="application/json" id="graphPayload">{{ (vm.graph_payload or {"nodes":[],"edges":[]}) | tojson }}</script>
 
 <!-- Modal Backdrops -->
 <div class="modal-backdrop" id="modal-backdrop">
@@ -624,18 +632,17 @@
 {% block scripts %}
 <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script id="graphPayload" type="application/json">{{ vm.graph_payload|tojson }}</script>
 <script>
-    let network = null;
-    let allNodes = null;
-    let allEdges = null;
     let activeTab = 'domains';
     let currentPage = 1;
     let hasNextPage = false;
     let hasPrevPage = false;
+    let discoveryPollTimer = null;
     let discoveryMap = null;
     let discoveryLayer = null;
-    let discoveryPollTimer = null;
+    let networkGraph = null;
+    let allNodes = null;
+    let allEdges = null;
     let graphDirection = 'LR';
 
     const TAB_META = {
@@ -674,9 +681,14 @@
         return '<span class="status-pill '+(l.toLowerCase()==='confirmed'?'confirmed':'new')+'">'+escapeHtml(l)+'</span>';
     }
 
-    function inventoryActionButton(row, tk) {
-        if(row.promoted||row.asset_id) return '<span class="inventoried-label">&#10004; INVENTORIED</span>';
-        return '<button class="btn-promote js-promote-discovery" data-tab="'+val(tk)+'" data-id="'+val(row.id)+'">+ ADD TO INVENTORY</button>';
+    function actionsCellMarkup(row, tk) {
+        var apiTabMap = { domains: 'domains', ssl: 'ssl', ip: 'ips', software: 'software', subdomains: 'subdomains' };
+        var apiTab = apiTabMap[tk] || tk;
+        var invBtn = (row.promoted||row.asset_id) ? 
+            '<span class="inventoried-label">&#10004; INVENTORIED</span>' : 
+            '<button class="btn-promote js-promote-discovery" data-tab="'+val(apiTab)+'" data-id="'+val(row.id)+'">+ ADD TO INVENTORY</button>';
+        var delBtn = '<button class="btn-delete-discovery js-delete-discovery" data-tab="'+val(apiTab)+'" data-id="'+val(row.id)+'" title="Delete Row" style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.5); color:#ef4444; padding:0.25rem 0.55rem; border-radius:4px; font-size:0.72rem; cursor:pointer; margin-left:0.4rem; transition:all 0.2s;"><i class="fa-solid fa-trash"></i> Delete</button>';
+        return '<div style="display:flex; align-items:center; gap:0.25rem;">' + invBtn + delBtn + '</div>';
     }
 
     function cell(c,s){return s?'<td style="'+s+'">'+c+'</td>':'<td>'+c+'</td>';}
@@ -689,7 +701,7 @@
             +cell(val(row.registrar),'font-size:0.75rem')
             +cell(val(row.org||row.asset_name),'font-size:0.75rem')
             +cell(statusPill(row.status))
-            +cell(inventoryActionButton(row,'domains'))+'</tr>';
+            +cell(actionsCellMarkup(row,'domains'))+'</tr>';
         if (tk === 'ssl') {
             var fp = String(row.identifier||'').trim();
             var fpCell = fp ? '<span style="font-family:monospace;font-size:0.7rem;color:var(--text-muted)">'+escapeHtml(fp.slice(0,22))+'&hellip;</span>' : '';
@@ -699,7 +711,7 @@
                 +cell(val(row.valid_until),'font-size:0.75rem')
                 +cell(val(row.issuer),'font-size:0.75rem')
                 +cell(statusPill(row.status))
-                +cell(inventoryActionButton(row,'ssl'))+'</tr>';
+                +cell(actionsCellMarkup(row,'ssl'))+'</tr>';
         }
         if (tk === 'ip') {
             var asnLabel = row.asn ? '<div style="font-size:0.65rem;color:var(--text-muted)">'+val(row.asn)+'</div>' : '';
@@ -709,7 +721,7 @@
                 +cell(val(row.subnet),'font-size:0.75rem')
                 +cell(val(row.location),'font-size:0.75rem')
                 +cell(statusPill(row.status))
-                +cell(inventoryActionButton(row,'ips'))+'</tr>';
+                +cell(actionsCellMarkup(row,'ips'))+'</tr>';
         }
         if (tk === 'software') return '<tr data-asset-id="'+pid+'">'
             +cell('<b>'+val(row.product||row.identifier)+'</b>')
@@ -717,13 +729,13 @@
             +cell(val(row.category),'font-size:0.75rem')
             +cell(val(row.asset_name),'font-size:0.75rem')
             +cell(statusPill(row.status))
-            +cell(inventoryActionButton(row,'software'))+'</tr>';
+            +cell(actionsCellMarkup(row,'software'))+'</tr>';
         if (tk === 'subdomains') return '<tr>'
             +cell('<b style="color:var(--cyan-accent)">'+val(row.domain_name||row.identifier)+'</b>')
             +cell(val(row.record_type),'font-size:0.75rem')
             +cell(val(row.asset_name),'font-size:0.75rem')
             +cell(statusPill(row.status))
-            +cell(inventoryActionButton(row,'subdomains'))+'</tr>';
+            +cell(actionsCellMarkup(row,'subdomains'))+'</tr>';
         return '<tr><td colspan=6>Unknown tab</td></tr>';
     }
 
@@ -869,6 +881,54 @@
             </div>
         `;
         showModal(content);
+    }
+
+    function openDeleteModal(tab, id, identifier) {
+        const content = `
+            <div class="modal-header">
+                <div class="modal-title" style="color:#ef4444;">Delete Discovery Record</div>
+                <button class="close-btn" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong>${identifier}</strong> from Discovery?</p>
+                <p style="margin-top:0.5rem; font-size:0.85rem; color:var(--text-muted);">This will remove the record from your Asset Discovery page.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal()">CANCEL</button>
+                <button class="btn-primary" id="confirmDeleteBtn" style="background:#ef4444; border-color:#ef4444;">DELETE RECORD</button>
+            </div>
+        `;
+        showModal(content);
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+            deleteDiscovery(tab, id, this);
+        });
+    }
+
+    async function deleteDiscovery(tab, discoveryId, button) {
+        button.disabled = true;
+        button.textContent = 'Deleting...';
+        try {
+            const resp = await fetch('/api/discovery/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken(),
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ tab, discovery_id: discoveryId })
+            });
+            const payload = await resp.json();
+            if (!resp.ok || !payload.success) {
+                throw new Error(payload.message || 'Deletion failed.');
+            }
+            closeModal();
+            loadDiscoveryRows();
+        } catch (err) {
+            button.disabled = false;
+            button.textContent = 'DELETE RECORD';
+            alert(err.message || 'Unable to delete discovery record.');
+        }
     }
 
     async function promoteDiscovery(tab, discoveryId, button) {

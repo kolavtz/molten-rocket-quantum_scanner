@@ -251,6 +251,7 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
             "owner": row.get("owner"),
         }
         for row in rows
+        if str(row.get("name") or "").strip() and str(row.get("name") or "").strip() != "--"
     ]
     return items, total
 

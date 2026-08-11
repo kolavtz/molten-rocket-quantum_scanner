@@ -166,16 +166,18 @@ class TLSAnalyzer:
     # Public API
     # ------------------------------------------------------------------
 
+
     def analyze_endpoint(
-        self, host: str, port: int = 443
+        self, host: str, port: int = 443, server_hostname: Optional[str] = None
     ) -> TLSEndpointResult:
         """Perform full TLS analysis on *host*:*port* with retry logic."""
         result = TLSEndpointResult(host=host, port=port)
+        sni = server_hostname if server_hostname else host
 
         last_exc: Optional[Exception] = None
         for attempt in range(self.MAX_RETRIES):
             try:
-                self._analyze_with_stdlib(result, host, port)
+                self._analyze_with_stdlib(result, host, port, server_hostname=sni)
                 last_exc = None
                 result.retry_count = attempt
                 break
@@ -190,19 +192,17 @@ class TLSAnalyzer:
             result.retry_count = self.MAX_RETRIES
 
         # Augment with SSLyze if available
-        # Note: Enrichment is non-fatal; we preserve core stdlib results even if this fails.
         if HAS_SSLYZE and (result.error is None or "stdlib" not in result.error):
             try:
                 self._augment_with_sslyze(result, host, port)
             except Exception as exc:
-                # Log enrichment failure but don't poison the result if stdlib worked
                 if not result.cipher_suite:
                     result.error = result.error or f"sslyze enrichment failed: {exc}"
 
         # Detect HSTS
         if result.cipher_suite:
             try:
-                result.hsts_enabled, result.hsts_max_age = self._detect_hsts(host, port)
+                result.hsts_enabled, result.hsts_max_age = self._detect_hsts(sni, port)
             except Exception:
                 pass
 
@@ -212,15 +212,11 @@ class TLSAnalyzer:
 
         return result
 
-    def get_supported_protocols(self, host: str, port: int = 443) -> List[str]:
-        """Probe which TLS protocol versions the server supports.
-
-        Includes TLS 1.0 and 1.1 probing (handled gracefully on modern OS
-        builds that disallow initiating these versions).
-        """
+    def get_supported_protocols(self, host: str, port: int = 443, server_hostname: Optional[str] = None) -> List[str]:
+        """Probe which TLS protocol versions the server supports."""
         supported: List[str] = []
+        sni = server_hostname if server_hostname else host
 
-        # TLS 1.2 and 1.3 are reliably probeable on all modern Python SSL builds
         modern_protocols = [
             ("TLSv1.2", ssl.TLSVersion.TLSv1_2),
             ("TLSv1.3", ssl.TLSVersion.TLSv1_3),
@@ -233,31 +229,28 @@ class TLSAnalyzer:
                 ctx.minimum_version = version
                 ctx.maximum_version = version
                 sock = socket.create_connection((host, port), timeout=self.timeout)
-                tls_sock = ctx.wrap_socket(sock, server_hostname=host)
+                tls_sock = ctx.wrap_socket(sock, server_hostname=sni)
                 tls_sock.close()
                 supported.append(name)
             except Exception:
                 pass
 
-        # TLS 1.0 / 1.1 — legacy probe (may be blocked at OS level)
         legacy_protocols = [("TLSv1.0", "TLSv1"), ("TLSv1.1", "TLSv1.1")]
         for name, proto_str in legacy_protocols:
             try:
                 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
-                # Use OP_NO flags to restrict to specific version
                 ctx.options |= ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3
                 if proto_str == "TLSv1":
                     ctx.options |= ssl.OP_NO_TLSv1_1 | ssl.OP_NO_TLSv1_2 | ssl.OP_NO_TLSv1_3
                 else:
                     ctx.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_2 | ssl.OP_NO_TLSv1_3
                 sock = socket.create_connection((host, port), timeout=self.timeout)
-                tls_sock = ctx.wrap_socket(sock, server_hostname=host)
+                tls_sock = ctx.wrap_socket(sock, server_hostname=sni)
                 tls_sock.close()
                 supported.append(name)
             except Exception:
-                # Expected on modern servers/OS; silently ignore
                 pass
 
         return supported
@@ -317,15 +310,16 @@ class TLSAnalyzer:
     # ------------------------------------------------------------------
 
     def _analyze_with_stdlib(
-        self, result: TLSEndpointResult, host: str, port: int
+        self, result: TLSEndpointResult, host: str, port: int, server_hostname: Optional[str] = None
     ) -> None:
         """Populate *result* using Python's built-in ``ssl`` module."""
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
+        sni = server_hostname if server_hostname else host
 
         sock = socket.create_connection((host, port), timeout=self.timeout)
-        tls_sock = ctx.wrap_socket(sock, server_hostname=host)
+        tls_sock = ctx.wrap_socket(sock, server_hostname=sni)
 
         # Cipher info
         cipher_info = tls_sock.cipher()  # (name, version, bits)
@@ -442,6 +436,38 @@ class TLSAnalyzer:
 
                 # Signature algorithm
                 info.signature_algorithm = cert_obj.signature_algorithm_oid._name
+
+                # Validity dates & serial number from x509 certificate object
+                if not info.not_after:
+                    try:
+                        n_after = getattr(cert_obj, "not_valid_after_utc", None) or getattr(cert_obj, "not_valid_after", None)
+                        if n_after:
+                            info.not_after = n_after.strftime("%b %d %H:%M:%S %Y GMT")
+                    except Exception:
+                        pass
+                if not info.not_before:
+                    try:
+                        n_before = getattr(cert_obj, "not_valid_before_utc", None) or getattr(cert_obj, "not_valid_before", None)
+                        if n_before:
+                            info.not_before = n_before.strftime("%b %d %H:%M:%S %Y GMT")
+                    except Exception:
+                        pass
+
+                if info.not_after:
+                    try:
+                        exp_dt = datetime.datetime.strptime(info.not_after, "%b %d %H:%M:%S %Y GMT")
+                        now = datetime.datetime.utcnow()
+                        delta = exp_dt - now
+                        info.days_until_expiry = delta.days
+                        info.is_expired = delta.days < 0
+                    except Exception:
+                        pass
+
+                if not info.serial_number:
+                    try:
+                        info.serial_number = hex(cert_obj.serial_number)[2:].upper()
+                    except Exception:
+                        pass
 
                 # SHA-256 fingerprint
                 import hashlib

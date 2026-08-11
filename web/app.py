@@ -908,16 +908,12 @@ def _parse_cert_datetime(value: str) -> datetime | None:
 
 
 def _days_to_expiry(cert_not_after: str) -> int | None:
-    """Return days until expiry from OpenSSL-style notAfter string."""
-    raw = str(cert_not_after or "").strip()
-    if not raw:
+    """Return days until expiry from OpenSSL-style or ISO datetime string."""
+    dt = _parse_cert_datetime(cert_not_after)
+    if dt is None:
         return None
-    try:
-        exp_dt = datetime.strptime(raw, "%b %d %H:%M:%S %Y %Z")
-        now = datetime.utcnow()
-        return int((exp_dt - now).days)
-    except ValueError:
-        return None
+    now = datetime.utcnow()
+    return int((dt - now).days)
 
 
 def _cert_component(mapping: dict[str, Any] | None, field_name: str) -> str:
@@ -1554,6 +1550,14 @@ def run_scan_pipeline(
     """
     scan_id = uuid.uuid4().hex[:8]
 
+    def _is_ip(v):
+        try:
+            import ipaddress
+            ipaddress.ip_address(str(v or "").strip())
+            return True
+        except Exception:
+            return False
+
     # 1. Service Discovery (broad port sweep)
     scanner = NetworkScanner()
     all_services = scanner.discover_services(target, ports)
@@ -1576,18 +1580,19 @@ def run_scan_pipeline(
     if not tls_endpoints:
         endpoints = scanner.discover_targets(target, ports)
 
+        sni_target = target if not _is_ip(target) else None
         if endpoints:
             # Use endpoints found by discover_targets for full TLS analysis
             analyzer = TLSAnalyzer()
             tls_results = []
             for ep in endpoints:
-                result = analyzer.analyze_endpoint(ep.host, ep.port)
+                result = analyzer.analyze_endpoint(ep.host, ep.port, server_hostname=sni_target)
                 if result.is_successful:
                     tls_results.append(_normalize_tls_result(result.to_dict()))
         else:
             # Last resort: direct TLS analysis on port 443
             analyzer = TLSAnalyzer()
-            tls_result = analyzer.analyze_endpoint(target, 443)
+            tls_result = analyzer.analyze_endpoint(target, 443, server_hostname=sni_target)
             if tls_result.is_successful:
                 tls_results = [_normalize_tls_result(tls_result.to_dict())]
             else:
@@ -1601,10 +1606,11 @@ def run_scan_pipeline(
                 }
     else:
         # 3. TLS Analysis for each TLS endpoint
+        sni_target = target if not _is_ip(target) else None
         analyzer = TLSAnalyzer()
         tls_results = []
         for ep in tls_endpoints:
-            result = analyzer.analyze_endpoint(ep.host, ep.port)
+            result = analyzer.analyze_endpoint(ep.host, ep.port, server_hostname=sni_target)
             if result.is_successful:
                 tls_results.append(_normalize_tls_result(result.to_dict()))
 

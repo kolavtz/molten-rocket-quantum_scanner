@@ -29,3 +29,5 @@ results/
 *.swo
 scripts/reset_admin_creds.py
 scan_results/*
+*.pyc
+*.__pycache__

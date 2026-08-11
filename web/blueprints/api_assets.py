@@ -496,6 +496,54 @@ def promote_discovery_to_asset():
         return api_response(success=False, message=str(e), status_code=500)
 
 
+@api_assets.route("/discovery/delete", methods=["POST", "DELETE"])
+@api_guard
+def delete_discovery_record():
+    """
+    POST/DELETE /api/discovery/delete
+    Body: {"tab": "domains|ssl|ips|software|subdomains", "discovery_id": 123}
+    Soft-deletes the target discovery row from the database.
+    """
+    try:
+        from src.models import DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware, Subdomain
+        db = SessionLocal()
+        payload = request.get_json(silent=True) or request.form or {}
+        tab = payload.get("tab") or "domains"
+        discovery_id = payload.get("discovery_id") or payload.get("id")
+
+        if not discovery_id:
+            db.close()
+            return api_response(success=False, message="discovery_id is required", status_code=400)
+
+        tab_model_map = {
+            "domains": DiscoveryDomain,
+            "ssl": DiscoverySSL,
+            "ips": DiscoveryIP,
+            "software": DiscoverySoftware,
+            "subdomains": Subdomain,
+        }
+        model = tab_model_map.get(tab)
+        if not model:
+            db.close()
+            return api_response(success=False, message=f"Invalid tab: {tab}", status_code=400)
+
+        item = db.query(model).filter(model.id == int(discovery_id)).first()
+        if not item:
+            db.close()
+            return api_response(success=False, message="Discovery item not found", status_code=404)
+
+        if hasattr(item, "is_deleted"):
+            item.is_deleted = True
+        else:
+            db.delete(item)
+
+        db.commit()
+        db.close()
+        return api_response(success=True, message=f"Discovery item {discovery_id} deleted successfully.")
+    except Exception as e:
+        return api_response(success=False, message=str(e), status_code=500)
+
+
 @api_assets.route("/discovery/subdomain-scan", methods=["POST"])
 @api_guard
 def subdomain_scan():
