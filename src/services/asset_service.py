@@ -220,8 +220,23 @@ class AssetService:
 
             if latest_scan:
                 risk_score = float(getattr(latest_scan, "overall_pqc_score", 0) or 0)
+                if not risk_score:
+                    risk_score = float(getattr(latest_scan, "compliance_score", 0) or 0)
+                if not risk_score and latest_scan_report:
+                    overview = latest_scan_report.get("overview") if isinstance(latest_scan_report.get("overview"), dict) else {}
+                    risk_score = float(overview.get("average_compliance_score") or overview.get("risk_score") or 0)
                 if not risk_level:
                     risk_level = self._score_to_risk(risk_score)
+
+            if not risk_score:
+                if risk_level == "Critical":
+                    risk_score = 85.0
+                elif risk_level == "High":
+                    risk_score = 75.0
+                elif risk_level == "Medium":
+                    risk_score = 50.0
+                elif risk_level == "Low":
+                    risk_score = 20.0
 
             if latest_cert:
                 key_length = int(getattr(latest_cert, "key_length", 0) or 0)

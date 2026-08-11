@@ -206,11 +206,6 @@ class DistributionService:
         """
         today = datetime.utcnow()
         
-        # Non-deleted certificates
-        certs = db_session.query(Certificate).filter(
-            Certificate.is_deleted == False
-        ).all()
-        
         buckets = {
             'count_0_to_30_days': 0,
             'count_31_to_60_days': 0,
@@ -220,12 +215,23 @@ class DistributionService:
             'total_active': 0,
             'total_expired': 0,
         }
+
+        counted_targets = set()
+        
+        # 1. Non-deleted certificates table rows
+        certs = db_session.query(Certificate).filter(
+            Certificate.is_deleted == False
+        ).all()
         
         for cert in certs:
             valid_until = getattr(cert, "valid_until", None)
             if valid_until is None:
                 continue
             
+            target = str(getattr(cert, "endpoint", "") or getattr(cert, "subject_cn", "") or "").strip().lower()
+            if target:
+                counted_targets.add(target)
+
             days_remaining = (valid_until - today).days
             
             if days_remaining < 0:
@@ -242,6 +248,83 @@ class DistributionService:
                     buckets['count_61_to_90_days'] += 1
                 else:
                     buckets['count_greater_90_days'] += 1
+
+        # 2. DiscoverySSL table rows for uncounted targets
+        try:
+            discovery_ssl_rows = db_session.query(DiscoverySSL).filter(DiscoverySSL.is_deleted == False).all()
+            for dssl in discovery_ssl_rows:
+                ep = str(getattr(dssl, "endpoint", "") or getattr(dssl, "subject_cn", "") or "").strip().lower()
+                if not ep or ep in counted_targets:
+                    continue
+                valid_until = getattr(dssl, "valid_until", None)
+                if valid_until is None:
+                    continue
+                counted_targets.add(ep)
+                days_remaining = (valid_until - today).days
+                if days_remaining < 0:
+                    buckets['count_expired'] += 1
+                    buckets['total_expired'] += 1
+                else:
+                    buckets['total_active'] += 1
+                    if days_remaining <= 30:
+                        buckets['count_0_to_30_days'] += 1
+                    elif days_remaining <= 60:
+                        buckets['count_31_to_60_days'] += 1
+                    elif days_remaining <= 90:
+                        buckets['count_61_to_90_days'] += 1
+                    else:
+                        buckets['count_greater_90_days'] += 1
+        except Exception:
+            pass
+
+        # 3. Active assets from inventory (Scan report_json fallback for active targets)
+        try:
+            active_assets = db_session.query(Asset).filter(Asset.is_deleted == False).all()
+            for asset in active_assets:
+                target = str(getattr(asset, "target", "") or getattr(asset, "name", "") or "").strip().lower()
+                if not target or target in counted_targets:
+                    continue
+                latest_scan = (
+                    db_session.query(Scan)
+                    .filter(func.lower(Scan.target) == target, Scan.status == "complete", Scan.is_deleted == False)
+                    .order_by(Scan.id.desc())
+                    .first()
+                )
+                if latest_scan and latest_scan.report_json:
+                    try:
+                        rj = json.loads(latest_scan.report_json) if isinstance(latest_scan.report_json, str) else latest_scan.report_json
+                        tls_results = rj.get("tls_results") or []
+                        if isinstance(tls_results, list) and tls_results:
+                            first_tls = tls_results[0]
+                            if isinstance(first_tls, dict):
+                                days = first_tls.get("cert_days_remaining")
+                                valid_until_dt = first_tls.get("valid_until_dt") or first_tls.get("valid_to")
+                                if days is None and valid_until_dt:
+                                    try:
+                                        vdt = datetime.fromisoformat(str(valid_until_dt)[:19])
+                                        days = (vdt - today).days
+                                    except Exception:
+                                        pass
+                                if days is not None:
+                                    counted_targets.add(target)
+                                    days_remaining = int(days)
+                                    if days_remaining < 0:
+                                        buckets['count_expired'] += 1
+                                        buckets['total_expired'] += 1
+                                    else:
+                                        buckets['total_active'] += 1
+                                        if days_remaining <= 30:
+                                            buckets['count_0_to_30_days'] += 1
+                                        elif days_remaining <= 60:
+                                            buckets['count_31_to_60_days'] += 1
+                                        elif days_remaining <= 90:
+                                            buckets['count_61_to_90_days'] += 1
+                                        else:
+                                            buckets['count_greater_90_days'] += 1
+                    except Exception:
+                        pass
+        except Exception:
+            pass
         
         return buckets
 

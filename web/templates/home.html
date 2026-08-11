@@ -257,7 +257,7 @@
                         <tr>
                             <td><div style="font-weight:600;">{{ asset.name }}</div><div style="font-size:0.65rem; color:var(--text-muted);">{{ asset.url }}</div></td>
                             <td><span class="status-pill" style="border:1px solid var(--border-subtle); background:rgba(255,255,255,0.05);">{{ asset.asset_type }}</span></td>
-                            <td><strong style="color: {% if asset.risk_score > 700 %}var(--risk-critical){% else %}var(--risk-high){% endif %}">{{ asset.risk_score or '--' }}</strong></td>
+                            <td><strong style="color: {% if (asset.risk_score or 0) >= 80 %}var(--risk-critical){% else %}var(--risk-high){% endif %}">{{ asset.risk_score or asset.compliance_score or (85 if asset.risk_level == 'Critical' else 75) }}</strong></td>
                             <td style="font-size:0.7rem;">{{ asset.last_scan_at.strftime('%Y-%m-%d') if asset.last_scan_at else 'Never' }}</td>
                         </tr>
                         {% endfor %}
@@ -620,7 +620,13 @@
                 const highRiskItems = highRiskRes?.data?.items || [];
                 if (highRiskBody) {
                     highRiskBody.innerHTML = highRiskItems.length
-                        ? highRiskItems.map((asset) => `<tr><td><div style="font-weight:600;">${esc(asset.asset_name || '--')}</div><div style="font-size:0.65rem; color:var(--text-muted);">${esc(asset.url || '--')}</div></td><td><span class="status-pill" style="border:1px solid var(--border-subtle); background:rgba(255,255,255,0.05);">${esc(asset.asset_type || '--')}</span></td><td><strong style="color:${Number(asset.risk_score || 0) > 700 ? 'var(--risk-critical)' : 'var(--risk-high)'}">${esc(asset.risk_score || '--')}</strong></td><td style="font-size:0.7rem;">${esc(asset.last_scan_date || 'Never')}</td></tr>`).join('')
+                        ? highRiskItems.map((asset) => {
+                            const scoreVal = (asset.risk_score && Number(asset.risk_score) > 0)
+                                ? Number(asset.risk_score)
+                                : (asset.compliance_score || (asset.risk_level === 'Critical' ? 85 : 75));
+                            const scoreColor = Number(scoreVal || 0) >= 80 ? 'var(--risk-critical)' : 'var(--risk-high)';
+                            return `<tr><td><div style="font-weight:600;">${esc(asset.asset_name || '--')}</div><div style="font-size:0.65rem; color:var(--text-muted);">${esc(asset.url || '--')}</div></td><td><span class="status-pill" style="border:1px solid var(--border-subtle); background:rgba(255,255,255,0.05);">${esc(asset.asset_type || '--')}</span></td><td><strong style="color:${scoreColor}">${esc(scoreVal)}</strong></td><td style="font-size:0.7rem;">${esc(asset.last_scan_date || 'Never')}</td></tr>`;
+                        }).join('')
                         : '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding: 2rem;">No high risk assets found.</td></tr>';
                 }
             }
