@@ -31,3 +31,5 @@ scripts/reset_admin_creds.py
 scan_results/*
 *.pyc
 *.__pycache__
+src/scanner/__pycache__/*.pyc
+
