@@ -83,6 +83,46 @@ class CbomService:
         "certificate_extension": "Certificate file extension (for example .crt).",
     }
 
+    @classmethod
+    def _generate_deduplicated_mitigations(cls, domain_entry: Dict[str, Any]) -> List[str]:
+        """
+        Generates a clean, deduplicated list of specific remediation steps for a domain's cryptographic profile.
+        """
+        mitigations = []
+        key_len = domain_entry.get("key_length") or 0
+        tls_ver = str(domain_entry.get("tls_version") or "")
+        cert_status = domain_entry.get("cert_status") or ""
+        cipher = str(domain_entry.get("cipher_suite") or "").upper()
+
+        if key_len > 0 and key_len < 2048:
+            mitigations.append("Upgrade legacy RSA key length (< 2048 bits) to 3072/4096-bit RSA or ECC P-384 / Ed25519 immediately.")
+        elif key_len >= 2048 and key_len < 3072:
+            mitigations.append("Plan migration from RSA-2048 to NIST Post-Quantum Standards (ML-KEM-768 / ML-DSA-65) before 2030 mandate.")
+
+        if any(w in tls_ver for w in ["TLS 1.0", "TLS 1.1", "SSLv3", "SSLv2"]):
+            mitigations.append("Disable deprecated TLS 1.0 and 1.1 protocols across all endpoints; enforce TLS 1.2 minimum and TLS 1.3 preferred.")
+
+        if "Expired" in cert_status:
+            mitigations.append("Renew expired SSL/TLS certificate immediately with a trusted Certificate Authority.")
+        elif "Expiring Soon" in cert_status:
+            mitigations.append("Schedule certificate renewal within the next 30 days to prevent downtime.")
+
+        if "Self-Signed" in cert_status:
+            mitigations.append("Replace self-signed certificate with an enterprise PKI or publicly trusted ACME CA certificate.")
+
+        if any(w in cipher for w in ["CBC", "RC4", "3DES", "MD5", "SHA1"]):
+            mitigations.append("Disable weak cipher suites (CBC, 3DES, RC4) in web server configuration; use AES-GCM / CHACHA20-POLY1305.")
+
+        if not mitigations:
+            mitigations.append("Maintain current cryptographic posture; monitor NIST PQC standards (FIPS 203, 204, 205) for post-quantum readiness.")
+
+        # Deduplicate preserving order
+        deduped = []
+        for m in mitigations:
+            if m not in deduped:
+                deduped.append(m)
+        return deduped
+
     @staticmethod
     def _dn_component(dn_value: str, key: str) -> str:
         raw_dn = str(dn_value or "").strip()
@@ -1197,7 +1237,142 @@ class CbomService:
                     }
                 )
 
-        total_applications = len({int(app.get("asset_id") or 0) for app in applications if int(app.get("asset_id") or 0) > 0})
+        # ── Domain Record Consolidation ───────────────────────────────────────
+        # Group raw application entries by target domain (asset_name) so each domain
+        # address appears as a single consolidated row on the CBOM dashboard.
+        consolidated_map = {}
+        for app in applications:
+            raw_name = str(app.get("asset_name") or app.get("subject_cn") or "Unknown Domain").strip()
+            domain_key = raw_name.lower()
+            if not domain_key:
+                domain_key = "unknown-domain"
+
+            if domain_key not in consolidated_map:
+                asset_id_val = int(app.get("asset_id") or 0)
+                subdomains_list = []
+                if asset_id_val > 0:
+                    try:
+                        from src.services.subdomain_service import SubdomainService
+                        subs = SubdomainService.get_subdomains_for_asset(asset_id_val, include_inventoried=True)
+                        subdomains_list = [
+                            {
+                                "id": s.id,
+                                "subdomain": s.subdomain,
+                                "ip": getattr(s, "ip", None),
+                                "record_type": getattr(s, "record_type", "A"),
+                                "is_inventoried": s.is_inventoried,
+                                "discovered_at": s.discovered_at.isoformat() if getattr(s, "discovered_at", None) else None
+                            }
+                            for s in subs
+                        ]
+                    except Exception:
+                        pass
+
+                consolidated_map[domain_key] = {
+                    "asset_id": asset_id_val,
+                    "asset_name": raw_name,
+                    "subject_cn": app.get("subject_cn") or raw_name,
+                    "serial": app.get("serial") or "",
+                    "key_length": app.get("key_length") or 0,
+                    "public_key_type": app.get("public_key_type") or "Unknown",
+                    "public_key_pem": app.get("public_key_pem") or "",
+                    "cipher_suite": app.get("cipher_suite") or "Unknown",
+                    "ca": app.get("ca") or "Unknown",
+                    "tls_version": app.get("tls_version") or "Unknown",
+                    "valid_from": app.get("valid_from"),
+                    "valid_until": app.get("valid_until"),
+                    "fingerprint_sha256": app.get("fingerprint_sha256") or "",
+                    "cert_status": app.get("cert_status") or "Valid",
+                    "is_current": app.get("is_current", True),
+                    "first_seen_at": app.get("first_seen_at"),
+                    "last_seen_at": app.get("last_seen_at"),
+                    "last_scan": app.get("last_scan"),
+                    "certificate_details": app.get("certificate_details") or {},
+                    "x509_minimum": app.get("x509_minimum") or {},
+                    "all_certificates": [],
+                    "all_endpoints": [],
+                    "all_subdomains": subdomains_list,
+                    "total_subdomains": len(subdomains_list),
+                    "total_certificates": 0,
+                    "total_endpoints": 0,
+                    "mitigations": [],
+                    "_endpoints_set": set(),
+                    "_certs_set": set(),
+                    "_tls_set": set(),
+                    "_cipher_set": set(),
+                    "_key_len_list": []
+                }
+
+            c_entry = consolidated_map[domain_key]
+
+            # Endpoint / IP tracking
+            ep = app.get("endpoint") or raw_name
+            if ep and ep not in c_entry["_endpoints_set"]:
+                c_entry["_endpoints_set"].add(ep)
+                c_entry["all_endpoints"].append({
+                    "endpoint": ep,
+                    "subdomain": app.get("subject_cn") or raw_name,
+                    "tls_version": app.get("tls_version") or "Unknown",
+                    "cipher_suite": app.get("cipher_suite") or "Unknown",
+                    "key_length": app.get("key_length") or 0,
+                    "cert_status": app.get("cert_status") or "Valid"
+                })
+
+            # Certificate tracking
+            fp = app.get("fingerprint_sha256") or app.get("serial") or ""
+            if fp and fp not in c_entry["_certs_set"]:
+                c_entry["_certs_set"].add(fp)
+                c_entry["all_certificates"].append({
+                    "serial": app.get("serial") or "",
+                    "subject_cn": app.get("subject_cn") or "",
+                    "ca": app.get("ca") or "",
+                    "valid_from": app.get("valid_from"),
+                    "valid_until": app.get("valid_until"),
+                    "fingerprint_sha256": fp,
+                    "cert_status": app.get("cert_status") or "Valid"
+                })
+
+            if app.get("tls_version"):
+                c_entry["_tls_set"].add(str(app.get("tls_version")))
+            if app.get("cipher_suite"):
+                c_entry["_cipher_set"].add(str(app.get("cipher_suite")))
+            if app.get("key_length") and int(app.get("key_length")) > 0:
+                c_entry["_key_len_list"].append(int(app.get("key_length")))
+
+            status_order = {"Expired": 4, "Expiring Soon": 3, "Self-Signed": 2, "Valid": 1}
+            cur_rank = status_order.get(c_entry["cert_status"], 0)
+            new_rank = status_order.get(app.get("cert_status"), 0)
+            if new_rank > cur_rank:
+                c_entry["cert_status"] = app.get("cert_status")
+
+        # Finalize consolidated master objects
+        consolidated_applications = []
+        for d_key, c_entry in consolidated_map.items():
+            c_entry["total_endpoints"] = max(1, len(c_entry["all_endpoints"]))
+            c_entry["total_certificates"] = max(1, len(c_entry["all_certificates"]))
+            
+            if c_entry["_key_len_list"]:
+                c_entry["key_length"] = min(c_entry["_key_len_list"])
+            
+            if c_entry["_tls_set"]:
+                c_entry["tls_version"] = ", ".join(sorted(list(c_entry["_tls_set"])))
+            
+            if c_entry["_cipher_set"]:
+                c_entry["cipher_suite"] = list(c_entry["_cipher_set"])[0]
+
+            c_entry["mitigations"] = cls._generate_deduplicated_mitigations(c_entry)
+
+            del c_entry["_endpoints_set"]
+            del c_entry["_certs_set"]
+            del c_entry["_tls_set"]
+            del c_entry["_cipher_set"]
+            del c_entry["_key_len_list"]
+
+            consolidated_applications.append(c_entry)
+
+        applications = consolidated_applications
+
+        total_applications = len(applications)
         if total_applications <= 0:
             total_applications = int(cert_query.with_entities(func.count(distinct(Certificate.asset_id))).scalar() or 0)
 
@@ -1232,11 +1407,11 @@ class CbomService:
             "applications": applications,
             "page_data": {
                 "items": applications,
-                "total_count": total_count,
+                "total_count": len(applications),
                 "page": page,
                 "page_size": page_size,
-                "total_pages": total_pages,
-                "has_next": page < total_pages,
+                "total_pages": max(1, (len(applications) + page_size - 1) // page_size),
+                "has_next": False,
                 "has_prev": page > 1,
             },
             "minimum_elements": cls._build_minimum_elements_payload(

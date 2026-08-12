@@ -17,6 +17,7 @@ from src import database as db
 from src.db import db_session
 from src.models import Asset, Certificate, Scan
 from src.services.inventory_scan_service import run_scan_pipeline as run_scan_pipeline_service
+from src.services.subdomain_service import SubdomainService
 
 scans_bp = Blueprint("scans", __name__)
 
@@ -888,8 +889,8 @@ def _process_job(
                     add_to_inventory=bool(job_options.get("add_to_inventory")),
                     owner=(str(job_options.get("owner") or "").strip() or None),
                     risk_level=(str(job_options.get("risk_level") or "").strip() or None),
-                    notes=(str(job_options.get("notes") or "").strip() or None),
-                    asset_type=(str(job_options.get("asset_type") or "").strip() or None),
+                    notes=(str(job.options.get("notes") or "").strip() or None),
+                    asset_type=(str(job.options.get("asset_type") or "").strip() or None),
                     scan_pk=(report.get("db_scan_id") or None),
                 )
 
@@ -901,7 +902,7 @@ def _process_job(
                     statuses[tracking_scan_id] = {
                         "scan_id": tracking_scan_id,
                         "target": clean_target,
-                        "scan_type": _normalize_scan_type(job_options.get("scan_type") or ("api_bulk" if len(target_entries) > 1 else "api_single")),
+                        "scan_type": _normalize_scan_type(job.options.get("scan_type") or ("api_bulk" if len(target_entries) > 1 else "api_single")),
                         "status": "completed",
                         "assets_found": int(report.get("total_assets") or len(report.get("discovered_services") or [])),
                         "pqc_score": float((report.get("overview") or {}).get("average_compliance_score") or report.get("overall_pqc_score") or 0),
@@ -923,7 +924,7 @@ def _process_job(
                     statuses[tracking_scan_id] = {
                         "scan_id": tracking_scan_id,
                         "target": target,
-                        "scan_type": _normalize_scan_type(job_options.get("scan_type") or ("api_bulk" if len(target_entries) > 1 else "api_single")),
+                        "scan_type": _normalize_scan_type(job.options.get("scan_type") or ("api_bulk" if len(target_entries) > 1 else "api_single")),
                         "status": "failed",
                         "error": str(exc),
                         "started_at": str(running_job.get("started_at") or ""),
@@ -1202,6 +1203,32 @@ def api_scan_single():
         legacy={"status": "accepted", "scan_id": scan_id, "job_id": job["job_id"]},
         status_code=202,
     )
+
+
+@scans_bp.route('/api/scans/subdomains', methods=['POST'])
+@login_required
+def trigger_subdomain_scan():
+    if not _can_scan():
+        return _api_error("Insufficient role for scan execution.", code="forbidden", status_code=403)
+
+    payload = request.get_json(silent=True) or {}
+    domain = str(payload.get('domain') or "").strip()
+
+    if not domain:
+        return _api_error("Missing 'domain'.", code="validation_error", status_code=400)
+
+    try:
+        results = SubdomainService.run_domain_discovery(domain)
+        return _api_success({
+            "domain": domain,
+            "subdomains_found": results.get("targets_found", 0),
+            "subdomains": results.get("targets", []),
+            "raw_results": results.get("raw_results", [])
+        })
+    except FileNotFoundError as e:
+        return _api_error(str(e), code="subfinder_not_found", status_code=500)
+    except Exception as e:
+        return _api_error(f"Subdomain scan failed: {str(e)}", code="scan_error", status_code=500)
 
 
 @scans_bp.route("/api/scans/bulk", methods=["POST"])
@@ -1714,3 +1741,4 @@ def delete_scan_schedule(schedule_id: str):
         return jsonify({"status": "deleted", "message": "Schedule deleted successfully."}), 200
 
     return jsonify({"status": "error", "message": "Schedule not found."}), 404
+

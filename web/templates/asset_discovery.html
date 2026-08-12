@@ -791,7 +791,8 @@
         var apiTab = apiTabMap[tk] || tk;
         var safeId = val(row.id);
         var safeIdent = escapeHtml(identifier || row.name || 'Record');
-        var invBtn = (row.promoted||row.asset_id) ? 
+        var isInv = Boolean(row.promoted || (tk === 'subdomains' ? row.is_inventoried : row.asset_id));
+        var invBtn = isInv ? 
             '<span class="inventoried-label">&#10004; INVENTORIED</span>' : 
             '<button class="btn-promote js-promote-discovery" data-tab="'+val(apiTab)+'" data-id="'+safeId+'" data-identifier="'+safeIdent+'">+ ADD TO INVENTORY</button>';
         var delBtn = '<button class="btn-delete-discovery js-delete-discovery" data-tab="'+val(apiTab)+'" data-id="'+safeId+'" data-identifier="'+safeIdent+'" title="Delete Row" style="background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.6); color:#fca5a5; padding:0.3rem 0.65rem; border-radius:4px; font-size:0.75rem; font-weight:700; cursor:pointer; margin-left:0.4rem; transition:all 0.2s;"><i class="fa-solid fa-trash"></i> DELETE</button>';
@@ -1193,20 +1194,31 @@
                 const lon = Number(item.lon || 0);
                 if (!lat || !lon) return;
                 const markerColor = markerColorByStatus(item.status);
-                const reverseLabel = String(item.reverse_location || '').trim();
-                const fallbackLocation = [String(item.city || '').trim(), String(item.country || '').trim()].filter(Boolean).join(', ');
-                const locationLabel = reverseLabel || fallbackLocation || 'Unknown location';
+                const targetName = String(item.target || item.ip || 'Unknown Target').trim();
+                const resolvedIp = String(item.ip || '').trim();
+                const itemType = String(item.type || 'Target').trim();
+                const locationLabel = [String(item.city || '').trim(), String(item.country || '').trim()].filter(Boolean).join(', ') || 'Unknown location';
+                
                 const marker = L.circleMarker([lat, lon], {
-                    radius: 6,
+                    radius: 7,
                     color: markerColor,
                     fillColor: markerColor,
-                    fillOpacity: 0.8,
-                    weight: 1.25
+                    fillOpacity: 0.85,
+                    weight: 1.5
                 });
+
+                const ipLine = (resolvedIp && resolvedIp !== targetName) ? `<div style="font-size:0.75rem; color:#94a3b8; margin-top:2px;"><i class="fa-solid fa-network-wired"></i> IP: <span style="font-family:monospace; color:#38bdf8;">${escapeHtml(resolvedIp)}</span></div>` : '';
+
                 marker.bindPopup(
-                    `<strong>${escapeHtml(item.ip || 'Unknown IP')}</strong>` +
-                    `<br><span style="color:var(--text-secondary)">${escapeHtml(locationLabel)}</span>` +
-                    `<br><span style="font-size:0.72rem; color:var(--text-muted)">Status: ${escapeHtml(item.status || 'new')}</span>`
+                    `<div style="font-family:system-ui, -apple-system, sans-serif; padding:4px; min-width:160px;">` +
+                    `<div style="font-weight:700; color:#00f2fe; font-size:0.88rem; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:3px; margin-bottom:4px;">${escapeHtml(targetName)}</div>` +
+                    `${ipLine}` +
+                    `<div style="font-size:0.75rem; color:#cbd5e1; margin-top:3px;"><i class="fa-solid fa-location-dot" style="color:#f59e0b;"></i> ${escapeHtml(locationLabel)}</div>` +
+                    `<div style="font-size:0.7rem; margin-top:4px; color:#94a3b8; display:flex; justify-content:space-between; align-items:center;">` +
+                    `<span style="background:rgba(255,255,255,0.1); padding:1px 5px; border-radius:3px; font-weight:600;">${escapeHtml(itemType)}</span>` +
+                    `<span style="color:${markerColor}; font-weight:700; text-transform:uppercase;">${escapeHtml(item.status || 'new')}</span>` +
+                    `</div>` +
+                    `</div>`
                 );
                 marker.addTo(discoveryLayer);
                 bounds.push([lat, lon]);

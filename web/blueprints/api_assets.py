@@ -235,9 +235,11 @@ def get_discovery():
                 "asset_name": asset_name,
                 "asset_risk_level": asset_risk_level,
                 "risk_score": _risk_score_from_level(asset_risk_level),
-                "scan_id": item.scan_id,
-                "asset_id": item.asset_id,
-                "promoted": getattr(item, "promoted_to_inventory", False) or getattr(item, "is_inventoried", False)
+                "scan_id": getattr(item, "scan_id", None),
+                "asset_id": getattr(item, "asset_id", None) if not isinstance(item, Subdomain) else None,
+                "is_inventoried": bool(getattr(item, "is_inventoried", False)),
+                "promoted": bool(getattr(item, "promoted_to_inventory", False) or getattr(item, "is_inventoried", False)),
+                "record_type": getattr(item, "record_type", "A"),
             }
 
             if isinstance(item, DiscoveryDomain):

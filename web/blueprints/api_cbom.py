@@ -325,14 +325,15 @@ def get_minimum_elements():
 @login_required
 def export_cbom():
     """
-    GET /api/cbom/export
-    Downloads full CBOM JSON payload as attachment.
-    Bug fix: page_size was max(page_size, 250) which allowed > 250; now capped at min(..., 250).
+    GET /api/cbom/export?format=cyclonedx|pdf|json
+    Downloads CBOM export payload as attachment in specified format.
     """
     cid = str(uuid.uuid4())
     try:
+        from src.services.cbom_export_service import CbomExportService
+
+        fmt = (request.args.get("format") or request.args.get("fmt") or "json").strip().lower()
         raw_page_size = _parse_int(request.args.get("page_size"), 100)
-        # Bug fix: was max(raw_page_size, 250) — allows unbounded. Now capped at 250.
         page_size = min(max(raw_page_size, 10), 250)
         search = (request.args.get("search") or request.args.get("q") or "").strip()
         asset_id = request.args.get("asset_id", type=int)
@@ -341,31 +342,45 @@ def export_cbom():
             asset_id=asset_id, page=1, page_size=page_size, search_term=search
         )
 
-        payload = {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "correlation_id": cid,
-            "kpis": cbom_data.get("kpis", {}),
-            "entries": cbom_data.get("applications", []),
-            "charts": {
-                "key_length_distribution": cbom_data.get("key_length_distribution", {}),
-                "cipher_suite_usage": cbom_data.get("cipher_usage", {}),
-                "protocol_versions": cbom_data.get("protocol_distribution", {}),
-                "top_cas": cbom_data.get("ca_distribution", {}),
-            },
-            "minimum_elements": cbom_data.get("minimum_elements", {}),
-        }
+        ts_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        resp = Response(
-            json.dumps(payload, default=str, indent=2),
-            mimetype="application/json",
-        )
-        resp.headers["Content-Disposition"] = (
-            f'attachment; filename="cbom_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json"'
-        )
-        return resp, 200
+        if fmt == "cyclonedx":
+            cyclonedx_json = CbomExportService.generate_cyclonedx_json(cbom_data)
+            resp = Response(cyclonedx_json, mimetype="application/json")
+            resp.headers["Content-Disposition"] = f'attachment; filename="cyclonedx_cbom_{ts_str}.json"'
+            return resp, 200
+
+        elif fmt == "pdf":
+            pdf_buffer = CbomExportService.generate_visual_pdf(cbom_data)
+            resp = Response(pdf_buffer.getvalue(), mimetype="application/pdf")
+            resp.headers["Content-Disposition"] = f'attachment; filename="cbom_report_{ts_str}.pdf"'
+            return resp, 200
+
+        else:
+            payload = {
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "correlation_id": cid,
+                "kpis": cbom_data.get("kpis", {}),
+                "entries": cbom_data.get("applications", []),
+                "charts": {
+                    "key_length_distribution": cbom_data.get("key_length_distribution", {}),
+                    "cipher_suite_usage": cbom_data.get("cipher_usage", {}),
+                    "protocol_versions": cbom_data.get("protocol_distribution", {}),
+                    "top_cas": cbom_data.get("ca_distribution", {}),
+                },
+                "minimum_elements": cbom_data.get("minimum_elements", {}),
+            }
+
+            resp = Response(
+                json.dumps(payload, default=str, indent=2),
+                mimetype="application/json",
+            )
+            resp.headers["Content-Disposition"] = f'attachment; filename="cbom_export_{ts_str}.json"'
+            return resp, 200
 
     except Exception as exc:
         return _envelope(success=False, errors=[str(exc)], correlation_id=cid, status=500)
+
 
 
 # ─── /api/cbom/summary ───────────────────────────────────────────────────────

@@ -178,32 +178,44 @@ tr:hover td{background:var(--bg-card-hover);}
             </div>
             <div style="align-self:flex-end;display:flex;gap:.5rem;">
                 <button class="btn btn-secondary" onclick="resetFilters()">RESET</button>
-                <button class="btn-action" onclick="exportCBOM()" style="color:var(--cyan-accent);border-color:var(--cyan-accent);">&#x2B07; EXPORT</button>
+                <div style="position:relative;display:inline-block;">
+                    <button class="btn-action" onclick="toggleExportMenu()" style="color:var(--cyan-accent);border-color:var(--cyan-accent);">&#x2B07; EXPORT &#x25BE;</button>
+                    <div id="exportMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:.3rem;background:#0d1527;border:1px solid var(--border-color);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.6);z-index:99;min-width:180px;overflow:hidden;">
+                        <button onclick="exportCBOM('cyclonedx')" style="width:100%;text-align:left;padding:.6rem 1rem;background:transparent;border:none;color:var(--text-primary);font-size:.8rem;cursor:pointer;display:flex;align-items:center;gap:.5rem;" onmouseover="this.style.background='#131f38'" onmouseout="this.style.background='transparent'">
+                            <span>⚡</span> CycloneDX (JSON)
+                        </button>
+                        <button onclick="exportCBOM('pdf')" style="width:100%;text-align:left;padding:.6rem 1rem;background:transparent;border:none;color:var(--text-primary);font-size:.8rem;cursor:pointer;display:flex;align-items:center;gap:.5rem;" onmouseover="this.style.background='#131f38'" onmouseout="this.style.background='transparent'">
+                            <span>📄</span> Visual PDF Report
+                        </button>
+                        <button onclick="exportCBOM('json')" style="width:100%;text-align:left;padding:.6rem 1rem;background:transparent;border:none;color:var(--text-primary);font-size:.8rem;cursor:pointer;display:flex;align-items:center;gap:.5rem;" onmouseover="this.style.background='#131f38'" onmouseout="this.style.background='transparent'">
+                            <span>📦</span> Standard JSON
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <div class="section-hdr">
-        <div class="count-info">Showing <strong id="showCount">0</strong> of <strong id="totalCount">0</strong> entries</div>
+        <div class="count-info">Showing <strong id="showCount">0</strong> of <strong id="totalCount">0</strong> consolidated domain records</div>
     </div>
     <div class="table-container">
         <table>
             <thead>
                 <tr>
-                    <th onclick="sortBy('asset_name')">Asset / Domain &#x2195;</th>
-                    <th onclick="sortBy('tls_version')">TLS Version &#x2195;</th>
+                    <th onclick="sortBy('asset_name')">Domain Address &#x2195;</th>
+                    <th onclick="sortBy('tls_version')">TLS Protocols &#x2195;</th>
                     <th>Cipher Suite</th>
-                    <th onclick="sortBy('key_length')">Key Length &#x2195;</th>
-                    <th>Key Type</th>
+                    <th onclick="sortBy('key_length')">Min Key Bit &#x2195;</th>
                     <th>Cert Status</th>
+                    <th>Endpoints / IPs</th>
+                    <th>Subdomains</th>
                     <th onclick="sortBy('valid_until')">Expires &#x2195;</th>
-                    <th>Issuer / CA</th>
-                    <th>Algorithms</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="cbomTbody">
-                <tr><td colspan="10"><div class="inv-empty"><p>Loading CBOM data&hellip;</p></div></td></tr>
+                <tr><td colspan="9"><div class="inv-empty"><p>Loading CBOM data&hellip;</p></div></td></tr>
             </tbody>
         </table>
         <div class="pagination-bar">
@@ -230,10 +242,11 @@ function fmtDate(v){
     try{return new Date(v).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});}catch(e){return v;}
 }
 function certBadge(item){
-    if(!item.valid_until)return '<span class="badge badge-medium">Unknown</span>';
-    var days=Math.floor((new Date(item.valid_until)-Date.now())/86400000);
-    if(days<0)return '<span class="badge badge-expired">Expired</span>';
-    if(days<30)return '<span class="badge badge-expiring">Expiring '+days+'d</span>';
+    var status = typeof item === 'string' ? item : (item.cert_status || '');
+    if(!status || status === 'Unknown') return '<span class="badge badge-medium">Unknown</span>';
+    if(status === 'Expired') return '<span class="badge badge-expired">Expired</span>';
+    if(status === 'Expiring Soon') return '<span class="badge badge-expiring">Expiring Soon</span>';
+    if(status === 'Self-Signed') return '<span class="badge badge-medium">Self-Signed</span>';
     return '<span class="badge badge-active">Valid</span>';
 }
 function keyBadge(kl){
@@ -245,12 +258,6 @@ function tlsBadge(tls){
     if(['TLS 1.0','TLS 1.1','SSLv3','SSLv2'].indexOf(tls)>=0)return '<span class="badge badge-critical">'+tls+'</span>';
     if(tls==='TLS 1.2')return '<span class="badge badge-medium">'+tls+'</span>';
     return '<span class="badge badge-active">'+tls+'</span>';
-}
-function algoTags(item){
-    var algos=[];
-    if(item.cipher_suite){item.cipher_suite.split(/[\s_-]+/).forEach(function(p){if(p.length>2&&algos.indexOf(p)<0)algos.push(p);});}
-    if(item.public_key_type&&algos.indexOf(item.public_key_type)<0)algos.push(item.public_key_type);
-    return algos.slice(0,3).map(function(a){return '<span class="algo-tag">'+a+'</span>';}).join('')||'\u2014';
 }
 function toast(msg,type){
     var el=document.getElementById('invToast');
@@ -328,30 +335,30 @@ async function load(){
         render(items);
         renderPagination();
     }catch(e){
-        document.getElementById('cbomTbody').innerHTML='<tr><td colspan="10"><div class="inv-empty"><p style="color:#ef4444;">Error: '+e.message+'</p></div></td></tr>';
+        document.getElementById('cbomTbody').innerHTML='<tr><td colspan="9"><div class="inv-empty"><p style="color:#ef4444;">Error: '+e.message+'</p></div></td></tr>';
     }
 }
 function render(items){
     document.getElementById('showCount').textContent=items.length;
     document.getElementById('totalCount').textContent=S.total;
     var tbody=document.getElementById('cbomTbody');
-    if(!items.length){tbody.innerHTML='<tr><td colspan="10"><div class="inv-empty"><p>No CBOM entries found. Run a scan to populate data.</p></div></td></tr>';return;}
+    if(!items.length){tbody.innerHTML='<tr><td colspan="9"><div class="inv-empty"><p>No consolidated domain CBOM entries found. Run a scan to populate data.</p></div></td></tr>';return;}
     tbody.innerHTML=items.map(function(item){
         var enc=encodeURIComponent(JSON.stringify(item));
         var name=(item.asset_name||'\u2014');
-        var sub=(item.subject_cn||'');
         var cipher=(item.cipher_suite||'\u2014');
-        var issuer=(item.issuer_cn||item.ca||'\u2014');
+        var endpointsCnt = item.total_endpoints || (item.all_endpoints ? item.all_endpoints.length : 1);
+        var subdomainsCnt = item.total_subdomains || (item.all_subdomains ? item.all_subdomains.length : 0);
+
         return '<tr>'+
-            '<td style="font-weight:700;color:var(--cyan-accent);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+name+'<br><small style="color:var(--text-muted);font-weight:400;font-size:.72rem;">'+sub+'</small></td>'+
+            '<td style="font-weight:700;color:var(--cyan-accent);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+name+'</td>'+
             '<td>'+tlsBadge(item.tls_version)+'</td>'+
             '<td style="font-size:.75rem;color:var(--text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+cipher+'</td>'+
             '<td>'+keyBadge(item.key_length)+'</td>'+
-            '<td><span class="badge badge-medium" style="font-size:.65rem;">'+(item.public_key_type||'\u2014')+'</span></td>'+
             '<td>'+certBadge(item)+'</td>'+
+            '<td><span class="badge badge-medium" style="font-size:.7rem;">'+endpointsCnt+' IP(s)</span></td>'+
+            '<td><span class="badge badge-ok" style="font-size:.7rem;">'+subdomainsCnt+' Sub(s)</span></td>'+
             '<td style="font-size:.8rem;white-space:nowrap;">'+fmtDate(item.valid_until)+'</td>'+
-            '<td style="font-size:.78rem;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+issuer+'</td>'+
-            '<td>'+algoTags(item)+'</td>'+
             '<td><button class="btn-action" data-item="'+enc+'" onclick="openDetail(decodeURIComponent(this.dataset.item))">&#x1F50D; Details</button></td>'+
         '</tr>';
     }).join('');
@@ -362,104 +369,119 @@ window.openDetail=function(itemJson){
     var cd=item.certificate_details||{};
     var validDays=item.valid_until?Math.floor((new Date(item.valid_until)-Date.now())/86400000):null;
     var expiryLabel=fmtDate(item.valid_until)+(validDays!==null?' <small style="color:'+(validDays<30?'#ef4444':'#64748b')+'">('+validDays+'d)</small>':'');
-    var algos=[];
-    if(item.cipher_suite){item.cipher_suite.split(/[\s_-]+/).forEach(function(p){if(p.length>2&&algos.indexOf(p)<0)algos.push(p);});}
-    if(item.public_key_type&&algos.indexOf(item.public_key_type)<0)algos.push(item.public_key_type);
-    var sanHtml='';
-    if(cd.san){
-        var sanArr=Array.isArray(cd.san)?cd.san:[cd.san];
-        sanHtml='<div class="detail-section"><div class="detail-section-title"><span>🌐</span> Subject Alternative Names (SAN)</div><div style="font-size:.8rem;color:var(--text-muted);line-height:1.8;font-family:monospace;word-break:break-all;">'+sanArr.join(', ')+'</div></div>';
-    }
-
+    
     var keyLen=parseInt(item.key_length||0);
-    var isWeak=(keyLen>0&&keyLen<2048)||(item.tls_version==='TLS 1.0'||item.tls_version==='TLS 1.1');
-    var targetName=(item.asset_name||item.subject_cn||'UNKNOWN_ASSET').toUpperCase();
+    var isWeak=(keyLen>0&&keyLen<2048)||(item.tls_version&&item.tls_version.indexOf('TLS 1.0')>=0)||(item.tls_version&&item.tls_version.indexOf('TLS 1.1')>=0);
+    var targetName=(item.asset_name||item.subject_cn||'UNKNOWN_DOMAIN').toUpperCase();
+
+    var endpoints = item.all_endpoints || [];
+    var subdomains = item.all_subdomains || [];
+    var certs = item.all_certificates || [];
+    var mitigations = item.mitigations || [];
+
+    // Deduplicate mitigations safeguard
+    var uniqueMitigations = [];
+    mitigations.forEach(function(m){ if(uniqueMitigations.indexOf(m)<0) uniqueMitigations.push(m); });
 
     var threatBanner=isWeak?
         '<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:1rem 1.25rem;margin-bottom:1.25rem;">'+
         '<div style="color:#ef4444;font-weight:900;font-size:.9rem;letter-spacing:.5px;font-family:monospace;margin-bottom:.4rem;">CRITICAL_THREAT: HARVEST NOW, DECRYPT LATER (HNDL)</div>'+
-        '<div style="font-size:.82rem;color:#cbd5e1;line-height:1.5;margin-bottom:.6rem;">1 endpoint utilizing quantum-vulnerable cryptography. Data intercepted today is subject to decryption upon availability of CRQCs (est. 2029-2035). SYSTEMIC RISK: PII / AUTH_TOKENS / TRANSACTION_DATA.</div>'+
-        '<div style="display:flex;gap:1rem;font-size:.72rem;color:#ef4444;font-family:monospace;flex-wrap:wrap;">'+
-        '<span>[ WINDOW ]: 5-10 YEAR DATA PERSISTENCE</span>'+
-        '<span>[ PRIORITY ]: IMMEDIATE_MIGRATION_REQUIRED</span>'+
-        '<span>[ MANDATE ]: NIST PQC COMPLIANCE BY 2030</span>'+
-        '</div>'+
+        '<div style="font-size:.82rem;color:#cbd5e1;line-height:1.5;margin-bottom:.6rem;">Domain utilizes quantum-vulnerable cryptography. Data intercepted today is subject to decryption upon availability of CRQCs (est. 2029-2035).</div>'+
         '</div>':
         '<div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);border-radius:8px;padding:1rem 1.25rem;margin-bottom:1.25rem;">'+
         '<div style="color:#10b981;font-weight:900;font-size:.9rem;letter-spacing:.5px;font-family:monospace;margin-bottom:.4rem;">SECURITY_POSTURE: CRYPTOGRAPHIC TELEMETRY VALIDATED</div>'+
-        '<div style="font-size:.82rem;color:#cbd5e1;line-height:1.5;">Active certificate telemetry monitored. Key length meets NIST standards with valid TLS protocol negotiation.</div>'+
+        '<div style="font-size:.82rem;color:#cbd5e1;line-height:1.5;">Domain cryptography validated. Key length meets NIST standards with valid TLS protocol negotiation.</div>'+
         '</div>';
 
-    var kpiGrid=
-        '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:.75rem;margin-bottom:1.25rem;">'+
-        '<div class="glass-card" style="background:rgba(15,23,42,.6);border:1px solid var(--border-color);border-radius:8px;padding:.85rem;text-align:center;">'+
-        '<div style="font-size:1.4rem;font-weight:800;font-family:monospace;color:#fff;">1</div>'+
-        '<div style="font-size:.65rem;color:var(--text-muted);font-weight:700;letter-spacing:.5px;margin-top:.2rem;">CRYPTO_ASSETS</div>'+
-        '</div>'+
-        '<div class="glass-card" style="background:rgba(15,23,42,.6);border:1px solid var(--border-color);border-top:3px solid '+(isWeak?'#ef4444':'#10b981')+';border-radius:8px;padding:.85rem;text-align:center;">'+
-        '<div style="font-size:1.4rem;font-weight:800;font-family:monospace;color:'+(isWeak?'#ef4444':'#10b981')+';">'+(isWeak?'0':'1')+'</div>'+
-        '<div style="font-size:.65rem;color:var(--text-muted);font-weight:700;letter-spacing:.5px;margin-top:.2rem;">PQC_SAFE</div>'+
-        '</div>'+
-        '<div class="glass-card" style="background:rgba(15,23,42,.6);border:1px solid var(--border-color);border-top:3px solid '+(isWeak?'#ef4444':'#10b981')+';border-radius:8px;padding:.85rem;text-align:center;">'+
-        '<div style="font-size:1.4rem;font-weight:800;font-family:monospace;color:'+(isWeak?'#ef4444':'#10b981')+';">'+(isWeak?'1':'0')+'</div>'+
-        '<div style="font-size:.65rem;color:var(--text-muted);font-weight:700;letter-spacing:.5px;margin-top:.2rem;">VULNERABLE</div>'+
-        '</div>'+
-        '<div class="glass-card" style="background:rgba(15,23,42,.6);border:1px solid var(--border-color);border-radius:8px;padding:.85rem;text-align:center;">'+
-        '<div style="font-size:1.4rem;font-weight:800;font-family:monospace;color:'+(isWeak?'#ef4444':'#10b981')+';">'+(isWeak?'33%':'100%')+'</div>'+
-        '<div style="font-size:.65rem;color:var(--text-muted);font-weight:700;letter-spacing:.5px;margin-top:.2rem;">COMPLIANCE</div>'+
-        '</div>'+
-        '<div class="glass-card" style="background:rgba(15,23,42,.6);border:1px solid var(--border-color);border-radius:8px;padding:.85rem;text-align:center;">'+
-        '<div style="font-size:1.4rem;font-weight:800;font-family:monospace;color:#fff;">'+(item.key_length||2048)+'</div>'+
-        '<div style="font-size:.65rem;color:var(--text-muted);font-weight:700;letter-spacing:.5px;margin-top:.2rem;">KEY_BITS</div>'+
-        '</div>'+
-        '<div class="glass-card" style="background:rgba(15,23,42,.6);border:1px solid var(--border-color);border-radius:8px;padding:.85rem;text-align:center;">'+
-        '<div style="font-size:1.4rem;font-weight:800;font-family:monospace;color:#fff;">'+(algos.length||4)+'</div>'+
-        '<div style="font-size:.65rem;color:var(--text-muted);font-weight:700;letter-spacing:.5px;margin-top:.2rem;">CBOM_COMPONENTS</div>'+
-        '</div>'+
+    // Endpoints & Encryption mapping table HTML
+    var epRowsHtml = endpoints.length ? endpoints.map(function(ep){
+        return '<tr>'+
+            '<td style="font-family:monospace;font-weight:700;color:var(--cyan-accent);">'+(ep.endpoint||'\u2014')+'</td>'+
+            '<td style="font-size:.78rem;">'+(ep.subdomain||'\u2014')+'</td>'+
+            '<td>'+tlsBadge(ep.tls_version)+'</td>'+
+            '<td style="font-size:.75rem;color:var(--text-muted);font-family:monospace;">'+(ep.cipher_suite||'\u2014')+'</td>'+
+            '<td>'+keyBadge(ep.key_length)+'</td>'+
+            '<td>'+certBadge(ep.cert_status)+'</td>'+
+        '</tr>';
+    }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">No endpoint telemetry</td></tr>';
+
+    // Subdomains HTML
+    var subHtml = subdomains.length ? subdomains.map(function(s){
+        return '<div style="background:#091122;border:1px solid var(--border-color);padding:.5rem .8rem;border-radius:6px;font-size:.8rem;display:flex;justify-content:space-between;align-items:center;">'+
+            '<div><strong style="color:var(--cyan-accent);">'+s.subdomain+'</strong> <span style="color:var(--text-muted);font-size:.75rem;">('+(s.ip||'No IP')+')</span></div>'+
+            '<span class="badge '+(s.is_inventoried?'badge-ok':'badge-medium')+'">'+(s.is_inventoried?'Inventoried':'Discovered')+'</span>'+
         '</div>';
+    }).join('') : '<div style="color:var(--text-muted);font-size:.8rem;">No subdomains discovered for this domain</div>';
+
+    // Deduplicated Mitigations HTML
+    var mitHtml = uniqueMitigations.length ? uniqueMitigations.map(function(m, idx){
+        return '<div style="display:flex;gap:.75rem;align-items:flex-start;background:#091122;border:1px solid var(--border-color);border-left:3px solid var(--cyan-accent);padding:.75rem 1rem;border-radius:6px;font-size:.82rem;">'+
+            '<span style="font-weight:900;color:var(--cyan-accent);">'+(idx+1)+'.</span>'+
+            '<span style="color:var(--text-primary);line-height:1.4;">'+m+'</span>'+
+        '</div>';
+    }).join('') : '<div style="color:var(--text-muted);font-size:.8rem;">No immediate remediation actions required</div>';
 
     showModal(
         '<div class="modal-header">'+
         '<div>'+
-        '<div style="font-size:1.4rem;font-weight:900;letter-spacing:-.5px;font-family:monospace;color:var(--text-muted);">SCAN_RESULTS:<br><span style="background:linear-gradient(135deg,var(--cyan-accent),#00f2fe);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">'+targetName+'</span></div>'+
+        '<div style="font-size:1.3rem;font-weight:900;letter-spacing:-.5px;font-family:monospace;color:var(--text-muted);">CONSOLIDATED DOMAIN DETAILS:<br><span style="background:linear-gradient(135deg,var(--cyan-accent),#00f2fe);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">'+targetName+'</span></div>'+
         '<div style="display:flex;gap:1rem;font-size:.78rem;color:var(--text-muted);font-family:monospace;margin-top:.4rem;">'+
-        '<span>ID: <code>cbom-'+(item.record_id||item.asset_id||'01')+'</code></span>'+
-        '<span>TS: '+(fmtDate(item.last_scan||item.last_seen_at)||"2026-08-11")+'</span>'+
         '<span>STATUS: '+certBadge(item)+'</span>'+
+        '<span>ENDPOINTS: '+endpoints.length+'</span>'+
+        '<span>SUBDOMAINS: '+subdomains.length+'</span>'+
         '</div>'+
         '</div>'+
         '<button class="close-btn" onclick="closeModal()" aria-label="Close modal">✕</button>'+
         '</div>'+
         '<div class="modal-body">'+
         threatBanner+
-        kpiGrid+
-        '<div class="detail-section"><div class="detail-section-title"><span>📜</span> Certificate Information</div><div class="detail-grid">'+
-        '<div class="detail-field"><label>Subject CN</label><span>'+(item.subject_cn||'\u2014')+'</span></div>'+
-        '<div class="detail-field"><label>Issuer / CA</label><span>'+(item.issuer_cn||item.ca||'\u2014')+'</span></div>'+
-        '<div class="detail-field"><label>Valid From</label><span>'+fmtDate(item.valid_from)+'</span></div>'+
-        '<div class="detail-field"><label>Valid Until</label><span>'+expiryLabel+'</span></div>'+
-        '<div class="detail-field"><label>Status</label><span>'+certBadge(item)+'</span></div>'+
-        '<div class="detail-field"><label>SHA256 Fingerprint</label><span style="font-size:.72rem;font-family:monospace;word-break:break-all;">'+(item.fingerprint_sha256||'\u2014')+'</span></div>'+
-        '<div class="detail-field"><label>First Seen</label><span>'+fmtDate(item.first_seen_at)+'</span></div>'+
-        '<div class="detail-field"><label>Last Seen</label><span>'+fmtDate(item.last_seen_at)+'</span></div>'+
-        '</div></div>'+
-        '<div class="detail-section"><div class="detail-section-title"><span>🔐</span> Cryptographic & SSL/TLS Profile</div><div class="detail-grid">'+
-        '<div class="detail-field"><label>TLS Version</label><span>'+tlsBadge(item.tls_version)+'</span></div>'+
-        '<div class="detail-field"><label>Cipher Suite</label><span style="font-size:.78rem;font-family:monospace;">'+(item.cipher_suite||'\u2014')+'</span></div>'+
-        '<div class="detail-field"><label>Key Length (bits)</label><span>'+keyBadge(item.key_length)+'</span></div>'+
-        '<div class="detail-field"><label>Key Algorithm</label><span>'+(item.public_key_type||'\u2014')+'</span></div>'+
-        '<div class="detail-field"><label>Signature Algorithm</label><span style="font-size:.78rem;font-family:monospace;">'+(cd.signature_algorithm||item.signature_algorithm||'\u2014')+'</span></div>'+
-        '<div class="detail-field"><label>Active / Current</label><span>'+(item.is_current?'<span class="badge badge-active">Active</span>':'<span class="badge badge-medium">Historical</span>')+'</span></div>'+
-        '</div></div>'+
-        '<div class="detail-section"><div class="detail-section-title"><span>⚙️</span> Detected Cryptographic Algorithms</div>'+
-        '<div style="display:flex;flex-wrap:wrap;gap:.4rem;">'+
-        (algos.length?algos.map(function(a){return '<span class="algo-tag">'+a+'</span>';}).join(''):'<span style="color:var(--text-muted);font-size:.82rem;">No algorithm telemetry</span>')+
-        '</div></div>'+
-        sanHtml+
+        
+        '<div class="detail-section">'+
+        '<div class="detail-section-title"><span>🌐</span> Endpoints & Endpoint Encryption Mapping</div>'+
+        '<table style="width:100%;font-size:.8rem;border-collapse:collapse;margin-bottom:1rem;">'+
+        '<thead><tr style="background:#091122;text-align:left;color:var(--text-muted);font-size:.7rem;text-transform:uppercase;">'+
+        '<th style="padding:.5rem;">Endpoint / IP</th><th style="padding:.5rem;">Subdomain</th><th style="padding:.5rem;">TLS Version</th><th style="padding:.5rem;">Cipher Suite</th><th style="padding:.5rem;">Key Bits</th><th style="padding:.5rem;">Cert Status</th>'+
+        '</tr></thead>'+
+        '<tbody>'+epRowsHtml+'</tbody>'+
+        '</table>'+
+        '</div>'+
+
+        '<div class="detail-section">'+
+        '<div class="detail-section-title"><span>📜</span> Discovered Subdomains ('+subdomains.length+')</div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:1rem;">'+subHtml+'</div>'+
+        '</div>'+
+
+        '<div class="detail-section">'+
+        '<div class="detail-section-title"><span>🛡️</span> Deduplicated Quantum-Safe Mitigation Steps</div>'+
+        '<div style="display:flex;flex-direction:column;gap:.5rem;">'+mitHtml+'</div>'+
+        '</div>'+
+
         '</div>'+
         '<div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal()">CLOSE</button></div>'
     );
 };
+
+window.toggleExportMenu=function(){
+    var m=document.getElementById('exportMenu');
+    m.style.display=m.style.display==='none'?'block':'none';
+};
+
+document.addEventListener('click',function(e){
+    var m=document.getElementById('exportMenu');
+    if(m&&!e.target.closest('.btn-action')&&!e.target.closest('#exportMenu')){
+        m.style.display='none';
+    }
+});
+
+window.exportCBOM=function(fmt){
+    fmt = fmt || 'json';
+    var url = '/api/cbom/export?format=' + fmt;
+    window.open(url, '_blank');
+    toast('Downloading ' + fmt.toUpperCase() + ' export…', 'info');
+    var m=document.getElementById('exportMenu');
+    if(m) m.style.display='none';
+};
+
 var backdrop=document.getElementById('modalBackdrop'),card=document.getElementById('modalCard');
 function showModal(html){card.innerHTML=html;backdrop.classList.add('active');document.body.style.overflow='hidden';}
 window.closeModal=function(){backdrop.classList.remove('active');document.body.style.overflow='';};
@@ -491,7 +513,6 @@ window.resetFilters=function(){
     load();
 };
 document.getElementById('searchInput').addEventListener('keydown',function(e){if(e.key==='Enter')applyFilters();});
-window.exportCBOM=function(){window.open('/api/cbom/export','_blank');toast('Downloading CBOM export\u2026','info');};
 loadKPIs();
 loadCharts();
 load();

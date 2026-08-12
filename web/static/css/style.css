@@ -248,7 +248,6 @@ body {
     overflow-x: hidden;
     position: relative;
     isolation: isolate;
-    perspective: 1400px;
 }
 
 code,

@@ -84,7 +84,7 @@ class SubdomainService:
             
             if count > 0:
                 db_session.commit()
-                logger.info("Discovered %x new subdomains for asset %s", count, asset_id)
+                logger.info("Discovered %d new subdomains for asset %s", count, asset_id)
             
             return count
 
@@ -141,7 +141,7 @@ class SubdomainService:
         target_domain: str,
         parent_asset_id: Optional[int] = None,
         max_depth: int = 2
-    ) -> list[dict[str, str]]:
+    ) -> List[Dict[str, str]]:
         """
         Execute unlimited free nested subdomain discovery for target_domain up to max_depth.
         Automatically persists newly discovered subdomains into the subdomains table.
@@ -192,3 +192,22 @@ class SubdomainService:
                 logger.exception("Failed to persist discovered nested subdomains for target %s", target)
 
         return discovered
+
+    @staticmethod
+    def run_domain_discovery(target_domain: str) -> List[str]:
+        """
+        Executes subdomain discovery using subfinder and returns clean list of subdomains.
+        """
+        from src.scanner.subdomain_scanner import execute_subdomain_scan
+        
+        scan_results = execute_subdomain_scan(target_domain)
+        
+        if isinstance(scan_results, dict):
+            live = scan_results.get("live_subdomains", [])
+            unresolved = scan_results.get("unresolved_subdomains", [])
+            live_list = list(live.keys()) if isinstance(live, dict) else list(live)
+            unresolved_list = list(unresolved.keys()) if isinstance(unresolved, dict) else list(unresolved)
+            return list(set(live_list + unresolved_list))
+        elif isinstance(scan_results, list):
+            return scan_results
+        return []

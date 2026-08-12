@@ -216,14 +216,28 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
     scan_join = "LEFT JOIN scans s ON s.id = d.scan_id" if has_scan_id else "LEFT JOIN (SELECT 1 AS id, 0 AS is_deleted) s ON 1=1"
     where_parts.append("COALESCE(s.is_deleted, 0) = 0" if has_scan_id else "1=1")
 
-    # For subdomains: join to parent asset or inventoried asset via LEFT JOIN
+    # For subdomains: join to parent asset (for display) and inventoried asset (if promoted)
     # For others: join via stored asset_id foreign key
     if asset_id_col is None:
-        asset_join = "LEFT JOIN assets a ON (a.id = d.parent_asset_id OR LOWER(a.target) = LOWER(d.subdomain)) AND COALESCE(a.is_deleted, 0) = 0"
-        count_asset_join = "LEFT JOIN assets a ON (a.id = d.parent_asset_id OR LOWER(a.target) = LOWER(d.subdomain)) AND COALESCE(a.is_deleted, 0) = 0"
+        asset_join = """
+            LEFT JOIN assets a_parent ON a_parent.id = d.parent_asset_id AND COALESCE(a_parent.is_deleted, 0) = 0
+            LEFT JOIN assets a_inv ON LOWER(a_inv.target) = LOWER(d.subdomain) AND COALESCE(a_inv.is_deleted, 0) = 0
+        """
+        count_asset_join = """
+            LEFT JOIN assets a_parent ON a_parent.id = d.parent_asset_id AND COALESCE(a_parent.is_deleted, 0) = 0
+            LEFT JOIN assets a_inv ON LOWER(a_inv.target) = LOWER(d.subdomain) AND COALESCE(a_inv.is_deleted, 0) = 0
+        """
+        select_asset_id = "a_inv.id AS asset_id"
+        select_asset_name = "COALESCE(a_parent.target, a_inv.target) AS asset_name"
+        select_owner = "COALESCE(a_inv.owner, a_parent.owner) AS owner"
+        select_extra = ", COALESCE(d.is_inventoried, 0) AS is_inventoried, COALESCE(d.record_type, 'A') AS record_type"
     else:
         asset_join = f"INNER JOIN assets a ON a.id = d.{asset_id_col} AND COALESCE(a.is_deleted, 0) = 0"
         count_asset_join = f"INNER JOIN assets a ON a.id = d.{asset_id_col} AND COALESCE(a.is_deleted, 0) = 0"
+        select_asset_id = "a.id AS asset_id"
+        select_asset_name = "a.target AS asset_name"
+        select_owner = "a.owner AS owner"
+        select_extra = ""
 
     query_sql = f"""
         SELECT
@@ -231,9 +245,10 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
             {config["name_expr"]} AS name,
             {status_expr} AS status,
             {date_expr} AS detection_date,
-            a.id AS asset_id,
-            a.target AS asset_name,
-            a.owner AS owner
+            {select_asset_id},
+            {select_asset_name},
+            {select_owner}
+            {select_extra}
         FROM {config["table"]} d
         {dedup_join}
         {scan_join}
@@ -263,11 +278,15 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
             "asset_id": _coerce_int(row.get("asset_id")),
             "asset_name": row.get("asset_name"),
             "owner": row.get("owner"),
+            "is_inventoried": bool(row.get("is_inventoried") or row.get("asset_id")),
+            "promoted": bool(row.get("asset_id") or row.get("is_inventoried")),
+            "record_type": str(row.get("record_type") or "A"),
         }
         for row in rows
         if str(row.get("name") or "").strip() and str(row.get("name") or "").strip() != "--"
     ]
     return items, total
+
 
 
 def _ssl_discovery_query(params: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
@@ -607,6 +626,174 @@ def api_discover_nested_subdomains():
         return success_response(data, filters={"target_domain": target_domain})
     except Exception as exc:
         return error_response(f"Nested subdomain discovery failed: {exc}", 500)
+
+
+@api_dashboards_bp.route("/api/discovery/subdomain-scan", methods=["POST"])
+@api_dashboards_bp.route("/api/v1/discovery/subdomain-scan", methods=["POST"])
+@login_required
+@api_guard
+def api_trigger_subdomain_scan():
+    """
+    POST /api/discovery/subdomain-scan
+    Payload: {"domain": "example.com", "asset_id": 1}
+    Triggers subfinder scan + DNS fallback verification & persists to DB.
+    """
+    try:
+        payload = request.get_json(silent=True) or request.form or {}
+        domain = str(payload.get("domain") or payload.get("target_domain") or payload.get("target") or "").strip().lower().rstrip(".")
+        asset_id = payload.get("asset_id") or payload.get("parent_asset_id")
+        if asset_id is not None:
+            try:
+                asset_id = int(asset_id)
+            except (TypeError, ValueError):
+                asset_id = None
+
+        if not domain:
+            return error_response("Missing required parameter: domain", 400)
+
+        results = SubdomainService.discover_nested_subdomains(
+            target_domain=domain,
+            parent_asset_id=asset_id,
+            max_depth=2
+        )
+
+        subdomains_list = [r.get("subdomain") for r in results if r.get("subdomain")]
+
+        data = {
+            "total": len(subdomains_list),
+            "saved": len(subdomains_list),
+            "subdomains": subdomains_list,
+            "items": results
+        }
+        return success_response(data, filters={"domain": domain})
+    except Exception as exc:
+        return error_response(f"Subdomain scan failed: {exc}", 500)
+
+
+@api_dashboards_bp.route("/api/discovery/promote", methods=["POST"])
+@api_dashboards_bp.route("/api/v1/discovery/promote", methods=["POST"])
+@login_required
+@api_guard
+def api_promote_discovery():
+    """
+    POST /api/discovery/promote
+    Payload: {"tab": "subdomains", "discovery_id": 123}
+    Promotes a discovered item (e.g. subdomain) to full Asset Inventory.
+    """
+    try:
+        from flask_login import current_user
+        from src.models import DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware
+        payload = request.get_json(silent=True) or request.form or {}
+        tab = str(payload.get("tab") or "domains").strip()
+        discovery_id = payload.get("discovery_id") or payload.get("id")
+        if not discovery_id:
+            return error_response("discovery_id is required", 400)
+        
+        discovery_id = int(discovery_id)
+        owner_name = payload.get("owner") or getattr(current_user, "username", "System")
+
+        if tab == "subdomains":
+            asset = SubdomainService.promote_to_inventory(discovery_id, owner=owner_name)
+            if asset:
+                return success_response({"asset_id": asset.id, "discovery_id": discovery_id, "promoted": True})
+            return error_response("Subdomain promotion failed", 500)
+
+        tab_model_map = {
+            "domains": DiscoveryDomain,
+            "ssl": DiscoverySSL,
+            "ips": DiscoveryIP,
+            "software": DiscoverySoftware,
+        }
+        model = tab_model_map.get(tab)
+        if not model:
+            return error_response(f"Invalid tab: {tab}", 400)
+
+        discovery = db_session.query(model).filter(model.id == discovery_id, model.is_deleted == False).first()
+        if not discovery:
+            return error_response("Discovery item not found", 404)
+
+        target = ""
+        if isinstance(discovery, DiscoveryDomain): target = getattr(discovery, "domain", "")
+        elif isinstance(discovery, DiscoverySSL): target = getattr(discovery, "endpoint", "")
+        elif isinstance(discovery, DiscoveryIP): target = getattr(discovery, "ip_address", "")
+        elif isinstance(discovery, DiscoverySoftware): target = getattr(discovery, "product", "")
+
+        target = str(target or "").strip()
+        if not target:
+            return error_response("Could not infer target for asset promotion", 400)
+
+        existing = db_session.query(Asset).filter(func.lower(Asset.target) == target.lower(), Asset.is_deleted == False).first()
+        if existing:
+            setattr(discovery, "asset_id", existing.id)
+            db_session.commit()
+            return success_response({"asset_id": existing.id, "discovery_id": discovery_id, "promoted": True})
+
+        new_asset = Asset(
+            target=target,
+            asset_type=tab.capitalize().rstrip("s"),
+            owner=owner_name,
+            risk_level="Medium",
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None)
+        )
+        db_session.add(new_asset)
+        db_session.flush()
+        setattr(discovery, "asset_id", new_asset.id)
+        db_session.commit()
+
+        return success_response({"asset_id": new_asset.id, "discovery_id": discovery_id, "promoted": True})
+    except Exception as exc:
+        db_session.rollback()
+        return error_response(f"Promotion failed: {exc}", 500)
+
+
+@api_dashboards_bp.route("/api/discovery/delete", methods=["POST", "DELETE"])
+@api_dashboards_bp.route("/api/v1/discovery/delete", methods=["POST", "DELETE"])
+@login_required
+@api_guard
+def api_delete_discovery():
+    """
+    POST/DELETE /api/discovery/delete
+    Payload: {"tab": "subdomains", "discovery_id": 123}
+    Soft-deletes a discovery item.
+    """
+    try:
+        from src.models import DiscoveryDomain, DiscoverySSL, DiscoveryIP, DiscoverySoftware
+        payload = request.get_json(silent=True) or request.form or {}
+        tab = str(payload.get("tab") or "domains").strip()
+        discovery_id = payload.get("discovery_id") or payload.get("id")
+        if not discovery_id:
+            return error_response("discovery_id is required", 400)
+
+        discovery_id = int(discovery_id)
+
+        if tab == "subdomains":
+            sub = db_session.query(Subdomain).filter(Subdomain.id == discovery_id).first()
+            if sub:
+                sub.is_deleted = True
+                db_session.commit()
+                return success_response({"discovery_id": discovery_id, "deleted": True})
+            return error_response("Subdomain not found", 404)
+
+        tab_model_map = {
+            "domains": DiscoveryDomain,
+            "ssl": DiscoverySSL,
+            "ips": DiscoveryIP,
+            "software": DiscoverySoftware,
+        }
+        model = tab_model_map.get(tab)
+        if not model:
+            return error_response(f"Invalid tab: {tab}", 400)
+
+        discovery = db_session.query(model).filter(model.id == discovery_id).first()
+        if discovery:
+            discovery.is_deleted = True
+            db_session.commit()
+            return success_response({"discovery_id": discovery_id, "deleted": True})
+        return error_response("Discovery item not found", 404)
+    except Exception as exc:
+        db_session.rollback()
+        return error_response(f"Deletion failed: {exc}", 500)
+
 
 
 @api_dashboards_bp.route("/api/distributions/asset-types", methods=["GET"])
@@ -1156,7 +1343,7 @@ def api_discovery_ip_locations():
         import hashlib
         from src.services.geo_service import GeoService
         from src.db import db_session
-        from src.models import DiscoveryIP, DiscoveryDomain, DiscoverySSL
+        from src.models import DiscoveryIP, DiscoveryDomain, DiscoverySSL, Subdomain, Asset
 
         limit = max(1, min(request.args.get("limit", 200, type=int) or 200, 500))
         geo_service = GeoService()
@@ -1205,6 +1392,35 @@ def api_discovery_ip_locations():
                     "type": "SSL/TLS Endpoint",
                 })
 
+        # 4. Subdomain
+        subdomain_rows = db_session.query(Subdomain).filter(Subdomain.is_deleted == False).order_by(Subdomain.id.desc()).limit(limit).all()
+        for r in subdomain_rows:
+            sub = str(getattr(r, "subdomain", "") or "").strip()
+            stored_ip = str(getattr(r, "ip", "") or "").strip()
+            if sub:
+                targets_pool.append({
+                    "id": int(r.id),
+                    "ip": stored_ip or sub,
+                    "target": sub,
+                    "asset_id": getattr(r, "parent_asset_id", None),
+                    "status": "confirmed" if getattr(r, "is_inventoried", False) else "new",
+                    "type": "Subdomain",
+                })
+
+        # 5. Asset targets
+        asset_rows = db_session.query(Asset).filter(Asset.is_deleted == False).order_by(Asset.id.desc()).limit(limit).all()
+        for r in asset_rows:
+            target = str(getattr(r, "target", "") or "").strip()
+            if target:
+                targets_pool.append({
+                    "id": int(r.id),
+                    "ip": target,
+                    "target": target,
+                    "asset_id": int(r.id),
+                    "status": "confirmed",
+                    "type": str(getattr(r, "asset_type", "Asset") or "Asset"),
+                })
+
         fallback_coords = [
             (28.6139, 77.2090, "New Delhi", "India"),
             (19.0760, 72.8777, "Mumbai", "India"),
@@ -1220,11 +1436,13 @@ def api_discovery_ip_locations():
         seen_targets = set()
         for item in targets_pool:
             target = item["target"]
+            query_str = item["ip"] or target
             if not target or target in seen_targets:
                 continue
             seen_targets.add(target)
 
-            geo = geo_service.get_location(target)
+            geo = geo_service.get_location(query_str)
+            resolved_ip = str(geo.get("ip") or query_str or target)
             lat = float(geo.get("lat") or 0.0)
             lon = float(geo.get("lon") or 0.0)
             city = str(geo.get("city") or "Unknown")
@@ -1238,13 +1456,15 @@ def api_discovery_ip_locations():
 
             items_data.append({
                 "id": item["id"],
-                "ip": target,
+                "ip": resolved_ip,
+                "target": target,
                 "asset_id": item["asset_id"],
                 "location": f"{city}, {country}",
                 "lat": lat,
                 "lon": lon,
                 "city": city,
                 "country": country,
+                "type": item["type"],
                 "reverse_location": f"{city}, {country} ({item['type']})",
                 "status": item["status"],
             })
