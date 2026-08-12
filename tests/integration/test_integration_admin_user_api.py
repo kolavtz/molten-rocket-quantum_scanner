@@ -136,3 +136,34 @@ def test_admin_bulk_delete_protects_logged_in_user_json(app_client):
     assert payload["status"] == "success"
     assert int(payload.get("deleted_count", 0)) == 0
     assert user_id in payload.get("protected_ids", [])
+
+
+def test_admin_single_delete_user_json(app_client):
+    db.init_db()
+    username = f"int-single-del-{uuid4().hex[:6]}"
+    email = f"{username}@example.com"
+    user_id = db.create_invited_user(
+        employee_id=f"EMP-{uuid4().hex[:8]}",
+        username=username,
+        email=email,
+        role="Viewer",
+        created_by=None,
+        password_hash=generate_password_hash("Test123!"),
+    )
+
+    with patch("web.app.current_user") as route_user:
+        route_user.role = "Admin"
+        route_user.id = "admin-deleter"
+        route_user.username = "admin"
+        resp = app_client.post(
+            f"/admin/users/{user_id}/delete",
+            data=json.dumps({}),
+            content_type="application/json",
+            headers={"Accept": "application/json"},
+        )
+
+    assert resp.status_code == 200
+    payload = json.loads(resp.data)
+    assert payload["status"] == "success"
+    assert payload["user_id"] == user_id
+

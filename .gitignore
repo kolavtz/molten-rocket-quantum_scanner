@@ -32,4 +32,5 @@ scan_results/*
 *.pyc
 *.__pycache__
 src/scanner/__pycache__/*.pyc
-
+.agents/*
+*.worktree

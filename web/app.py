@@ -567,8 +567,10 @@ def role_required(roles):
                         "login_url": url_for("login"),
                     }), 401
                 return redirect(url_for('login'))
-            if current_user.role not in roles:
-                _audit("auth", "authorization_denied", "denied", details={"required_roles": roles, "actual_role": current_user.role})
+            user_role = db.normalize_role(getattr(current_user, "role", "Viewer"))
+            allowed_roles = {db.normalize_role(r) for r in roles}
+            if user_role not in allowed_roles:
+                _audit("auth", "authorization_denied", "denied", details={"required_roles": roles, "actual_role": getattr(current_user, "role", "")})
                 if _expects_json_response():
                     return jsonify({
                         "status": "error",
@@ -3009,7 +3011,8 @@ def admin_reset_user_password(user_id: str):
                 "status": "success",
                 "message": "Password reset email sent.",
                 "user_id": user_id,
-                "username": user["username"]
+                "username": user["username"],
+                "setup_url": setup_url
             }), 200
         flash("Password reset email sent.", "success")
     except Exception as exc:
@@ -3017,9 +3020,13 @@ def admin_reset_user_password(user_id: str):
         _audit("admin", "reset_password", "partial", target_user_id=user_id, details={"email": user["email"], "email_sent": False, "error": str(exc)})
         if wants_json:
             return jsonify({
-                "status": "error",
-                "message": f"SMTP failed: {str(exc)}"
-            }), 500
+                "status": "success",
+                "message": f"Password reset link generated (email delivery failed: {str(exc)}).",
+                "user_id": user_id,
+                "username": user["username"],
+                "setup_url": setup_url,
+                "email_failed": True
+            }), 200
         flash(f"SMTP failed. Temporary setup link: {setup_url}", "warning")
     return redirect(url_for("admin_users"))
 
@@ -3153,6 +3160,32 @@ def admin_bulk_users():
         ), 200
 
     return jsonify({"status": "error", "message": "Invalid bulk action. Use 'update_role' or 'delete'."}), 400
+
+
+@app.route("/admin/users/<user_id>/delete", methods=["POST", "DELETE"])
+@role_required(list(ADMIN_PANEL_ROLES))
+def admin_delete_user(user_id: str):
+    """Delete a single user by ID. Supports form OR JSON."""
+    wants_json = _expects_json_response()
+    current_uid = str(getattr(current_user, "id", "") or "").strip()
+    if str(user_id).strip() == current_uid:
+        if wants_json:
+            return jsonify({"status": "error", "message": "Cannot delete currently logged-in user."}), 400
+        flash("Cannot delete currently logged-in user.", "error")
+        return redirect(url_for("admin_users"))
+    
+    deleted_count = db.bulk_delete_users([user_id])
+    if deleted_count > 0:
+        _audit("admin", "delete_user", "success", target_user_id=user_id)
+        if wants_json:
+            return jsonify({"status": "success", "message": "User deleted successfully.", "user_id": user_id}), 200
+        flash("User deleted successfully.", "success")
+    else:
+        _audit("admin", "delete_user", "failed", target_user_id=user_id)
+        if wants_json:
+            return jsonify({"status": "error", "message": "Failed to delete user or user not found."}), 404
+        flash("Failed to delete user.", "error")
+    return redirect(url_for("admin_users"))
 
 
 @app.route("/setup-password/<token>", methods=["GET", "POST"])

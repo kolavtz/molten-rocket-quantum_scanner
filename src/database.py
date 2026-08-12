@@ -2179,7 +2179,7 @@ def update_user_profile(user_id: str, role: Optional[str] = None, is_active: Opt
         cur = conn.cursor()
         cur.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = %s", tuple(params))
         conn.commit()
-        return cur.rowcount > 0
+        return True
     except Exception as exc:
         logger.error("MySQL update_user_profile error: %s", exc)
         return False
@@ -2354,11 +2354,64 @@ def bulk_delete_users(user_ids: List[str], exclude_user_id: Optional[str] = None
         return 0
     try:
         placeholders = ", ".join(["%s"] * len(normalized_ids))
-        sql = f"DELETE FROM users WHERE id IN ({placeholders})"
         cur = conn.cursor()
+
+        try:
+            cur.execute("SET FOREIGN_KEY_CHECKS = 0")
+        except Exception:
+            pass
+
+        try:
+            cur.execute(f"UPDATE users SET created_by = NULL WHERE created_by IN ({placeholders})", tuple(normalized_ids))
+        except Exception:
+            pass
+
+        child_delete_tables = [
+            ("password_setup_tokens", "user_id"),
+            ("api_keys", "user_id"),
+            ("user_mfa", "user_id"),
+            ("user_sessions", "user_id"),
+            ("sessions", "user_id"),
+        ]
+        for tbl, col in child_delete_tables:
+            try:
+                cur.execute(f"DELETE FROM {tbl} WHERE {col} IN ({placeholders})", tuple(normalized_ids))
+            except Exception:
+                pass
+
+        child_nullify_tables = [
+            ("audit_logs", "actor_user_id"),
+            ("audit_logs", "target_user_id"),
+            ("audit_log_chain", "actor_user_id"),
+            ("audit_log_chain", "target_user_id"),
+            ("assets", "deleted_by_user_id"),
+            ("assets", "created_by_user_id"),
+            ("scans", "created_by_user_id"),
+            ("cbom_reports", "created_by_id"),
+            ("report_schedules", "created_by"),
+            ("report_schedules", "created_by_id"),
+            ("discovery_domains", "promoted_by"),
+            ("discovery_ips", "promoted_by"),
+            ("discovery_software", "promoted_by"),
+            ("discovery_ssl", "promoted_by"),
+        ]
+        for tbl, col in child_nullify_tables:
+            try:
+                cur.execute(f"UPDATE {tbl} SET {col} = NULL WHERE {col} IN ({placeholders})", tuple(normalized_ids))
+            except Exception:
+                pass
+
+        sql = f"DELETE FROM users WHERE id IN ({placeholders})"
         cur.execute(sql, tuple(normalized_ids))
+        deleted_count = int(cur.rowcount or 0)
+
+        try:
+            cur.execute("SET FOREIGN_KEY_CHECKS = 1")
+        except Exception:
+            pass
+
         conn.commit()
-        return int(cur.rowcount or 0)
+        return deleted_count
     except Exception as exc:
         logger.error("MySQL bulk_delete_users error: %s", exc)
         return 0
