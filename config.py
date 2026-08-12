@@ -22,6 +22,8 @@ APP_NAME = "Quantum-Safe TLS Scanner"
 APP_VERSION = "1.0.0"
 SECRET_KEY = os.environ.get("QSS_SECRET_KEY", "dev-secret-change-in-production")
 DEBUG = os.environ.get("QSS_DEBUG", "true").lower() == "true"
+LIVE_CONSOLE_DEBUG = os.environ.get("QSS_LIVE_CONSOLE_DEBUG", "true").lower() == "true"
+LOG_LEVEL = os.environ.get("QSS_LOG_LEVEL", "DEBUG").upper()
 SESSION_COOKIE_NAME = os.environ.get("QSS_SESSION_COOKIE_NAME", "quantumshield_session")
 
 # ---------------------------------------------------------------------------

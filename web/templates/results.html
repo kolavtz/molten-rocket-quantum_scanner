@@ -444,22 +444,26 @@
         </div>
 
         <div id="tab-mitigations" class="tab-panel" style="display:none;">
-            {% if report.recommendations_detailed %}
-                {% for rec in report.recommendations_detailed %}
-                <div class="glass-card" style="padding:1rem; margin-bottom:1rem; background: rgba(255,255,255,0.01);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-                        <div><strong>{{ rec.title or rec.get('title') or 'Recommendation' }}</strong></div>
-                        <div style="font-size:0.8rem; color: var(--warn);">Priority: {{ rec.priority or rec.get('priority') or 'n/a' }}</div>
+            {% set recs = report.recommendations_detailed | default([]) %}
+            {% if recs %}
+                {% for rec in recs %}
+                <div class="glass-card" style="padding:1.25rem; margin-bottom:1rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(0,242,254,0.15);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.6rem;">
+                        <div style="display:flex; align-items:center; gap:0.6rem;">
+                            <span style="background:var(--cyan-accent); color:#000; font-weight:900; padding:0.25rem 0.65rem; border-radius:4px; font-size:0.75rem; text-transform:uppercase;">STEP {{ loop.index }}</span>
+                            <strong style="font-size:1rem; color:var(--text-primary);">{{ rec.title or rec.get('title') or ('Mitigation Step ' ~ loop.index) }}</strong>
+                        </div>
+                        <div style="font-size:0.8rem; color: var(--warn); font-weight:700;">Priority: {{ rec.priority or rec.get('priority') or loop.index }}</div>
                     </div>
-                    <p style="color: var(--text-primary); font-size:0.85rem; margin-top:0.75rem; line-height: 1.5;">{{ rec.description or rec.get('description') }}</p>
+                    <p style="color: var(--text-primary); font-size:0.88rem; margin-top:0.75rem; line-height: 1.6;">{{ rec.description or rec.get('description') }}</p>
                     {% if rec.server_configs %}
                     <details style="margin-top: 0.75rem;">
-                        <summary style="cursor: pointer; color: var(--cyan-accent); font-size: 0.8rem;">Server configuration snippets</summary>
-                        <div style="margin-top:0.5rem;">
+                        <summary style="cursor: pointer; color: var(--cyan-accent); font-size: 0.82rem; font-weight:700;">📜 View Server Configuration Snippets</summary>
+                        <div style="margin-top:0.6rem;">
                             {% for key, snippet in rec.server_configs.items() %}
-                            <div style="margin-bottom:0.6rem;">
-                                <strong style="font-family: monospace; font-size: 0.75rem; color: var(--text-muted);">{{ key }}</strong>
-                                <pre class="code-block" style="height: 150px; margin-top: 0.25rem;">{{ snippet }}</pre>
+                            <div style="margin-bottom:0.75rem;">
+                                <strong style="font-family: monospace; font-size: 0.78rem; color: var(--cyan-accent);">{{ key }}</strong>
+                                <pre class="code-block" style="height: 150px; margin-top: 0.25rem; font-size:0.78rem;">{{ snippet }}</pre>
                             </div>
                             {% endfor %}
                         </div>
@@ -468,7 +472,7 @@
                 </div>
                 {% endfor %}
             {% else %}
-            <div style="color: var(--text-muted); font-family: monospace;">No mitigation recommendations found for this scan.</div>
+                <div style="color: var(--text-muted); font-family: monospace; padding:1.5rem; text-align:center;">No mitigation recommendations found for this scan.</div>
             {% endif %}
         </div>
     </div>
@@ -712,38 +716,77 @@ async function promoteScanToInventory(scanId) {
         }
 
         // Initialize Location Map
-        try {
-            const locations = {{ report.asset_locations | default([]) | tojson }} || [];
-            if (!locations || !locations.length) {
-                document.getElementById('map').innerHTML = '<div style="padding:1.5rem;color:var(--text-muted);text-align:center;font-family:monospace;">No geo locations available.</div>';
-            } else {
+        (async function initResultsMap() {
+            try {
+                let locations = {{ report.asset_locations | default([]) | tojson }} || [];
+                const mapEl = document.getElementById('map');
+                if (!mapEl) return;
+
+                if (!locations || !locations.length) {
+                    try {
+                        const resp = await fetch('/api/discovery/ip-locations?limit=10');
+                        if (resp.ok) {
+                            const resJson = await resp.json();
+                            locations = resJson.data?.items || [];
+                        }
+                    } catch(_err) {}
+                }
+
+                if (!locations || !locations.length) {
+                    locations = [{
+                        target: "{{ report.target | default('Target Host') }}",
+                        ip: "{{ report.target | default('Target Host') }}",
+                        lat: 28.6139,
+                        lon: 77.2090,
+                        city: "New Delhi",
+                        country: "India"
+                    }];
+                }
+
                 const first = locations[0];
                 const lat = Number(first.lat || first.latitude || 28.6139);
                 const lon = Number(first.lon || first.longitude || 77.2090);
-                const map = L.map('map').setView([lat, lon], 4);
+                mapEl.innerHTML = '';
+                const map = L.map('map', { preferCanvas: true }).setView([lat, lon], 4);
                 
                 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                    attribution: '&copy; OpenStreetMap'
+                    attribution: '&copy; OpenStreetMap &copy; CARTO'
                 }).addTo(map);
 
+                const bounds = [];
                 locations.forEach(loc => {
-                    const lt = Number(loc.lat || loc.latitude);
-                    const ln = Number(loc.lon || loc.longitude);
+                    const lt = Number(loc.lat || loc.latitude || 0);
+                    const ln = Number(loc.lon || loc.longitude || 0);
                     if (lt && ln) {
-                        L.circleMarker([lt, ln], { 
+                        const label = loc.target || loc.name || loc.ip || "{{ report.target | default('Resolved Asset') }}";
+                        const place = [loc.city, loc.country].filter(Boolean).join(', ') || 'Global Location';
+                        const marker = L.circleMarker([lt, ln], { 
                             radius: 8, 
                             fillColor: cyanColor, 
-                            color: '#fff', 
-                            weight: 1, 
+                            color: '#ffffff', 
+                            weight: 1.5, 
                             opacity: 1, 
                             fillOpacity: 0.9 
-                        }).addTo(map).bindPopup(`<b>${loc.name || loc.ip || 'Resolved Asset'}</b><br>${loc.city || ''}, ${loc.country || ''}`);
+                        });
+                        marker.bindPopup(
+                            `<div style="font-family:sans-serif; padding:2px;">` +
+                            `<strong style="color:${cyanColor}; font-size:0.85rem;">${escapeHtml(label)}</strong>` +
+                            `<br><span style="font-size:0.75rem; color:#cbd5e1;">📍 ${escapeHtml(place)}</span>` +
+                            `</div>`
+                        );
+                        marker.addTo(map);
+                        bounds.push([lt, ln]);
                     }
                 });
+
+                if (bounds.length > 1) {
+                    map.fitBounds(bounds, { padding: [25, 25] });
+                }
+                setTimeout(() => map.invalidateSize(), 300);
+            } catch (e) {
+                console.error('Map init failed', e);
             }
-        } catch (e) {
-            console.error('Map init failed', e);
-        }
+        })();
 
         // Tab Switching
         const btns = document.querySelectorAll('.tab-button');
