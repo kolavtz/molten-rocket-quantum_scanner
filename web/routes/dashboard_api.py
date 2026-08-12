@@ -216,11 +216,11 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
     scan_join = "LEFT JOIN scans s ON s.id = d.scan_id" if has_scan_id else "LEFT JOIN (SELECT 1 AS id, 0 AS is_deleted) s ON 1=1"
     where_parts.append("COALESCE(s.is_deleted, 0) = 0" if has_scan_id else "1=1")
 
-    # For subdomains: join to the subdomain's own active asset record (created when inventoried)
-    # For others: join via the stored asset_id foreign key
+    # For subdomains: join to parent asset or inventoried asset via LEFT JOIN
+    # For others: join via stored asset_id foreign key
     if asset_id_col is None:
-        asset_join = "INNER JOIN assets a ON LOWER(a.target) = LOWER(d.subdomain) AND COALESCE(a.is_deleted, 0) = 0"
-        count_asset_join = "INNER JOIN assets a ON LOWER(a.target) = LOWER(d.subdomain) AND COALESCE(a.is_deleted, 0) = 0"
+        asset_join = "LEFT JOIN assets a ON (a.id = d.parent_asset_id OR LOWER(a.target) = LOWER(d.subdomain)) AND COALESCE(a.is_deleted, 0) = 0"
+        count_asset_join = "LEFT JOIN assets a ON (a.id = d.parent_asset_id OR LOWER(a.target) = LOWER(d.subdomain)) AND COALESCE(a.is_deleted, 0) = 0"
     else:
         asset_join = f"INNER JOIN assets a ON a.id = d.{asset_id_col} AND COALESCE(a.is_deleted, 0) = 0"
         count_asset_join = f"INNER JOIN assets a ON a.id = d.{asset_id_col} AND COALESCE(a.is_deleted, 0) = 0"
@@ -1830,16 +1830,16 @@ def api_cyber_rating():
         "standard": int(sum(1 for row in rows if str(row.get("tier") or "") == "Standard")),
         "elite": int(sum(1 for row in rows if str(row.get("tier") or "") == "Elite")),
     }
-    total_urls = max(1, int(cyber.get("meta", {}).get("total_assets", total) or total or 1))
+    total_urls = int(cyber.get("meta", {}).get("total_assets", total) or total or 0)
 
     kpis = {
         "enterprise_score": round(avg_score, 1),
         "tier": tier,
-        "total_urls": int(total_urls),
-        "elite_pct": round((tier_counts["elite"] / total_urls) * 100.0, 1),
-        "standard_pct": round((tier_counts["standard"] / total_urls) * 100.0, 1),
-        "legacy_pct": round((tier_counts["legacy"] / total_urls) * 100.0, 1),
-        "critical_pct": round((tier_counts["critical"] / total_urls) * 100.0, 1),
+        "total_urls": total_urls,
+        "elite_pct": round((tier_counts["elite"] / total_urls) * 100.0, 1) if total_urls > 0 else 0.0,
+        "standard_pct": round((tier_counts["standard"] / total_urls) * 100.0, 1) if total_urls > 0 else 0.0,
+        "legacy_pct": round((tier_counts["legacy"] / total_urls) * 100.0, 1) if total_urls > 0 else 0.0,
+        "critical_pct": round((tier_counts["critical"] / total_urls) * 100.0, 1) if total_urls > 0 else 0.0,
         "critical_count": tier_counts["critical"],
         "tier_counts": {
             "critical": tier_counts["critical"],
