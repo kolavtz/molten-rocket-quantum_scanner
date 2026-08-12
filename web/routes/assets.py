@@ -271,12 +271,18 @@ def _decorate_asset_rows(rows: list[dict], csrf_token: str) -> list[dict]:
         risk = str(row.get("risk_level") or row.get("risk") or "Medium")
         cert_status = str(row.get("cert_status") or "Not Scanned")
         cert_days = row.get("cert_days")
+        cert_valid_from = str(row.get("cert_valid_from") or row.get("from_date") or "").strip()
         cert_valid_until = str(row.get("cert_valid_until") or "").strip()
+        cert_count = int(row.get("cert_count") or 0)
         cert_meta = []
+        if cert_valid_from:
+            cert_meta.append(f"From: {cert_valid_from}")
         if cert_valid_until:
             cert_meta.append(f"Valid till: {cert_valid_until}")
         if isinstance(cert_days, (int, float)):
             cert_meta.append(f"Days remaining: {int(cert_days)}")
+        if cert_count > 1:
+            cert_meta.append(f"Multiple certs ({cert_count}) - Prominent cert shown")
         cert_title_attr = f' title="{escape(" | ".join(cert_meta))}"' if cert_meta else ""
         decorated.append(
             {
@@ -425,7 +431,10 @@ def _serialize_asset_api_row(row: dict[str, Any]) -> dict[str, Any]:
         "cipher_suite": str(row.get("cipher_suite") or "Unknown"),
         "ca": str(row.get("ca") or "Unknown"),
         "cert_days": row.get("cert_days"),
+        "cert_valid_from": str(row.get("cert_valid_from") or row.get("from_date") or ""),
+        "from_date": str(row.get("from_date") or row.get("cert_valid_from") or "-"),
         "cert_valid_until": str(row.get("cert_valid_until") or ""),
+        "cert_count": int(row.get("cert_count") or 0),
         "certificate_details": row.get("certificate_details") if isinstance(row.get("certificate_details"), dict) else {},
         "notes": str(row.get("notes") or ""),
     }

@@ -1,31 +1,378 @@
 {% extends "base.html" %}
 
-{% block title %}Two-Factor Authentication // QuantumShield{% endblock %}
+{% block title %}Two-Factor Authentication // QuantumShield — PNB Cybersecurity Hackathon 2026{% endblock %}
+
+{% block head %}
+<style>
+/* ── 2FA-specific styling extending login layout ────────────────── */
+body.login-page {
+    background:
+        radial-gradient(ellipse 60% 50% at 20% 40%, rgba(74,158,173,0.08) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 80% 70%, rgba(74,158,173,0.06) 0%, transparent 70%),
+        var(--bg-dark, #0f1219);
+    min-height: 100vh;
+}
+
+/* ── 6-digit OTP Input Grid ─────────────────────────────────────── */
+.otp-grid-container {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin: 1.25rem 0 1.5rem;
+}
+.otp-digit-input {
+    width: 44px;
+    height: 52px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(74,158,173,0.22);
+    border-radius: 10px;
+    color: var(--accent, #4a9ead);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.4rem;
+    font-weight: 800;
+    text-align: center;
+    outline: none;
+    transition: all 0.2s ease-in-out;
+}
+.otp-digit-input:focus {
+    border-color: var(--accent, #4a9ead);
+    background: rgba(74,158,173,0.1);
+    box-shadow: 0 0 0 3px rgba(74,158,173,0.18), 0 0 12px rgba(74,158,173,0.25);
+    transform: translateY(-2px);
+}
+.otp-digit-input.filled {
+    border-color: rgba(74,158,173,0.45);
+    background: rgba(74,158,173,0.06);
+}
+
+/* ── Backup mode toggle ─────────────────────────────────────────── */
+.mode-toggle-link {
+    display: block;
+    text-align: center;
+    font-size: 0.72rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted, #5a6a7e);
+    text-decoration: none;
+    margin-bottom: 1.25rem;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.mode-toggle-link:hover {
+    color: var(--accent, #4a9ead);
+    text-decoration: underline;
+}
+
+.backup-input-wrap {
+    display: none;
+    margin-bottom: 1.25rem;
+}
+
+/* ── Light mode overrides ───────────────────────────────────────── */
+html[data-theme='light'] body.login-page {
+    background:
+        radial-gradient(ellipse 60% 50% at 20% 40%, rgba(74,158,173,0.11) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 80% 70%, rgba(74,158,173,0.08) 0%, transparent 70%),
+        var(--bg-primary, #f5f7fb);
+}
+html[data-theme='light'] .otp-digit-input {
+    background: color-mix(in srgb, var(--bg-input) 85%, #ffffff 15%);
+    border-color: color-mix(in srgb, var(--border-subtle) 70%, var(--text-secondary) 30%);
+    color: var(--text-primary, #0f172a);
+}
+</style>
+{% endblock %}
 
 {% block content %}
+<script>document.body.classList.add('login-page');</script>
+
 <div class="login-page-wrapper">
-  <div class="login-card">
-    <div class="login-card-header">
-      <div class="shield-icon">🔒</div>
-      <div>
-        <h1>Enter Authentication Code</h1>
-        <p>Enter the 6-digit code from your authenticator app, or use a backup code.</p>
-      </div>
+
+    {# ── Event banner ─────────────────────────────────────────── #}
+    <div class="login-banner animate-fade-in">
+        <div class="banner-series">PSB Hackathon Series</div>
+        <div class="banner-org">
+            <span class="banner-org-name">PNB Cybersecurity Hackathon 2026</span>
+            <span class="banner-collab">× IIT Kanpur</span>
+        </div>
+        <div class="banner-event">QuantumShield // Two-Factor Security</div>
+        <div class="banner-divider"></div>
+        <div class="banner-tagline">Step 2 of 2: Multi-Factor Authentication</div>
     </div>
 
-    <form method="POST" action="{{ url_for('two_factor_login') }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="lf-group">
-        <label class="lf-label">One-time code</label>
-        <div class="lf-input-wrap">
-          <input class="lf-input" type="text" name="otp" placeholder="Authenticator or backup code" required>
+    {# ── 2FA Login card ───────────────────────────────────────── #}
+    <div class="login-card animate-fade-in" style="animation-delay:0.08s">
+
+        {# Card header #}
+        <div class="login-card-header">
+            <div class="shield-icon"><i class="fa-solid fa-key"></i></div>
+            <div>
+                <h1>Two-Factor Auth</h1>
+                <p>Security Verification Required</p>
+            </div>
         </div>
-      </div>
 
-      <button class="btn-authorize" type="submit">Verify</button>
-    </form>
+        {# Flash messages #}
+        <div id="js2faFlashContainer">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="flash-box flash-{{ category }}">
+                      <span class="flash-icon">
+                          {% if category == 'error' %}<i class="fa-solid fa-triangle-exclamation"></i>
+                          {% elif category == 'warning' %}<i class="fa-solid fa-circle-exclamation"></i>
+                          {% else %}<i class="fa-solid fa-circle-check"></i>{% endif %}
+                      </span>
+                      <span>{{ message }}</span>
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+        </div>
 
-    <div class="login-security-note">If you have lost your authenticator app, ask your administrator to reset your 2FA.</div>
-  </div>
-</div>
+        {# ── 2FA Form ─────────────────────────────────────────── #}
+        <form id="twoFactorForm" method="POST" action="{{ url_for('two_factor_login') }}" autocomplete="off" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="otp" id="hiddenOtpInput">
+
+            {# TOTP 6-Digit Box View #}
+            <div id="totpSection">
+                <label class="lf-label" style="text-align:center; display:block;">Enter 6-digit Authenticator Code</label>
+                <div class="otp-grid-container" id="otpGrid">
+                    <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" data-index="0" autofocus>
+                    <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" data-index="1">
+                    <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" data-index="2">
+                    <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" data-index="3">
+                    <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" data-index="4">
+                    <input type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" class="otp-digit-input" data-index="5">
+                </div>
+            </div>
+
+            {# Backup Code Input View (Toggleable) #}
+            <div id="backupSection" class="backup-input-wrap">
+                <label class="lf-label" for="backupCodeInput">Backup Recovery Code</label>
+                <div class="lf-input-wrap">
+                    <input class="lf-input" type="text" id="backupCodeInput" placeholder="e.g. a1b2c3d4" autocomplete="off">
+                    <i class="fa-solid fa-shield-cat lf-icon"></i>
+                </div>
+            </div>
+
+            {# Mode toggle link #}
+            <a type="button" id="toggleModeBtn" class="mode-toggle-link">
+                <i class="fa-solid fa-life-ring"></i> Use a 8-character backup code instead
+            </a>
+
+            {# Verify submit button #}
+            <button type="submit" class="btn-authorize" id="verifyBtn">
+                <i class="fa-solid fa-shield-halved" style="margin-right:0.4rem;"></i>
+                Verify & Continue
+            </button>
+        </form>
+
+        <div class="login-security-note" style="margin-top:1.5rem;">
+            <i class="fa-solid fa-lock" style="font-size:0.7rem;"></i>
+            <span>Lost your authenticator? Contact your system administrator to reset 2FA.</span>
+        </div>
+
+    </div>{# /login-card #}
+
+</div>{# /login-page-wrapper #}
+
+<script>
+(function () {
+    const otpInputs = Array.from(document.querySelectorAll('.otp-digit-input'));
+    const hiddenOtp = document.getElementById('hiddenOtpInput');
+    const backupSection = document.getElementById('backupSection');
+    const totpSection = document.getElementById('totpSection');
+    const toggleModeBtn = document.getElementById('toggleModeBtn');
+    const backupInput = document.getElementById('backupCodeInput');
+    const form = document.getElementById('twoFactorForm');
+    const verifyBtn = document.getElementById('verifyBtn');
+    const jsFlashContainer = document.getElementById('js2faFlashContainer');
+
+    let isBackupMode = false;
+
+    function showError(msg) {
+        if (!jsFlashContainer) return;
+        jsFlashContainer.innerHTML = `
+            <div class="flash-box flash-error animate-fade-in">
+                <span class="flash-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                <span>${msg}</span>
+            </div>
+        `;
+    }
+
+    // Toggle between TOTP boxes and Backup code text input
+    if (toggleModeBtn) {
+        toggleModeBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            isBackupMode = !isBackupMode;
+            if (isBackupMode) {
+                totpSection.style.display = 'none';
+                backupSection.style.display = 'block';
+                toggleModeBtn.innerHTML = '<i class="fa-solid fa-mobile-screen-button"></i> Use 6-digit authenticator code';
+                backupInput.focus();
+            } else {
+                totpSection.style.display = 'block';
+                backupSection.style.display = 'none';
+                toggleModeBtn.innerHTML = '<i class="fa-solid fa-life-ring"></i> Use a 8-character backup code instead';
+                otpInputs[0]?.focus();
+            }
+        });
+    }
+
+    // OTP Box behavior: auto-advance, backspace, paste
+    otpInputs.forEach((input, index) => {
+        input.addEventListener('input', function (e) {
+            const val = e.target.value.replace(/[^0-9a-zA-Z]/g, '');
+            e.target.value = val ? val.slice(-1) : '';
+            if (e.target.value) {
+                input.classList.add('filled');
+                if (index < otpInputs.length - 1) {
+                    otpInputs[index + 1].focus();
+                } else {
+                    // Auto submit when 6th digit is entered
+                    syncHiddenOtp();
+                    if (getCombinedCode().length === 6) {
+                        form.dispatchEvent(new Event('submit', { cancelable: true }));
+                    }
+                }
+            } else {
+                input.classList.remove('filled');
+            }
+            syncHiddenOtp();
+        });
+
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                otpInputs[index - 1].focus();
+                otpInputs[index - 1].value = '';
+                otpInputs[index - 1].classList.remove('filled');
+                syncHiddenOtp();
+            }
+        });
+
+        input.addEventListener('paste', function (e) {
+            e.preventDefault();
+            const pastedText = (e.clipboardData || window.clipboardData).getData('text').replace(/\s+/g, '').trim();
+            if (!pastedText) return;
+
+            // If user pasted an 8-character backup code, switch mode automatically
+            if (pastedText.length === 8 && !isBackupMode) {
+                toggleModeBtn.click();
+                backupInput.value = pastedText;
+                syncHiddenOtp();
+                form.dispatchEvent(new Event('submit', { cancelable: true }));
+                return;
+            }
+
+            // Standard TOTP 6-digit paste handling
+            const digits = pastedText.slice(0, 6).split('');
+            digits.forEach((d, idx) => {
+                if (otpInputs[idx]) {
+                    otpInputs[idx].value = d;
+                    otpInputs[idx].classList.add('filled');
+                }
+            });
+
+            const nextFocusIndex = Math.min(digits.length, 5);
+            otpInputs[nextFocusIndex]?.focus();
+            syncHiddenOtp();
+
+            if (digits.length === 6) {
+                form.dispatchEvent(new Event('submit', { cancelable: true }));
+            }
+        });
+    });
+
+    if (backupInput) {
+        backupInput.addEventListener('input', syncHiddenOtp);
+    }
+
+    function getCombinedCode() {
+        if (isBackupMode) {
+            return (backupInput?.value || '').trim();
+        }
+        return otpInputs.map(i => i.value).join('');
+    }
+
+    function syncHiddenOtp() {
+        if (hiddenOtp) {
+            hiddenOtp.value = getCombinedCode();
+        }
+    }
+
+    // Interactive AJAX verification handling
+    if (form && verifyBtn) {
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            syncHiddenOtp();
+
+            const codeVal = getCombinedCode();
+            if (!codeVal) {
+                showError(isBackupMode ? 'Please enter your backup code.' : 'Please enter the 6-digit verification code.');
+                if (isBackupMode) backupInput?.focus();
+                else otpInputs[0]?.focus();
+                return;
+            }
+
+            const csrfToken = form.querySelector('input[name="csrf_token"]')?.value || '';
+
+            // Set loading state
+            const originalBtnHTML = verifyBtn.innerHTML;
+            verifyBtn.disabled = true;
+            verifyBtn.style.opacity = '0.75';
+            verifyBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right:0.4rem;"></i> Verifying Code...';
+            if (jsFlashContainer) jsFlashContainer.innerHTML = '';
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        otp: codeVal,
+                        csrf_token: csrfToken
+                    })
+                });
+
+                let data = {};
+                try {
+                    data = await response.json();
+                } catch (parseErr) {
+                    console.warn('Non-JSON response received:', parseErr);
+                }
+
+                if (response.ok && data.success && data.redirect) {
+                    verifyBtn.innerHTML = '<i class="fa-solid fa-check" style="margin-right:0.4rem;"></i> Verified! Opening Dashboard...';
+                    window.location.href = data.redirect;
+                } else {
+                    const errorMsg = data.error || (response.status === 401 ? 'Invalid verification code or session expired.' : 'Verification failed. Please try again.');
+                    showError(errorMsg);
+                    verifyBtn.disabled = false;
+                    verifyBtn.style.opacity = '1';
+                    verifyBtn.innerHTML = originalBtnHTML;
+
+                    // Clear OTP inputs on failure for convenience
+                    if (!isBackupMode) {
+                        otpInputs.forEach(i => { i.value = ''; i.classList.remove('filled'); });
+                        otpInputs[0]?.focus();
+                    } else {
+                        backupInput?.select();
+                    }
+
+                    if (data.redirect && !data.success) {
+                        setTimeout(() => { window.location.href = data.redirect; }, 1500);
+                    }
+                }
+            } catch (err) {
+                console.error('2FA verification network/fetch exception:', err);
+                showError('A network connection error occurred. Re-submitting form...');
+                setTimeout(() => { form.submit(); }, 600);
+            }
+        });
+    }
+})();
+</script>
 {% endblock %}

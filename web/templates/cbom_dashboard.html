@@ -261,8 +261,18 @@ function toast(msg,type){
     setTimeout(function(){el.classList.remove('show');},3500);
 }
 async function get(url){
-    var r=await fetch(url,{headers:{'Accept':'application/json','Cache-Control':'no-cache'}});
-    return r.json();
+    try {
+        var r = await fetch(url, {headers:{'Accept':'application/json','Cache-Control':'no-cache'}});
+        var ct = r.headers.get('content-type') || '';
+        if (!r.ok || !ct.includes('application/json')) {
+            console.warn('API returned non-JSON response from', url, r.status);
+            return { success: false, data: {}, errors: ['API returned invalid response format (' + r.status + ')'] };
+        }
+        return await r.json();
+    } catch(e) {
+        console.error('Fetch error for', url, e);
+        return { success: false, data: {}, errors: [e.message] };
+    }
 }
 async function loadKPIs(){
     try{

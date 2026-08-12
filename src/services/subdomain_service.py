@@ -4,6 +4,7 @@ Manages the identification, tracking, and promotion of subdomains discovered dur
 """
 import logging
 from datetime import datetime, timezone
+from typing import Optional, List, Dict
 from sqlalchemy import and_, func
 
 from src.db import db_session
@@ -134,3 +135,60 @@ class SubdomainService:
             db_session.rollback()
             logger.exception("Failed to promote subdomain %s", subdomain_id)
             return None
+
+    @staticmethod
+    def discover_nested_subdomains(
+        target_domain: str,
+        parent_asset_id: Optional[int] = None,
+        max_depth: int = 2
+    ) -> list[dict[str, str]]:
+        """
+        Execute unlimited free nested subdomain discovery for target_domain up to max_depth.
+        Automatically persists newly discovered subdomains into the subdomains table.
+        """
+        from src.scanner.subdomain_scanner import discover_nested_subdomains_sync
+
+        target = target_domain.strip().lower().lstrip(".")
+        if not target:
+            return []
+
+        if parent_asset_id is None:
+            parent_asset = db_session.query(Asset).filter(
+                func.lower(Asset.target) == target,
+                Asset.is_deleted == False
+            ).first()
+            if parent_asset:
+                parent_asset_id = parent_asset.id
+
+        discovered = discover_nested_subdomains_sync(target_domain=target, max_depth=max_depth)
+
+        if parent_asset_id and discovered:
+            try:
+                for item in discovered:
+                    sub_fqdn = item.get("subdomain")
+                    ip_addr = item.get("ip")
+                    if not sub_fqdn or sub_fqdn == target:
+                        continue
+
+                    existing = db_session.query(Subdomain).filter(
+                        Subdomain.parent_asset_id == parent_asset_id,
+                        Subdomain.subdomain == sub_fqdn,
+                        Subdomain.is_deleted == False
+                    ).first()
+
+                    if not existing:
+                        new_sub = Subdomain(
+                            parent_asset_id=parent_asset_id,
+                            subdomain=sub_fqdn,
+                            ip=ip_addr,
+                            record_type='A',
+                            is_inventoried=False,
+                            discovered_at=datetime.now(timezone.utc).replace(tzinfo=None)
+                        )
+                        db_session.add(new_sub)
+                db_session.commit()
+            except Exception:
+                db_session.rollback()
+                logger.exception("Failed to persist discovered nested subdomains for target %s", target)
+
+        return discovered

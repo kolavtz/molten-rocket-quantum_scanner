@@ -4,7 +4,7 @@ Loads and calculates live dashboard telemetry scoring aggregates.
 """
 
 from datetime import datetime, timezone, timedelta
-from collections import Counter
+from collections import Counter, defaultdict
 from typing import Dict, List, Any, Optional
 import json
 
@@ -30,6 +30,17 @@ class _DBSessionProxy:
 
 
 db_session = _DBSessionProxy()
+
+
+def _query_results(query: Any) -> list:
+    try:
+        if hasattr(query, "all"):
+            res = query.all()
+            return list(res) if res is not None else []
+        return list(query) if query is not None else []
+    except Exception as exc:
+        logger.warning("Query execution failed: %s", exc)
+        return []
 
 class AssetService:
     def __init__(self):
@@ -167,8 +178,78 @@ class AssetService:
             if cur_dt >= prev_dt:
                 latest_scan_by_target[key] = scan
 
+    @staticmethod
+    def _cert_prominence_key(cert: Certificate) -> tuple:
+        """Compute ranking key to select the most prominent / most powerful certificate."""
+        now = datetime.now()
+        valid_until = getattr(cert, "valid_until", None)
+        is_valid = 1 if (valid_until and valid_until >= now and not getattr(cert, "is_expired", False)) else 0
+        is_current = 1 if getattr(cert, "is_current", False) else 0
+        key_length = int(getattr(cert, "key_length", 0) or 0)
+
+        tls_str = str(getattr(cert, "tls_version", "") or "").upper()
+        if "1.3" in tls_str:
+            tls_weight = 4
+        elif "1.2" in tls_str:
+            tls_weight = 3
+        elif "1.1" in tls_str:
+            tls_weight = 2
+        elif "1.0" in tls_str:
+            tls_weight = 1
+        else:
+            tls_weight = 0
+
+        valid_until_ts = valid_until.timestamp() if (valid_until and hasattr(valid_until, "timestamp")) else 0
+        valid_from = getattr(cert, "valid_from", None)
+        valid_from_ts = valid_from.timestamp() if (valid_from and hasattr(valid_from, "timestamp")) else 0
+        cert_id = int(getattr(cert, "id", 0) or 0)
+
+        return (
+            is_valid,         # Active non-expired certs first
+            is_current,       # Current cert marker first
+            key_length,       # Most powerful key length (e.g. 4096-bit > 2048-bit > 1024-bit)
+            tls_weight,       # Modern protocol version
+            valid_until_ts,   # Later expiry date
+            valid_from_ts,    # Recent issue date
+            cert_id,          # Latest ID
+        )
+
+    def load_combined_assets(self) -> list[dict]:
+        """Loads and combines all Asset metadata with latest scan results & most prominent certificates."""
+
+        db_assets = _query_results(db_session.query(Asset))
+        if not db_assets:
+            return []
+
+        scans = _query_results(db_session.query(Scan).filter(Scan.is_deleted == False, Scan.deleted_at.is_(None)))
+        latest_scan_by_target: Dict[str, Scan] = {}
+        for scan in scans:
+            target = getattr(scan, "target", None)
+            key = self._normalize_target(target or "")
+            if not key:
+                continue
+            previous = latest_scan_by_target.get(key)
+            if previous is None:
+                latest_scan_by_target[key] = scan
+                continue
+            prev_ts = (
+                getattr(previous, "completed_at", None)
+                or getattr(previous, "scanned_at", None)
+                or getattr(previous, "started_at", None)
+            )
+            cur_ts = (
+                getattr(scan, "completed_at", None)
+                or getattr(scan, "scanned_at", None)
+                or getattr(scan, "started_at", None)
+            )
+            prev_dt = self._coerce_datetime(prev_ts) or datetime.min
+            cur_dt = self._coerce_datetime(cur_ts) or datetime.min
+            if cur_dt >= prev_dt:
+                latest_scan_by_target[key] = scan
+
         asset_ids = [int(a.id) for a in db_assets if getattr(a, "id", None) is not None]
-        latest_cert_by_asset: Dict[int, Certificate] = {}
+        prominent_cert_by_asset: Dict[int, Certificate] = {}
+        cert_counts_by_asset: Dict[int, int] = defaultdict(int)
         certs = []
         if asset_ids:
             cert_query = db_session.query(Certificate)
@@ -186,31 +267,32 @@ class AssetService:
             if not hasattr(cert_query, "filter"):
                 asset_id_set = {int(asset_id) for asset_id in asset_ids}
                 certs = [cert for cert in certs if int(getattr(cert, "asset_id", 0) or 0) in asset_id_set]
+
+        all_certs_by_asset: Dict[int, List[Certificate]] = defaultdict(list)
         for cert in certs:
             asset_id = int(getattr(cert, "asset_id", 0) or 0)
-            if asset_id <= 0:
-                continue
-            prev = latest_cert_by_asset.get(asset_id)
-            if prev is None:
-                latest_cert_by_asset[asset_id] = cert
-                continue
-            prev_ts = getattr(prev, "valid_until", None) or datetime.min
-            cur_ts = getattr(cert, "valid_until", None) or datetime.min
-            if cur_ts >= prev_ts:
-                latest_cert_by_asset[asset_id] = cert
+            if asset_id > 0:
+                all_certs_by_asset[asset_id].append(cert)
+                cert_counts_by_asset[asset_id] += 1
+
+        for asset_id, cert_list in all_certs_by_asset.items():
+            if cert_list:
+                prominent_cert_by_asset[asset_id] = max(cert_list, key=self._cert_prominence_key)
 
         now_naive_utc = datetime.now(timezone.utc).replace(tzinfo=None)
 
+        assets_out = []
         for meta in db_assets:
             target_key = self._normalize_target(meta.name or meta.target or "")
             latest_scan = latest_scan_by_target.get(target_key)
-            latest_cert = latest_cert_by_asset.get(int(getattr(meta, "id", 0) or 0))
+            latest_cert = prominent_cert_by_asset.get(int(getattr(meta, "id", 0) or 0))
             latest_scan_report_raw = self._safe_json_dict(getattr(latest_scan, "report_json", None)) if latest_scan else {}
             latest_scan_report = dict(latest_scan_report_raw)
 
             risk_score = 0.0
             risk_level = str(getattr(meta, "risk_level", "") or "").strip()
             cert_days = None
+            cert_valid_from = None
             cert_valid_until = None
             key_length = 0
             cert_status = "Not Scanned"
@@ -243,6 +325,9 @@ class AssetService:
                 tls_version = str(getattr(latest_cert, "tls_version", "") or "Unknown")
                 cipher_suite = str(getattr(latest_cert, "cipher_suite", "") or "Unknown")
                 ca_name = str(getattr(latest_cert, "ca", "") or getattr(latest_cert, "issuer", "") or "Unknown")
+                valid_from = getattr(latest_cert, "valid_from", None)
+                if valid_from:
+                    cert_valid_from = valid_from.strftime("%Y-%m-%d")
                 valid_until = getattr(latest_cert, "valid_until", None)
                 if valid_until:
                     cert_valid_until = valid_until.strftime("%Y-%m-%d")
@@ -269,13 +354,25 @@ class AssetService:
                         cert_status = "Expired" if bool(getattr(latest_cert, "is_expired", False)) else "Valid"
 
             certificate_details = {}
+            if latest_cert:
+                certificate_details = {
+                    "issuer": ca_name,
+                    "subject": str(getattr(latest_cert, "subject", "") or getattr(latest_cert, "subject_cn", "") or ""),
+                    "subject_cn": str(getattr(latest_cert, "subject_cn", "") or ""),
+                    "valid_from": cert_valid_from or "",
+                    "valid_until": cert_valid_until or "",
+                    "key_length": key_length,
+                    "tls_version": tls_version,
+                    "cipher_suite": cipher_suite,
+                    "fingerprint_sha256": str(getattr(latest_cert, "fingerprint_sha256", "") or ""),
+                }
             scan_tls_results = latest_scan_report.get("tls_results") if isinstance(latest_scan_report.get("tls_results"), list) else []
             for tls_row in scan_tls_results:
                 if not isinstance(tls_row, dict):
                     continue
                 details = tls_row.get("certificate_details")
                 if isinstance(details, dict) and details:
-                    certificate_details = details
+                    certificate_details.update(details)
                     break
 
             overview = {}
@@ -320,7 +417,10 @@ class AssetService:
                 "risk_score": risk_score,
                 "cert_status": cert_status,
                 "cert_days": cert_days,
+                "cert_valid_from": cert_valid_from,
+                "from_date": cert_valid_from or "-",
                 "cert_valid_until": cert_valid_until,
+                "cert_count": cert_counts_by_asset.get(meta.id, 0),
                 "certificate_details": certificate_details,
                 "key_length": key_length,
                 "tls_version": tls_version,

@@ -513,8 +513,8 @@ MAX_LOGIN_ATTEMPTS = int(
 LOGIN_LOCKOUT_MINUTES = int(os.environ.get("QSS_LOGIN_LOCKOUT_MINUTES", "15"))
 # REQUIRE_2FA: when True, all users are required to configure 2FA on next login
 REQUIRE_2FA = os.environ.get("QSS_REQUIRE_2FA", "false").lower() == "true"
-# TOTP_VALID_WINDOW: number of 30-second TOTP windows to accept before/after current (0 = strict, 1 = ±30s tolerance)
-TOTP_VALID_WINDOW = int(os.environ.get("QSS_TOTP_VALID_WINDOW", "1"))
+# TOTP_VALID_WINDOW: number of 30-second TOTP windows to accept before/after current (0 = strict, 1 = ±30s, 2 = ±60s tolerance)
+TOTP_VALID_WINDOW = int(os.environ.get("QSS_TOTP_VALID_WINDOW", "2"))
 
 # ---------------------------------------------------------------------------
 # SMTP / Email

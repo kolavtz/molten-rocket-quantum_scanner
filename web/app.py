@@ -2399,22 +2399,31 @@ def _check_and_clean_user_lockout(user_data: dict | None) -> tuple[dict | None, 
 @limiter.limit("100 per minute")
 def login():
     """Secure login page — CSRF protected, rate-limited, lockout-aware."""
+    wants_json = request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest" or (
+        request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html
+    )
     if current_user.is_authenticated:
+        if wants_json:
+            return jsonify({"success": True, "redirect": url_for('quantumshield_dashboard.dashboard_home')})
         return redirect(url_for('quantumshield_dashboard.dashboard_home'))
 
     locked = False
 
     if request.method == "POST":
-        username = (request.form.get("username") or "").strip()
-        password = request.form.get("password") or ""
+        json_data = request.get_json(silent=True) or {}
+        username = (request.form.get("username") or json_data.get("username") or "").strip()
+        password = request.form.get("password") or json_data.get("password") or ""
         # Guard: blank credential submissions must never trigger lockouts or audit spam
         if not username:
-            flash("Please enter your username.", "error")
+            err_msg = "Please enter your username."
+            if wants_json:
+                return jsonify({"success": False, "error": err_msg}), 400
+            flash(err_msg, "error")
             resp = make_response(render_template("login.html", locked=False))
             resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             resp.headers["Pragma"] = "no-cache"
             return resp
-        remember = bool(request.form.get("remember"))
+        remember = bool(request.form.get("remember") or json_data.get("remember"))
         request_ip = _get_request_ip()
 
         user_data = db.get_user_by_username(username)
@@ -2437,13 +2446,18 @@ def login():
                     "login_ip": request_ip,
                 },
             )
+            if wants_json:
+                return jsonify({"success": False, "error": lock_msg, "locked": True}), 403
             flash(lock_msg, "error")
             return render_template("login.html", locked=True)
 
         # ── Credential check ──────────────────────────────────────
         if user_data and check_password_hash(user_data["password_hash"], password):
             if not user_data.get("is_active", True):
-                flash("Your account has been suspended. Contact an administrator.", "error")
+                err_msg = "Your account has been suspended. Contact an administrator."
+                if wants_json:
+                    return jsonify({"success": False, "error": err_msg}), 403
+                flash(err_msg, "error")
                 return render_template("login.html", locked=False)
 
             # Force password change first if required
@@ -2451,6 +2465,8 @@ def login():
                 token = db.create_password_setup_token(user_data["id"], expires_hours=2)
                 if token:
                     _audit("auth", "password_change_required", "success", target_user_id=user_data["id"], details={"reason": "must_change_password"})
+                    if wants_json:
+                        return jsonify({"success": True, "redirect": url_for("setup_password", token=token), "must_change_password": True})
                     flash("Please set a new password before continuing.", "warning")
                     return redirect(url_for("setup_password", token=token))
 
@@ -2469,10 +2485,10 @@ def login():
                     details={"require_2fa": bool(REQUIRE_2FA), "two_factor_enabled": bool(user_data.get("two_factor_enabled"))},
                 )
 
-                if user_data.get("two_factor_enabled"):
-                    return redirect(url_for("two_factor_login"))
-                else:
-                    return redirect(url_for("two_factor_setup"))
+                target_url = url_for("two_factor_login") if user_data.get("two_factor_enabled") else url_for("two_factor_setup")
+                if wants_json:
+                    return jsonify({"success": True, "redirect": target_url, "mfa_required": True})
+                return redirect(target_url)
 
             # No 2FA required — complete login immediately
             db.mark_login_success(user_data["id"])
@@ -2487,7 +2503,10 @@ def login():
                 details={"role": user.role, "remember": remember, "login_ip": request_ip},
             )
 
-            return redirect(url_for('quantumshield_dashboard.dashboard_home'))
+            target_url = url_for('quantumshield_dashboard.dashboard_home')
+            if wants_json:
+                return jsonify({"success": True, "redirect": target_url})
+            return redirect(target_url)
         else:
             # Only count failed login against an existing account (never against blank/unknown users)
             if user_data and username:
@@ -2504,7 +2523,10 @@ def login():
                 request_path=request.path,
                 details={"user_exists": bool(user_data), "login_ip": request_ip},
             )
-            flash("Invalid credentials. Access denied.", "error")
+            err_msg = "Invalid credentials. Access denied."
+            if wants_json:
+                return jsonify({"success": False, "error": err_msg}), 401
+            flash(err_msg, "error")
 
     resp = make_response(render_template("login.html", locked=locked))
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
@@ -2554,28 +2576,25 @@ def two_factor_setup():
         return redirect(url_for("login"))
 
     totp = pyotp.TOTP(secret)
-    if totp.verify(code, valid_window=TOTP_VALID_WINDOW):
+    if totp.verify(code, for_time=datetime.now(timezone.utc), valid_window=TOTP_VALID_WINDOW):
         # Create backup codes (show once)
         backup_plain = [secrets.token_hex(4) for _ in range(10)]
         hashed_entries = []
-        for c in backup_plain:
-            hashed_entries.append({"code_hash": hashlib.sha256(c.encode()).hexdigest(), "used": False})
+        for b in backup_plain:
+            h = hashlib.sha256(b.encode()).hexdigest()
+            hashed_entries.append({"code_hash": h, "used": False, "used_at": None})
 
-        backup_json = json.dumps(hashed_entries)
-
-        # Persist encrypted secret + backup codes
-        if db.set_user_2fa(pre_id, secret, backup_json):
-            # complete login
-            db.mark_login_success(pre_id)
-            user_data = db.get_user_by_id(pre_id)
-            remember = bool(session.pop("pre_2fa_remember", False))
-            session.pop("pre_2fa_secret", None)
-            session.pop("pre_2fa_user_id", None)
-            session.pop("pre_2fa_request_ip", None)
-            login_user(User(user_data), remember=remember)
-            _audit("auth", "2fa_enabled", "success", target_user_id=pre_id)
-            # Show backup codes to user once
-            return render_template("show_backup_codes.html", backup_codes=backup_plain)
+        db.set_user_2fa(pre_id, secret, hashed_entries)
+        db.mark_login_success(pre_id)
+        user_data = db.get_user_by_id(pre_id)
+        remember = bool(session.pop("pre_2fa_remember", False))
+        session.pop("pre_2fa_secret", None)
+        session.pop("pre_2fa_user_id", None)
+        session.pop("pre_2fa_request_ip", None)
+        login_user(User(user_data), remember=remember)
+        _audit("auth", "2fa_enabled", "success", target_user_id=pre_id)
+        # Show backup codes to user once
+        return render_template("show_backup_codes.html", backup_codes=backup_plain)
 
         flash("Failed to enable 2FA. Try again or contact admin.", "error")
         return redirect(url_for("login"))
@@ -2588,16 +2607,26 @@ def two_factor_login():
 
     Expects session['pre_2fa_user_id'] to be set by the initial password check.
     """
+    wants_json = request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest" or (
+        request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html
+    )
+
     pre_id = session.get("pre_2fa_user_id")
     if not pre_id:
-        flash("Session expired. Please log in again.", "error")
+        err_msg = "Session expired. Please log in again."
+        if wants_json:
+            return jsonify({"success": False, "error": err_msg, "redirect": url_for("login")}), 401
+        flash(err_msg, "error")
         return redirect(url_for("login"))
 
     user = db.get_user_by_id(pre_id)
     user, is_locked, lock_msg = _check_and_clean_user_lockout(user)
     if is_locked or not user:
-        flash(lock_msg if is_locked else "User not found. Please log in again.", "error")
+        err_msg = lock_msg if is_locked else "User not found. Please log in again."
         session.pop("pre_2fa_user_id", None)
+        if wants_json:
+            return jsonify({"success": False, "error": err_msg, "redirect": url_for("login")}), 401
+        flash(err_msg, "error")
         return redirect(url_for("login"))
 
     if request.method == "GET":
@@ -2609,13 +2638,15 @@ def two_factor_login():
     raw_code = (request.form.get("otp") or request.form.get("code") or (request.get_json(silent=True) or {}).get("otp") or (request.get_json(silent=True) or {}).get("code"))
     code = re.sub(r'[\s\-]', '', str(raw_code or "")).strip()
 
-    # Attempt TOTP verification
+    # Attempt TOTP verification using explicit UTC timestamp to eliminate server/client timezone drift issues
     enc_secret = user.get("two_factor_secret")
     secret = db._decrypt_data(enc_secret) if enc_secret else None
     ok = False
     if secret:
         totp = pyotp.TOTP(secret)
-        ok = totp.verify(code, valid_window=TOTP_VALID_WINDOW)
+        ok = totp.verify(code, for_time=datetime.now(timezone.utc), valid_window=TOTP_VALID_WINDOW)
+
+    target_dashboard = url_for('quantumshield_dashboard.dashboard_home')
 
     if ok:
         db.mark_login_success(pre_id)
@@ -2625,7 +2656,9 @@ def two_factor_login():
         session.pop("pre_2fa_request_ip", None)
         login_user(User(user_data), remember=remember)
         _audit("auth", "login_success_2fa", "success", target_user_id=pre_id)
-        return redirect(url_for('quantumshield_dashboard.dashboard_home'))
+        if wants_json:
+            return jsonify({"success": True, "redirect": target_dashboard})
+        return redirect(target_dashboard)
 
     # If TOTP failed, allow backup code usage
     enc_backup = user.get("backup_codes")
@@ -2652,8 +2685,10 @@ def two_factor_login():
         session.pop("pre_2fa_request_ip", None)
         login_user(User(user_data), remember=remember)
         _audit("auth", "login_success_backup_code", "success", target_user_id=pre_id)
+        if wants_json:
+            return jsonify({"success": True, "redirect": target_dashboard, "message": "Logged in using backup code."})
         flash("Logged in using backup code. That code is now invalid.", "warning")
-        return redirect(url_for('quantumshield_dashboard.dashboard_home'))
+        return redirect(target_dashboard)
 
     # Failed verification
     db.mark_login_failure(pre_id, MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_MINUTES)
@@ -4174,12 +4209,13 @@ def cbom_dashboard():
         # On error, query DB directly for KPI counts instead of hardcoding zeros
         try:
             from src.db import db_session
-            from src.models import Certificate
+            from src.models import Certificate, Asset
             from sqlalchemy import func
             
-            cert_count = db_session.query(Certificate).filter(Certificate.is_deleted == False).count()
-            active_certs = db_session.query(func.count(Certificate.id)).filter(
+            cert_count = db_session.query(Certificate).join(Asset, Certificate.asset_id == Asset.id).filter(Certificate.is_deleted == False, Asset.is_deleted == False).count()
+            active_certs = db_session.query(func.count(Certificate.id)).join(Asset, Certificate.asset_id == Asset.id).filter(
                 Certificate.is_deleted == False,
+                Asset.is_deleted == False,
                 Certificate.valid_until >= func.now()
             ).scalar() or 0
             

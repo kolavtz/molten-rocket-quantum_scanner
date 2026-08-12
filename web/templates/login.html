@@ -623,8 +623,11 @@ html[data-theme='light'] .login-card .lf-input-wrap input.lf-input::placeholder 
         </div>
         {% endif %}
 
+        {# ── Dynamic JS flash message container ─────────────────── #}
+        <div id="jsFlashContainer"></div>
+
         {# ── Form ─────────────────────────────────────────────── #}
-        <form method="POST" action="{{ url_for('login') }}" autocomplete="on" novalidate>
+        <form id="loginForm" method="POST" action="{{ url_for('login') }}" autocomplete="on" novalidate>
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             {# Username / Email #}
@@ -732,6 +735,91 @@ html[data-theme='light'] .login-card .lf-input-wrap input.lf-input::placeholder 
             const btn = document.getElementById('submitBtn');
             if (btn) btn.style.boxShadow = '0 0 0 1px rgba(74,158,173,0.4), 0 6px 22px rgba(74,158,173,0.35)';
             pwInput.removeEventListener('keyup', onFirstKey);
+        });
+    }
+
+    /* Interactive JS Form Submit handling */
+    const form = document.getElementById('loginForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const jsFlashContainer = document.getElementById('jsFlashContainer');
+
+    function showError(msg) {
+        if (!jsFlashContainer) return;
+        jsFlashContainer.innerHTML = `
+            <div class="flash-box flash-error animate-fade-in">
+                <span class="flash-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                <span>${msg}</span>
+            </div>
+        `;
+    }
+
+    if (form && submitBtn) {
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const usernameVal = (document.getElementById('username')?.value || '').trim();
+            const passwordVal = document.getElementById('password')?.value || '';
+            const rememberVal = document.getElementById('remember')?.checked || false;
+            const csrfToken   = form.querySelector('input[name="csrf_token"]')?.value || '';
+
+            if (!usernameVal) {
+                showError('Please enter your username.');
+                document.getElementById('username')?.focus();
+                return;
+            }
+            if (!passwordVal) {
+                showError('Please enter your password.');
+                document.getElementById('password')?.focus();
+                return;
+            }
+
+            // Set loading UI state
+            const originalBtnHTML = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.75';
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right:0.4rem;"></i> Authenticating...';
+            if (jsFlashContainer) jsFlashContainer.innerHTML = '';
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        username: usernameVal,
+                        password: passwordVal,
+                        remember: rememberVal,
+                        csrf_token: csrfToken
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success && data.redirect) {
+                    submitBtn.innerHTML = '<i class="fa-solid fa-check" style="margin-right:0.4rem;"></i> Access Granted...';
+                    window.location.href = data.redirect;
+                } else {
+                    const errorMsg = data.error || 'Authentication failed. Please check your credentials.';
+                    showError(errorMsg);
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                    submitBtn.innerHTML = originalBtnHTML;
+
+                    if (data.locked) {
+                        document.getElementById('username').disabled = true;
+                        document.getElementById('password').disabled = true;
+                        submitBtn.disabled = true;
+                        submitBtn.style.opacity = '0.45';
+                    }
+                }
+            } catch (err) {
+                console.error('Login submit error:', err);
+                showError('A network error occurred. Submitting via standard channel...');
+                // Fallback to standard submit
+                setTimeout(() => { form.submit(); }, 600);
+            }
         });
     }
 })();

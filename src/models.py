@@ -866,3 +866,96 @@ class AiAuditLog(Base):
     rag_enabled = Column(Boolean, default=False, nullable=False)
     token_count = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=func.now(), nullable=False, index=True)
+
+
+class AssetDNSRecord(Base):
+    """DNS records resolved for an asset during scan."""
+    __tablename__ = 'asset_dns_records'
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    scan_id = Column(String(36), ForeignKey('scans.scan_id', ondelete='CASCADE'), nullable=False, index=True)
+    hostname = Column(String(255), nullable=False, index=True)
+    record_type = Column(String(16), nullable=False)
+    record_value = Column(String(1024), nullable=False)
+    ttl = Column(Integer, default=300)
+    resolved_at = Column(DateTime, default=func.now())
+
+
+class AuditLog(Base):
+    """Security and system event audit logs."""
+    __tablename__ = 'audit_logs'
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    actor_user_id = Column(String(36), ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    actor_username = Column(String(150), nullable=True)
+    event_category = Column(String(64), nullable=False, index=True)
+    event_type = Column(String(128), nullable=False)
+    target_user_id = Column(String(36), ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    target_scan_id = Column(String(36), ForeignKey('scans.scan_id', ondelete='SET NULL'), nullable=True, index=True)
+    ip_address = Column(String(64), nullable=True)
+    user_agent = Column(String(512), nullable=True)
+    request_method = Column(String(16), nullable=True)
+    request_path = Column(String(255), nullable=True)
+    status = Column(String(32), nullable=False)
+    details_json = Column(Text, nullable=True)
+    previous_hash = Column(String(64), nullable=False)
+    entry_hash = Column(String(64), nullable=False, unique=True)
+    created_at = Column(DateTime, default=func.now(), nullable=False, index=True)
+
+
+class AuditBlock(Base):
+    """Cryptographic audit blockchain entries."""
+    __tablename__ = 'audit_blocks'
+
+    block_index = Column(BigInteger, primary_key=True)
+    audit_log_id = Column(BigInteger, ForeignKey('audit_logs.id', ondelete='RESTRICT'), nullable=False, unique=True)
+    previous_block_hash = Column(String(64), nullable=False)
+    payload_hash = Column(String(64), nullable=False)
+    nonce = Column(BigInteger, default=0, nullable=False)
+    difficulty = Column(Integer, default=0, nullable=False)
+    block_hash = Column(String(64), nullable=False, unique=True)
+    block_signature = Column(String(64), nullable=False)
+    created_at = Column(DateTime, default=func.now(), nullable=False, index=True)
+
+
+class AuditLogChain(Base):
+    """Pointer table tracking audit chain state."""
+    __tablename__ = 'audit_log_chain'
+
+    id = Column(Integer, primary_key=True)
+    last_entry_id = Column(BigInteger, nullable=True)
+    last_hash = Column(String(64), nullable=True)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class CBOMReport(Base):
+    """CBOM report document JSON store."""
+    __tablename__ = 'cbom_reports'
+
+    scan_id = Column(String(36), ForeignKey('scans.scan_id', ondelete='CASCADE'), primary_key=True)
+    cbom_json = Column(Text, nullable=False)
+    is_encrypted = Column(Boolean, default=False)
+
+
+class ReportSchedule(Base):
+    """Scheduled automated report generation entries."""
+    __tablename__ = 'report_schedules'
+
+    schedule_id = Column(String(36), primary_key=True)
+    created_by_id = Column(String(36), ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    created_by_name = Column(String(150), nullable=True)
+    created_at = Column(DateTime, default=func.now(), nullable=False, index=True)
+    enabled = Column(Boolean, default=True)
+    report_type = Column(String(120), nullable=False)
+    frequency = Column(String(32), nullable=False)
+    assets = Column(String(256), nullable=True)
+    sections_json = Column(Text, nullable=True)
+    schedule_date = Column(String(20), nullable=True)
+    schedule_time = Column(String(10), nullable=True)
+    timezone_name = Column(String(64), nullable=True)
+    email_list = Column(String(512), nullable=True)
+    pdf_password_enc = Column(Text, nullable=True)
+    save_path = Column(String(512), nullable=True)
+    download_link = Column(Boolean, default=False)
+    status = Column(String(32), default='scheduled', index=True)
+

@@ -56,13 +56,25 @@
       });
     }
 
+    const clearBtn = el('ai-clear');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function(e){
+        e.preventDefault();
+        saveHistory([]);
+        initChat();
+      });
+    }
+
     // Append a message to UI and history
     function appendMessage(role, text, skipSave = false) {
       const msgGroup = createEl('div', 'ai-msg-group ' + role);
-      const name = role === 'user' ? 'You' : 'Zea (AI agent)';
+      const name = role === 'user' ? 'You' : 'Quantum AI Agent';
       msgGroup.appendChild(createEl('span', 'ai-sender-name', name));
       
-      const bubble = createEl('div', 'ai-msg ' + role, text.replace(/\n/g, '<br>'));
+      const formattedText = String(text || '')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\n/g, '<br>');
+      const bubble = createEl('div', 'ai-msg ' + role, formattedText);
       msgGroup.appendChild(bubble);
       msgs.appendChild(msgGroup);
       safeScroll(msgs);
@@ -78,11 +90,11 @@
     function appendOptions() {
       const optionsContainer = createEl('div', 'ai-options-container');
       const options = [
-        { label: 'Start a Scan', msg: 'Run a Post-Quantum scan' },
-        { label: 'PQC Mitigations', msg: 'What are the key PQC features?' },
-        { label: 'CBOM Export Help', msg: 'Show me a CBOM export demo' },
-        { label: 'Learn about PQC', msg: 'What is Post-Quantum Cryptography?' },
-        { label: 'Check System Posture', msg: 'Show my scan metrics summary' }
+        { label: '⚡ Run PQC Scan', msg: 'How do I run a Post-Quantum scan?' },
+        { label: '🛡️ PQC Readiness', msg: 'What are the key PQC algorithms and migration steps?' },
+        { label: '📜 Export CBOM', msg: 'How can I export my Cryptographic Bill of Materials (CBOM)?' },
+        { label: '⚠️ Weak Cryptography', msg: 'Show weak keys and vulnerable SSL/TLS protocols' },
+        { label: '📊 System Posture', msg: 'Summarize my current system security posture' }
       ];
 
       options.forEach(opt => {
@@ -171,8 +183,8 @@
         appendOptions();
       } else {
         // Welcome messages
-        appendMessage('assistant', "Hi there, I'm Zea, your QuantumShield AI agent. I'm here to help you secure your systems.");
-        appendMessage('assistant', 'Ask me a question or choose an option below.');
+        appendMessage('assistant', "Hello! I am your QuantumShield AI Security Agent. I am here to help you monitor post-quantum posture, analyze CBOM inventories, and remediate cryptographic risks.");
+        appendMessage('assistant', 'Ask a question or select a quick option below:');
         appendOptions();
       }
     }

@@ -71,9 +71,12 @@ class CyberRatingService:
         Returns:
             Dict containing score, tier, and justification.
         """
-        metric = db_session.query(AssetMetric).filter(
-            AssetMetric.asset_id == asset_id
-        ).first()
+        metric = (
+            db_session.query(AssetMetric)
+            .join(Asset, AssetMetric.asset_id == Asset.id)
+            .filter(AssetMetric.asset_id == asset_id, Asset.is_deleted == False)
+            .first()
+        )
 
         if not metric:
             return {"score": 0, "tier": "Legacy", "label": "No Data"}
@@ -115,9 +118,14 @@ class CyberRatingService:
     @staticmethod
     def calculate_org_cyber_rating() -> Dict[str, Any]:
         """
-        Calculate organization-wide rating (average of all assets).
+        Calculate organization-wide rating (average of all active inventory assets).
         """
-        metrics = db_session.query(AssetMetric).all()
+        metrics = (
+            db_session.query(AssetMetric)
+            .join(Asset, AssetMetric.asset_id == Asset.id)
+            .filter(Asset.is_deleted == False)
+            .all()
+        )
         
         if not metrics:
             return {"score": 0, "tier": "Legacy", "label": "No Data"}

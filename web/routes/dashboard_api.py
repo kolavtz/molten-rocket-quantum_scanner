@@ -33,6 +33,7 @@ from src.services.pqc_service import PQCService
 from src.services.risk_calculation_service import RiskCalculationService
 from src.services.asset_service import AssetService
 from src.services.geo_service import GeoService
+from src.services.subdomain_service import SubdomainService
 from utils.api_helper import (
     apply_sort,
     build_data_envelope,
@@ -215,14 +216,14 @@ def _split_discovery_tab_query(tab: str, params: dict[str, Any]) -> tuple[list[d
     scan_join = "LEFT JOIN scans s ON s.id = d.scan_id" if has_scan_id else "LEFT JOIN (SELECT 1 AS id, 0 AS is_deleted) s ON 1=1"
     where_parts.append("COALESCE(s.is_deleted, 0) = 0" if has_scan_id else "1=1")
 
-    # For subdomains: join to the subdomain's own asset record (created when inventoried)
+    # For subdomains: join to the subdomain's own active asset record (created when inventoried)
     # For others: join via the stored asset_id foreign key
     if asset_id_col is None:
-        asset_join = "LEFT JOIN assets a ON LOWER(a.target) = LOWER(d.subdomain) AND COALESCE(a.is_deleted, 0) = 0"
-        count_asset_join = "LEFT JOIN assets a ON LOWER(a.target) = LOWER(d.subdomain) AND COALESCE(a.is_deleted, 0) = 0"
+        asset_join = "INNER JOIN assets a ON LOWER(a.target) = LOWER(d.subdomain) AND COALESCE(a.is_deleted, 0) = 0"
+        count_asset_join = "INNER JOIN assets a ON LOWER(a.target) = LOWER(d.subdomain) AND COALESCE(a.is_deleted, 0) = 0"
     else:
-        asset_join = f"LEFT JOIN assets a ON a.id = d.{asset_id_col} AND COALESCE(a.is_deleted, 0) = 0"
-        count_asset_join = f"LEFT JOIN assets a ON a.id = d.{asset_id_col} AND COALESCE(a.is_deleted, 0) = 0"
+        asset_join = f"INNER JOIN assets a ON a.id = d.{asset_id_col} AND COALESCE(a.is_deleted, 0) = 0"
+        count_asset_join = f"INNER JOIN assets a ON a.id = d.{asset_id_col} AND COALESCE(a.is_deleted, 0) = 0"
 
     query_sql = f"""
         SELECT
@@ -387,14 +388,14 @@ def _ssl_discovery_query(params: dict[str, Any]) -> tuple[list[dict[str, Any]], 
                 a.owner AS owner
             FROM discovery_ssl d
             {dedup_join}
-            LEFT JOIN assets a
+            INNER JOIN assets a
                 ON a.id = d.asset_id
                AND COALESCE(a.is_deleted, 0) = 0
             WHERE {where_sql}
             ORDER BY {sort_sql} {order_sql}, d.id DESC
             LIMIT :limit OFFSET :offset
         """
-        count_sql = f"SELECT COUNT(*) FROM discovery_ssl d {dedup_join} LEFT JOIN assets a ON a.id = d.asset_id AND COALESCE(a.is_deleted, 0) = 0 WHERE {where_sql}"
+        count_sql = f"SELECT COUNT(*) FROM discovery_ssl d {dedup_join} INNER JOIN assets a ON a.id = d.asset_id AND COALESCE(a.is_deleted, 0) = 0 WHERE {where_sql}"
         rows = db_session.execute(text(query_sql), sql_params).mappings().all()
         total = int(db_session.execute(text(count_sql), sql_params).scalar() or 0)
         return (
@@ -432,11 +433,15 @@ def _discovery_kpis() -> dict[str, int]:
     for table_name, key, col in table_col_map:
         if _table_exists(table_name):
             count_sql = text(
-                f"SELECT COUNT(DISTINCT TRIM(LOWER({col}))) FROM {table_name} "
-                f"WHERE COALESCE(is_deleted, 0) = 0 AND {col} IS NOT NULL "
-                f"AND TRIM({col}) != '' AND TRIM(LOWER({col})) != '--'"
+                f"SELECT COUNT(DISTINCT TRIM(LOWER(d.{col}))) FROM {table_name} d "
+                f"INNER JOIN assets a ON a.id = d.asset_id AND COALESCE(a.is_deleted, 0) = 0 "
+                f"WHERE COALESCE(d.is_deleted, 0) = 0 AND d.{col} IS NOT NULL "
+                f"AND TRIM(d.{col}) != '' AND TRIM(LOWER(d.{col})) != '--'"
             )
-            table_counts[key] = int(db_session.execute(count_sql).scalar() or 0)
+            try:
+                table_counts[key] = int(db_session.execute(count_sql).scalar() or 0)
+            except Exception:
+                table_counts[key] = 0
         else:
             table_counts[key] = 0
 
@@ -565,6 +570,43 @@ def api_home_metrics():
         return success_response(data, filters={})
     except Exception as exc:
         return error_response(f"Failed to load home metrics: {exc}", 500)
+
+
+@api_dashboards_bp.route("/api/subdomains/discover", methods=["POST"])
+@api_dashboards_bp.route("/api/v1/subdomains/discover", methods=["POST"])
+@login_required
+@api_guard
+def api_discover_nested_subdomains():
+    try:
+        payload = request.get_json(silent=True) or {}
+        target_domain = str(payload.get("target_domain") or payload.get("domain") or payload.get("target") or "").strip()
+        max_depth = int(payload.get("max_depth") or 2)
+        parent_asset_id = payload.get("parent_asset_id")
+        if parent_asset_id is not None:
+            parent_asset_id = int(parent_asset_id)
+
+        if not target_domain:
+            return error_response("Missing required parameter: target_domain", 400)
+
+        results = SubdomainService.discover_nested_subdomains(
+            target_domain=target_domain,
+            parent_asset_id=parent_asset_id,
+            max_depth=max_depth
+        )
+
+        data = build_data_envelope(
+            items=results,
+            total=len(results),
+            params={"target_domain": target_domain, "max_depth": max_depth},
+            kpis={
+                "total_discovered": len(results),
+                "dns_discovered": sum(1 for r in results if r.get("source") == "DNS"),
+                "ssl_san_discovered": sum(1 for r in results if r.get("source") == "SSL_SAN"),
+            }
+        )
+        return success_response(data, filters={"target_domain": target_domain})
+    except Exception as exc:
+        return error_response(f"Nested subdomain discovery failed: {exc}", 500)
 
 
 @api_dashboards_bp.route("/api/distributions/asset-types", methods=["GET"])

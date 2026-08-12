@@ -29,11 +29,12 @@ import logging
 import os
 import secrets
 import hashlib
+import base64
 import sys
 import pymysql.cursors
 import uuid
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from cryptography.fernet import Fernet, InvalidToken  # type: ignore
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -96,7 +97,13 @@ def _get_fernet() -> Optional[Fernet]:
         return _fernet_instance
     if ENCRYPTION_KEY:
         try:
-            _fernet_instance = Fernet(ENCRYPTION_KEY.encode('utf-8'))
+            key_bytes = ENCRYPTION_KEY.encode('utf-8')
+            try:
+                _fernet_instance = Fernet(key_bytes)
+            except Exception:
+                # Derive valid 32 url-safe base64 bytes if key is arbitrary string
+                derived_key = base64.urlsafe_b64encode(hashlib.sha256(key_bytes).digest())
+                _fernet_instance = Fernet(derived_key)
             return _fernet_instance
         except Exception as e:
             logger.error(f"Failed to initialize Fernet: {e}")
@@ -2187,16 +2194,18 @@ def update_user_profile(user_id: str, role: Optional[str] = None, is_active: Opt
         conn.close()
 
 
-def set_user_2fa(user_id: str, secret: str, backup_codes_json: Optional[str] = None) -> bool:
+def set_user_2fa(user_id: str, secret: str, backup_codes_json: Optional[Union[str, list, dict]] = None) -> bool:
     """Persist an encrypted TOTP secret and (optionally) encrypted backup codes for a user.
 
     secret: plain TOTP base32 secret (will be encrypted with Fernet if available)
-    backup_codes_json: JSON-encoded backup codes (already hashed) -- will be encrypted if possible
+    backup_codes_json: JSON-encoded backup codes (already hashed) or list/dict -- will be encrypted if possible
     """
     conn = _get_connection()
     if conn is None:
         return False
     try:
+        if backup_codes_json is not None and not isinstance(backup_codes_json, str):
+            backup_codes_json = json.dumps(backup_codes_json)
         enc_secret = _encrypt_data(secret) if secret is not None else None
         enc_backup = _encrypt_data(backup_codes_json) if backup_codes_json is not None else None
         cur = conn.cursor()
@@ -2217,6 +2226,10 @@ def set_user_2fa(user_id: str, secret: str, backup_codes_json: Optional[str] = N
         return False
     finally:
         conn.close()
+
+
+enable_2fa = set_user_2fa
+
 
 
 def reset_user_2fa(user_id: str) -> bool:

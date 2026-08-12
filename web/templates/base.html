@@ -428,39 +428,65 @@
     {% if current_user.is_authenticated %}
     <!-- AI Assistant Floating Widget -->
     <div id="ai-widget">
-        <!-- Persistent 62x62px button -->
-        <button id="ai-toggle" class="ai-toggle" title="Open QuantumShield Assistant" aria-label="Open AI Assistant">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <!-- Persistent FAB toggle button -->
+        <button id="ai-toggle" class="ai-toggle" title="Open QuantumShield AI Agent" aria-label="Open AI Assistant">
+            <span class="ai-toggle-pulse"></span>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="11" r="1.5"></circle>
+                <circle cx="8" cy="11" r="1.5"></circle>
+                <circle cx="16" cy="11" r="1.5"></circle>
             </svg>
+            <span class="ai-toggle-badge">AI</span>
         </button>
+
         <!-- Panel -->
         <div id="ai-panel" class="ai-panel" aria-hidden="true" role="dialog" aria-label="AI Assistant">
             <div class="ai-header">
-                <button class="ai-header-back" id="ai-close" aria-label="Close">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                </button>
-                <div class="ai-header-info">
-                    <div class="ai-header-avatar">🤖</div>
-                    <div class="ai-header-title">QuantumShield AI Agent</div>
+                <div class="ai-header-left">
+                    <div class="ai-header-avatar">
+                        <span class="ai-status-dot"></span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00f2fe" stroke-width="2">
+                            <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+                            <circle cx="12" cy="5" r="2"></circle>
+                            <path d="M12 7v4"></path>
+                        </svg>
+                    </div>
+                    <div class="ai-header-info">
+                        <div class="ai-header-title">QuantumShield AI Agent</div>
+                        <div class="ai-header-status"><span class="pulse-green">●</span> Online • Live Context</div>
+                    </div>
+                </div>
+                <div class="ai-header-actions">
+                    <button class="ai-header-btn" id="ai-clear" title="Clear Chat History" aria-label="Clear Chat">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                    <button class="ai-header-btn" id="ai-close" title="Close Panel" aria-label="Close">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
                 </div>
             </div>
-            
+
             <div class="ai-messages" id="ai-messages" aria-live="polite">
                 <!-- System notice and welcome messages will be loaded by JS -->
             </div>
-            
+
             <div class="ai-input-area">
                 <div class="ai-input-row">
-                    <button id="ai-attach-scan" class="ai-attach-btn" title="Attach current scan context">📎</button>
+                    <button id="ai-attach-scan" class="ai-attach-btn" title="Attach current scan context">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                    </button>
                     <div class="ai-input-wrapper">
-                        <input type="text" id="ai-input" class="ai-input" placeholder="Type a message">
+                        <input type="text" id="ai-input" class="ai-input" placeholder="Ask Quantum AI agent (Press Enter to send)...">
                     </div>
                     <button id="ai-send" class="ai-send-btn" title="Send message">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                     </button>
                 </div>
-                <div class="ai-footer-brand">⚡ Built with QuantumShield</div>
+                <div class="ai-footer-brand">
+                    <span>⚡ QuantumShield AI Engine</span>
+                    <span class="ai-footer-kbd">Enter ↵</span>
+                </div>
             </div>
         </div>
     </div>

@@ -205,10 +205,10 @@
                     <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Assets at High Risk</div>
                 </div>
                 <div class="risk-bar-wrapper">
-                    <div id="riskCriticalSeg" class="risk-segment" style="width:{{ risk_metrics.distribution.Critical.pct }}%; background:var(--risk-critical);" title="Critical"></div>
-                    <div id="riskHighSeg" class="risk-segment" style="width:{{ risk_metrics.distribution.High.pct }}%; background:var(--risk-high);" title="High"></div>
-                    <div id="riskMediumSeg" class="risk-segment" style="width:{{ risk_metrics.distribution.Medium.pct }}%; background:var(--risk-medium);" title="Medium"></div>
-                    <div id="riskLowSeg" class="risk-segment" style="width:{{ risk_metrics.distribution.Low.pct }}%; background:var(--risk-low);" title="Low"></div>
+                    <div id="riskCriticalSeg" class="risk-segment" style="width:{{ (risk_metrics.distribution.Critical.pct if risk_metrics and risk_metrics.distribution and risk_metrics.distribution.Critical else 0) }}%; background:var(--risk-critical);" title="Critical"></div>
+                    <div id="riskHighSeg" class="risk-segment" style="width:{{ (risk_metrics.distribution.High.pct if risk_metrics and risk_metrics.distribution and risk_metrics.distribution.High else 0) }}%; background:var(--risk-high);" title="High"></div>
+                    <div id="riskMediumSeg" class="risk-segment" style="width:{{ (risk_metrics.distribution.Medium.pct if risk_metrics and risk_metrics.distribution and risk_metrics.distribution.Medium else 0) }}%; background:var(--risk-medium);" title="Medium"></div>
+                    <div id="riskLowSeg" class="risk-segment" style="width:{{ (risk_metrics.distribution.Low.pct if risk_metrics and risk_metrics.distribution and risk_metrics.distribution.Low else 0) }}%; background:var(--risk-low);" title="Low"></div>
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 1rem;">
                     <div style="font-size: 0.6rem; color: var(--text-muted);"><i class="fa-solid fa-circle" style="color:var(--risk-critical);"></i> CRIT</div>

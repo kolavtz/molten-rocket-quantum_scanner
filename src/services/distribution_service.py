@@ -82,8 +82,15 @@ class DistributionService:
             Asset.is_deleted == False
         ).count()
         
+        distribution = {
+            'Critical': {'count': 0, 'pct': 0.0},
+            'High': {'count': 0, 'pct': 0.0},
+            'Medium': {'count': 0, 'pct': 0.0},
+            'Low': {'count': 0, 'pct': 0.0},
+        }
+        
         if total_assets == 0:
-            return {}
+            return distribution
         
         risk_counts = db_session.query(
             Asset.risk_level,
@@ -92,7 +99,6 @@ class DistributionService:
             Asset.is_deleted == False
         ).group_by(Asset.risk_level).all()
         
-        distribution = {}
         for risk_level, count in risk_counts:
             label = str(risk_level or 'Medium').strip().capitalize()
             pct = (count / total_assets * 100.0) if total_assets > 0 else 0.0

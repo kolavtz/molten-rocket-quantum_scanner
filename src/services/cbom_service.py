@@ -401,15 +401,12 @@ class CbomService:
         q = (
             db_session.query(CBOMEntry, Asset, Scan)
             .join(Scan, CBOMEntry.scan_id == Scan.id)
-            .outerjoin(Asset, CBOMEntry.asset_id == Asset.id)
+            .join(Asset, CBOMEntry.asset_id == Asset.id)
             .filter(
                 CBOMEntry.is_deleted == False,
                 Scan.is_deleted == False,
                 Scan.status == "complete",
-                # Exclude CBOM entries linked to soft-deleted inventory assets.
-                # Keep entries with no asset association (outerjoin) but drop ones
-                # where Asset.is_deleted == True.
-                or_(Asset.id == None, Asset.is_deleted == False),
+                Asset.is_deleted == False,
             )
         )
         if asset_id is not None:
@@ -568,12 +565,12 @@ class CbomService:
                     ]
                 )
                 .join(Scan, CBOMEntry.scan_id == Scan.id)
-                .outerjoin(Asset, CBOMEntry.asset_id == Asset.id)
+                .join(Asset, CBOMEntry.asset_id == Asset.id)
                 .filter(
                     CBOMEntry.is_deleted == False,
                     Scan.is_deleted == False,
                     Scan.status == "complete",
-                    or_(Asset.id == None, Asset.is_deleted == False),
+                    Asset.is_deleted == False,
                 )
             )
             if asset_id is not None:
@@ -660,13 +657,12 @@ class CbomService:
             discovery_ssl_query = (
                 db_session.query(DiscoverySSL, Asset, Scan)
                 .join(Scan, DiscoverySSL.scan_id == Scan.id)
-                .outerjoin(Asset, DiscoverySSL.asset_id == Asset.id)
+                .join(Asset, DiscoverySSL.asset_id == Asset.id)
                 .filter(
                     DiscoverySSL.is_deleted == False,
                     Scan.is_deleted == False,
                     Scan.status == "complete",
-                    # Exclude discovery rows attached to deleted assets.
-                    or_(Asset.id == None, Asset.is_deleted == False),
+                    Asset.is_deleted == False,
                 )
             )
             if asset_id is not None:
