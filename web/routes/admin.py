@@ -235,7 +235,7 @@ def delete_user(user_id: str):
     return redirect(url_for("admin_routes.admin_users"))
 
 
-@admin_bp.route("/bulk", methods=["POST"])
+@admin_bp.route("/bulk", methods=["POST", "DELETE"])
 @login_required
 def bulk_users():
     err = _check_admin_permission()

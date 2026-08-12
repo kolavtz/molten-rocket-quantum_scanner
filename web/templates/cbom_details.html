@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CBOM Detail</title>
+    <style>
+        body {font-family: Arial, sans-serif; margin:0; padding:1rem; background:#fafafa;}
+        #content {max-width: 800px; margin:auto; background:#fff; padding:1rem; border-radius:4px;}
+        #closeBtn {position:absolute; top:10px; right:10px; padding:4px 8px;
+                   background:#d33; color:#fff; border:none; border-radius:3px; cursor:pointer;}
+    </style>
+</head>
+<body>
+    <button id="closeBtn">✕ Close</button>
+    <div id="content">Loading…</div>
+
+    <script>
+        // Retrieve the JSON string stored under the key "cbomDetail"
+        const raw = sessionStorage.getItem('cbomDetail');
+        if (raw) {
+            try {
+                const data = JSON.parse(raw);
+                // Simple pretty‑print; replace with a richer view if desired
+                document.getElementById('content').textContent = JSON.stringify(data, null, 2);
+            } catch (_) {
+                document.getElementById('content').textContent = raw;
+            }
+        }
+
+        // Close the detail window when the button is clicked
+        document.getElementById('closeBtn').addEventListener('click', () => {
+            window.close();
+        });
+    </script>
+</body>
+</html>

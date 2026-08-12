@@ -2838,6 +2838,7 @@ def admin_theme():
     return render_template("admin_theme.html", theme=current_theme, section_title="Theme configuration")
 
 @app.route("/admin/users", methods=["GET", "POST"])
+@limiter.exempt
 @role_required(list(ADMIN_PANEL_ROLES))
 def admin_users():
     """Admin panel to manage users and send setup invites."""
@@ -3128,7 +3129,7 @@ def admin_update_user(user_id: str):
     return redirect(url_for("admin_users"))
 
 
-@app.route("/admin/users/bulk", methods=["POST"])
+@app.route("/admin/users/bulk", methods=["POST", "DELETE"])
 @csrf.exempt
 @limiter.exempt
 @role_required(list(ADMIN_PANEL_ROLES))

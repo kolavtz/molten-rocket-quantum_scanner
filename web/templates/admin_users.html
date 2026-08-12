@@ -2,6 +2,56 @@
 
 {% block title %}User Management | QuantumShield{% endblock %}
 
+{% block head %}
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<style>
+    .row-deleting {
+        opacity: 0;
+        transform: translateX(-18px) scaleY(0.85);
+        transition: opacity 0.28s ease, transform 0.28s ease;
+        pointer-events: none;
+    }
+    .inline-confirm-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        padding: 0.65rem 1rem;
+        border-radius: 6px;
+        background: rgba(239,68,68,0.12);
+        border: 1px solid rgba(239,68,68,0.45);
+        margin-bottom: 0.75rem;
+        font-size: 0.8rem;
+        color: #fca5a5;
+        animation: slideDown 0.18s ease;
+    }
+    @keyframes slideDown {
+        from { opacity:0; transform:translateY(-8px); }
+        to   { opacity:1; transform:translateY(0); }
+    }
+    .inline-confirm-bar .confirm-yes {
+        background: #ef4444;
+        color: #fff;
+        border: none;
+        padding: 0.3rem 0.8rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+    .inline-confirm-bar .confirm-no {
+        background: transparent;
+        color: #94a3b8;
+        border: 1px solid #334155;
+        padding: 0.3rem 0.8rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <header class="section-header">
     <h1 class="hero-title">USER MANAGEMENT</h1>
@@ -94,7 +144,7 @@
                     </thead>
                     <tbody>
                         {% for user in users %}
-                        <tr class="scan-row">
+                        <tr class="scan-row" data-user-id="{{ user.id }}">
                             <td style="text-align:center;">
                                 <input
                                     class="js-user-select"
@@ -159,311 +209,221 @@
 </div>
 
 <script>
+/* ─── CSRF & AUTH ─────────────────────────────────────── */
 function getCsrfToken() {
-    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || document.querySelector('input[name="csrf_token"]')?.value || '';
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+        || document.querySelector('input[name="csrf_token"]')?.value || '';
 }
-
 function getAuthHeaders() {
-    const token = getCsrfToken();
-    return {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-CSRFToken': token,
-        'X-CSRF-Token': token
-    };
+    const t = getCsrfToken();
+    return { 'Content-Type':'application/json','Accept':'application/json',
+             'X-Requested-With':'XMLHttpRequest','X-CSRFToken':t,'X-CSRF-Token':t };
 }
 
+/* ─── TOAST ────────────────────────────────────────────── */
 function showFlash(message, category = 'success') {
-    const flashDiv = document.createElement('div');
-    flashDiv.className = 'flash-msg';
-    flashDiv.textContent = message.toUpperCase();
-    flashDiv.style.position = 'fixed';
-    flashDiv.style.top = '1rem';
-    flashDiv.style.right = '1rem';
-    flashDiv.style.backgroundColor = category === 'success' ? 'var(--safe)' : 'var(--danger)';
-    flashDiv.style.color = '#000';
-    flashDiv.style.padding = '0.75rem 1.5rem';
-    flashDiv.style.borderRadius = 'var(--radius-md)';
-    flashDiv.style.zIndex = '9999';
-    flashDiv.style.maxWidth = '400px';
-    document.body.appendChild(flashDiv);
-    setTimeout(() => flashDiv.remove(), 5000);
+    const el = document.createElement('div');
+    el.textContent = message.toUpperCase();
+    Object.assign(el.style, {
+        position:'fixed', top:'1.1rem', right:'1.2rem',
+        background: category === 'success' ? '#10b981' : '#ef4444',
+        color:'#fff', padding:'0.75rem 1.4rem', borderRadius:'8px',
+        zIndex:'999999', maxWidth:'420px', fontSize:'0.82rem',
+        fontWeight:'700', letterSpacing:'0.04em',
+        boxShadow:'0 4px 20px rgba(0,0,0,0.4)',
+        transition:'opacity 0.4s ease', opacity:'1'
+    });
+    document.body.appendChild(el);
+    setTimeout(() => { el.style.opacity='0'; setTimeout(()=>el.remove(),420); }, 4500);
 }
 
+/* ─── PARSE JSON ───────────────────────────────────────── */
 async function parseJsonResponse(response) {
     const raw = await response.text();
-    if (!raw || !raw.trim()) {
-        return {};
-    }
-    try {
-        return JSON.parse(raw);
-    } catch (_err) {
-        const trimmed = raw.trim().toLowerCase();
-        if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<html')) {
-            throw new Error('Session expired or access denied. Please refresh and log in again.');
-        }
-        throw new Error('Server returned an invalid JSON response.');
+    if (!raw || !raw.trim()) return {};
+    try { return JSON.parse(raw); }
+    catch (_) {
+        if (raw.trim().toLowerCase().startsWith('<')) throw new Error('Session expired. Please refresh.');
+        throw new Error('Invalid server response.');
     }
 }
 
+/* ─── DOM HELPERS ──────────────────────────────────────── */
 function updateRoleBadge(row, role) {
     const badge = row.querySelector('.status-badge[style*="accent"]');
-    if (badge) {
-        badge.textContent = role.toUpperCase();
-    }
+    if (badge) badge.textContent = role.toUpperCase();
 }
-
 function updateStatusBadge(row, isActive) {
-    const statusCell = row.querySelector('td:nth-child(5)');
-    if (statusCell) {
-        statusCell.innerHTML = isActive
-            ? '<span class="status-badge" style="color: var(--safe); border-color: var(--safe);">ACTIVE</span>'
-            : '<span class="status-badge" style="color: var(--danger); border-color: var(--danger);">SUSPENDED</span>';
-    }
+    const cell = row.querySelector('td:nth-child(5)');
+    if (cell) cell.innerHTML = isActive
+        ? '<span class="status-badge" style="color:var(--safe);border-color:var(--safe);">ACTIVE</span>'
+        : '<span class="status-badge" style="color:var(--danger);border-color:var(--danger);">SUSPENDED</span>';
 }
 
+/* ─── SMOOTH ROW REMOVAL ───────────────────────────────── */
+function removeRow(row, onDone) {
+    if (!row) { onDone && onDone(); return; }
+    row.classList.add('row-deleting');
+    setTimeout(() => { row.remove(); onDone && onDone(); }, 300);
+}
+
+/* ─── INLINE CONFIRM BANNER ────────────────────────────── */
+function showConfirmBar(container, message, onConfirm) {
+    const existing = document.getElementById('__qs_confirm_bar');
+    if (existing) existing.remove();
+    const bar = document.createElement('div');
+    bar.id = '__qs_confirm_bar';
+    bar.className = 'inline-confirm-bar';
+    bar.innerHTML = `<span style="flex:1">${message}</span>
+        <button class="confirm-yes">CONFIRM DELETE</button>
+        <button class="confirm-no">CANCEL</button>`;
+    container.insertAdjacentElement('beforebegin', bar);
+    bar.querySelector('.confirm-yes').onclick = () => { bar.remove(); onConfirm(); };
+    bar.querySelector('.confirm-no').onclick  = () => bar.remove();
+}
+
+/* ─── SELECTION HELPERS ────────────────────────────────── */
+function selectedUserIds() {
+    return Array.from(document.querySelectorAll('.js-user-select:checked')).map(cb => cb.value);
+}
+function updateBulkMeta() {
+    const meta = document.getElementById('bulkUserMeta');
+    if (meta) meta.textContent = `${selectedUserIds().length} SELECTED`;
+}
+document.addEventListener('change', e => {
+    if (e.target.id === 'selectAllUsers') {
+        document.querySelectorAll('.js-user-select:not(:disabled)').forEach(cb => cb.checked = e.target.checked);
+    }
+    if (e.target.id === 'selectAllUsers' || e.target.classList.contains('js-user-select')) updateBulkMeta();
+});
+
+/* ─── SINGLE USER ACTIONS ──────────────────────────────── */
+async function apiPost(url, body = {}) {
+    const res = await fetch(url, { method:'POST', headers:getAuthHeaders(), body:JSON.stringify(body) });
+    const payload = await parseJsonResponse(res);
+    if (!res.ok || payload.status === 'error') throw new Error(payload.message || `Request to ${url} failed`);
+    return payload;
+}
+
+/* ─── UPDATE USER ──────────────────────────────────────── */
 document.querySelectorAll('.js-admin-user-update').forEach(form => {
-    form.addEventListener('submit', async (e) => {
+    form.addEventListener('submit', async e => {
         e.preventDefault();
-        const userId = form.getAttribute('data-user-id');
+        const userId = form.dataset.userId;
         const role = form.querySelector('[name="role"]').value;
         const isActive = form.querySelector('[name="is_active"]').checked;
-        
         try {
-            const response = await fetch(`/admin/users/${userId}/update`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ role, is_active: isActive })
-            });
-            
-            const payload = await parseJsonResponse(response);
-            if (!response.ok || payload.status === 'error') {
-                throw new Error(payload.message || 'Failed to update user');
-            }
-            
+            await apiPost(`/admin/users/${userId}/update`, { role, is_active: isActive });
             const row = form.closest('tr');
             updateRoleBadge(row, role);
             updateStatusBadge(row, isActive);
             showFlash('User profile updated.', 'success');
-        } catch (error) {
-            showFlash(error.message, 'error');
-            console.error('Admin user update error:', error);
-        }
+        } catch (err) { showFlash(err.message, 'error'); }
     });
 });
 
-function selectedUserIds() {
-    return Array.from(document.querySelectorAll('.js-user-select:checked')).map(cb => cb.value);
-}
+/* ─── GLOBAL CLICK DELEGATION ──────────────────────────── */
+document.addEventListener('click', async e => {
 
-function updateBulkMeta() {
-    const selected = selectedUserIds();
-    const meta = document.getElementById('bulkUserMeta');
-    if (meta) {
-        meta.textContent = `${selected.length} SELECTED`;
-    }
-}
-
-document.addEventListener('change', (e) => {
-    if (e.target.id === 'selectAllUsers') {
-        const checked = e.target.checked;
-        document.querySelectorAll('.js-user-select:not(:disabled)').forEach(cb => {
-            cb.checked = checked;
-        });
-        updateBulkMeta();
-    } else if (e.target.classList.contains('js-user-select')) {
-        updateBulkMeta();
-    }
-});
-
-document.addEventListener('click', async (e) => {
-    // Bulk Apply Role button
-    const bulkRoleBtn = e.target.closest('#bulkRoleBtn');
-    if (bulkRoleBtn) {
+    /* ── BULK ROLE ── */
+    if (e.target.closest('#bulkRoleBtn')) {
         e.preventDefault();
         const ids = selectedUserIds();
         const role = document.getElementById('bulkRoleSelect')?.value || 'Viewer';
-        if (!ids.length) {
-            showFlash('Select at least one user.', 'error');
-            return;
-        }
+        if (!ids.length) { showFlash('Select at least one user.', 'error'); return; }
         try {
-            const response = await fetch('/admin/users/bulk', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ action: 'update_role', user_ids: ids, role })
-            });
-            const payload = await parseJsonResponse(response);
-            if (!response.ok || payload.status === 'error') {
-                throw new Error(payload.message || 'Bulk role update failed.');
-            }
-            showFlash(payload.message || 'Bulk role update completed.', 'success');
-            setTimeout(() => window.location.reload(), 1000);
-        } catch (error) {
-            showFlash(error.message, 'error');
-        }
+            const p = await apiPost('/admin/users/bulk', { action:'update_role', user_ids:ids, role });
+            showFlash(p.message || 'Bulk role update completed.', 'success');
+            setTimeout(() => location.reload(), 900);
+        } catch (err) { showFlash(err.message, 'error'); }
         return;
     }
 
-    // Bulk Delete button
-    const bulkDeleteBtn = e.target.closest('#bulkDeleteBtn');
-    if (bulkDeleteBtn) {
+    /* ── BULK DELETE ── */
+    if (e.target.closest('#bulkDeleteBtn')) {
         e.preventDefault();
         const ids = selectedUserIds();
-        if (!ids.length) {
-            showFlash('Select at least one user.', 'error');
-            return;
-        }
-        if (!confirm(`Delete ${ids.length} selected user(s)? Current logged-in user is protected.`)) {
-            return;
-        }
-        try {
-            const response = await fetch('/admin/users/bulk', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ action: 'delete', user_ids: ids })
-            });
-            const payload = await parseJsonResponse(response);
-            if (!response.ok || payload.status === 'error') {
-                throw new Error(payload.message || 'Bulk deletion failed.');
-            }
-            showFlash(payload.message || 'Bulk deletion completed.', 'success');
-            document.querySelectorAll('.js-user-select:checked').forEach(cb => {
-                const row = cb.closest('tr');
-                if (row) row.remove();
-            });
-            updateBulkMeta();
-            setTimeout(() => window.location.reload(), 1000);
-        } catch (error) {
-            showFlash(error.message, 'error');
-        }
+        if (!ids.length) { showFlash('Select at least one user.', 'error'); return; }
+        const bulkBar = document.getElementById('bulkDeleteBtn').closest('div');
+        showConfirmBar(bulkBar, `⚠ Permanently delete <b>${ids.length}</b> selected user(s)?`, async () => {
+            try {
+                const p = await apiPost('/admin/users/bulk', { action:'delete', user_ids:ids });
+                showFlash(p.message || `${ids.length} user(s) deleted.`, 'success');
+                /* Remove rows smoothly */
+                const rows = ids.map(id => document.querySelector(`tr[data-user-id="${id}"]`)).filter(Boolean);
+                let done = 0;
+                if (!rows.length) { updateBulkMeta(); return; }
+                rows.forEach(row => removeRow(row, () => { done++; if (done === rows.length) updateBulkMeta(); }));
+            } catch (err) { showFlash(err.message || 'Bulk deletion error.', 'error'); }
+        });
         return;
     }
 
-    // Reset password button
+    /* ── RESET PASSWORD ── */
     const resetPassBtn = e.target.closest('.js-admin-reset-pass');
     if (resetPassBtn) {
         e.preventDefault();
-        const userId = resetPassBtn.getAttribute('data-user-id');
-        const username = resetPassBtn.getAttribute('data-username');
-        
+        const userId = resetPassBtn.dataset.userId;
+        const username = resetPassBtn.dataset.username;
         try {
-            const response = await fetch(`/admin/users/${userId}/reset-password`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({})
-            });
-            
-            const payload = await parseJsonResponse(response);
-            if (!response.ok || payload.status === 'error') {
-                throw new Error(payload.message || 'Failed to reset password');
+            const p = await apiPost(`/admin/users/${userId}/reset-password`, {});
+            if (p.setup_url && p.email_failed) {
+                showFlash(`Reset link generated (email failed). Check console.`, 'error');
+                console.info('Setup URL:', p.setup_url);
+            } else {
+                showFlash(p.message || 'Password reset email sent.', 'success');
             }
-            
-            if (payload.setup_url && payload.email_failed) {
-                alert(`Password reset link generated for ${username}:\n\n${payload.setup_url}\n\n(Note: Email delivery failed)`);
-            }
-            showFlash(payload.message || 'Password reset email sent.', 'success');
-        } catch (error) {
-            showFlash(error.message, 'error');
-            console.error('Admin reset password error:', error);
-        }
+        } catch (err) { showFlash(err.message, 'error'); }
         return;
     }
 
-    // Single Delete User button
+    /* ── SINGLE DELETE ── */
     const deleteUserBtn = e.target.closest('.js-admin-delete-user');
     if (deleteUserBtn) {
         e.preventDefault();
-        const userId = deleteUserBtn.getAttribute('data-user-id');
-        const username = deleteUserBtn.getAttribute('data-username');
-        if (!confirm(`Delete user '${username}'?`)) {
-            return;
-        }
-        try {
-            const response = await fetch(`/admin/users/${userId}/delete`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({})
-            });
-            const payload = await parseJsonResponse(response);
-            if (!response.ok || payload.status === 'error') {
-                throw new Error(payload.message || 'Failed to delete user');
-            }
-            showFlash(payload.message || 'User deleted successfully.', 'success');
-            const row = deleteUserBtn.closest('tr');
-            if (row) row.remove();
-            updateBulkMeta();
-            setTimeout(() => window.location.reload(), 1000);
-        } catch (error) {
-            showFlash(error.message, 'error');
-            console.error('Admin delete user error:', error);
-        }
+        const userId = deleteUserBtn.dataset.userId;
+        const username = deleteUserBtn.dataset.username || 'user';
+        const row = deleteUserBtn.closest('tr');
+        showConfirmBar(row, `⚠ Delete user <b>${username}</b>? This cannot be undone.`, async () => {
+            try {
+                const p = await apiPost(`/admin/users/${userId}/delete`, {});
+                showFlash(p.message || 'User deleted.', 'success');
+                removeRow(row, updateBulkMeta);
+            } catch (err) { showFlash(err.message || 'Failed to delete user', 'error'); }
+        });
         return;
     }
 
-    // Regenerate API key button
+    /* ── REGEN API KEY ── */
     const regenKeyBtn = e.target.closest('.js-admin-regen-key');
     if (regenKeyBtn) {
         e.preventDefault();
-        const userId = regenKeyBtn.getAttribute('data-user-id');
-        const username = regenKeyBtn.getAttribute('data-username');
-        
-        if (!confirm(`Regenerate API key for ${username}? Current key will be revoked.`)) {
-            return;
-        }
-        
-        try {
-            const response = await fetch(`/admin/users/${userId}/regen-api-key`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({})
-            });
-            
-            const payload = await parseJsonResponse(response);
-            if (!response.ok || payload.status === 'error') {
-                throw new Error(payload.message || 'Failed to regenerate API key');
-            }
-            
-            const keyValue = payload.api_key;
-            const msg = `New API key: ${keyValue}\n\nCopy now. This will not be shown again.`;
-            alert(msg);
-            showFlash('API key regenerated.', 'success');
-        } catch (error) {
-            showFlash(error.message, 'error');
-            console.error('Admin regen key error:', error);
-        }
+        const userId = regenKeyBtn.dataset.userId;
+        const username = regenKeyBtn.dataset.username;
+        const row = regenKeyBtn.closest('tr');
+        showConfirmBar(row, `⚠ Regenerate API key for <b>${username}</b>? Current key will be revoked.`, async () => {
+            try {
+                const p = await apiPost(`/admin/users/${userId}/regen-api-key`, {});
+                showFlash(`New API key copied to console for ${username}.`, 'success');
+                console.info(`[QuantumShield] New API key for ${username}:`, p.api_key);
+            } catch (err) { showFlash(err.message, 'error'); }
+        });
         return;
     }
 
-    // Reset 2FA button
+    /* ── RESET 2FA ── */
     const reset2faBtn = e.target.closest('.js-admin-reset-2fa');
     if (reset2faBtn) {
         e.preventDefault();
-        const userId = reset2faBtn.getAttribute('data-user-id');
-        const username = reset2faBtn.getAttribute('data-username');
-
-        if (!confirm(`Reset 2FA for ${username}? This will require the user to reconfigure 2FA on next login.`)) {
-            return;
-        }
-
-        try {
-            const response = await fetch(`/admin/users/${userId}/reset-2fa`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({})
-            });
-
-            const payload = await parseJsonResponse(response);
-            if (!response.ok || payload.status === 'error') {
-                throw new Error(payload.message || 'Failed to reset 2FA');
-            }
-
-            showFlash('2FA reset for user.', 'success');
-        } catch (error) {
-            showFlash(error.message, 'error');
-            console.error('Admin reset 2FA error:', error);
-        }
+        const userId = reset2faBtn.dataset.userId;
+        const username = reset2faBtn.dataset.username || 'user';
+        const row = reset2faBtn.closest('tr');
+        showConfirmBar(row, `⚠ Reset 2FA for <b>${username}</b>? User must reconfigure on next login.`, async () => {
+            try {
+                const p = await apiPost(`/admin/users/${userId}/reset-2fa`, {});
+                showFlash(p.message || '2FA reset for user.', 'success');
+            } catch (err) { showFlash(err.message || 'Failed to reset 2FA', 'error'); }
+        });
         return;
     }
 });

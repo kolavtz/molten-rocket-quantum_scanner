@@ -3,7 +3,7 @@
 {% block title %}Asset Discovery // QuantumShield{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
 <style>
     /* Upgraded Styling from gemini-code mockup */
     .discovery-container {
@@ -34,7 +34,7 @@
         background-color: var(--bg-card);
         border: 1px solid var(--border-color);
         border-radius: var(--ui-radius-lg);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         margin-bottom: 1.5rem;
     }
 
@@ -85,7 +85,7 @@
         display: flex;
         gap: 0.5rem;
         padding: 0.35rem;
-        background: rgba(0,0,0,0.2);
+        background: rgba(0, 0, 0, 0.2);
         border-radius: 12px;
         border: 1px solid var(--border-color);
     }
@@ -174,7 +174,7 @@
         font-size: 0.7rem;
         font-weight: 800;
         text-transform: uppercase;
-        background: rgba(255,255,255,0.05);
+        background: rgba(255, 255, 255, 0.05);
         border: 1px solid var(--border-color);
     }
 
@@ -235,7 +235,7 @@
     .graph-container {
         height: 450px;
         border-radius: var(--ui-radius);
-        background: rgba(0,0,0,0.2);
+        background: rgba(0, 0, 0, 0.2);
         border: 1px solid var(--border-color);
     }
 
@@ -290,17 +290,14 @@
         bottom: 0;
         width: 100vw;
         height: 100vh;
-        background: rgba(3, 7, 18, .88);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
+        background: var(--bg-main, #060b17);
         display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10000;
+        flex-direction: column;
+        z-index: 999999 !important;
         opacity: 0;
         pointer-events: none;
-        transition: opacity .25s ease-in-out;
-        padding: 1.5rem;
+        transition: opacity .2s ease-in-out;
+        padding: 0;
         box-sizing: border-box;
     }
 
@@ -310,61 +307,47 @@
     }
 
     .modal-card {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        width: 95vw;
-        max-width: 1300px;
-        height: 90vh;
-        max-height: 90vh;
-        box-shadow: 0 20px 50px rgba(0,0,0,.65), 0 0 24px rgba(0,242,254,.08);
-        transform: scale(.93);
-        transition: transform .25s cubic-bezier(0.16, 1, 0.3, 1);
+        background: var(--bg-main, #060b17);
+        border: none;
+        border-radius: 0;
+        width: 100vw;
+        max-width: 100vw;
+        height: 100vh;
+        max-height: 100vh;
+        box-shadow: none;
+        transform: none;
+        transition: none;
         overflow: hidden;
         display: flex;
         flex-direction: column;
-        margin: auto;
+        margin: 0;
     }
 
     .modal-backdrop.active .modal-card {
-        transform: scale(1);
+        transform: none;
     }
 
-    .modal-card.modal-sm {
-        max-width: 580px;
-        height: auto;
-        max-height: 85vh;
-    }
-
-    .modal-card.modal-lg {
-        width: 95vw;
-        max-width: 1100px;
-        height: 88vh;
-        max-height: 88vh;
-    }
-
-    .modal-card.modal-xl {
-        width: 96vw;
-        max-width: 1400px;
-        height: 92vh;
-        max-height: 92vh;
-    }
-
+    .modal-card.modal-sm,
+    .modal-card.modal-lg,
+    .modal-card.modal-xl,
     .modal-card.modal-fullscreen {
-        width: 98vw;
-        max-width: 1600px;
-        height: 95vh;
-        max-height: 95vh;
+        width: 100vw;
+        max-width: 100vw;
+        height: 100vh;
+        max-height: 100vh;
     }
 
     .modal-header {
-        padding: 1.25rem 1.5rem;
+        padding: 1.25rem 2.5rem;
         border-bottom: 1px solid var(--border-color);
-        background: #0a1122;
+        background: #080e1c;
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-shrink: 0;
+        position: sticky;
+        top: 0;
+        z-index: 10;
     }
 
     .modal-title-wrap {
@@ -391,35 +374,41 @@
     }
 
     .close-btn {
-        background: transparent;
-        border: none;
-        color: var(--text-muted);
-        font-size: 1.25rem;
+        background: rgba(255, 255, 255, .06);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        font-size: .85rem;
+        font-weight: 700;
         cursor: pointer;
-        border-radius: 4px;
-        padding: .2rem .4rem;
-        transition: color .2s, background .2s;
+        border-radius: 6px;
+        padding: .5rem 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+        transition: all .2s;
         line-height: 1;
     }
 
     .close-btn:hover {
         color: var(--cyan-accent);
-        background: rgba(0,242,254,.08);
+        border-color: var(--cyan-accent);
+        background: rgba(0, 242, 254, .1);
     }
 
     .modal-body {
-        padding: 1.5rem;
+        padding: 2rem 2.5rem;
         font-size: .9rem;
         line-height: 1.6;
         color: var(--text-primary);
         overflow-y: auto;
         flex: 1;
+        background: var(--bg-main, #060b17);
     }
 
     .modal-footer {
-        padding: 1rem 1.5rem;
+        padding: 1.25rem 2.5rem;
         border-top: 1px solid var(--border-color);
-        background: #0a1122;
+        background: #080e1c;
         display: flex;
         justify-content: flex-end;
         gap: .75rem;
@@ -466,14 +455,14 @@
     }
 
     .modal-warn-box.warn-red {
-        background: rgba(239,68,68,.1);
-        border: 1px solid rgba(239,68,68,.35);
+        background: rgba(239, 68, 68, .1);
+        border: 1px solid rgba(239, 68, 68, .35);
         color: #fca5a5;
     }
 
     .modal-warn-box.warn-cyan {
-        background: rgba(0,242,254,.07);
-        border: 1px solid rgba(0,242,254,.25);
+        background: rgba(0, 242, 254, .07);
+        border: 1px solid rgba(0, 242, 254, .25);
         color: #67e8f9;
     }
 
@@ -489,12 +478,14 @@
         transition: opacity .2s;
     }
 
-    .btn-primary:hover { opacity: .88; }
+    .btn-primary:hover {
+        opacity: .88;
+    }
 
     .btn-primary.danger {
         background: #ef4444;
         color: #fff;
-        box-shadow: 0 0 12px rgba(239,68,68,.35);
+        box-shadow: 0 0 12px rgba(239, 68, 68, .35);
     }
 
     .btn-secondary {
@@ -535,10 +526,12 @@
     <div class="discovery-header">
         <div>
             <h1 class="page-title">ASSET DISCOVERY</h1>
-            <p class="page-description">Intelligence-driven identification of domains, certificates, and infrastructure.</p>
+            <p class="page-description">Intelligence-driven identification of domains, certificates, and infrastructure.
+            </p>
         </div>
         <div class="tab-nav">
-            <button class="tab-btn active" onclick="switchTab(this, 'domains')">Domains ({{ vm.domains|length }})</button>
+            <button class="tab-btn active" onclick="switchTab(this, 'domains')">Domains ({{ vm.domains|length
+                }})</button>
             <button class="tab-btn" onclick="switchTab(this, 'ssl')">SSL ({{ vm.ssl|length }})</button>
             <button class="tab-btn" onclick="switchTab(this, 'ip')">Infrastructure ({{ vm.ip_subnets|length }})</button>
             <button class="tab-btn" onclick="switchTab(this, 'software')">Software ({{ vm.software|length }})</button>
@@ -569,7 +562,8 @@
     <!-- Main Discovery Table Area -->
     <div class="glass-card card-padded">
         <div class="filter-bar">
-            <input type="text" id="globalSearch" class="discovery-input" placeholder="Search by name, IP, software, cert...">
+            <input type="text" id="globalSearch" class="discovery-input"
+                placeholder="Search by name, IP, software, cert...">
             <select id="statusFilter" class="discovery-input">
                 <option value="">All Status</option>
                 <option value="new">New</option>
@@ -662,14 +656,17 @@
 
         <div id="tab-subdomains" class="discovery-tab-content" style="display:none;">
             <div style="display:flex; gap:0.75rem; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap;">
-                <input type="text" id="subdomainScanInput" class="discovery-input" placeholder="Enter domain (e.g. example.com)" style="flex:1; min-width:200px;">
+                <input type="text" id="subdomainScanInput" class="discovery-input"
+                    placeholder="Enter domain (e.g. example.com)" style="flex:1; min-width:200px;">
                 <select id="subdomainAssetSelect" class="discovery-input" style="max-width:220px;">
                     <option value="">Link to Asset (optional)</option>
                     {% for a in vm.assets %}<option value="{{ a.id }}">{{ a.target }}</option>{% endfor %}
                 </select>
-                <button class="btn-promote" id="runSubdomainScanBtn" onclick="runSubdomainScan()">🔍 Scan Subdomains</button>
+                <button class="btn-promote" id="runSubdomainScanBtn" onclick="runSubdomainScan()">🔍 Scan
+                    Subdomains</button>
             </div>
-            <div id="subdomainScanStatus" style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem; display:none;"></div>
+            <div id="subdomainScanStatus"
+                style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem; display:none;"></div>
             <div class="table-scroll">
                 <table>
                     <thead>
@@ -689,8 +686,10 @@
         <div class="pager-row">
             <div class="pager-meta" id="pagerMeta">Ready.</div>
             <div style="display:flex; gap:0.5rem;">
-                <button id="prevPageBtn" class="btn btn-secondary" style="padding:0.45rem 0.8rem; font-size:0.72rem;">Prev</button>
-                <button id="nextPageBtn" class="btn btn-secondary" style="padding:0.45rem 0.8rem; font-size:0.72rem;">Next</button>
+                <button id="prevPageBtn" class="btn btn-secondary"
+                    style="padding:0.45rem 0.8rem; font-size:0.72rem;">Prev</button>
+                <button id="nextPageBtn" class="btn btn-secondary"
+                    style="padding:0.45rem 0.8rem; font-size:0.72rem;">Next</button>
             </div>
         </div>
     </div>
@@ -698,17 +697,21 @@
     <!-- Map & Recent Discoveries -->
     <div class="dashboard-grid">
         <div class="glass-card card-padded">
-            <div style="font-weight:700; font-size:0.95rem; margin-bottom:0.75rem; color:var(--text-primary); display:flex; align-items:center; gap:0.5rem;">
+            <div
+                style="font-weight:700; font-size:0.95rem; margin-bottom:0.75rem; color:var(--text-primary); display:flex; align-items:center; gap:0.5rem;">
                 <span style="color:var(--pink-accent)">📍</span> Discovered IP Geomap
             </div>
-            <div id="discoveryMap" style="height:260px; width:100%; border-radius:8px; overflow:hidden; background:#080e1c; border:1px solid var(--border-color);"></div>
+            <div id="discoveryMap"
+                style="height:260px; width:100%; border-radius:8px; overflow:hidden; background:#080e1c; border:1px solid var(--border-color);">
+            </div>
             <div style="font-size:0.72rem; color:var(--text-muted); margin-top:0.5rem;">
                 Markers colored by discovery status. Popups include IP/ownership details when available.
             </div>
         </div>
-        
+
         <div class="glass-card card-padded">
-            <div style="font-weight:700; font-size:0.95rem; margin-bottom:0.75rem; color:var(--text-primary); display:flex; align-items:center; gap:0.5rem;">
+            <div
+                style="font-weight:700; font-size:0.95rem; margin-bottom:0.75rem; color:var(--text-primary); display:flex; align-items:center; gap:0.5rem;">
                 <span style="color:var(--pink-accent)">🌸</span> Recent Discoveries (7d)
             </div>
             <div class="table-scroll" style="max-height:260px;">
@@ -729,23 +732,37 @@
 
     <!-- Relational Intelligence Graph -->
     <div class="glass-card card-padded" style="margin-top:1.25rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">
-            <div style="font-weight:700; font-size:0.95rem; color:var(--text-primary); display:flex; align-items:center; gap:0.5rem;">
+        <div
+            style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">
+            <div
+                style="font-weight:700; font-size:0.95rem; color:var(--text-primary); display:flex; align-items:center; gap:0.5rem;">
                 <span style="color:var(--cyan-accent)">🕸️</span> Relational Intelligence Graph
             </div>
             <div style="display:flex; gap:0.5rem;">
-                <button class="btn btn-secondary" onclick="zoomGraph(1.2)" style="padding:0.35rem 0.6rem; font-size:0.7rem;">Zoom +</button>
-                <button class="btn btn-secondary" onclick="zoomGraph(0.8)" style="padding:0.35rem 0.6rem; font-size:0.7rem;">Zoom -</button>
-                <button class="btn btn-secondary" onclick="toggleGraphDirection()" style="padding:0.35rem 0.6rem; font-size:0.7rem;">Direction: LR</button>
-                <button class="btn btn-secondary" onclick="resetGraph()" style="padding:0.35rem 0.6rem; font-size:0.7rem;">Reset View</button>
+                <button class="btn btn-secondary" onclick="zoomGraph(1.2)"
+                    style="padding:0.35rem 0.6rem; font-size:0.7rem;">Zoom +</button>
+                <button class="btn btn-secondary" onclick="zoomGraph(0.8)"
+                    style="padding:0.35rem 0.6rem; font-size:0.7rem;">Zoom -</button>
+                <button class="btn btn-secondary" onclick="toggleGraphDirection()"
+                    style="padding:0.35rem 0.6rem; font-size:0.7rem;">Direction: LR</button>
+                <button class="btn btn-secondary" onclick="resetGraph()"
+                    style="padding:0.35rem 0.6rem; font-size:0.7rem;">Reset View</button>
             </div>
         </div>
         <div style="display:flex; gap:1rem; margin-bottom:0.5rem; font-size:0.75rem;">
-            <span><span style="display:inline-block; width:10px; height:10px; background:#00ffcc; border-radius:50%; margin-right:4px;"></span> Domain</span>
-            <span><span style="display:inline-block; width:10px; height:10px; background:#3b82f6; border-radius:50%; margin-right:4px;"></span> IP Address</span>
-            <span><span style="display:inline-block; width:10px; height:10px; background:#f59e0b; border-radius:50%; margin-right:4px;"></span> Service/Cert</span>
+            <span><span
+                    style="display:inline-block; width:10px; height:10px; background:#00ffcc; border-radius:50%; margin-right:4px;"></span>
+                Domain</span>
+            <span><span
+                    style="display:inline-block; width:10px; height:10px; background:#3b82f6; border-radius:50%; margin-right:4px;"></span>
+                IP Address</span>
+            <span><span
+                    style="display:inline-block; width:10px; height:10px; background:#f59e0b; border-radius:50%; margin-right:4px;"></span>
+                Service/Cert</span>
         </div>
-        <div id="networkGraph" style="height:320px; width:100%; border-radius:8px; background:#040814; border:1px solid var(--border-color);"></div>
+        <div id="networkGraph"
+            style="height:320px; width:100%; border-radius:8px; background:#040814; border:1px solid var(--border-color);">
+        </div>
     </div>
 </div>
 
@@ -776,10 +793,10 @@
     let graphDirection = 'LR';
 
     const TAB_META = {
-        domains:    { apiTab: 'domains',    bodyId: 'domainsTableBody' },
-        ssl:        { apiTab: 'ssl',        bodyId: 'sslTableBody' },
-        ip:         { apiTab: 'ips',        bodyId: 'ipTableBody' },
-        software:   { apiTab: 'software',   bodyId: 'softwareTableBody' },
+        domains: { apiTab: 'domains', bodyId: 'domainsTableBody' },
+        ssl: { apiTab: 'ssl', bodyId: 'sslTableBody' },
+        ip: { apiTab: 'ips', bodyId: 'ipTableBody' },
+        software: { apiTab: 'software', bodyId: 'softwareTableBody' },
         subdomains: { apiTab: 'subdomains', bodyId: 'subdomainsTableBody' }
     };
 
@@ -800,15 +817,15 @@
     }
 
     function escapeHtml(v) {
-        var m={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
-        return String(v??'').replace(/[&<>"']/g,function(c){return m[c];});
+        var m = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+        return String(v ?? '').replace(/[&<>"']/g, function (c) { return m[c]; });
     }
 
-    function val(v) { return escapeHtml(v||''); }
+    function val(v) { return escapeHtml(v || ''); }
 
     function statusPill(s) {
-        var l=String(s||'new').replaceAll('_',' ');
-        return '<span class="status-pill '+(l.toLowerCase()==='confirmed'?'confirmed':'new')+'">'+escapeHtml(l)+'</span>';
+        var l = String(s || 'new').replaceAll('_', ' ');
+        return '<span class="status-pill ' + (l.toLowerCase() === 'confirmed' ? 'confirmed' : 'new') + '">' + escapeHtml(l) + '</span>';
     }
 
     function actionsCellMarkup(row, tk, identifier) {
@@ -816,64 +833,64 @@
         var apiTab = apiTabMap[tk] || tk;
         var safeId = val(row.id);
         var safeIdent = escapeHtml(identifier || row.name || 'Record');
-        var invBtn = (row.promoted||row.asset_id) ? 
-            '<span class="inventoried-label">&#10004; INVENTORIED</span>' : 
-            '<button class="btn-promote js-promote-discovery" data-tab="'+val(apiTab)+'" data-id="'+safeId+'" data-identifier="'+safeIdent+'">+ ADD TO INVENTORY</button>';
-        var delBtn = '<button class="btn-delete-discovery js-delete-discovery" data-tab="'+val(apiTab)+'" data-id="'+safeId+'" data-identifier="'+safeIdent+'" title="Delete Row" style="background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.6); color:#fca5a5; padding:0.3rem 0.65rem; border-radius:4px; font-size:0.75rem; font-weight:700; cursor:pointer; margin-left:0.4rem; transition:all 0.2s;"><i class="fa-solid fa-trash"></i> DELETE</button>';
+        var invBtn = (row.promoted || row.asset_id) ?
+            '<span class="inventoried-label">&#10004; INVENTORIED</span>' :
+            '<button class="btn-promote js-promote-discovery" data-tab="' + val(apiTab) + '" data-id="' + safeId + '" data-identifier="' + safeIdent + '">+ ADD TO INVENTORY</button>';
+        var delBtn = '<button class="btn-delete-discovery js-delete-discovery" data-tab="' + val(apiTab) + '" data-id="' + safeId + '" data-identifier="' + safeIdent + '" title="Delete Row" style="background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.6); color:#fca5a5; padding:0.3rem 0.65rem; border-radius:4px; font-size:0.75rem; font-weight:700; cursor:pointer; margin-left:0.4rem; transition:all 0.2s;"><i class="fa-solid fa-trash"></i> DELETE</button>';
         return '<div style="display:flex; align-items:center; gap:0.25rem;">' + invBtn + delBtn + '</div>';
     }
 
-    function cell(c,s){return s?'<td style="'+s+'">'+c+'</td>':'<td>'+c+'</td>';}
+    function cell(c, s) { return s ? '<td style="' + s + '">' + c + '</td>' : '<td>' + c + '</td>'; }
 
     function rowMarkup(tk, row) {
         var pid = val(row.asset_id);
         var primaryName = val(row.name || row.domain_name || row.identifier || row.subject_cn || row.ip_address || row.product || row.subdomain);
         var safeIdentifier = String(row.name || row.domain_name || row.identifier || row.subject_cn || row.ip_address || row.product || row.subdomain || 'Record').trim();
 
-        if (tk === 'domains') return '<tr data-asset-id="'+pid+'" data-identifier="'+escapeHtml(safeIdentifier)+'">'
-            +cell(val(row.detection_date),'font-size:0.75rem;color:var(--text-muted)')
-            +cell('<b style="color:var(--cyan-accent)">'+primaryName+'</b>')
-            +cell(val(row.registrar || '--'),'font-size:0.75rem')
-            +cell(val(row.owner || row.asset_name || '--'),'font-size:0.75rem')
-            +cell(statusPill(row.status))
-            +cell(actionsCellMarkup(row,'domains', safeIdentifier))+'</tr>';
+        if (tk === 'domains') return '<tr data-asset-id="' + pid + '" data-identifier="' + escapeHtml(safeIdentifier) + '">'
+            + cell(val(row.detection_date), 'font-size:0.75rem;color:var(--text-muted)')
+            + cell('<b style="color:var(--cyan-accent)">' + primaryName + '</b>')
+            + cell(val(row.registrar || '--'), 'font-size:0.75rem')
+            + cell(val(row.owner || row.asset_name || '--'), 'font-size:0.75rem')
+            + cell(statusPill(row.status))
+            + cell(actionsCellMarkup(row, 'domains', safeIdentifier)) + '</tr>';
 
         if (tk === 'ssl') {
-            var fpCell = primaryName ? '<b>'+primaryName+'</b>' : '<span style="font-family:monospace;font-size:0.7rem;color:var(--text-muted)">Cert #'+val(row.id)+'</span>';
-            return '<tr data-asset-id="'+pid+'" data-identifier="'+escapeHtml(safeIdentifier)+'">'
-                +cell('<span style="font-family:monospace;font-size:0.7rem;color:var(--text-muted)">#'+val(row.id)+'</span>')
-                +cell(fpCell)
-                +cell(val(row.valid_until || '--'),'font-size:0.75rem')
-                +cell(val(row.issuer || '--'),'font-size:0.75rem')
-                +cell(statusPill(row.status))
-                +cell(actionsCellMarkup(row,'ssl', safeIdentifier))+'</tr>';
+            var fpCell = primaryName ? '<b>' + primaryName + '</b>' : '<span style="font-family:monospace;font-size:0.7rem;color:var(--text-muted)">Cert #' + val(row.id) + '</span>';
+            return '<tr data-asset-id="' + pid + '" data-identifier="' + escapeHtml(safeIdentifier) + '">'
+                + cell('<span style="font-family:monospace;font-size:0.7rem;color:var(--text-muted)">#' + val(row.id) + '</span>')
+                + cell(fpCell)
+                + cell(val(row.valid_until || '--'), 'font-size:0.75rem')
+                + cell(val(row.issuer || '--'), 'font-size:0.75rem')
+                + cell(statusPill(row.status))
+                + cell(actionsCellMarkup(row, 'ssl', safeIdentifier)) + '</tr>';
         }
 
         if (tk === 'ip') {
-            var asnLabel = row.asn ? '<div style="font-size:0.65rem;color:var(--text-muted)">'+val(row.asn)+'</div>' : '';
-            return '<tr data-asset-id="'+pid+'" data-identifier="'+escapeHtml(safeIdentifier)+'">'
-                +cell('<b style="color:var(--cyan-accent)">'+primaryName+'</b>'+asnLabel)
-                +cell(val(row.owner || row.asset_name || '--'),'font-size:0.75rem')
-                +cell(val(row.subnet || '--'),'font-size:0.75rem')
-                +cell(val(row.location || '--'),'font-size:0.75rem')
-                +cell(statusPill(row.status))
-                +cell(actionsCellMarkup(row,'ips', safeIdentifier))+'</tr>';
+            var asnLabel = row.asn ? '<div style="font-size:0.65rem;color:var(--text-muted)">' + val(row.asn) + '</div>' : '';
+            return '<tr data-asset-id="' + pid + '" data-identifier="' + escapeHtml(safeIdentifier) + '">'
+                + cell('<b style="color:var(--cyan-accent)">' + primaryName + '</b>' + asnLabel)
+                + cell(val(row.owner || row.asset_name || '--'), 'font-size:0.75rem')
+                + cell(val(row.subnet || '--'), 'font-size:0.75rem')
+                + cell(val(row.location || '--'), 'font-size:0.75rem')
+                + cell(statusPill(row.status))
+                + cell(actionsCellMarkup(row, 'ips', safeIdentifier)) + '</tr>';
         }
 
-        if (tk === 'software') return '<tr data-asset-id="'+pid+'" data-identifier="'+escapeHtml(safeIdentifier)+'">'
-            +cell('<b>'+primaryName+'</b>')
-            +cell(val(row.version || '--'),'font-size:0.75rem')
-            +cell(val(row.category || 'Software'),'font-size:0.75rem')
-            +cell(val(row.asset_name || row.owner || '--'),'font-size:0.75rem')
-            +cell(statusPill(row.status))
-            +cell(actionsCellMarkup(row,'software', safeIdentifier))+'</tr>';
+        if (tk === 'software') return '<tr data-asset-id="' + pid + '" data-identifier="' + escapeHtml(safeIdentifier) + '">'
+            + cell('<b>' + primaryName + '</b>')
+            + cell(val(row.version || '--'), 'font-size:0.75rem')
+            + cell(val(row.category || 'Software'), 'font-size:0.75rem')
+            + cell(val(row.asset_name || row.owner || '--'), 'font-size:0.75rem')
+            + cell(statusPill(row.status))
+            + cell(actionsCellMarkup(row, 'software', safeIdentifier)) + '</tr>';
 
-        if (tk === 'subdomains') return '<tr data-identifier="'+escapeHtml(safeIdentifier)+'">'
-            +cell('<b style="color:var(--cyan-accent)">'+primaryName+'</b>')
-            +cell(val(row.record_type || 'A'),'font-size:0.75rem')
-            +cell(val(row.asset_name || row.owner || '--'),'font-size:0.75rem')
-            +cell(statusPill(row.status))
-            +cell(actionsCellMarkup(row,'subdomains', safeIdentifier))+'</tr>';
+        if (tk === 'subdomains') return '<tr data-identifier="' + escapeHtml(safeIdentifier) + '">'
+            + cell('<b style="color:var(--cyan-accent)">' + primaryName + '</b>')
+            + cell(val(row.record_type || 'A'), 'font-size:0.75rem')
+            + cell(val(row.asset_name || row.owner || '--'), 'font-size:0.75rem')
+            + cell(statusPill(row.status))
+            + cell(actionsCellMarkup(row, 'subdomains', safeIdentifier)) + '</tr>';
 
         return '<tr><td colspan=6>Unknown tab</td></tr>';
     }
@@ -965,17 +982,31 @@
     // Modal helpers
     const modalBackdrop = document.getElementById('modal-backdrop');
     const modalCard = document.getElementById('modal-card');
+    let lastDiscoveryScrollY = 0;
 
     function showModal(content, sizeClass) {
-        modalCard.className = 'modal-card' + (sizeClass ? ' ' + sizeClass : '');
+        lastDiscoveryScrollY = window.scrollY;
+        modalCard.className = 'modal-card';
         modalCard.innerHTML = content;
-        modalBackdrop.classList.add('active');
+        modalCard.scrollTop = 0;
+        const b = modalCard.querySelector('.modal-body');
+        if (b) b.scrollTop = 0;
         document.body.style.overflow = 'hidden';
+        requestAnimationFrame(() => {
+            modalCard.scrollTop = 0;
+            if (b) b.scrollTop = 0;
+            requestAnimationFrame(() => {
+                modalBackdrop.classList.add('active');
+                modalCard.scrollTop = 0;
+                if (b) b.scrollTop = 0;
+            });
+        });
     }
 
-    window.closeModal = function() {
+    window.closeModal = function () {
         modalBackdrop.classList.remove('active');
         document.body.style.overflow = '';
+        window.scrollTo(0, lastDiscoveryScrollY);
     };
 
     modalBackdrop.addEventListener('click', (e) => { if (e.target === modalBackdrop) closeModal(); });
@@ -992,7 +1023,7 @@
                         <div class="modal-subtitle">Promote ${cleanIdent} to permanent inventory.</div>
                     </div>
                 </div>
-                <button class="close-btn" onclick="closeModal()" title="Close">✕</button>
+                <button class="close-btn" onclick="closeModal()" title="Return to Discovery">← RETURN TO DISCOVERY</button>
             </div>
             <div class="modal-body">
                 <div class="form-group form-mb">
@@ -1010,7 +1041,7 @@
             </div>
         `;
         showModal(content);
-        document.getElementById('confirmPromoteBtn').addEventListener('click', function() {
+        document.getElementById('confirmPromoteBtn').addEventListener('click', function () {
             promoteDiscovery(tab, id, this);
         });
     }
@@ -1036,7 +1067,7 @@
                         <div class="modal-subtitle">Comprehensive discovery analysis for ${cleanIdent}.</div>
                     </div>
                 </div>
-                <button class="close-btn" onclick="closeModal()" title="Close">✕</button>
+                <button class="close-btn" onclick="closeModal()" title="Return to Discovery">← RETURN TO DISCOVERY</button>
             </div>
             <div class="modal-body">
                 <div class="form-group form-mb">
@@ -1082,7 +1113,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeModal()">CLOSE</button>
+                <button class="btn-secondary" onclick="closeModal()" style="padding:.55rem 1.1rem;font-weight:700;font-size:.85rem;cursor:pointer;">← RETURN TO DISCOVERY</button>
             </div>
         `;
         showModal(content, 'modal-xl');
@@ -1117,7 +1148,7 @@
             </div>
         `;
         showModal(content);
-        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
             deleteDiscovery(tab, id, this);
         });
     }
@@ -1177,7 +1208,7 @@
     }
 
     // Subdomain Scan
-    window.runSubdomainScan = async function() {
+    window.runSubdomainScan = async function () {
         const domain = (document.getElementById('subdomainScanInput')?.value || '').trim();
         const assetId = document.getElementById('subdomainAssetSelect')?.value || null;
         const btn = document.getElementById('runSubdomainScanBtn');
@@ -1316,7 +1347,7 @@
             ip: { color: '#3b82f6', shape: 'dot', size: 16 },
             service: { color: '#f59e0b', shape: 'dot', size: 14 }
         };
-        
+
         allNodes = new vis.DataSet((payload.nodes || []).map((n) => {
             const style = groupStyle[n.group] || groupStyle.service;
             return {
@@ -1332,7 +1363,7 @@
                 font: { color: '#ffffff', size: 12, face: 'Inter' }
             };
         }));
-        
+
         allEdges = new vis.DataSet((payload.edges || []).map((edge) => {
             const edgeId = String(edge.id || '');
             const isDomainToIp = edgeId.includes('domain:') && edgeId.includes('->ip:');
@@ -1381,14 +1412,14 @@
         network = new vis.Network(container, { nodes: allNodes, edges: allEdges }, options);
     }
 
-    window.zoomGraph = function(multiplier) {
+    window.zoomGraph = function (multiplier) {
         if (!network || typeof multiplier !== 'number') return;
         const view = network.getViewPosition();
         const scale = network.getScale();
         network.moveTo({ position: view, scale: Math.max(0.15, Math.min(3.5, scale * multiplier)), animation: { duration: 220 } });
     }
 
-    window.toggleGraphDirection = function() {
+    window.toggleGraphDirection = function () {
         if (!network) return;
         graphDirection = graphDirection === 'LR' ? 'UD' : 'LR';
         const btn = document.getElementById('graphDirectionBtn');
@@ -1409,7 +1440,7 @@
         network.fit({ animation: { duration: 280 } });
     }
 
-    window.resetGraph = function() {
+    window.resetGraph = function () {
         if (network) network.fit({ animation: { duration: 250 } });
     }
 
