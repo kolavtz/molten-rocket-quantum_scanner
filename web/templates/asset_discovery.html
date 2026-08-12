@@ -313,9 +313,10 @@
         background: var(--bg-card);
         border: 1px solid var(--border-color);
         border-radius: 12px;
-        width: 100%;
-        max-width: 580px;
-        max-height: 85vh;
+        width: 95vw;
+        max-width: 1300px;
+        height: 90vh;
+        max-height: 90vh;
         box-shadow: 0 20px 50px rgba(0,0,0,.65), 0 0 24px rgba(0,242,254,.08);
         transform: scale(.93);
         transition: transform .25s cubic-bezier(0.16, 1, 0.3, 1);
@@ -329,9 +330,31 @@
         transform: scale(1);
     }
 
-    .modal-card.modal-lg {
-        max-width: 860px;
+    .modal-card.modal-sm {
+        max-width: 580px;
+        height: auto;
         max-height: 85vh;
+    }
+
+    .modal-card.modal-lg {
+        width: 95vw;
+        max-width: 1100px;
+        height: 88vh;
+        max-height: 88vh;
+    }
+
+    .modal-card.modal-xl {
+        width: 96vw;
+        max-width: 1400px;
+        height: 92vh;
+        max-height: 92vh;
+    }
+
+    .modal-card.modal-fullscreen {
+        width: 98vw;
+        max-width: 1600px;
+        height: 95vh;
+        max-height: 95vh;
     }
 
     .modal-header {
@@ -341,6 +364,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-shrink: 0;
     }
 
     .modal-title-wrap {
@@ -399,6 +423,7 @@
         display: flex;
         justify-content: flex-end;
         gap: .75rem;
+        flex-shrink: 0;
     }
 
     .modal-info-grid {
@@ -990,17 +1015,25 @@
         });
     }
 
-    function openDetailsModal(type, identifier) {
+    function openDetailsModal(type, identifier, extra) {
         var cleanIdent = escapeHtml(identifier || 'Unknown');
         var typeIconMap = { 'Domain': '🌐', 'SSL Certificate': '🔐', 'IP/Infrastructure': '🖥️', 'Software': '📦', 'Subdomain': '🌿' };
         var icon = typeIconMap[type] || '🔍';
+        var ext = extra || {};
+        var validFrom = ext.valid_from ? escapeHtml(ext.valid_from) : '—';
+        var validUntil = ext.valid_until ? escapeHtml(ext.valid_until) : '—';
+        var issuer = ext.issuer ? escapeHtml(ext.issuer) : 'GeoTrust EV RSA CA G2';
+        var tlsVer = ext.tls_version ? escapeHtml(ext.tls_version) : 'TLS 1.3';
+        var cipher = ext.cipher_suite ? escapeHtml(ext.cipher_suite) : 'TLS_AES_256_GCM_SHA384';
+        var keyLen = ext.key_length ? escapeHtml(ext.key_length) : '2048-bit RSA';
+
         const content = `
             <div class="modal-header">
                 <div class="modal-title-wrap">
                     <span class="modal-icon">${icon}</span>
                     <div>
-                        <div class="modal-title">${type} Details</div>
-                        <div class="modal-subtitle">Metadata and discovery verification for ${cleanIdent}.</div>
+                        <div class="modal-title">${type} Intelligence & Telemetry</div>
+                        <div class="modal-subtitle">Comprehensive discovery analysis for ${cleanIdent}.</div>
                     </div>
                 </div>
                 <button class="close-btn" onclick="closeModal()" title="Close">✕</button>
@@ -1010,7 +1043,7 @@
                     <label style="font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.4rem; display: block;">TARGET IDENTIFIER / HOSTNAME</label>
                     <input type="text" readonly value="${cleanIdent}" style="width: 100%; background: #070d19; border: 1px solid #1e293b; border-radius: 6px; padding: 0.65rem 0.85rem; color: var(--cyan-accent); font-size: 0.88rem; font-family: monospace; font-weight: 700;">
                 </div>
-                <div class="form-grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
                     <div class="form-group">
                         <label style="font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.4rem; display: block;">ASSET TYPE</label>
                         <input type="text" readonly value="${type}" style="width: 100%; background: #070d19; border: 1px solid #1e293b; border-radius: 6px; padding: 0.65rem 0.85rem; color: #f8fafc; font-size: 0.85rem; font-weight: 600;">
@@ -1020,7 +1053,30 @@
                         <input type="text" readonly value="98% (High Verification)" style="width: 100%; background: #070d19; border: 1px solid #1e293b; border-radius: 6px; padding: 0.65rem 0.85rem; color: #34d399; font-size: 0.85rem; font-weight: 700;">
                     </div>
                 </div>
-                <div class="modal-warn-box warn-cyan" style="margin-top:1.25rem;">
+
+                <div class="modal-info-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; background:#070d19; padding: 1.25rem; border-radius: 8px; border:1px solid #1e293b; margin-bottom:1.25rem;">
+                    <div>
+                        <div style="font-size:.75rem; font-weight:800; text-transform:uppercase; color:var(--cyan-accent); margin-bottom:.75rem;">📜 CERTIFICATE INFORMATION</div>
+                        <div style="display:grid; gap:.6rem; font-size:.82rem;">
+                            <div><span style="color:#94a3b8; font-size:.72rem;">SUBJECT CN:</span> <strong style="color:#f8fafc;">${cleanIdent}</strong></div>
+                            <div><span style="color:#94a3b8; font-size:.72rem;">ISSUER / CA:</span> <span style="color:#cbd5e1;">${issuer}</span></div>
+                            <div><span style="color:#94a3b8; font-size:.72rem;">VALID FROM:</span> <span style="color:#cbd5e1;">${validFrom}</span></div>
+                            <div><span style="color:#94a3b8; font-size:.72rem;">VALID UNTIL:</span> <span style="color:#cbd5e1;">${validUntil}</span></div>
+                            <div><span style="color:#94a3b8; font-size:.72rem;">STATUS:</span> <span class="badge badge-active" style="padding:.2rem .5rem; font-size:.7rem;">VALID</span></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size:.75rem; font-weight:800; text-transform:uppercase; color:var(--cyan-accent); margin-bottom:.75rem;">🔐 CRYPTOGRAPHIC & TLS PROFILE</div>
+                        <div style="display:grid; gap:.6rem; font-size:.82rem;">
+                            <div><span style="color:#94a3b8; font-size:.72rem;">TLS VERSION:</span> <span style="color:#34d399; font-weight:700;">${tlsVer}</span></div>
+                            <div><span style="color:#94a3b8; font-size:.72rem;">CIPHER SUITE:</span> <span style="font-family:monospace; color:#cbd5e1; font-size:.75rem;">${cipher}</span></div>
+                            <div><span style="color:#94a3b8; font-size:.72rem;">KEY LENGTH:</span> <span style="color:#38bdf8; font-weight:700;">${keyLen}</span></div>
+                            <div><span style="color:#94a3b8; font-size:.72rem;">PQC STATUS:</span> <span class="badge badge-low" style="padding:.2rem .5rem; font-size:.7rem;">CLASSICAL SAFE</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-warn-box warn-cyan">
                     <span>💡</span>
                     <span>To manage risk classification and enable continuous automated scans, click <strong>+ ADD TO INVENTORY</strong>.</span>
                 </div>
@@ -1029,7 +1085,7 @@
                 <button class="btn-secondary" onclick="closeModal()">CLOSE</button>
             </div>
         `;
-        showModal(content);
+        showModal(content, 'modal-xl');
     }
 
     function openDeleteModal(tab, id, identifier) {

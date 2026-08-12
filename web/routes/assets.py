@@ -308,6 +308,8 @@ def _build_headers() -> list[dict]:
         {"label": "Owner", "field": "owner", "sortable": True},
         {"label": "Risk", "field": "risk_html", "sortable": True, "safe": True, "class_name": "risk-column"},
         {"label": "Cert Status", "field": "cert_status_html", "sortable": True, "safe": True, "class_name": "cert-column"},
+        {"label": "Cert Issuance", "field": "cert_valid_from", "sortable": True, "class_name": "cert-issuance-column"},
+        {"label": "Cert Expiry", "field": "cert_valid_until", "sortable": True, "class_name": "cert-expiry-column"},
         {"label": "Key Length", "field": "key_length", "sortable": True, "class_name": "key-column"},
         {"label": "Last Scan", "field": "last_scan", "sortable": True, "class_name": "scan-column"},
         {
@@ -425,6 +427,7 @@ def _serialize_asset_api_row(row: dict[str, Any]) -> dict[str, Any]:
         "cipher_suite": str(row.get("cipher_suite") or "Unknown"),
         "ca": str(row.get("ca") or "Unknown"),
         "cert_days": row.get("cert_days"),
+        "cert_valid_from": str(row.get("cert_valid_from") or ""),
         "cert_valid_until": str(row.get("cert_valid_until") or ""),
         "certificate_details": row.get("certificate_details") if isinstance(row.get("certificate_details"), dict) else {},
         "notes": str(row.get("notes") or ""),

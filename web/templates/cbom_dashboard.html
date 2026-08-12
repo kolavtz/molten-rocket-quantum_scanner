@@ -79,9 +79,9 @@ tr:hover td{background:var(--bg-card-hover);}
 .modal-backdrop{position:fixed;top:0;left:0;right:0;bottom:0;width:100vw;height:100vh;background:rgba(3,7,18,.88);backdrop-filter:blur(8px);
                 display:flex;align-items:center;justify-content:center;z-index:10000;opacity:0;pointer-events:none;transition:opacity .25s;padding:1.5rem;box-sizing:border-box;}
 .modal-backdrop.active{opacity:1;pointer-events:auto;}
-.modal-card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:14px;width:100%;max-width:1080px;
+.modal-card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:14px;width:95vw;max-width:1380px;height:90vh;max-height:90vh;
             box-shadow:0 25px 60px rgba(0,0,0,.7),0 0 25px rgba(0,242,254,.1);transform:scale(.95);transition:transform .25s cubic-bezier(0.16, 1, 0.3, 1);
-            overflow:hidden;display:flex;flex-direction:column;max-height:88vh;margin:auto;}
+            overflow:hidden;display:flex;flex-direction:column;margin:auto;}
 .modal-backdrop.active .modal-card{transform:scale(1);}
 .modal-header{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;background:#0a1122;flex-shrink:0;}
 .modal-title-wrap{display:flex;align-items:center;gap:.6rem;}

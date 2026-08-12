@@ -639,6 +639,7 @@
                     <th>Owner</th>
                     <th>Risk</th>
                     <th>Cert Status</th>
+                    <th>Cert Issuance</th>
                     <th>Cert Expiry</th>
                     <th>Key Length</th>
                     <th>Last Scan</th>
@@ -648,7 +649,7 @@
             </thead>
             <tbody id="inventoryTbody">
                 <tr>
-                    <td colspan="12">
+                    <td colspan="13">
                         <div class="inv-empty">
                             <p>Loading inventory…</p>
                         </div>
@@ -742,7 +743,7 @@
             document.getElementById('showCount').textContent = items.length;
             document.getElementById('totalCount').textContent = S.total;
             if (!items.length) {
-                tbody.innerHTML = `<tr><td colspan="12"><div class="inv-empty"><p>No assets found. Run a scan to populate your inventory.</p></div></td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="13"><div class="inv-empty"><p>No assets found. Run a scan to populate your inventory.</p></div></td></tr>`;
                 return;
             }
             tbody.innerHTML = items.map(a => {
@@ -750,6 +751,8 @@
                     atype = a.asset_type || a.type || 'Web App', owner = a.owner || 'Unassigned',
                     risk = a.risk_level || a.risk || 'Medium', lastScan = fmtDate(a.last_scan || a.last_scanned_at),
                     scanSt = a.scan_status || a.last_scan_status || 'Never', certSt = a.cert_status || '—',
+                    certIssued = a.cert_valid_from ? fmtDate(a.cert_valid_from) : '—',
+                    certExpiry = a.cert_valid_until ? fmtDate(a.cert_valid_until) : '—',
                     keyLen = a.key_length || '—', sc = scanCls(scanSt), pulse = isActive(scanSt) ? '<span class="dot-pulse"></span>' : '',
                     lastScanId = a.last_scan_id || '';
                 return `<tr data-asset-id="${id}">
@@ -760,8 +763,9 @@
             <td>${owner}</td>
             <td><span class="badge ${riskCls(risk)}">${risk}</span></td>
             <td>${certSt !== '—' ? `<span class="badge badge-${certSt.toLowerCase().includes('expir') ? 'expiring' : certSt.toLowerCase().includes('active') ? 'active' : 'high'}">${certSt}</span>` : certSt}</td>
+            <td style="font-size:.8rem;white-space:nowrap;color:var(--text-muted);">${certIssued}</td>
             <td style="font-size:.8rem;white-space:nowrap;">
-                ${a.cert_valid_until ? `${a.cert_valid_until} <span style="font-size:.7rem;color:var(--text-muted);">(${a.cert_days != null ? a.cert_days : '0'}d)</span>` : '—'}
+                ${a.cert_valid_until ? `${certExpiry} <span style="font-size:.7rem;color:var(--text-muted);">(${a.cert_days != null ? a.cert_days : '0'}d)</span>` : '—'}
             </td>
             <td>${keyLen}</td>
             <td style="font-size:.8rem;color:var(--text-muted);">${lastScan}</td>

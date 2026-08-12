@@ -193,6 +193,21 @@ class InventoryScanService:
         )
         if latest_scan:
             asset.last_scan_id = latest_scan.id
+            try:
+                certs = db_session.query(Certificate).filter(Certificate.scan_id == latest_scan.id).all()
+                if certs:
+                    try:
+                        db_session.query(Certificate).filter(
+                            Certificate.asset_id == asset.id,
+                            Certificate.is_deleted == False
+                        ).update({"is_current": False}, synchronize_session=False)
+                    except Exception:
+                        pass
+                    for c in certs:
+                        c.asset_id = asset.id
+                        c.is_current = True
+            except Exception as cert_err:
+                logger.error(f"Failed to associate certificate to asset {asset.id}: {cert_err}")
 
             try:
                 from src.services.pqc_calculation_service import PQCCalculationService

@@ -186,6 +186,8 @@ class AssetService:
             if not hasattr(cert_query, "filter"):
                 asset_id_set = {int(asset_id) for asset_id in asset_ids}
                 certs = [cert for cert in certs if int(getattr(cert, "asset_id", 0) or 0) in asset_id_set]
+
+        # Map certificates by asset_id
         for cert in certs:
             asset_id = int(getattr(cert, "asset_id", 0) or 0)
             if asset_id <= 0:
@@ -194,23 +196,61 @@ class AssetService:
             if prev is None:
                 latest_cert_by_asset[asset_id] = cert
                 continue
-            prev_ts = getattr(prev, "valid_until", None) or datetime.min
-            cur_ts = getattr(cert, "valid_until", None) or datetime.min
+            # Prefer cert marked is_current == True
+            if bool(getattr(cert, "is_current", False)) and not bool(getattr(prev, "is_current", False)):
+                latest_cert_by_asset[asset_id] = cert
+                continue
+            prev_ts = getattr(prev, "valid_until", None) or getattr(prev, "created_at", None) or datetime.min
+            cur_ts = getattr(cert, "valid_until", None) or getattr(cert, "created_at", None) or datetime.min
             if cur_ts >= prev_ts:
                 latest_cert_by_asset[asset_id] = cert
+
+        # Fallback certificate map by target endpoint/domain/IP for assets that might lack asset_id on Certificate
+        unlinked_query = db_session.query(Certificate)
+        if hasattr(unlinked_query, "filter_by"):
+            try:
+                unlinked_query = unlinked_query.filter_by(is_deleted=False, deleted_at=None)
+            except Exception:
+                pass
+        unlinked_certs = _query_results(unlinked_query)
+        cert_by_endpoint: Dict[str, Certificate] = {}
+        for cert in unlinked_certs:
+            keys = set()
+            if getattr(cert, "endpoint", None):
+                ep = str(cert.endpoint).split(":")[0].strip().lower()
+                if ep:
+                    keys.add(ep)
+            if getattr(cert, "subject_cn", None):
+                scn = str(cert.subject_cn).strip().lower()
+                if scn:
+                    keys.add(scn)
+            for k in keys:
+                prev = cert_by_endpoint.get(k)
+                if prev is None:
+                    cert_by_endpoint[k] = cert
+                else:
+                    prev_ts = getattr(prev, "valid_until", None) or getattr(prev, "created_at", None) or datetime.min
+                    cur_ts = getattr(cert, "valid_until", None) or getattr(cert, "created_at", None) or datetime.min
+                    if cur_ts >= prev_ts:
+                        cert_by_endpoint[k] = cert
 
         now_naive_utc = datetime.now(timezone.utc).replace(tzinfo=None)
 
         for meta in db_assets:
             target_key = self._normalize_target(meta.name or meta.target or "")
             latest_scan = latest_scan_by_target.get(target_key)
-            latest_cert = latest_cert_by_asset.get(int(getattr(meta, "id", 0) or 0))
+            meta_id = int(getattr(meta, "id", 0) or 0)
+            latest_cert = latest_cert_by_asset.get(meta_id)
+            if latest_cert is None and target_key:
+                latest_cert = cert_by_endpoint.get(target_key)
+
             latest_scan_report_raw = self._safe_json_dict(getattr(latest_scan, "report_json", None)) if latest_scan else {}
             latest_scan_report = dict(latest_scan_report_raw)
 
             risk_score = 0.0
             risk_level = str(getattr(meta, "risk_level", "") or "").strip()
             cert_days = None
+            cert_valid_from = None
             cert_valid_until = None
             key_length = 0
             cert_status = "Not Scanned"
@@ -238,11 +278,19 @@ class AssetService:
                 elif risk_level == "Low":
                     risk_score = 20.0
 
+            scan_tls_results = latest_scan_report.get("tls_results") if isinstance(latest_scan_report.get("tls_results"), list) else []
+            first_tls = scan_tls_results[0] if scan_tls_results and isinstance(scan_tls_results[0], dict) else {}
+
             if latest_cert:
                 key_length = int(getattr(latest_cert, "key_length", 0) or 0)
                 tls_version = str(getattr(latest_cert, "tls_version", "") or "Unknown")
                 cipher_suite = str(getattr(latest_cert, "cipher_suite", "") or "Unknown")
                 ca_name = str(getattr(latest_cert, "ca", "") or getattr(latest_cert, "issuer", "") or "Unknown")
+
+                valid_from = getattr(latest_cert, "valid_from", None)
+                if valid_from:
+                    cert_valid_from = valid_from.strftime("%Y-%m-%d")
+
                 valid_until = getattr(latest_cert, "valid_until", None)
                 if valid_until:
                     cert_valid_until = valid_until.strftime("%Y-%m-%d")
@@ -253,23 +301,35 @@ class AssetService:
                         cert_status = "Expiring"
                     else:
                         cert_status = "Valid"
-                else:
-                    scan_tls_results = latest_scan_report.get("tls_results") if isinstance(latest_scan_report.get("tls_results"), list) else []
-                    first_tls = scan_tls_results[0] if scan_tls_results else {}
-                    if isinstance(first_tls, dict):
-                        tls_valid_to = str(first_tls.get("valid_to") or "").strip()
-                        tls_cert_status = str(first_tls.get("cert_status") or "").strip().title()
-                        if tls_valid_to:
-                            cert_valid_until = tls_valid_to[:10]
-                        if tls_cert_status in {"Valid", "Expiring", "Expired"}:
-                            cert_status = tls_cert_status
-                        else:
-                            cert_status = "Expired" if bool(getattr(latest_cert, "is_expired", False)) else "Valid"
+                elif first_tls:
+                    tls_valid_to = str(first_tls.get("valid_to") or "").strip()
+                    tls_cert_status = str(first_tls.get("cert_status") or "").strip().title()
+                    if tls_valid_to:
+                        cert_valid_until = tls_valid_to[:10]
+                    if tls_cert_status in {"Valid", "Expiring", "Expired"}:
+                        cert_status = tls_cert_status
                     else:
                         cert_status = "Expired" if bool(getattr(latest_cert, "is_expired", False)) else "Valid"
+                else:
+                    cert_status = "Expired" if bool(getattr(latest_cert, "is_expired", False)) else "Valid"
+            elif first_tls:
+                key_length = int(first_tls.get("key_length") or first_tls.get("key_size") or 0)
+                tls_version = str(first_tls.get("tls_version") or first_tls.get("protocol_version") or "Unknown")
+                cipher_suite = str(first_tls.get("cipher_suite") or "Unknown")
+                ca_name = str(first_tls.get("issuer") or "Unknown")
+                tls_valid_from = str(first_tls.get("valid_from") or "").strip()
+                tls_valid_to = str(first_tls.get("valid_to") or "").strip()
+                if tls_valid_from:
+                    cert_valid_from = tls_valid_from[:10]
+                if tls_valid_to:
+                    cert_valid_until = tls_valid_to[:10]
+                tls_cert_status = str(first_tls.get("cert_status") or "").strip().title()
+                if tls_cert_status in {"Valid", "Expiring", "Expired"}:
+                    cert_status = tls_cert_status
+                else:
+                    cert_status = "Valid"
 
             certificate_details = {}
-            scan_tls_results = latest_scan_report.get("tls_results") if isinstance(latest_scan_report.get("tls_results"), list) else []
             for tls_row in scan_tls_results:
                 if not isinstance(tls_row, dict):
                     continue
@@ -320,6 +380,7 @@ class AssetService:
                 "risk_score": risk_score,
                 "cert_status": cert_status,
                 "cert_days": cert_days,
+                "cert_valid_from": cert_valid_from,
                 "cert_valid_until": cert_valid_until,
                 "certificate_details": certificate_details,
                 "key_length": key_length,

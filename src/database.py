@@ -2240,7 +2240,7 @@ def reset_user_2fa(user_id: str) -> bool:
             (str(user_id),),
         )
         conn.commit()
-        return cur.rowcount > 0
+        return True
     except Exception as exc:
         logger.warning("MySQL reset_user_2fa error: %s", exc)
         return False

@@ -101,7 +101,7 @@
                                     type="checkbox"
                                     value="{{ user.id }}"
                                     data-username="{{ user.username }}"
-                                    {% if user.id == current_user.id %}disabled title="Current logged-in user is protected"{% endif %}
+                                    {% if user.id|string == current_user.id|string %}disabled title="Current logged-in user is protected"{% endif %}
                                 >
                             </td>
                             <td class="time-cell">{{ user.employee_id or '---' }}</td>
@@ -137,10 +137,11 @@
                                 </form>
                                 <div style="margin-top: 0.5rem; display:flex; gap: 0.4rem; flex-wrap:wrap;">
                                     {% if user.email %}
-                                    <button class="js-admin-reset-pass scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; border-color: var(--text-muted); color: var(--text-muted); background: transparent; cursor: pointer;">RESET_PASS</button>
+                                    <button type="button" class="js-admin-reset-pass scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; border-color: var(--text-muted); color: var(--text-muted); background: transparent; cursor: pointer;">RESET_PASS</button>
                                     {% endif %}
-                                    <button class="js-admin-regen-key scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; min-height:44px; border-color: var(--safe); color: var(--safe); background: transparent; cursor: pointer;">REGEN_KEY</button>
-                                    <button class="js-admin-reset-2fa scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; min-height:44px; border-color: var(--danger); color: var(--danger); background: transparent; cursor: pointer;">RESET_2FA</button>
+                                    <button type="button" class="js-admin-regen-key scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; min-height:44px; border-color: var(--safe); color: var(--safe); background: transparent; cursor: pointer;">REGEN_KEY</button>
+                                    <button type="button" class="js-admin-reset-2fa scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; min-height:44px; border-color: var(--danger); color: var(--danger); background: transparent; cursor: pointer;">RESET_2FA</button>
+                                    <button type="button" class="js-admin-delete-user scan-button" data-user-id="{{ user.id }}" data-username="{{ user.username }}" style="padding: 0.3rem 0.5rem; font-size: 0.65rem; min-height:44px; border-color: var(--danger); color: var(--danger); background: transparent; cursor: pointer;" {% if user.id|string == current_user.id|string %}disabled title="Cannot delete logged-in user"{% endif %}>DELETE</button>
                                 </div>
                             </td>
                         </tr>
@@ -158,12 +159,10 @@
 </div>
 
 <script>
-// Helper: get CSRF token from meta tag
 function getCsrfToken() {
-    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || document.querySelector('input[name="csrf_token"]')?.value || '';
 }
 
-// Helper: show flash message
 function showFlash(message, category = 'success') {
     const flashDiv = document.createElement('div');
     flashDiv.className = 'flash-msg';
@@ -197,7 +196,6 @@ async function parseJsonResponse(response) {
     }
 }
 
-// Helper: update role badge in row
 function updateRoleBadge(row, role) {
     const badge = row.querySelector('.status-badge[style*="accent"]');
     if (badge) {
@@ -205,7 +203,6 @@ function updateRoleBadge(row, role) {
     }
 }
 
-// Helper: update status badge in row
 function updateStatusBadge(row, isActive) {
     const statusCell = row.querySelector('td:nth-child(5)');
     if (statusCell) {
@@ -215,12 +212,10 @@ function updateStatusBadge(row, isActive) {
     }
 }
 
-// Role + Status update form
 document.querySelectorAll('.js-admin-user-update').forEach(form => {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const userId = form.getAttribute('data-user-id');
-        const username = form.getAttribute('data-username');
         const role = form.querySelector('[name="role"]').value;
         const isActive = form.querySelector('[name="is_active"]').checked;
         
@@ -230,7 +225,6 @@ document.querySelectorAll('.js-admin-user-update').forEach(form => {
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'X-CSRFToken': getCsrfToken(),
                     'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: JSON.stringify({ role, is_active: isActive })
@@ -241,7 +235,6 @@ document.querySelectorAll('.js-admin-user-update').forEach(form => {
                 throw new Error(payload.message || 'Failed to update user');
             }
             
-            // Update display in-place
             const row = form.closest('tr');
             updateRoleBadge(row, role);
             updateStatusBadge(row, isActive);
@@ -265,81 +258,98 @@ function updateBulkMeta() {
     }
 }
 
-document.getElementById('selectAllUsers')?.addEventListener('change', (e) => {
-    const checked = e.target.checked;
-    document.querySelectorAll('.js-user-select:not(:disabled)').forEach(cb => {
-        cb.checked = checked;
-    });
-    updateBulkMeta();
-});
-
-document.querySelectorAll('.js-user-select').forEach(cb => cb.addEventListener('change', updateBulkMeta));
-
-document.getElementById('bulkRoleBtn')?.addEventListener('click', async () => {
-    const ids = selectedUserIds();
-    const role = document.getElementById('bulkRoleSelect')?.value || 'Viewer';
-    if (!ids.length) {
-        showFlash('Select at least one user.', 'error');
-        return;
-    }
-    try {
-        const response = await fetch('/admin/users/bulk', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken(),
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({ action: 'update_role', user_ids: ids, role })
+document.addEventListener('change', (e) => {
+    if (e.target.id === 'selectAllUsers') {
+        const checked = e.target.checked;
+        document.querySelectorAll('.js-user-select:not(:disabled)').forEach(cb => {
+            cb.checked = checked;
         });
-        const payload = await parseJsonResponse(response);
-        if (!response.ok || payload.status === 'error') {
-            throw new Error(payload.message || 'Bulk role update failed.');
-        }
-        showFlash(payload.message || 'Bulk role update completed.', 'success');
-        window.location.reload();
-    } catch (error) {
-        showFlash(error.message, 'error');
+        updateBulkMeta();
+    } else if (e.target.classList.contains('js-user-select')) {
+        updateBulkMeta();
     }
 });
 
-document.getElementById('bulkDeleteBtn')?.addEventListener('click', async () => {
-    const ids = selectedUserIds();
-    if (!ids.length) {
-        showFlash('Select at least one user.', 'error');
-        return;
-    }
-    if (!confirm(`Delete ${ids.length} selected user(s)? Current logged-in user is protected.`)) {
-        return;
-    }
-    try {
-        const response = await fetch('/admin/users/bulk', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken(),
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({ action: 'delete', user_ids: ids })
-        });
-        const payload = await parseJsonResponse(response);
-        if (!response.ok || payload.status === 'error') {
-            throw new Error(payload.message || 'Bulk deletion failed.');
+document.addEventListener('click', async (e) => {
+    // Bulk Apply Role button
+    const bulkRoleBtn = e.target.closest('#bulkRoleBtn');
+    if (bulkRoleBtn) {
+        e.preventDefault();
+        const ids = selectedUserIds();
+        const role = document.getElementById('bulkRoleSelect')?.value || 'Viewer';
+        if (!ids.length) {
+            showFlash('Select at least one user.', 'error');
+            return;
         }
-        showFlash(payload.message || 'Bulk deletion completed.', 'success');
-        window.location.reload();
-    } catch (error) {
-        showFlash(error.message, 'error');
+        try {
+            const response = await fetch('/admin/users/bulk', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ action: 'update_role', user_ids: ids, role })
+            });
+            const payload = await parseJsonResponse(response);
+            if (!response.ok || payload.status === 'error') {
+                throw new Error(payload.message || 'Bulk role update failed.');
+            }
+            showFlash(payload.message || 'Bulk role update completed.', 'success');
+            window.location.reload();
+        } catch (error) {
+            showFlash(error.message, 'error');
+        }
+        return;
     }
-});
 
-// Reset password button
-document.querySelectorAll('.js-admin-reset-pass').forEach(btn => {
-    btn.addEventListener('click', async () => {
-        const userId = btn.getAttribute('data-user-id');
-        const username = btn.getAttribute('data-username');
+    // Bulk Delete button
+    const bulkDeleteBtn = e.target.closest('#bulkDeleteBtn');
+    if (bulkDeleteBtn) {
+        e.preventDefault();
+        const ids = selectedUserIds();
+        if (!ids.length) {
+            showFlash('Select at least one user.', 'error');
+            return;
+        }
+        if (!confirm(`Delete ${ids.length} selected user(s)? Current logged-in user is protected.`)) {
+            return;
+        }
+        try {
+            const response = await fetch('/admin/users/bulk', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ action: 'delete', user_ids: ids })
+            });
+            const payload = await parseJsonResponse(response);
+            if (!response.ok || payload.status === 'error') {
+                throw new Error(payload.message || 'Bulk deletion failed.');
+            }
+            showFlash(payload.message || 'Bulk deletion completed.', 'success');
+            ids.forEach(id => {
+                const cb = document.querySelector(`.js-user-select[value="${id}"]`);
+                if (cb) {
+                    const row = cb.closest('tr');
+                    if (row) row.remove();
+                }
+            });
+            setTimeout(() => window.location.reload(), 2000);
+        } catch (error) {
+            showFlash(error.message, 'error');
+        }
+        return;
+    }
+
+    // Reset password button
+    const resetPassBtn = e.target.closest('.js-admin-reset-pass');
+    if (resetPassBtn) {
+        e.preventDefault();
+        const userId = resetPassBtn.getAttribute('data-user-id');
+        const username = resetPassBtn.getAttribute('data-username');
         
         try {
             const response = await fetch(`/admin/users/${userId}/reset-password`, {
@@ -347,7 +357,6 @@ document.querySelectorAll('.js-admin-reset-pass').forEach(btn => {
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'X-CSRFToken': getCsrfToken(),
                     'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: JSON.stringify({})
@@ -358,19 +367,57 @@ document.querySelectorAll('.js-admin-reset-pass').forEach(btn => {
                 throw new Error(payload.message || 'Failed to reset password');
             }
             
-            showFlash('Password reset email sent.', 'success');
+            if (payload.setup_url && payload.email_failed) {
+                alert(`Password reset link generated for ${username}:\n\n${payload.setup_url}\n\n(Note: Email delivery failed)`);
+            }
+            showFlash(payload.message || 'Password reset email sent.', 'success');
         } catch (error) {
             showFlash(error.message, 'error');
             console.error('Admin reset password error:', error);
         }
-    });
-});
+        return;
+    }
 
-// Regenerate API key button
-document.querySelectorAll('.js-admin-regen-key').forEach(btn => {
-    btn.addEventListener('click', async () => {
-        const userId = btn.getAttribute('data-user-id');
-        const username = btn.getAttribute('data-username');
+    // Single Delete User button
+    const deleteUserBtn = e.target.closest('.js-admin-delete-user');
+    if (deleteUserBtn) {
+        e.preventDefault();
+        const userId = deleteUserBtn.getAttribute('data-user-id');
+        const username = deleteUserBtn.getAttribute('data-username');
+        if (!confirm(`Delete user '${username}'?`)) {
+            return;
+        }
+        try {
+            const response = await fetch(`/admin/users/${userId}/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({})
+            });
+            const payload = await parseJsonResponse(response);
+            if (!response.ok || payload.status === 'error') {
+                throw new Error(payload.message || 'Failed to delete user');
+            }
+            showFlash(payload.message || 'User deleted successfully.', 'success');
+            const row = deleteUserBtn.closest('tr');
+            if (row) row.remove();
+            setTimeout(() => window.location.reload(), 2000);
+        } catch (error) {
+            showFlash(error.message, 'error');
+            console.error('Admin delete user error:', error);
+        }
+        return;
+    }
+
+    // Regenerate API key button
+    const regenKeyBtn = e.target.closest('.js-admin-regen-key');
+    if (regenKeyBtn) {
+        e.preventDefault();
+        const userId = regenKeyBtn.getAttribute('data-user-id');
+        const username = regenKeyBtn.getAttribute('data-username');
         
         if (!confirm(`Regenerate API key for ${username}? Current key will be revoked.`)) {
             return;
@@ -382,7 +429,6 @@ document.querySelectorAll('.js-admin-regen-key').forEach(btn => {
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'X-CSRFToken': getCsrfToken(),
                     'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: JSON.stringify({})
@@ -393,7 +439,6 @@ document.querySelectorAll('.js-admin-regen-key').forEach(btn => {
                 throw new Error(payload.message || 'Failed to regenerate API key');
             }
             
-            // Show new key in a modal/alert for copy
             const keyValue = payload.api_key;
             const msg = `New API key: ${keyValue}\n\nCopy now. This will not be shown again.`;
             alert(msg);
@@ -402,14 +447,15 @@ document.querySelectorAll('.js-admin-regen-key').forEach(btn => {
             showFlash(error.message, 'error');
             console.error('Admin regen key error:', error);
         }
-    });
-});
+        return;
+    }
 
-// Reset 2FA button
-document.querySelectorAll('.js-admin-reset-2fa').forEach(btn => {
-    btn.addEventListener('click', async () => {
-        const userId = btn.getAttribute('data-user-id');
-        const username = btn.getAttribute('data-username');
+    // Reset 2FA button
+    const reset2faBtn = e.target.closest('.js-admin-reset-2fa');
+    if (reset2faBtn) {
+        e.preventDefault();
+        const userId = reset2faBtn.getAttribute('data-user-id');
+        const username = reset2faBtn.getAttribute('data-username');
 
         if (!confirm(`Reset 2FA for ${username}? This will require the user to reconfigure 2FA on next login.`)) {
             return;
@@ -421,7 +467,6 @@ document.querySelectorAll('.js-admin-reset-2fa').forEach(btn => {
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'X-CSRFToken': getCsrfToken(),
                     'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: JSON.stringify({})
@@ -437,7 +482,8 @@ document.querySelectorAll('.js-admin-reset-2fa').forEach(btn => {
             showFlash(error.message, 'error');
             console.error('Admin reset 2FA error:', error);
         }
-    });
+        return;
+    }
 });
 </script>
 {% endblock %}

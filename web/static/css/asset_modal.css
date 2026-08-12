@@ -26,10 +26,10 @@
 }
 
 .qs-modal-shell {
-    width: 92%;
-    max-width: 1280px;
-    max-height: 88vh;
-    height: auto;
+    width: 95vw;
+    max-width: 1400px;
+    height: 90vh;
+    max-height: 90vh;
     background: var(--bg-card, #0a0e14);
     border: 1px solid color-mix(in srgb, var(--border-subtle) 60%, transparent);
     border-radius: 20px;

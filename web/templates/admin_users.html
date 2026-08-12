@@ -159,12 +159,21 @@
 </div>
 
 <script>
-// Helper: get CSRF token from meta tag
 function getCsrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || document.querySelector('input[name="csrf_token"]')?.value || '';
 }
 
-// Helper: show flash message
+function getAuthHeaders() {
+    const token = getCsrfToken();
+    return {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRFToken': token,
+        'X-CSRF-Token': token
+    };
+}
+
 function showFlash(message, category = 'success') {
     const flashDiv = document.createElement('div');
     flashDiv.className = 'flash-msg';
@@ -198,7 +207,6 @@ async function parseJsonResponse(response) {
     }
 }
 
-// Helper: update role badge in row
 function updateRoleBadge(row, role) {
     const badge = row.querySelector('.status-badge[style*="accent"]');
     if (badge) {
@@ -206,7 +214,6 @@ function updateRoleBadge(row, role) {
     }
 }
 
-// Helper: update status badge in row
 function updateStatusBadge(row, isActive) {
     const statusCell = row.querySelector('td:nth-child(5)');
     if (statusCell) {
@@ -216,24 +223,17 @@ function updateStatusBadge(row, isActive) {
     }
 }
 
-// Role + Status update form
 document.querySelectorAll('.js-admin-user-update').forEach(form => {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const userId = form.getAttribute('data-user-id');
-        const username = form.getAttribute('data-username');
         const role = form.querySelector('[name="role"]').value;
         const isActive = form.querySelector('[name="is_active"]').checked;
         
         try {
             const response = await fetch(`/admin/users/${userId}/update`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': getCsrfToken(),
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ role, is_active: isActive })
             });
             
@@ -242,7 +242,6 @@ document.querySelectorAll('.js-admin-user-update').forEach(form => {
                 throw new Error(payload.message || 'Failed to update user');
             }
             
-            // Update display in-place
             const row = form.closest('tr');
             updateRoleBadge(row, role);
             updateStatusBadge(row, isActive);
@@ -266,86 +265,82 @@ function updateBulkMeta() {
     }
 }
 
-document.getElementById('selectAllUsers')?.addEventListener('change', (e) => {
-    const checked = e.target.checked;
-    document.querySelectorAll('.js-user-select:not(:disabled)').forEach(cb => {
-        cb.checked = checked;
-    });
-    updateBulkMeta();
-});
-
-document.querySelectorAll('.js-user-select').forEach(cb => cb.addEventListener('change', updateBulkMeta));
-
-document.getElementById('bulkRoleBtn')?.addEventListener('click', async () => {
-    const ids = selectedUserIds();
-    const role = document.getElementById('bulkRoleSelect')?.value || 'Viewer';
-    if (!ids.length) {
-        showFlash('Select at least one user.', 'error');
-        return;
-    }
-    try {
-        const response = await fetch('/admin/users/bulk', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken(),
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({ action: 'update_role', user_ids: ids, role })
+document.addEventListener('change', (e) => {
+    if (e.target.id === 'selectAllUsers') {
+        const checked = e.target.checked;
+        document.querySelectorAll('.js-user-select:not(:disabled)').forEach(cb => {
+            cb.checked = checked;
         });
-        const payload = await parseJsonResponse(response);
-        if (!response.ok || payload.status === 'error') {
-            throw new Error(payload.message || 'Bulk role update failed.');
-        }
-        showFlash(payload.message || 'Bulk role update completed.', 'success');
-        window.location.reload();
-    } catch (error) {
-        showFlash(error.message, 'error');
+        updateBulkMeta();
+    } else if (e.target.classList.contains('js-user-select')) {
+        updateBulkMeta();
     }
 });
 
-document.getElementById('bulkDeleteBtn')?.addEventListener('click', async (e) => {
-    e.preventDefault();
-    const ids = selectedUserIds();
-    if (!ids.length) {
-        showFlash('Select at least one user.', 'error');
-        return;
-    }
-    if (!confirm(`Delete ${ids.length} selected user(s)? Current logged-in user is protected.`)) {
-        return;
-    }
-    try {
-        const response = await fetch('/admin/users/bulk', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken(),
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({ action: 'delete', user_ids: ids, csrf_token: getCsrfToken() })
-        });
-        const payload = await parseJsonResponse(response);
-        if (!response.ok || payload.status === 'error') {
-            throw new Error(payload.message || 'Bulk deletion failed.');
+document.addEventListener('click', async (e) => {
+    // Bulk Apply Role button
+    const bulkRoleBtn = e.target.closest('#bulkRoleBtn');
+    if (bulkRoleBtn) {
+        e.preventDefault();
+        const ids = selectedUserIds();
+        const role = document.getElementById('bulkRoleSelect')?.value || 'Viewer';
+        if (!ids.length) {
+            showFlash('Select at least one user.', 'error');
+            return;
         }
-        showFlash(payload.message || 'Bulk deletion completed.', 'success');
-        ids.forEach(id => {
-            const cb = document.querySelector(`.js-user-select[value="${id}"]`);
-            if (cb) {
+        try {
+            const response = await fetch('/admin/users/bulk', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ action: 'update_role', user_ids: ids, role })
+            });
+            const payload = await parseJsonResponse(response);
+            if (!response.ok || payload.status === 'error') {
+                throw new Error(payload.message || 'Bulk role update failed.');
+            }
+            showFlash(payload.message || 'Bulk role update completed.', 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } catch (error) {
+            showFlash(error.message, 'error');
+        }
+        return;
+    }
+
+    // Bulk Delete button
+    const bulkDeleteBtn = e.target.closest('#bulkDeleteBtn');
+    if (bulkDeleteBtn) {
+        e.preventDefault();
+        const ids = selectedUserIds();
+        if (!ids.length) {
+            showFlash('Select at least one user.', 'error');
+            return;
+        }
+        if (!confirm(`Delete ${ids.length} selected user(s)? Current logged-in user is protected.`)) {
+            return;
+        }
+        try {
+            const response = await fetch('/admin/users/bulk', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ action: 'delete', user_ids: ids })
+            });
+            const payload = await parseJsonResponse(response);
+            if (!response.ok || payload.status === 'error') {
+                throw new Error(payload.message || 'Bulk deletion failed.');
+            }
+            showFlash(payload.message || 'Bulk deletion completed.', 'success');
+            document.querySelectorAll('.js-user-select:checked').forEach(cb => {
                 const row = cb.closest('tr');
                 if (row) row.remove();
-            }
-        });
-        setTimeout(() => window.location.reload(), 2000);
-    } catch (error) {
-        showFlash(error.message, 'error');
+            });
+            updateBulkMeta();
+            setTimeout(() => window.location.reload(), 1000);
+        } catch (error) {
+            showFlash(error.message, 'error');
+        }
+        return;
     }
-});
 
-// Event delegation for table action buttons
-document.addEventListener('click', async (e) => {
     // Reset password button
     const resetPassBtn = e.target.closest('.js-admin-reset-pass');
     if (resetPassBtn) {
@@ -356,13 +351,8 @@ document.addEventListener('click', async (e) => {
         try {
             const response = await fetch(`/admin/users/${userId}/reset-password`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': getCsrfToken(),
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({ csrf_token: getCsrfToken() })
+                headers: getAuthHeaders(),
+                body: JSON.stringify({})
             });
             
             const payload = await parseJsonResponse(response);
@@ -393,13 +383,8 @@ document.addEventListener('click', async (e) => {
         try {
             const response = await fetch(`/admin/users/${userId}/delete`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': getCsrfToken(),
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({ csrf_token: getCsrfToken() })
+                headers: getAuthHeaders(),
+                body: JSON.stringify({})
             });
             const payload = await parseJsonResponse(response);
             if (!response.ok || payload.status === 'error') {
@@ -408,7 +393,8 @@ document.addEventListener('click', async (e) => {
             showFlash(payload.message || 'User deleted successfully.', 'success');
             const row = deleteUserBtn.closest('tr');
             if (row) row.remove();
-            setTimeout(() => window.location.reload(), 2000);
+            updateBulkMeta();
+            setTimeout(() => window.location.reload(), 1000);
         } catch (error) {
             showFlash(error.message, 'error');
             console.error('Admin delete user error:', error);
@@ -430,13 +416,8 @@ document.addEventListener('click', async (e) => {
         try {
             const response = await fetch(`/admin/users/${userId}/regen-api-key`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': getCsrfToken(),
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({ csrf_token: getCsrfToken() })
+                headers: getAuthHeaders(),
+                body: JSON.stringify({})
             });
             
             const payload = await parseJsonResponse(response);
@@ -469,13 +450,8 @@ document.addEventListener('click', async (e) => {
         try {
             const response = await fetch(`/admin/users/${userId}/reset-2fa`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRFToken': getCsrfToken(),
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({ csrf_token: getCsrfToken() })
+                headers: getAuthHeaders(),
+                body: JSON.stringify({})
             });
 
             const payload = await parseJsonResponse(response);

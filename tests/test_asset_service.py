@@ -66,3 +66,53 @@ def test_load_combined_assets_handles_missing_notes_and_overview_attributes():
     assert row["asset_name"] == "example.com"
     assert row["notes"] == ""
     assert row["overview"] == {}
+
+
+def test_load_combined_assets_includes_certificate_valid_from_and_valid_until():
+    service = AssetService()
+
+    asset = SimpleNamespace(
+        id=42,
+        name="secure.domain.com",
+        target="secure.domain.com",
+        url="https://secure.domain.com",
+        asset_type="Web App",
+        owner="Security",
+        risk_level="Low",
+        is_deleted=False,
+    )
+    cert = SimpleNamespace(
+        id=99,
+        asset_id=42,
+        endpoint="secure.domain.com:443",
+        valid_from=datetime(2025, 1, 1, 0, 0, 0),
+        valid_until=datetime(2027, 1, 1, 0, 0, 0),
+        is_current=True,
+        is_deleted=False,
+        key_length=2048,
+        tls_version="TLS 1.3",
+        cipher_suite="TLS_AES_256_GCM_SHA384",
+        ca="DigiCert",
+        issuer="DigiCert Global Root CA",
+    )
+
+    class _CustomSession(_FakeSession):
+        def query(self, model):
+            name = getattr(model, "__name__", "")
+            if name == "Asset":
+                return _FakeQuery([asset])
+            if name == "Certificate":
+                return _FakeQuery([cert])
+            return _FakeQuery([])
+
+    fake_session = _CustomSession([asset], [])
+
+    with patch("src.db.db_session", fake_session):
+        assets = service.load_combined_assets()
+
+    assert len(assets) == 1
+    row = assets[0]
+    assert row["cert_valid_from"] == "2025-01-01"
+    assert row["cert_valid_until"] == "2027-01-01"
+    assert row["cert_status"] == "Valid"
+

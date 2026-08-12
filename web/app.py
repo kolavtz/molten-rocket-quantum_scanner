@@ -1768,16 +1768,32 @@ def run_scan_pipeline(
         elif overall_score >= 40:
             score_risk = "High"
 
+        canonical_target_clean = _normalize_target(canonical_target)
         inventory_asset = (
             db_session.query(Asset)
-            .filter(func.lower(Asset.name) == canonical_target)
+            .filter(
+                (func.lower(Asset.name) == canonical_target)
+                | (func.lower(Asset.target) == canonical_target)
+                | (func.lower(Asset.url) == canonical_target)
+                | (func.lower(Asset.asset_key) == canonical_target)
+            )
             .first()
         )
+
+        if not inventory_asset and canonical_target_clean:
+            for cand in db_session.query(Asset).filter(Asset.is_deleted == False).all():
+                cand_target = _normalize_target(getattr(cand, "target", "") or getattr(cand, "name", "") or getattr(cand, "url", "") or "")
+                if cand_target and cand_target == canonical_target_clean:
+                    inventory_asset = cand
+                    break
+                if getattr(cand, "ipv4", "") and str(cand.ipv4).strip() == canonical_target_clean:
+                    inventory_asset = cand
+                    break
 
         is_soft_deleted = inventory_asset and getattr(inventory_asset, "is_deleted", False)
 
         if inventory_asset and not is_soft_deleted:
-            # Active asset: always refresh scan data
+            # Active asset: always refresh scan data & link certificate
             inventory_asset.last_scan_id = int(getattr(db_scan, "id", 0) or 0)
             inventory_asset.risk_level = score_risk
             if not str(getattr(inventory_asset, "url", "") or "") and canonical_target:
@@ -1866,6 +1882,18 @@ def run_scan_pipeline(
 
             details_json_text = json.dumps(tls.get("certificate_details") or {}, default=_json_default)
 
+            v_from_dt = tls.get("valid_from_dt") or _parse_cert_datetime(str(tls.get("valid_from") or ""))
+            v_until_dt = tls.get("valid_until_dt") or _parse_cert_datetime(str(tls.get("valid_to") or ""))
+
+            if asset_id:
+                try:
+                    db_session.query(Certificate).filter(
+                        Certificate.asset_id == asset_id,
+                        Certificate.is_deleted == False
+                    ).update({"is_current": False}, synchronize_session=False)
+                except Exception:
+                    pass
+
             if existing_cert:
                 # Update existing certificate with freshest telemetry (non-destructive)
                 existing_cert.scan_id = int(scan_pk) if scan_pk is not None else existing_cert.scan_id
@@ -1882,8 +1910,8 @@ def run_scan_pipeline(
                 existing_cert.issuer_ou = issuer_ou or existing_cert.issuer_ou
                 existing_cert.serial = normalized_serial or existing_cert.serial
                 existing_cert.company_name = subject_o or subject_cn or existing_cert.company_name
-                existing_cert.valid_from = tls.get("valid_from_dt") or existing_cert.valid_from
-                existing_cert.valid_until = tls.get("valid_until_dt") or existing_cert.valid_until
+                existing_cert.valid_from = v_from_dt or existing_cert.valid_from
+                existing_cert.valid_until = v_until_dt or existing_cert.valid_until
                 existing_cert.expiry_days = _coerce_int(tls.get("cert_days_remaining")) or existing_cert.expiry_days
                 existing_cert.fingerprint_sha256 = normalized_fp or existing_cert.fingerprint_sha256
                 existing_cert.tls_version = tls.get("protocol_version") or existing_cert.tls_version
@@ -1899,6 +1927,7 @@ def run_scan_pipeline(
                 existing_cert.cert_chain_length = _coerce_int(tls.get("certificate_chain_length")) or existing_cert.cert_chain_length
                 existing_cert.is_self_signed = bool(subject_display and issuer_display and subject_display == issuer_display)
                 existing_cert.is_expired = bool(tls.get("cert_expired")) or existing_cert.is_expired
+                existing_cert.is_current = True
                 existing_cert.certificate_details = details_json_text or existing_cert.certificate_details
             else:
                 cert_obj = Certificate(
@@ -1916,8 +1945,8 @@ def run_scan_pipeline(
                     issuer_ou=issuer_ou or None,
                     serial=normalized_serial,
                     company_name=subject_o or subject_cn or None,
-                    valid_from=tls.get("valid_from_dt"),
-                    valid_until=tls.get("valid_until_dt"),
+                    valid_from=v_from_dt,
+                    valid_until=v_until_dt,
                     expiry_days=_coerce_int(tls.get("cert_days_remaining")),
                     fingerprint_sha256=normalized_fp,
                     tls_version=tls.get("protocol_version", ""),
@@ -1933,6 +1962,7 @@ def run_scan_pipeline(
                     cert_chain_length=_coerce_int(tls.get("certificate_chain_length")),
                     is_self_signed=bool(subject_display and issuer_display and subject_display == issuer_display),
                     is_expired=bool(tls.get("cert_expired")),
+                    is_current=True,
                     certificate_details=details_json_text,
                 )
                 db_session.add(cert_obj)
@@ -2967,6 +2997,8 @@ def admin_rotate_api_key():
 
 
 @app.route("/admin/users/<user_id>/reset-password", methods=["POST"])
+@csrf.exempt
+@limiter.exempt
 @role_required(list(ADMIN_PANEL_ROLES))
 def admin_reset_user_password(user_id: str):
     """Admin-triggered password reset email for an existing user. Supports form OR JSON."""
@@ -3032,6 +3064,8 @@ def admin_reset_user_password(user_id: str):
 
 
 @app.route("/admin/users/<user_id>/reset-2fa", methods=["POST"])
+@csrf.exempt
+@limiter.exempt
 @role_required(list(ADMIN_PANEL_ROLES))
 def admin_reset_user_2fa(user_id: str):
     """Admin endpoint to clear a user's 2FA configuration so they must re-setup on next login."""
@@ -3060,6 +3094,8 @@ def admin_reset_user_2fa(user_id: str):
 
 
 @app.route("/admin/users/<user_id>/update", methods=["POST"])
+@csrf.exempt
+@limiter.exempt
 @role_required(list(ADMIN_PANEL_ROLES))
 def admin_update_user(user_id: str):
     """Update user role and active status. Supports form OR JSON."""
@@ -3093,6 +3129,8 @@ def admin_update_user(user_id: str):
 
 
 @app.route("/admin/users/bulk", methods=["POST"])
+@csrf.exempt
+@limiter.exempt
 @role_required(list(ADMIN_PANEL_ROLES))
 def admin_bulk_users():
     """Bulk user management endpoint for role updates and deletion."""
@@ -3163,6 +3201,8 @@ def admin_bulk_users():
 
 
 @app.route("/admin/users/<user_id>/delete", methods=["POST", "DELETE"])
+@csrf.exempt
+@limiter.exempt
 @role_required(list(ADMIN_PANEL_ROLES))
 def admin_delete_user(user_id: str):
     """Delete a single user by ID. Supports form OR JSON."""
@@ -3185,6 +3225,43 @@ def admin_delete_user(user_id: str):
         if wants_json:
             return jsonify({"status": "error", "message": "Failed to delete user or user not found."}), 404
         flash("Failed to delete user.", "error")
+    return redirect(url_for("admin_users"))
+
+
+@app.route("/admin/users/<user_id>/regen-api-key", methods=["POST"])
+@csrf.exempt
+@limiter.exempt
+@role_required(list(ADMIN_PANEL_ROLES))
+def admin_regen_api_key(user_id: str):
+    """Regenerate API key for a user. Supports form OR JSON."""
+    wants_json = _expects_json_response()
+    user = db.get_user_by_id(user_id)
+    if not user:
+        _audit("admin", "regen_api_key", "failed", target_user_id=user_id, details={"reason": "user_not_found"})
+        if wants_json:
+            return jsonify({"status": "error", "message": "User not found."}), 404
+        flash("User not found.", "error")
+        return redirect(url_for("admin_users"))
+
+    db.revoke_api_key(user_id)
+    new_key = db.generate_api_key(user_id)
+    if new_key:
+        _audit("admin", "regen_api_key", "success", target_user_id=user_id, details={"username": user.get("username")})
+        if wants_json:
+            return jsonify({
+                "status": "success",
+                "message": f"API key regenerated for {user.get('username')}.",
+                "user_id": user_id,
+                "username": user.get("username"),
+                "api_key": new_key,
+            }), 200
+        flash("API key regenerated successfully.", "success")
+    else:
+        _audit("admin", "regen_api_key", "failed", target_user_id=user_id, details={"reason": "db_failed"})
+        if wants_json:
+            return jsonify({"status": "error", "message": "Failed to regenerate API key."}), 500
+        flash("Failed to regenerate API key.", "error")
+
     return redirect(url_for("admin_users"))
 
 
@@ -5233,41 +5310,6 @@ def rotate_api_key():
         _audit("api", "api_key_rotated", "failed")
         flash("Failed to rotate API key. Try again.", "error")
     return redirect(url_for("admin_api"))
-
-
-@app.route("/admin/users/<user_id>/regen-api-key", methods=["POST"])
-@role_required(list(ADMIN_PANEL_ROLES))
-def admin_regen_api_key(user_id: str):
-    """Admin: revoke and reissue an API key for any user. Supports form OR JSON."""
-    wants_json = _expects_json_response()
-    
-    user = db.get_user_by_id(user_id)
-    if not user:
-        if wants_json:
-            return jsonify({"status": "error", "message": "User not found."}), 404
-        flash("User not found.", "error")
-        return redirect(url_for("admin_users"))
-    
-    db.revoke_api_key(user_id)
-    new_key = db.generate_api_key(user_id)
-    if new_key:
-        _audit("admin", "api_key_regen", "success", target_user_id=user_id,
-               details={"username": user.get("username")})
-        if wants_json:
-            return jsonify({
-                "status": "success",
-                "message": f"API key regenerated for {user.get('username')}.",
-                "user_id": user_id,
-                "username": user.get("username"),
-                "api_key": new_key
-            }), 200
-        flash(f"New API key for {user.get('username')}: {new_key}", "api_key")
-    else:
-        _audit("admin", "api_key_regen", "failed", target_user_id=user_id)
-        if wants_json:
-            return jsonify({"status": "error", "message": "Failed to regenerate API key."}), 500
-        flash("Failed to regenerate API key.", "error")
-    return redirect(url_for("admin_users"))
 
 
 # ── Report Generation Engine ─────────────────────────────────────────
